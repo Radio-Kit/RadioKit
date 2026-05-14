@@ -12,17 +12,16 @@
 
 // ── Props struct ───────────────────────────────────────────────────────
 struct RK_ButtonProps {
-  const char *label = nullptr;
-  const char *icon = nullptr;
-  uint8_t x = 0;
-  uint8_t y = 0;
-  int16_t rotation = 0; ///< Rotation in degrees. Positive = clockwise.
-  uint8_t height = 15;
-  uint8_t width = 0;   ///< 0 = use default aspect
-  uint8_t style = 0;
-  bool state = false;
-  const char *onText = nullptr;
-  const char *offText = nullptr;
+    uint8_t     x = 0, y = 0;
+    uint8_t     height = 10;
+    uint8_t     width = 0;
+    int16_t     rotation = 0;
+    const char* icon  = nullptr;
+    const char* onText = nullptr;
+    const char* offText = nullptr;
+    const char* label = nullptr;
+    bool        active = false;
+    bool        state = false;
 };
 
 // ── Shared implementation base ──────────────────────────────────────────────
@@ -38,7 +37,6 @@ public:
 
     bool get() const { return props.state; }
     void set(bool val);
-    void setIcon(const char* val);
 
     RK_ButtonProps props;
 

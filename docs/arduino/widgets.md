@@ -1,8 +1,5 @@
 # RadioKit Library - Widgets Reference
 
-> This document covers widget composition, class references, and constants for RadioKit v3.0.
-
----
 
 ## Table of Contents
 
@@ -22,7 +19,7 @@
 
 ## 1. Widget Composition (Specific Props)
 
-In v3.0, each widget uses its own **Tailored Struct**. Every widget provides the same core fields (`label`, `x`, `y`, `height`, `width`), but only allocates memory for features it actually uses.
+In v3.0, each widget uses its own **Tailored Struct**. Every widget provides the same core fields (`x`, `y`, `height`, `width`, `rotation`), but only allocates memory for features it actually uses.
 
 ### Hybrid Access Model
 
@@ -56,7 +53,7 @@ RadioKit uses a specialized pattern that bridges **Data (Props)** and **Logic (C
 
 ```cpp
 // { ... } creates the Props, RK_Slider creates the Controller
-RK_Slider speed({ .x=100, .y=60, .height=10, .width=80, .label="Speed", .value=50 });
+RK_Slider speed({ .x=100, .y=60, .height=10, .width=80, .rotation=50 });
 ```
 
 ### Common Variables
@@ -350,12 +347,11 @@ RK_Slider throttle({
 });
 
 // Spring-returns to minimum (Gas Pedal)
-RK_Slider gas({
+RK_GasPedal gas({
     .x = 80, .y = 40,
     .height = 10,
     .width = 0,
     .rotation = 0,
-    .variant = 1,    // Gas Pedal variant
     .label = "Gas",
     .centering = RK_SPRING_LEFT  // Springs to -100 on release
 });

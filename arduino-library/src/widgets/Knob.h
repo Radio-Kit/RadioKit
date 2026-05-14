@@ -13,18 +13,17 @@
 #include "Widget.h"
 
 struct RK_KnobProps {
-  const char* label     = nullptr; ///< Widget label shown below the knob.
-  const char* icon      = nullptr; ///< Icon identifier shown on the knob face.
-  uint8_t     x         = 0;
-  uint8_t     y         = 0;
-  uint8_t     height    = 20;
-  uint8_t     width     = 0;   ///< 0 = use default aspect
-  uint8_t     style     = 0;
-  uint8_t     centering = RK_CENTER_NONE; ///< RK_CENTER_NONE/LEFT/CENTER/RIGHT
-  uint8_t     detents   = 0;             ///< 0 = continuous; 1-63 = snap positions
-  int8_t      value     = 0;             ///< Initial value: -100 to +100
-  int16_t     startAngle = -135;          ///< Start angle in degrees
-  int16_t     endAngle   = 135;           ///< End angle in degrees
+    uint8_t     x = 0, y = 0;
+    uint8_t     height = 20;
+    uint8_t     width = 0;
+    int16_t     rotation = 0;
+    const char* icon = nullptr;
+    int16_t     startAngle = -135;
+    int16_t     endAngle = 135;
+    uint8_t     centering = RK_SPRING_NONE;
+    const char* label = nullptr;
+    bool        active = false;
+    int8_t      value = 0;
 };
 
 class RK_Knob : public RadioKit_Widget {

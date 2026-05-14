@@ -2,10 +2,9 @@
 
 RK_Knob::RK_Knob(RK_KnobProps p) : props(p) {
     typeId = RK_TYPE_KNOB;
-    uint8_t v = RK_VARIANT(p.centering, p.detents);
-    _init(p.label, p.x, p.y, p.height, p.width, p.style, v,
-          p.icon, nullptr, nullptr, 0);
-    props.value = p.value;
+    uint8_t v = RK_VARIANT(p.centering, 0); // Knob docs don't have detents
+    _init(p.label, p.x, p.y, p.height, p.width, 0, v,
+          p.icon, nullptr, nullptr, p.rotation);
 }
 
 void RK_Knob::deserializeInput(const uint8_t* buf) {

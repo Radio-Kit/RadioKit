@@ -2,10 +2,8 @@
 
 RK_Joystick::RK_Joystick(RK_JoystickProps p) : props(p) {
     typeId   = RK_TYPE_JOYSTICK;
-    _enabled = p.enabled;
-    _init(p.label, p.x, p.y, p.height, p.width, 0, p.variant,
-          nullptr, nullptr, nullptr, p.rotation);
-    // Restore _enabled after _init (which sets it to true)
+    _init(p.label, p.x, p.y, p.height, p.width, 0, p.centering,
+          p.icon, nullptr, nullptr, p.rotation);
     _enabled = p.enabled;
 }
 

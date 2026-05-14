@@ -65,6 +65,13 @@
 #define RK_DANGER 4
 
 // ─────────────────────────────────────────────
+//  MultipleButton / Select Variants
+// ─────────────────────────────────────────────
+#define RK_SEGMENTS 0
+#define RK_GRID     1
+#define RK_WHEEL    2
+
+// ─────────────────────────────────────────────
 //  Color hex constants (for RK_LED::setColor)
 // ─────────────────────────────────────────────
 #define RK_OFF 0x000000
@@ -74,7 +81,7 @@
 #define RK_YELLOW 0xFFFF00
 
 // ─────────────────────────────────────────────
-//  Widget type IDs (protocol)
+// Widget type IDs (protocol)
 // ─────────────────────────────────────────────
 #define RK_TYPE_PUSH_BUTTON 0x01
 #define RK_TYPE_TOGGLE_BUTTON 0x02
@@ -86,17 +93,15 @@
 #define RK_TYPE_SLIDE_SWITCH 0x08
 #define RK_TYPE_KNOB 0x09
 
-// Legacy aliases (kept for internal use)
-#define RK_TYPE_BUTTON RK_TYPE_PUSH_BUTTON
-#define RK_TYPE_SWITCH RK_TYPE_TOGGLE_BUTTON
-
 // ─────────────────────────────────────────────
-//  Self-centering modes (Slider / Knob variant bits [1:0])
+//  Self-centering modes (Slider / Knob / Joystick variant bits)
 // ─────────────────────────────────────────────
-#define RK_CENTER_NONE  0  ///< No spring return (stays where released)
-#define RK_CENTER_LEFT  1  ///< Springs to −100 on release
-#define RK_CENTER       2  ///< Springs to 0 (centre) on release
-#define RK_CENTER_RIGHT 3  ///< Springs to +100 on release
+#define RK_SPRING_NONE   0  ///< No spring return (stays where released)
+#define RK_SPRING_CENTER 1  ///< Springs to 0 (centre) on release
+#define RK_SPRING_LEFT   2  ///< Springs to -100 on release (Horizontal)
+#define RK_SPRING_RIGHT  3  ///< Springs to +100 on release (Horizontal)
+#define RK_SPRING_TOP    4  ///< Springs to -100 on release (Vertical)
+#define RK_SPRING_BOTTOM 5  ///< Springs to +100 on release (Vertical)
 
 /// Pack centering mode and detent count into a single variant byte.
 /// @param centering  RK_CENTER_NONE / LEFT / CENTER / RIGHT  (bits [1:0])

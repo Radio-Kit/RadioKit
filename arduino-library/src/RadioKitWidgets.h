@@ -15,8 +15,7 @@
 #include "widgets/Knob.h"
 #include "widgets/LED.h"
 #include "widgets/Text.h"
+#include "widgets/Serial.h"
 #include "widgets/Multiple.h"
-// Switch.h kept for backward compatibility
-#include "widgets/Switch.h"
 
 #endif // RADIOKIT_WIDGETS_H

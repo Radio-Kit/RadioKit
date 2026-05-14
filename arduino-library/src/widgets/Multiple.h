@@ -17,17 +17,15 @@ struct RK_Item {
 };
 
 struct RK_MultipleProps {
-  const char *label = nullptr;
-  const char *icon = nullptr;
-  uint8_t x = 0;
-  uint8_t y = 0;
-  int16_t rotation = 0; ///< Rotation in degrees.
-  uint8_t height = 10;
-  uint8_t width = 0;
-  uint8_t style = 0;
-  uint8_t variant = 0;
-  uint8_t value = 0;
-  std::initializer_list<RK_Item> items = {};
+    uint8_t     x = 0, y = 0;
+    uint8_t     height = 10;
+    uint8_t     width = 0;
+    int16_t     rotation = 0;
+    uint8_t     variant = 0; // 0=Segments, 1=Grid, 2=Wheel
+    std::initializer_list<RK_Item> items = {};
+    const char* label = nullptr;
+    bool        active = true; // Selection mask or enabled state? Following docs as bool.
+    uint8_t     value = 0;     // Internal selection mask
 };
 
 class RadioKit_Multiple : public RadioKit_Widget {
@@ -44,7 +42,6 @@ public:
     void    clear();
     void    add(const RK_Item& item);
     void    remove(uint8_t index);
-    void    setIcon(const char* val);
 
     RK_MultipleProps props;
 

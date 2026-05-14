@@ -13,12 +13,14 @@
 #######################################
 RadioKitClass	KEYWORD1
 RadioKit_Widget	KEYWORD1
-RadioKit_Button	KEYWORD1
-RadioKit_Switch	KEYWORD1
-RadioKit_Slider	KEYWORD1
-RadioKit_Joystick	KEYWORD1
-RadioKit_LED	KEYWORD1
-RadioKit_Text	KEYWORD1
+RK_PushButton	KEYWORD1
+RK_ToggleButton	KEYWORD1
+RK_Slider	KEYWORD1
+RK_Joystick	KEYWORD1
+RK_Knob	KEYWORD1
+RK_LED	KEYWORD1
+RK_Serial	KEYWORD1
+RK_Text	KEYWORD1
 
 #######################################
 # Methods / Functions (KEYWORD2 — brown)
@@ -31,25 +33,28 @@ handle	KEYWORD2
 isConnected	KEYWORD2
 widgetCount	KEYWORD2
 
-# RadioKit_Button
+# RK_PushButton
 pressed	KEYWORD2
-isHeld	KEYWORD2
+clicked	KEYWORD2
 
-# RadioKit_Switch
+# RK_ToggleButton
 isOn	KEYWORD2
 
-# RadioKit_Slider
+# RK_Slider
 value	KEYWORD2
 
-# RadioKit_Joystick
+# RK_Joystick
 x	KEYWORD2
 y	KEYWORD2
 
-# RadioKit_LED
+# RK_Knob
+value	KEYWORD2
+
+# RK_LED
 set	KEYWORD2
 get	KEYWORD2
 
-# RadioKit_Text
+# RK_Text
 set	KEYWORD2
 get	KEYWORD2
 

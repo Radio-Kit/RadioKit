@@ -16,8 +16,8 @@ void RadioKit_Multiple::_initFromProps(const RK_MultipleProps& p, uint8_t tid) {
         _poolCount++;
     }
 
-    _init(p.label, p.x, p.y, p.height, p.width, p.style, p.variant,
-          p.icon, nullptr, nullptr, p.rotation);
+    _init(p.label, p.x, p.y, p.height, p.width, 0, p.variant,
+          nullptr, nullptr, nullptr, p.rotation);
 }
 
 void RadioKit_Multiple::deserializeInput(const uint8_t* buf) {
@@ -48,15 +48,6 @@ void RadioKit_Multiple::remove(uint8_t index) {
     if (_poolCount > 0) _poolCount--;
 }
 
-void RadioKit_Multiple::setIcon(const char* val) {
-    props.icon = val;
-    if (val && val[0] != '\0') {
-        strncpy(_icon, val, RADIOKIT_MAX_ICON);
-        _icon[RADIOKIT_MAX_ICON] = '\0';
-    } else {
-        _icon[0] = '\0';
-    }
-}
 
 RK_MultipleButton::RK_MultipleButton(RK_MultipleProps p) {
     p.variant = 0; // Index-based (Radio)

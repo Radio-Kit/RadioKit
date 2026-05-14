@@ -1,7 +1,7 @@
 {
   "name": "RadioKit",
-  "version": "0.1.0",
-  "description": "Control Arduino with a smartphone over BLE or USB Serial. Define widgets in code; they appear automatically in the RadioKit app.",
+  "version": "2.0.0",
+  "description": "Open source alternative to RemoteXY, build amazing UIs for your Arduino projects using a simple C++ API and a native Flutter companion app.",
   "keywords": ["ble", "bluetooth", "remote control", "gui", "esp32"],
   "authors": [
     {

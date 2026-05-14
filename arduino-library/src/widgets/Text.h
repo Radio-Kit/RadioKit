@@ -1,6 +1,6 @@
 /**
  * Text.h
- * RK_Text — dynamic text display label (Arduino → App).
+ * RK_Text & RK_Serial — dynamic text display label (Arduino → App).
  */
 
 #ifndef RADIOKIT_WIDGET_TEXT_H
@@ -9,15 +9,11 @@
 #include "Widget.h"
 
 struct RK_TextProps {
-  const char *label = nullptr;
-  const char *icon = nullptr;
-  uint8_t x = 0;
-  uint8_t y = 0;
-  int16_t rotation = 0; ///< Rotation in degrees.
-  uint8_t height = 10;
-  uint8_t width = 0;
-  uint8_t style = 0;
-  const char *text = nullptr;
+    uint8_t     x = 0, y = 0;
+    uint8_t     height = 10;
+    uint8_t     width = 0;
+    const char* label = nullptr;
+    const char* content = "";
 };
 
 class RK_Text : public RadioKit_Widget {
@@ -33,7 +29,6 @@ public:
     void        set(const char* text);
     void        set(const String& s) { set(s.c_str()); }
     const char* get() const { return _text; }
-    void        setIcon(const char* val);
 
     RK_TextProps props;
 
@@ -42,6 +37,13 @@ protected:
 
 private:
     char _text[RADIOKIT_TEXT_LEN];
+};
+
+class RK_Serial : public RK_Text, public Print {
+public:
+    RK_Serial(RK_TextProps p);
+    size_t write(uint8_t c) override;
+    size_t write(const uint8_t *buffer, size_t size) override;
 };
 
 #endif // RADIOKIT_WIDGET_TEXT_H

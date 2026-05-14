@@ -5,7 +5,7 @@
 void RadioKit_Button::_initFromProps(const RK_ButtonProps& p, uint8_t tid) {
     props  = p;
     typeId = tid;
-    _init(p.label, p.x, p.y, p.height, p.width, p.style, 0,
+    _init(p.label, p.x, p.y, p.height, p.width, 0, 0,
           p.icon, p.onText, p.offText, p.rotation);
 }
 
@@ -28,16 +28,6 @@ void RadioKit_Button::deserializeInput(const uint8_t* buf) {
     }
 }
 
-void RadioKit_Button::setIcon(const char* val) {
-    props.icon = val;
-    if (val && val[0] != '\0') {
-        strncpy(_icon, val, RADIOKIT_MAX_ICON);
-        _icon[RADIOKIT_MAX_ICON] = '\0';
-    } else {
-        _icon[0] = '\0';
-    }
-    RadioKit.pushMetaUpdate(widgetId);
-}
 
 RK_PushButton::RK_PushButton(RK_ButtonProps p) {
     _initFromProps(p, RK_TYPE_PUSH_BUTTON);

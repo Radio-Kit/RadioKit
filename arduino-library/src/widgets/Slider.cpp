@@ -2,10 +2,16 @@
 
 RK_Slider::RK_Slider(RK_SliderProps p) : props(p) {
     typeId = RK_TYPE_SLIDER;
-    uint8_t v = RK_VARIANT(p.centering, p.detents);
+    
+    // If variant is zero, calculate it from centering/detents.
+    // Otherwise, use the provided variant (e.g. for RK_GasPedal).
+    uint8_t v = p.variant;
+    if (v == 0) {
+        v = RK_VARIANT(p.centering, p.detents);
+    }
+    
     _init(p.label, p.x, p.y, p.height, p.width, 0, v,
           nullptr, nullptr, nullptr, p.rotation);
-    props.value = p.value;
 }
 
 void RK_Slider::deserializeInput(const uint8_t* buf) {
