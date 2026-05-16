@@ -9,11 +9,13 @@ export 'src/theme/rk_tokens.dart';
 
 // Widgets
 export 'src/widgets/button/rk_button.dart';
+export 'src/widgets/rk_debug_overlay.dart';
 export 'src/widgets/switch/rk_slide_switch.dart';
 export 'src/widgets/switch/rk_rocker_switch.dart';
 export 'src/widgets/slider/rk_linear_slider.dart';
 export 'src/widgets/slider/rk_gas_pedal.dart';
 export 'src/widgets/knob/rk_knob.dart';
+export 'src/widgets/knob/rk_steering_wheel.dart';
 export 'src/widgets/joystick/rk_joystick.dart';
 export 'src/widgets/led/rk_led.dart';
 export 'src/widgets/multiple/rk_multi_button.dart';

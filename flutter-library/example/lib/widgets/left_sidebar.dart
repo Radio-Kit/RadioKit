@@ -58,7 +58,7 @@ class LeftSidebar extends StatelessWidget {
           const SizedBox(height: 20),
           // Logo area
           Text(
-            'RK-01',
+            'WIDGETS',
             style: TextStyle(
               color: tokens.primary,
               fontSize: 14,
@@ -67,15 +67,6 @@ class LeftSidebar extends StatelessWidget {
               letterSpacing: 1,
             ),
           ),
-          Text(
-            'V.2.4',
-            style: TextStyle(
-              color: const Color(0xFF666666),
-              fontSize: 10,
-              fontFamily: 'monospace',
-            ),
-          ),
-          const SizedBox(height: 32),
           // Navigation icons
           Expanded(
             child: ListView(

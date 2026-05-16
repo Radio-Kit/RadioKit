@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 import '../theme/app_theme.dart';
@@ -231,8 +232,8 @@ class _DemoScreenState extends State<DemoScreen> {
           Expanded(
             child: Column(
               children: [
-                // Top nav bar (title + deploy)
-                const _TopBar(title: 'RADIOKIT // WIDGET PLAYGROUND'),
+                // ─── Top bar ───
+                const _TopBar(title: 'RADIOKIT WIDGETS DEMO'),
 
                 // Aesthetic core tabs
                 _AestheticCoreBar(),
@@ -369,7 +370,6 @@ class _DemoScreenState extends State<DemoScreen> {
             label: _widgetLabel,
             onLabelChanged: (v) => setState(() => _widgetLabel = v),
           ),
-
         ],
       ),
     );
@@ -816,7 +816,7 @@ class _DemoScreenState extends State<DemoScreen> {
                 final divisions = (_knobMax - _knobMin) / (_knobResolution <= 0 ? 1 : _knobResolution);
                 return DemoCard(
                   index: 1,
-                  title: 'ROTARY ENCODER',
+                  title: 'ROTARY KNOB',
                   liveWidget: RKKnob(
                     value: value,
                     min: _knobMin,
@@ -831,9 +831,7 @@ class _DemoScreenState extends State<DemoScreen> {
                     onChanged: (v) => _knobState.value = v,
                     onInteractionChanged: (active) => _knobActive.value = active,
                     size: 120,
-                    variant: RKKnobVariant.standard,
                     label: _widgetLabel,
-
                     centerIcon: _switchOnIcon,
                     rotation: _rotation * math.pi / 180,
                   ),
@@ -888,7 +886,7 @@ class _DemoScreenState extends State<DemoScreen> {
                 return DemoCard(
                   index: 2,
                   title: 'STEERING WHEEL',
-                  liveWidget: RKKnob(
+                  liveWidget: RKSteeringWheel(
                     value: value,
                     min: _knobMin,
                     max: _knobMax,
@@ -902,7 +900,6 @@ class _DemoScreenState extends State<DemoScreen> {
                     onChanged: (v) => _wheelState.value = v,
                     onInteractionChanged: (active) => _wheelActive.value = active,
                     size: 140,
-                    variant: RKKnobVariant.steeringWheel,
                     centerIcon: _switchOnIcon,
                     label: _widgetLabel,
                     rotation: _rotation * math.pi / 180,
@@ -1462,20 +1459,30 @@ class _TopBar extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            decoration: BoxDecoration(
-              color: tokens.primary,
-              borderRadius: BorderRadius.circular(2),
-            ),
-            child: const Text(
-              'FLUTTER',
-              style: TextStyle(
-                color: Color(0xFF1A1A1A),
-                fontSize: 12,
-                fontFamily: 'monospace',
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1,
+          GestureDetector(
+            onTap: () => context.go('/designer'),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1B5E20),
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(LucideIcons.palette, color: tokens.primary, size: 14),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'UI DESIGNER',
+                    style: TextStyle(
+                      color: Color(0xFFA5D6A7),
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

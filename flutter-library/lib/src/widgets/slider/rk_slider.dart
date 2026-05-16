@@ -188,35 +188,36 @@ class _RKSliderState extends State<RKSlider> with SingleTickerProviderStateMixin
       contentWidth: contentW,
       contentHeight: contentH,
       labelColor: tokens.primary.withValues(alpha: 0.7),
+      fitContent: true,
       child: GestureDetector(
-        onPanStart: (details) {
-          setState(() => _isInteracting = true);
-          widget.onInteractionChanged?.call(true);
-          _handleUpdate(details.localPosition, Size(contentW, contentH));
-        },
-        onPanUpdate: (details) => _handleUpdate(details.localPosition, Size(contentW, contentH)),
-        onPanEnd: (_) {
-          setState(() => _isInteracting = false);
-          widget.onInteractionChanged?.call(false);
-          if (widget.autoCenter) _triggerCenter();
-        },
-        child: Container(
-          width: contentW,
-          height: contentH,
-          color: Colors.transparent, // Capture gestures
-          child: widget.type == RKSliderType.gasPedal
-              ? _buildGasPedal(context, tokens, normalized)
-              : CustomPaint(
-                  painter: _SliderPainter(
-                    normalized: normalized,
-                    zeroPos: zeroPos,
-                    tokens: tokens,
-                    orientation: widget.orientation,
-                    thickness: widget.thickness,
-                    showTicks: widget.showTicks,
-                    tickCount: widget.tickCount,
-                  ),
-                ),
+          onPanStart: (details) {
+            setState(() => _isInteracting = true);
+            widget.onInteractionChanged?.call(true);
+            _handleUpdate(details.localPosition, Size(contentW, contentH));
+          },
+          onPanUpdate: (details) => _handleUpdate(details.localPosition, Size(contentW, contentH)),
+          onPanEnd: (_) {
+            setState(() => _isInteracting = false);
+            widget.onInteractionChanged?.call(false);
+            if (widget.autoCenter) _triggerCenter();
+          },
+          child: Container(
+            width: contentW,
+            height: contentH,
+            color: Colors.transparent,
+            child: widget.type == RKSliderType.gasPedal
+                ? _buildGasPedal(context, tokens, normalized)
+                : CustomPaint(
+                    painter: _SliderPainter(
+                      normalized: normalized,
+                      zeroPos: zeroPos,
+                      tokens: tokens,
+                      orientation: widget.orientation,
+                      thickness: widget.thickness,
+                      showTicks: widget.showTicks,
+                      tickCount: widget.tickCount,
+                    ),
+          ),
         ),
       ),
     );

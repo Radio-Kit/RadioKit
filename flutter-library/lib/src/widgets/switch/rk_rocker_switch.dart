@@ -151,6 +151,7 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
       contentWidth: totalWidth,
       contentHeight: totalHeight,
       labelColor: tokens.primary.withValues(alpha: 0.7),
+      fitContent: true,
       child: GestureDetector(
         onTapDown: (_) => widget.onInteractionChanged?.call(true),
         onTapUp: (details) {

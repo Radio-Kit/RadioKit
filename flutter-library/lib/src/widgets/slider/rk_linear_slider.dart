@@ -200,6 +200,7 @@ class _RKSliderState extends State<RKSlider>
       contentWidth: contentW,
       contentHeight: contentH,
       labelColor: tokens.primary.withValues(alpha: 0.7),
+      fitContent: true,
       child: GestureDetector(
         onPanStart: (details) {
           setState(() => _isInteracting = true);

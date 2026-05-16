@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 import 'package:simple_icons/simple_icons.dart';
+import 'inspector_field_builders.dart';
 
-
-/// Right-hand inspector panel showing widget-specific configuration.
 class InspectorPanel extends StatelessWidget {
   const InspectorPanel({
     super.key,
@@ -43,12 +42,10 @@ class InspectorPanel extends StatelessWidget {
     this.onOrientationChanged,
     this.fontFamily,
     this.onFontFamilyChanged,
-
     this.multiItems,
     this.onMultiItemChanged,
     this.multiItemCount,
     this.onMultiItemCountChanged,
-
     this.ledState,
     this.onLEDStateChanged,
     this.ledShape,
@@ -98,12 +95,10 @@ class InspectorPanel extends StatelessWidget {
   final ValueChanged<String>? onOrientationChanged;
   final String? fontFamily;
   final ValueChanged<String>? onFontFamilyChanged;
-
   final List<RKToggleItem>? multiItems;
   final void Function(int, RKToggleItem)? onMultiItemChanged;
   final int? multiItemCount;
   final ValueChanged<int>? onMultiItemCountChanged;
-
   final RKLEDState? ledState;
   final ValueChanged<RKLEDState>? onLEDStateChanged;
   final RKLEDShape? ledShape;
@@ -116,8 +111,6 @@ class InspectorPanel extends StatelessWidget {
   final ValueChanged<double>? onRotationChanged;
   final String? label;
   final ValueChanged<String>? onLabelChanged;
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -142,341 +135,131 @@ class InspectorPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ─── INSPECTOR header ───
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Icon(
-                  LucideIcons.list,
-                  color: tokens.primary,
-                  size: 20,
-                ),
-                const SizedBox(width: 10),
-                const Text(
-                  'CONFIGURATION',
-                  style: TextStyle(
-                    color: Color(0xFFE0E0E0),
-                    fontSize: 14,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            height: 1,
-            color: const Color(0xFF222222),
-          ),
-
+          _buildHeader(tokens),
           Expanded(
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-
-          // ─── VALUES ───
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'VALUES',
-                  style: TextStyle(
-                    color: tokens.primary,
-                    fontSize: 12,
-                    fontFamily: 'monospace',
-                    letterSpacing: 1,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _buildTextInput(
-                  tokens,
-                  'Widget Label',
-                  label ?? '',
-                  onLabelChanged ?? (_) {},
-                ),
-                const SizedBox(height: 16),
-                if (isJoystick) ...[
-                  _buildEditableField(
-                    'Amplitude',
-                    (amplitude ?? 100).toString(),
-                    onAmplitudeChanged != null
-                        ? (v) => _tryParseDouble(v, onAmplitudeChanged!, 100)
-                        : null,
-                  ),
-                ] else if (isLED) ...[
-                  _buildShapeSelector(
-                    tokens,
-                    ledShape ?? RKLEDShape.circle,
-                    onLEDShapeChanged ?? (_) {},
-                  ),
-                  const SizedBox(height: 16),
-                  _buildEditableField(
-                    'Timing (ms)',
-                    (ledTiming ?? 500).toString(),
-                    onLEDTimingChanged != null
-                        ? (v) => _tryParseDouble(v, (val) => onLEDTimingChanged!(val.toInt()), 500)
-                        : null,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildColorSelector(
-                    context,
-                    tokens,
-                    'LED Color',
-                    ledColor ?? tokens.primary,
-                    onLEDColorChanged ?? (_) {},
-                  ),
-                ] else if (isSlider || isKnob) ...[
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildEditableField(
-                          'Min value',
-                          (minValue ?? 0).toString(),
-                          onMinValueChanged != null
-                              ? (v) => _tryParseDouble(v, onMinValueChanged!, 0)
-                              : null,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildEditableField(
-                          'Max value',
-                          (maxValue ?? 100).toString(),
-                          onMaxValueChanged != null
-                              ? (v) => _tryParseDouble(v, onMaxValueChanged!, 100)
-                              : null,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  if (isKnob) ...[
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildEditableField(
-                            'Min Angle',
-                            (minAngle ?? -135).toString(),
-                            onMinAngleChanged != null
-                                ? (v) => _tryParseDouble(v, onMinAngleChanged!, -135)
-                                : null,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildEditableField(
-                            'Max Angle',
-                            (maxAngle ?? 135).toString(),
-                            onMaxAngleChanged != null
-                                ? (v) => _tryParseDouble(v, onMaxAngleChanged!, 135)
-                                : null,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-                const SizedBox(height: 16),
-                if (isJoystick || isKnob || isSlider) ...[
-                  _buildEditableField(
-                    'Resolution',
-                    (resolution ?? 1).toString(),
-                    onResolutionChanged != null
-                        ? (v) => _tryParseDouble(v, (val) => onResolutionChanged!(val < 0.1 ? 0.1 : val), 1)
-                        : null,
-                  ),
-                ],
-                if (isSlider) ...[
-                  const SizedBox(height: 16),
-                  _buildOptionSelector(
-                    tokens,
-                    'Orientation',
-                    ['horizontal', 'vertical'],
-                    orientation ?? 'vertical',
-                    onOrientationChanged ?? (_) {},
-                  ),
-                ],
-
-
-                // ─── CONTENT ───
-                if (isSwitch || selectedIndex == 0 || isMultiple || selectedIndex == 6 || isKnob) ...[
-                  const SizedBox(height: 24),
-                  _buildSectionHeader(tokens, LucideIcons.type, 'CONTENT'),
-                  const SizedBox(height: 16),
-                  if (isMultiple) ...[
-                    _buildOptionSelector(
-                      tokens,
-                      'Number of Buttons',
-                      ['1', '2', '3', '4', '5', '6', '7', '8'],
-                      (multiItemCount ?? 4).toString(),
-                      (v) => onMultiItemCountChanged?.call(int.parse(v)),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildOptionSelector(
-                      tokens,
-                      'Orientation',
-                      ['horizontal', 'vertical'],
-                      orientation ?? 'horizontal',
-                      onOrientationChanged ?? (_) {},
-                    ),
-                    const SizedBox(height: 24),
-                    _buildMultiItemEditor(context, tokens),
-                  ] else if (isSwitch || selectedIndex == 0) ...[
-                    Row(
-                      children: [
-                        Expanded(child: _buildTextInput(tokens, 'ON Text', textOn ?? 'ON', onTextOnChanged ?? (_) {})),
-                        const SizedBox(width: 12),
-                        Expanded(child: _buildIconSelector(context, tokens, 'ON Icon', iconOn, onIconOnChanged ?? (_) {})),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(child: _buildTextInput(tokens, 'OFF Text', textOff ?? 'OFF', onTextOffChanged ?? (_) {})),
-                        const SizedBox(width: 12),
-                        Expanded(child: _buildIconSelector(context, tokens, 'OFF Icon', iconOff, onIconOffChanged ?? (_) {})),
-                      ],
-                    ),
-                  ] else if (selectedIndex == 6) ...[
-                    _buildFontDropdown(
-                      tokens,
-                      'Font Family',
-                      ['monospace', 'serif', 'sans-serif', 'Inter', 'Roboto', 'Outfit', 'Lexend'],
-                      fontFamily ?? 'monospace',
-                      onFontFamilyChanged ?? (_) {},
-                    ),
-                  ] else if (isKnob) ...[
-                    _buildIconSelector(context, tokens, 'Center Icon', iconOn, onIconOnChanged ?? (_) {}),
-                  ] else ...[
-                    _buildTextInput(tokens, 'Widget Label', label ?? '', onLabelChanged ?? (_) {}),
-                  ],
-
-
-                  if (selectedIndex != 6 && !isMultiple && !isLED) ...[
+                  InspectorFieldBuilders.buildSection(tokens, 'VALUES', [
+                    InspectorFieldBuilders.buildTextField(tokens, 'Widget Label', label ?? '', onLabelChanged ?? (_) {}),
                     const SizedBox(height: 12),
-                    const Text(
-                      'Leave empty for minimal look',
-                      style: TextStyle(color: Color(0xFF555555), fontSize: 9, fontStyle: FontStyle.italic),
-                    ),
+                    if (isJoystick) ...[
+                      InspectorFieldBuilders.buildDoubleField(tokens, 'Amplitude', amplitude ?? 100, onAmplitudeChanged ?? (_) {}, min: 0, max: 500, decimalPlaces: 0),
+                    ] else if (isLED) ...[
+                      _buildShapeSelector(tokens, ledShape ?? RKLEDShape.circle, onLEDShapeChanged ?? (_) {}),
+                      const SizedBox(height: 12),
+                      InspectorFieldBuilders.buildNumField(tokens, 'Timing (ms)', ledTiming ?? 500, (v) => onLEDTimingChanged?.call(v), min: 0, max: 5000),
+                      const SizedBox(height: 12),
+                      _buildColorSelector(context, tokens, 'LED Color', ledColor ?? tokens.primary, onLEDColorChanged ?? (_) {}),
+                    ] else if (isSlider || isKnob) ...[
+                      Row(
+                        children: [
+                          Expanded(child: InspectorFieldBuilders.buildDoubleField(tokens, 'Min', minValue ?? 0, onMinValueChanged ?? (_) {}, decimalPlaces: 0)),
+                          const SizedBox(width: 8),
+                          Expanded(child: InspectorFieldBuilders.buildDoubleField(tokens, 'Max', maxValue ?? 100, onMaxValueChanged ?? (_) {}, decimalPlaces: 0)),
+                        ],
+                      ),
+                      if (isKnob) ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(child: InspectorFieldBuilders.buildDoubleField(tokens, 'Min Angle', minAngle ?? -135, onMinAngleChanged ?? (_) {}, min: -360, max: 0, decimalPlaces: 0)),
+                            const SizedBox(width: 8),
+                            Expanded(child: InspectorFieldBuilders.buildDoubleField(tokens, 'Max Angle', maxAngle ?? 135, onMaxAngleChanged ?? (_) {}, min: 0, max: 360, decimalPlaces: 0)),
+                          ],
+                        ),
+                      ],
+                    ],
+                    if (isJoystick || isKnob || isSlider) ...[
+                      const SizedBox(height: 12),
+                      InspectorFieldBuilders.buildDoubleField(tokens, 'Resolution', resolution ?? 1, (v) => onResolutionChanged?.call(v < 0.1 ? 0.1 : v), min: 0.1, max: 100, decimalPlaces: 1),
+                    ],
+                    if (isSlider) ...[
+                      const SizedBox(height: 12),
+                      InspectorFieldBuilders.buildOptionSelector(tokens, 'Orientation', orientation ?? 'vertical', ['horizontal', 'vertical'], onOrientationChanged ?? (_) {}),
+                    ],
+                  ]),
+                  if (isSwitch || selectedIndex == 0 || isMultiple || selectedIndex == 6 || isKnob) ...[
+                    InspectorFieldBuilders.buildSection(tokens, 'CONTENT', [
+                      if (isMultiple) ...[
+                        InspectorFieldBuilders.buildOptionSelector(tokens, 'Count', (multiItemCount ?? 4).toString(), ['1', '2', '3', '4', '5', '6', '7', '8'], (v) => onMultiItemCountChanged?.call(int.parse(v))),
+                        const SizedBox(height: 8),
+                        InspectorFieldBuilders.buildOptionSelector(tokens, 'Orientation', orientation ?? 'horizontal', ['horizontal', 'vertical'], onOrientationChanged ?? (_) {}),
+                        const SizedBox(height: 12),
+                        _buildMultiItemEditor(context, tokens),
+                      ] else if (isSwitch || selectedIndex == 0) ...[
+                        Row(
+                          children: [
+                            Expanded(child: InspectorFieldBuilders.buildTextField(tokens, 'ON Text', textOn ?? 'ON', onTextOnChanged ?? (_) {})),
+                            const SizedBox(width: 8),
+                            Expanded(child: _buildIconSelector(context, tokens, 'ON Icon', iconOn, onIconOnChanged ?? (_) {})),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(child: InspectorFieldBuilders.buildTextField(tokens, 'OFF Text', textOff ?? 'OFF', onTextOffChanged ?? (_) {})),
+                            const SizedBox(width: 8),
+                            Expanded(child: _buildIconSelector(context, tokens, 'OFF Icon', iconOff, onIconOffChanged ?? (_) {})),
+                          ],
+                        ),
+                      ] else if (selectedIndex == 6) ...[
+                        _buildFontDropdown(tokens, 'Font Family', ['monospace', 'serif', 'sans-serif', 'Inter', 'Roboto', 'Outfit', 'Lexend'], fontFamily ?? 'monospace', onFontFamilyChanged ?? (_) {}),
+                      ] else if (isKnob) ...[
+                        _buildIconSelector(context, tokens, 'Center Icon', iconOn, onIconOnChanged ?? (_) {}),
+                      ],
+                      if (selectedIndex != 6 && !isMultiple && !isLED) ...[
+                        const SizedBox(height: 8),
+                        const Padding(
+                          padding: EdgeInsets.only(left: 20),
+                          child: Text('Leave empty for minimal look', style: TextStyle(color: Color(0xFF555555), fontSize: 9, fontStyle: FontStyle.italic)),
+                        ),
+                      ],
+                    ]),
                   ],
-                ],
-              ],
-            ),
-          ),
-            Container(
-              height: 1,
-              color: const Color(0xFF222222),
-            ),
-
-          // ─── BEHAVIOR ───
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'BEHAVIOR',
-                  style: TextStyle(
-                    color: tokens.primary,
-                    fontSize: 12,
-                    fontFamily: 'monospace',
-                    letterSpacing: 1,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (hasSelfCentering) ...[
-                  _buildSwitchRow(
-                    tokens,
-                    'Self centering',
-                    selfCentering ?? true,
-                    onSelfCenteringChanged ?? (_) {},
-                  ),
-                  if (selfCentering ?? true) ...[
-                    const SizedBox(height: 16),
-                    _buildOptionSelector(
-                      tokens,
-                      'CENTER POSITION',
-                      isSlider
-                          ? ['min', 'max', 'center']
-                          : isKnob
-                              ? ['min', 'max', 'center']
-                              : ['left', 'right', 'top', 'bottom', 'center'],
-                      centerPosition ?? 'center',
-                      onCenterPositionChanged ?? (_) {},
-                    ),
-                    const SizedBox(height: 16),
-                    _buildOptionSelector(
-                      tokens,
-                      'SPRING BEHAVIOR',
-                      ['elastic', 'smooth', 'linear'],
-                      springBehavior ?? 'elastic',
-                      onSpringBehaviorChanged ?? (_) {},
-                    ),
-                    const SizedBox(height: 16),
-                    _buildEditableField(
-                      'Spring Duration (ms)',
-                      (springDuration ?? 300).toInt().toString(),
-                      onSpringDurationChanged != null
-                          ? (v) => _tryParseDouble(v, onSpringDurationChanged!, 300)
-                          : null,
-                    ),
-                  ],
-                ] else if (!isDisplay && !isLED) ...[
-                  _buildSwitchRow(
-                    tokens,
-                    'Haptic feedback',
-                    hapticsEnabled,
-                    onHapticsChanged ?? (_) {},
-                  ),
-                  const SizedBox(height: 12),
-                ],
-              ],
-            ),
-          ),
-
-          Container(
-            height: 1,
-            color: const Color(0xFF222222),
-          ),
-
-          // ─── TRANSFORM ───
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'TRANSFORM',
-                  style: TextStyle(
-                    color: tokens.primary,
-                    fontSize: 12,
-                    fontFamily: 'monospace',
-                    letterSpacing: 1,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _buildSliderRow(
-                  tokens,
-                  'Rotation (deg)',
-                  rotation ?? 0.0,
-                  -180,
-                  180,
-                  onRotationChanged ?? (_) {},
-                  isInteger: true,
-                  onReset: () => onRotationChanged?.call(0.0),
-                ),
-              ],
-            ),
-          ),
-
+                  InspectorFieldBuilders.buildSection(tokens, 'BEHAVIOR', [
+                    if (hasSelfCentering) ...[
+                      InspectorFieldBuilders.buildBoolToggle(tokens, 'AutoCenter', selfCentering ?? true, onSelfCenteringChanged ?? (_) {}),
+                      if (selfCentering ?? true) ...[
+                        const SizedBox(height: 8),
+                        InspectorFieldBuilders.buildOptionSelector(tokens, 'Center Pos', centerPosition ?? 'center', isSlider ? ['min', 'max', 'center'] : isKnob ? ['min', 'max', 'center'] : ['left', 'right', 'top', 'bottom', 'center'], onCenterPositionChanged ?? (_) {}),
+                        const SizedBox(height: 8),
+                        InspectorFieldBuilders.buildOptionSelector(tokens, 'Spring', springBehavior ?? 'elastic', ['elastic', 'smooth', 'linear'], onSpringBehaviorChanged ?? (_) {}),
+                        const SizedBox(height: 8),
+                        InspectorFieldBuilders.buildNumField(tokens, 'Dur. (ms)', (springDuration ?? 300).toInt(), (v) => onSpringDurationChanged?.call(v.toDouble()), min: 0, max: 2000),
+                      ],
+                    ] else if (!isDisplay && !isLED) ...[
+                      InspectorFieldBuilders.buildBoolToggle(tokens, 'Haptics', hapticsEnabled, onHapticsChanged ?? (_) {}),
+                    ],
+                  ]),
+                  InspectorFieldBuilders.buildSection(tokens, 'TRANSFORM', [
+                    InspectorFieldBuilders.buildRotationSlider(tokens, rotation ?? 0.0, onRotationChanged ?? (_) {}),
+                  ]),
                 ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader(RKTokens tokens) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          Icon(LucideIcons.list, color: tokens.primary, size: 20),
+          const SizedBox(width: 10),
+          const Text(
+            'CONFIGURATION',
+            style: TextStyle(
+              color: Color(0xFFE0E0E0),
+              fontSize: 14,
+              fontFamily: 'monospace',
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1,
             ),
           ),
         ],
@@ -492,48 +275,17 @@ class InspectorPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionHeader(RKTokens tokens, IconData icon, String title) {
-    return Row(
-      children: [
-        Icon(icon, color: tokens.primary, size: 14),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: const TextStyle(
-            color: Color(0xFF888888),
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTextInput(RKTokens tokens, String label, String value, ValueChanged<String> onChanged) {
-    return _InspectorTextField(
-      label: label,
-      value: value,
-      onChanged: onChanged,
-    );
-  }
-
   Widget _buildIconSelector(BuildContext context, RKTokens tokens, String label, IconData? currentIcon, ValueChanged<IconData?> onChanged) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(color: Color(0xFF666666), fontSize: 10, fontWeight: FontWeight.bold),
-        ),
+        Text(label, style: const TextStyle(color: Color(0xFF666666), fontSize: 10, fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
         GestureDetector(
           onTap: () {
             showDialog(
               context: context,
-              builder: (context) => _IconPicker(
-                onIconSelected: onChanged,
-              ),
+              builder: (context) => _IconPicker(onIconSelected: onChanged),
             );
           },
           child: Container(
@@ -549,7 +301,6 @@ class InspectorPanel extends StatelessWidget {
                   const SizedBox(width: 8),
                 ] else
                   const Text('NONE', style: TextStyle(color: Color(0xFF666666), fontSize: 12)),
-                //const Spacer(),
                 const Icon(LucideIcons.chevronDown, color: Color(0xFF666666), size: 14),
               ],
             ),
@@ -563,19 +314,13 @@ class InspectorPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(color: Color(0xFF666666), fontSize: 10, fontWeight: FontWeight.bold),
-        ),
+        Text(label, style: const TextStyle(color: Color(0xFF666666), fontSize: 10, fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
         GestureDetector(
           onTap: () {
             showDialog(
               context: context,
-              builder: (context) => _ColorPicker(
-                initialColor: currentColor,
-                onColorSelected: onChanged,
-              ),
+              builder: (context) => _ColorPicker(initialColor: currentColor, onColorSelected: onChanged),
             );
           },
           child: Container(
@@ -599,7 +344,6 @@ class InspectorPanel extends StatelessWidget {
                   '#${currentColor.toARGB32().toRadixString(16).toUpperCase().substring(2)}',
                   style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'monospace'),
                 ),
-                //const Spacer(),
                 const Icon(LucideIcons.chevronDown, color: Color(0xFF666666), size: 14),
               ],
             ),
@@ -609,17 +353,7 @@ class InspectorPanel extends StatelessWidget {
     );
   }
 
-
-
-  Widget _buildEditableField(String label, String value, ValueChanged<String>? onChanged) {
-    return _InspectorField(label: label, value: value, onChanged: onChanged);
-  }
-
-  Widget _buildShapeSelector(
-    RKTokens tokens,
-    RKLEDShape current,
-    ValueChanged<RKLEDShape> onChanged,
-  ) {
+  Widget _buildShapeSelector(RKTokens tokens, RKLEDShape current, ValueChanged<RKLEDShape> onChanged) {
     final shapes = {
       RKLEDShape.circle: Icons.circle,
       RKLEDShape.square: Icons.square,
@@ -630,15 +364,7 @@ class InspectorPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'SHAPE',
-          style: TextStyle(
-            color: Color(0xFF888888),
-            fontSize: 10,
-            fontFamily: 'monospace',
-            letterSpacing: 0.5,
-          ),
-        ),
+        const Text('SHAPE', style: TextStyle(color: Color(0xFF888888), fontSize: 10, fontFamily: 'monospace', letterSpacing: 0.5)),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -669,226 +395,35 @@ class InspectorPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildOptionSelector(
-    RKTokens tokens,
-    String label,
-    List<String> options,
-    String current,
-    ValueChanged<String> onChanged,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: const TextStyle(
-            color: Color(0xFF888888),
-            fontSize: 10,
-            fontFamily: 'monospace',
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: options.map((opt) {
-            final isSelected = current == opt;
-            return GestureDetector(
-              onTap: () => onChanged(opt),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: isSelected ? tokens.primary : const Color(0xFF1A1A1A),
-                  border: Border.all(
-                    color: isSelected ? tokens.primary : const Color(0xFF444444),
-                    width: 1,
-                  ),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-                child: Text(
-                  opt.toUpperCase(),
-                  style: TextStyle(
-                    color: isSelected ? const Color(0xFF1A1A1A) : const Color(0xFF888888),
-                    fontSize: 10,
-                    fontFamily: 'monospace',
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFontDropdown(
-    RKTokens tokens,
-    String label,
-    List<String> options,
-    String current,
-    ValueChanged<String> onChanged,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: const TextStyle(
-            color: Color(0xFF888888),
-            fontSize: 10,
-            fontFamily: 'monospace',
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1A1A1A),
-            border: Border.all(color: const Color(0xFF444444), width: 1),
-            borderRadius: BorderRadius.circular(2),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: current,
-              dropdownColor: const Color(0xFF1A1A1A),
-              icon: const Icon(LucideIcons.chevronDown, color: Color(0xFF666666), size: 14),
-              isExpanded: true,
-              style: const TextStyle(
-                color: Color(0xFFD0D0D0),
-                fontSize: 12,
-                fontFamily: 'monospace',
-              ),
-              onChanged: (String? newValue) {
-                if (newValue != null) onChanged(newValue);
-              },
-              items: options.map<DropdownMenuItem<String>>((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value),
-                );
-              }).toList(),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-
-  Widget _buildSliderRow(
-    RKTokens tokens,
-    String label,
-    double value,
-    double min,
-    double max,
-    ValueChanged<double> onChanged, {
-    bool isInteger = false,
-    VoidCallback? onReset,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              label.toUpperCase(),
-              style: const TextStyle(
-                color: Color(0xFF555555),
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Row(
-              children: [
-                if (onReset != null && value != 0) ...[
-                  IconButton(
-                    icon: const Icon(LucideIcons.rotateCcw, size: 10),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: onReset,
-                    color: tokens.primary.withOpacity(0.5),
-                    hoverColor: tokens.primary,
-                    tooltip: 'Reset to 0',
-                  ),
-                  const SizedBox(width: 8),
-                ],
-                Text(
-                  isInteger ? value.toInt().toString() : value.toStringAsFixed(1),
-                  style: TextStyle(
-                    color: tokens.primary,
-                    fontSize: 10,
-                    fontFamily: 'monospace',
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        SliderTheme(
-          data: SliderThemeData(
-            trackHeight: 2,
-            activeTrackColor: tokens.primary.withOpacity(0.5),
-            inactiveTrackColor: const Color(0xFF222222),
-            thumbColor: tokens.primary,
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-            overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-          ),
-          child: Slider(
-            value: value,
-            min: min,
-            max: max,
-            divisions: isInteger ? (max - min).toInt() : null,
-            onChanged: onChanged,
-          ),
-        ),
-      ],
-    );
-  }
-
-
-  Widget _buildSwitchRow(RKTokens tokens, String label, bool value, ValueChanged<bool> onChanged) {
-    return GestureDetector(
-      onTap: () => onChanged(!value),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _buildFontDropdown(RKTokens tokens, String label, List<String> options, String current, ValueChanged<String> onChanged) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label.toUpperCase(),
-            style: const TextStyle(
-              color: Color(0xFFD0D0D0),
-              fontSize: 11,
-              fontFamily: 'monospace',
-              letterSpacing: 0.5,
-            ),
-          ),
+          Text(label.toUpperCase(), style: const TextStyle(color: Color(0xFF888888), fontSize: 10, fontFamily: 'monospace', letterSpacing: 0.5)),
+          const SizedBox(height: 8),
           Container(
-            width: 38,
-            height: 20,
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: value ? const Color(0xFF2A2A2A) : const Color(0xFF1A1A1A),
-              border: Border.all(
-                color: value ? tokens.primary : const Color(0xFF444444),
-                width: 1,
-              ),
+              color: const Color(0xFF1A1A1A),
+              border: Border.all(color: const Color(0xFF444444), width: 1),
               borderRadius: BorderRadius.circular(2),
             ),
-            child: Align(
-              alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-              child: Container(
-                width: 16,
-                height: 16,
-                margin: const EdgeInsets.all(1),
-                decoration: BoxDecoration(
-                  color: value ? tokens.primary : const Color(0xFF666666),
-                  borderRadius: BorderRadius.circular(2),
-                ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: current,
+                dropdownColor: const Color(0xFF1A1A1A),
+                icon: const Icon(LucideIcons.chevronDown, color: Color(0xFF666666), size: 14),
+                isExpanded: true,
+                style: const TextStyle(color: Color(0xFFD0D0D0), fontSize: 12, fontFamily: 'monospace'),
+                onChanged: (String? newValue) {
+                  if (newValue != null) onChanged(newValue);
+                },
+                items: options.map<DropdownMenuItem<String>>((String value) {
+                  return DropdownMenuItem<String>(value: value, child: Text(value));
+                }).toList(),
               ),
             ),
           ),
@@ -910,115 +445,45 @@ class _IconPickerState extends State<_IconPicker> {
   String _search = '';
 
   static const Map<String, IconData> _allIcons = {
-    // Hardware/Utility
-    'sun': LucideIcons.sun,
-    'moon': LucideIcons.moon,
-    'zap': LucideIcons.zap,
-    'zap-off': LucideIcons.zapOff,
-    'power': LucideIcons.power,
-    'radio': LucideIcons.radio,
-    'cpu': LucideIcons.cpu,
-    'battery': LucideIcons.battery,
-    'battery-charging': LucideIcons.batteryCharging,
-    'thermometer': LucideIcons.thermometer,
-    'gauge': LucideIcons.gauge,
-    'activity': LucideIcons.activity,
-    'check': LucideIcons.check,
-    'x': LucideIcons.x,
-    'lock': LucideIcons.lock,
-    'unlock': LucideIcons.lockOpen,
-    'lightbulb': LucideIcons.lightbulb,
-    'fan': LucideIcons.fan,
-    'mic': LucideIcons.mic,
-    'speaker': LucideIcons.speaker,
-    'volume-2': LucideIcons.volume2,
-    'wifi': LucideIcons.wifi,
-    'bluetooth': LucideIcons.bluetooth,
-    'usb': LucideIcons.usb,
-    'settings': LucideIcons.settings,
-    'settings-2': LucideIcons.settings2,
-    'cog': LucideIcons.cog,
-    'wrench': LucideIcons.wrench,
-    'hammer': LucideIcons.hammer,
-    'drill': LucideIcons.drill,
-    'save': LucideIcons.save,
-    'upload': LucideIcons.upload,
-    'download': LucideIcons.download,
-
-    // Automotive
-    'acura': SimpleIcons.acura,
-    'amg': SimpleIcons.amg,
-    'astonmartin': SimpleIcons.astonmartin,
-    'audi': SimpleIcons.audi,
-    'bentley': SimpleIcons.bentley,
-    'bmw': SimpleIcons.bmw,
-    'bugatti': SimpleIcons.bugatti,
-    'cadillac': SimpleIcons.cadillac,
-    'chevrolet': SimpleIcons.chevrolet,
-    'chrysler': SimpleIcons.chrysler,
-    'citroen': SimpleIcons.citroen,
-    'dacia': SimpleIcons.dacia,
-    'dsautomobiles': SimpleIcons.dsautomobiles,
-    'ducati': SimpleIcons.ducati,
-    'ferrari': SimpleIcons.ferrari,
-    'fiat': SimpleIcons.fiat,
-    'ford': SimpleIcons.ford,
-    'honda': SimpleIcons.honda,
-    'hyundai': SimpleIcons.hyundai,
-    'infiniti': SimpleIcons.infiniti,
-    'jeep': SimpleIcons.jeep,
-    'kia': SimpleIcons.kia,
-    'koenigsegg': SimpleIcons.koenigsegg,
-    'ktm': SimpleIcons.ktm,
-    'lada': SimpleIcons.lada,
-    'lamborghini': SimpleIcons.lamborghini,
-    'mahindra': SimpleIcons.mahindra,
-    'maserati': SimpleIcons.maserati,
-    'mazda': SimpleIcons.mazda,
-    'mclaren': SimpleIcons.mclaren,
-    'mg': SimpleIcons.mg,
-    'mini': SimpleIcons.mini,
-    'mitsubishi': SimpleIcons.mitsubishi,
-    'nissan': SimpleIcons.nissan,
-    'opel': SimpleIcons.opel,
-    'peugeot': SimpleIcons.peugeot,
-    'polestar': SimpleIcons.polestar,
-    'porsche': SimpleIcons.porsche,
-    'ram': SimpleIcons.ram,
-    'renault': SimpleIcons.renault,
-    'rimacautomobili': SimpleIcons.rimacautomobili,
-    'rollsroyce': SimpleIcons.rollsroyce,
-    'scania': SimpleIcons.scania,
-    'seat': SimpleIcons.seat,
-    'skoda': SimpleIcons.skoda,
-    'smart': SimpleIcons.smart,
-    'subaru': SimpleIcons.subaru,
-    'suzuki': SimpleIcons.suzuki,
-    'tata': SimpleIcons.tata,
-    'tesla': SimpleIcons.tesla,
-    'toyota': SimpleIcons.toyota,
-    'vauxhall': SimpleIcons.vauxhall,
-    'volkswagen': SimpleIcons.volkswagen,
-    'volvo': SimpleIcons.volvo,
-    'aral': SimpleIcons.aral,
-    'autozone': SimpleIcons.autozone,
-    'bosch': SimpleIcons.bosch,
-    'carthrottle': SimpleIcons.carthrottle,
-    'caterpillar': SimpleIcons.caterpillar,
-    'daf': SimpleIcons.daf,
-    'generalmotors': SimpleIcons.generalmotors,
-    'iveco': SimpleIcons.iveco,
-    'johndeere': SimpleIcons.johndeere,
-    'man': SimpleIcons.man,
-    'onstar': SimpleIcons.onstar,
+    'sun': LucideIcons.sun, 'moon': LucideIcons.moon, 'zap': LucideIcons.zap,
+    'zap-off': LucideIcons.zapOff, 'power': LucideIcons.power, 'radio': LucideIcons.radio,
+    'cpu': LucideIcons.cpu, 'battery': LucideIcons.battery, 'battery-charging': LucideIcons.batteryCharging,
+    'thermometer': LucideIcons.thermometer, 'gauge': LucideIcons.gauge, 'activity': LucideIcons.activity,
+    'check': LucideIcons.check, 'x': LucideIcons.x, 'lock': LucideIcons.lock,
+    'unlock': LucideIcons.lockOpen, 'lightbulb': LucideIcons.lightbulb, 'fan': LucideIcons.fan,
+    'mic': LucideIcons.mic, 'speaker': LucideIcons.speaker, 'volume-2': LucideIcons.volume2,
+    'wifi': LucideIcons.wifi, 'bluetooth': LucideIcons.bluetooth, 'usb': LucideIcons.usb,
+    'settings': LucideIcons.settings, 'settings-2': LucideIcons.settings2, 'cog': LucideIcons.cog,
+    'wrench': LucideIcons.wrench, 'hammer': LucideIcons.hammer, 'drill': LucideIcons.drill,
+    'save': LucideIcons.save, 'upload': LucideIcons.upload, 'download': LucideIcons.download,
+    'acura': SimpleIcons.acura, 'amg': SimpleIcons.amg, 'astonmartin': SimpleIcons.astonmartin,
+    'audi': SimpleIcons.audi, 'bentley': SimpleIcons.bentley, 'bmw': SimpleIcons.bmw,
+    'bugatti': SimpleIcons.bugatti, 'cadillac': SimpleIcons.cadillac, 'chevrolet': SimpleIcons.chevrolet,
+    'chrysler': SimpleIcons.chrysler, 'citroen': SimpleIcons.citroen, 'dacia': SimpleIcons.dacia,
+    'dsautomobiles': SimpleIcons.dsautomobiles, 'ducati': SimpleIcons.ducati, 'ferrari': SimpleIcons.ferrari,
+    'fiat': SimpleIcons.fiat, 'ford': SimpleIcons.ford, 'honda': SimpleIcons.honda,
+    'hyundai': SimpleIcons.hyundai, 'infiniti': SimpleIcons.infiniti, 'jeep': SimpleIcons.jeep,
+    'kia': SimpleIcons.kia, 'koenigsegg': SimpleIcons.koenigsegg, 'ktm': SimpleIcons.ktm,
+    'lada': SimpleIcons.lada, 'lamborghini': SimpleIcons.lamborghini, 'mahindra': SimpleIcons.mahindra,
+    'maserati': SimpleIcons.maserati, 'mazda': SimpleIcons.mazda, 'mclaren': SimpleIcons.mclaren,
+    'mg': SimpleIcons.mg, 'mini': SimpleIcons.mini, 'mitsubishi': SimpleIcons.mitsubishi,
+    'nissan': SimpleIcons.nissan, 'opel': SimpleIcons.opel, 'peugeot': SimpleIcons.peugeot,
+    'polestar': SimpleIcons.polestar, 'porsche': SimpleIcons.porsche, 'ram': SimpleIcons.ram,
+    'renault': SimpleIcons.renault, 'rimacautomobili': SimpleIcons.rimacautomobili,
+    'rollsroyce': SimpleIcons.rollsroyce, 'scania': SimpleIcons.scania, 'seat': SimpleIcons.seat,
+    'skoda': SimpleIcons.skoda, 'smart': SimpleIcons.smart, 'subaru': SimpleIcons.subaru,
+    'suzuki': SimpleIcons.suzuki, 'tata': SimpleIcons.tata, 'tesla': SimpleIcons.tesla,
+    'toyota': SimpleIcons.toyota, 'vauxhall': SimpleIcons.vauxhall, 'volkswagen': SimpleIcons.volkswagen,
+    'volvo': SimpleIcons.volvo, 'aral': SimpleIcons.aral, 'autozone': SimpleIcons.autozone,
+    'bosch': SimpleIcons.bosch, 'carthrottle': SimpleIcons.carthrottle, 'caterpillar': SimpleIcons.caterpillar,
+    'daf': SimpleIcons.daf, 'generalmotors': SimpleIcons.generalmotors, 'iveco': SimpleIcons.iveco,
+    'johndeere': SimpleIcons.johndeere, 'man': SimpleIcons.man, 'onstar': SimpleIcons.onstar,
     'oshkosh': SimpleIcons.oshkosh,
   };
 
   @override
   Widget build(BuildContext context) {
-    final filteredKeys = _allIcons.keys
-        .where((k) => k.toLowerCase().contains(_search.toLowerCase()))
-        .toList();
+    final filteredKeys = _allIcons.keys.where((k) => k.toLowerCase().contains(_search.toLowerCase())).toList();
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -1054,43 +519,25 @@ class _IconPickerState extends State<_IconPicker> {
                   itemBuilder: (context, index) {
                     if (index == 0) {
                       return GestureDetector(
-                        onTap: () {
-                          widget.onIconSelected(null);
-                          Navigator.pop(context);
-                        },
+                        onTap: () { widget.onIconSelected(null); Navigator.pop(context); },
                         child: Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF222222),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Center(
-                            child: Text('NONE', style: TextStyle(color: Color(0xFF666666), fontSize: 10)),
-                          ),
+                          decoration: BoxDecoration(color: const Color(0xFF222222), borderRadius: BorderRadius.circular(8)),
+                          child: const Center(child: Text('NONE', style: TextStyle(color: Color(0xFF666666), fontSize: 10))),
                         ),
                       );
                     }
                     final key = filteredKeys[index - 1];
                     final icon = _allIcons[key]!;
                     return GestureDetector(
-                      onTap: () {
-                        widget.onIconSelected(icon);
-                        Navigator.pop(context);
-                      },
+                      onTap: () { widget.onIconSelected(icon); Navigator.pop(context); },
                       child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF222222),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                        decoration: BoxDecoration(color: const Color(0xFF222222), borderRadius: BorderRadius.circular(8)),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(icon, color: Colors.white, size: 20),
                             const SizedBox(height: 4),
-                            Text(
-                              key,
-                              style: const TextStyle(color: Color(0xFF888888), fontSize: 8),
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            Text(key, style: const TextStyle(color: Color(0xFF888888), fontSize: 8), overflow: TextOverflow.ellipsis),
                           ],
                         ),
                       ),
@@ -1130,16 +577,9 @@ class _ColorPickerState extends State<_ColorPicker> {
   }
 
   static const List<Color> _brandColors = [
-    Color(0xFFFF8C00), // Primary Orange
-    Color(0xFF00D1FF), // Cyber Blue
-    Color(0xFF00FF94), // Matrix Green
-    Color(0xFFFF005C), // Neon Pink
-    Color(0xFF8B5CF6), // Purple
-    Color(0xFFFACC15), // Yellow
-    Color(0xFFFFFFFF), // White
-    Color(0xFF888888), // Grey
-    Color(0xFF444444), // Dark Grey
-    Color(0xFF111111), // Black
+    Color(0xFFFF8C00), Color(0xFF00D1FF), Color(0xFF00FF94),
+    Color(0xFFFF005C), Color(0xFF8B5CF6), Color(0xFFFACC15),
+    Color(0xFFFFFFFF), Color(0xFF888888), Color(0xFF444444), Color(0xFF111111),
   ];
 
   @override
@@ -1156,13 +596,8 @@ class _ColorPickerState extends State<_ColorPicker> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'COLOR PICKER',
-                style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1),
-              ),
+              const Text('COLOR PICKER', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
               const SizedBox(height: 20),
-              
-              // Hex & Preview
               Row(
                 children: [
                   Container(
@@ -1179,43 +614,23 @@ class _ColorPickerState extends State<_ColorPicker> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text('HEX VALUE', style: TextStyle(color: Color(0xFF666666), fontSize: 9, fontWeight: FontWeight.bold)),
-                      Text(
-                        '#${_currentColor.toARGB32().toRadixString(16).toUpperCase().substring(2)}',
-                        style: const TextStyle(color: Colors.white, fontSize: 16, fontFamily: 'monospace', fontWeight: FontWeight.bold),
-                      ),
+                      Text('#${_currentColor.toARGB32().toRadixString(16).toUpperCase().substring(2)}', style: const TextStyle(color: Colors.white, fontSize: 16, fontFamily: 'monospace', fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ],
               ),
               const SizedBox(height: 24),
-              // RGB Sliders
               _buildRGBSlider('RED', (_currentColor.r * 255).round(), (v) {
-                _updateColor(Color.fromARGB(
-                  (_currentColor.a * 255).round(),
-                  v,
-                  (_currentColor.g * 255).round(),
-                  (_currentColor.b * 255).round(),
-                ));
+                _updateColor(Color.fromARGB((_currentColor.a * 255).round(), v, (_currentColor.g * 255).round(), (_currentColor.b * 255).round()));
               }),
               const SizedBox(height: 12),
               _buildRGBSlider('GREEN', (_currentColor.g * 255).round(), (v) {
-                _updateColor(Color.fromARGB(
-                  (_currentColor.a * 255).round(),
-                  (_currentColor.r * 255).round(),
-                  v,
-                  (_currentColor.b * 255).round(),
-                ));
+                _updateColor(Color.fromARGB((_currentColor.a * 255).round(), (_currentColor.r * 255).round(), v, (_currentColor.b * 255).round()));
               }),
               const SizedBox(height: 12),
               _buildRGBSlider('BLUE', (_currentColor.b * 255).round(), (v) {
-                _updateColor(Color.fromARGB(
-                  (_currentColor.a * 255).round(),
-                  (_currentColor.r * 255).round(),
-                  (_currentColor.g * 255).round(),
-                  v,
-                ));
+                _updateColor(Color.fromARGB((_currentColor.a * 255).round(), (_currentColor.r * 255).round(), (_currentColor.g * 255).round(), v));
               }),
-              
               const SizedBox(height: 24),
               const Text('PRESETS', style: TextStyle(color: Color(0xFF666666), fontSize: 9, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
@@ -1231,10 +646,7 @@ class _ColorPickerState extends State<_ColorPicker> {
                       decoration: BoxDecoration(
                         color: color,
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: color == _currentColor ? Colors.white : Colors.transparent,
-                          width: 2,
-                        ),
+                        border: Border.all(color: color == _currentColor ? Colors.white : Colors.transparent, width: 2),
                       ),
                     ),
                   );
@@ -1280,186 +692,7 @@ class _ColorPickerState extends State<_ColorPicker> {
             thumbShape: RoundSliderThumbShape(enabledThumbRadius: 6),
             overlayShape: RoundSliderOverlayShape(overlayRadius: 12),
           ),
-          child: Slider(
-            value: value.toDouble(),
-            min: 0,
-            max: 255,
-            onChanged: (v) => onChanged(v.toInt()),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-void _tryParseDouble(String text, ValueChanged<double> onChanged, double fallback) {
-    if (text.isEmpty || text == '.' || text == '-' || text == '-.') return;
-    final parsed = double.tryParse(text);
-    if (parsed != null) {
-      onChanged(parsed);
-    } else if (text.endsWith('.')) {
-      // Allow "0." as intermediate state — parse the integer part
-      final withoutDot = text.substring(0, text.length - 1);
-      if (withoutDot.isNotEmpty && withoutDot != '-') {
-        final intParsed = double.tryParse(withoutDot);
-        if (intParsed != null) onChanged(intParsed);
-      }
-    }
-  }
-
-class _InspectorTextField extends StatefulWidget {
-  const _InspectorTextField({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final String label;
-  final String value;
-  final ValueChanged<String> onChanged;
-
-  @override
-  State<_InspectorTextField> createState() => _InspectorTextFieldState();
-}
-
-class _InspectorTextFieldState extends State<_InspectorTextField> {
-  late TextEditingController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.value);
-  }
-
-  @override
-  void didUpdateWidget(_InspectorTextField oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.value != _controller.text) {
-      _controller.text = widget.value;
-      _controller.selection = TextSelection.fromPosition(
-        TextPosition(offset: _controller.text.length),
-      );
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          widget.label,
-          style: const TextStyle(color: Color(0xFF666666), fontSize: 10, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 6),
-        TextField(
-          controller: _controller,
-          onChanged: widget.onChanged,
-          style: const TextStyle(color: Colors.white, fontSize: 12),
-          decoration: InputDecoration(
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            filled: true,
-            fillColor: const Color(0xFF222222),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: BorderSide.none,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _InspectorField extends StatefulWidget {
-  const _InspectorField({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final String label;
-  final String value;
-  final ValueChanged<String>? onChanged;
-
-  @override
-  State<_InspectorField> createState() => _InspectorFieldState();
-}
-
-class _InspectorFieldState extends State<_InspectorField> {
-  late TextEditingController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.value);
-  }
-
-  @override
-  void didUpdateWidget(_InspectorField oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    
-    final internalVal = double.tryParse(_controller.text);
-    final externalVal = double.tryParse(widget.value);
-
-    if (externalVal != internalVal) {
-      // If the numeric values differ (e.g., input 0.05 was clamped to 0.1),
-      // we must sync the text box to show the clamped value.
-      _controller.text = widget.value;
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          widget.label.toUpperCase(),
-          style: const TextStyle(
-            color: Color(0xFF888888),
-            fontSize: 10,
-            fontFamily: 'monospace',
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-          decoration: BoxDecoration(
-            color: const Color(0xFF111111),
-            border: Border.all(color: const Color(0xFF333333), width: 1),
-            borderRadius: BorderRadius.circular(2),
-          ),
-          child: TextFormField(
-            controller: _controller,
-            onChanged: widget.onChanged,
-            style: const TextStyle(
-              color: Color(0xFFD0D0D0),
-              fontSize: 14,
-              fontFamily: 'monospace',
-            ),
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              isDense: true,
-              contentPadding: EdgeInsets.symmetric(vertical: 8),
-            ),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-          ),
+          child: Slider(value: value.toDouble(), min: 0, max: 255, onChanged: (v) => onChanged(v.toInt())),
         ),
       ],
     );
@@ -1467,12 +700,7 @@ class _InspectorFieldState extends State<_InspectorField> {
 }
 
 class _MultiItemEditor extends StatefulWidget {
-  const _MultiItemEditor({
-    required this.items,
-    required this.onItemChanged,
-    required this.tokens,
-  });
-
+  const _MultiItemEditor({required this.items, required this.onItemChanged, required this.tokens});
   final List<RKToggleItem> items;
   final void Function(int, RKToggleItem) onItemChanged;
   final RKTokens tokens;
@@ -1498,10 +726,7 @@ class _MultiItemEditorState extends State<_MultiItemEditor> {
           children: [
             Icon(Icons.edit_rounded, color: widget.tokens.primary, size: 14),
             const SizedBox(width: 8),
-            const Text(
-              'EDIT BUTTON',
-              style: TextStyle(color: Color(0xFF888888), fontSize: 11, fontWeight: FontWeight.bold),
-            ),
+            const Text('EDIT BUTTON', style: TextStyle(color: Color(0xFF888888), fontSize: 11, fontWeight: FontWeight.bold)),
           ],
         ),
         const SizedBox(height: 12),
@@ -1521,13 +746,7 @@ class _MultiItemEditorState extends State<_MultiItemEditor> {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Center(
-                    child: Text(
-                      '${i + 1}',
-                      style: TextStyle(
-                        color: active ? Colors.black : Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    child: Text('${i + 1}', style: TextStyle(color: active ? Colors.black : Colors.white, fontWeight: FontWeight.bold)),
                   ),
                 ),
               );
@@ -1535,81 +754,28 @@ class _MultiItemEditorState extends State<_MultiItemEditor> {
           ),
         ),
         const SizedBox(height: 20),
-        _buildItemFieldRow(
-          context,
-          'ON State',
-          item.onLabel ?? '',
-          item.onIcon,
-          (val) => widget.onItemChanged(_editingIndex, RKToggleItem(
-            onLabel: val,
-            offLabel: item.offLabel,
-            onIcon: item.onIcon,
-            offIcon: item.offIcon,
-          )),
-          (icon) => widget.onItemChanged(_editingIndex, RKToggleItem(
-            onLabel: item.onLabel,
-            offLabel: item.offLabel,
-            onIcon: icon,
-            offIcon: item.offIcon,
-          )),
-        ),
+        _buildItemFieldRow(context, 'ON State', item.onLabel ?? '', item.onIcon,
+            (val) => widget.onItemChanged(_editingIndex, RKToggleItem(onLabel: val, offLabel: item.offLabel, onIcon: item.onIcon, offIcon: item.offIcon)),
+            (icon) => widget.onItemChanged(_editingIndex, RKToggleItem(onLabel: item.onLabel, offLabel: item.offLabel, onIcon: icon, offIcon: item.offIcon))),
         const SizedBox(height: 16),
-        _buildItemFieldRow(
-          context,
-          'OFF State',
-          item.offLabel ?? '',
-          item.offIcon,
-          (val) => widget.onItemChanged(_editingIndex, RKToggleItem(
-            onLabel: item.onLabel,
-            offLabel: val,
-            onIcon: item.onIcon,
-            offIcon: item.offIcon,
-          )),
-          (icon) => widget.onItemChanged(_editingIndex, RKToggleItem(
-            onLabel: item.onLabel,
-            offLabel: item.offLabel,
-            onIcon: item.onIcon,
-            offIcon: icon,
-          )),
-        ),
+        _buildItemFieldRow(context, 'OFF State', item.offLabel ?? '', item.offIcon,
+            (val) => widget.onItemChanged(_editingIndex, RKToggleItem(onLabel: item.onLabel, offLabel: val, onIcon: item.onIcon, offIcon: item.offIcon)),
+            (icon) => widget.onItemChanged(_editingIndex, RKToggleItem(onLabel: item.onLabel, offLabel: item.offLabel, onIcon: item.onIcon, offIcon: icon))),
       ],
     );
   }
 
-  Widget _buildItemFieldRow(
-    BuildContext context,
-    String label,
-    String text,
-    IconData? icon,
-    ValueChanged<String> onTextChanged,
-    ValueChanged<IconData?> onIconChanged,
-  ) {
+  Widget _buildItemFieldRow(BuildContext context, String label, String text, IconData? icon, ValueChanged<String> onTextChanged, ValueChanged<IconData?> onIconChanged) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label.toUpperCase(),
-          style: const TextStyle(color: Color(0xFF666666), fontSize: 9, fontWeight: FontWeight.bold),
-        ),
+        Text(label.toUpperCase(), style: const TextStyle(color: Color(0xFF666666), fontSize: 9, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Row(
           children: [
-            Expanded(
-              child: _InspectorTextField(
-                label: 'Text',
-                value: text,
-                onChanged: onTextChanged,
-              ),
-            ),
+            Expanded(child: _InspectorTextField(label: 'Text', value: text, onChanged: onTextChanged)),
             const SizedBox(width: 12),
-            Expanded(
-              child: _InspectorIconSelector(
-                context: context,
-                label: 'Icon',
-                currentIcon: icon,
-                onChanged: onIconChanged,
-              ),
-            ),
+            Expanded(child: _InspectorIconSelector(context: context, label: 'Icon', currentIcon: icon, onChanged: onIconChanged)),
           ],
         ),
       ],
@@ -1618,13 +784,7 @@ class _MultiItemEditorState extends State<_MultiItemEditor> {
 }
 
 class _InspectorIconSelector extends StatelessWidget {
-  const _InspectorIconSelector({
-    required this.context,
-    required this.label,
-    required this.currentIcon,
-    required this.onChanged,
-  });
-
+  const _InspectorIconSelector({required this.context, required this.label, required this.currentIcon, required this.onChanged});
   final BuildContext context;
   final String label;
   final IconData? currentIcon;
@@ -1635,36 +795,79 @@ class _InspectorIconSelector extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label.toUpperCase(),
-          style: const TextStyle(color: Color(0xFF555555), fontSize: 9, fontWeight: FontWeight.bold),
-        ),
+        Text(label.toUpperCase(), style: const TextStyle(color: Color(0xFF555555), fontSize: 9, fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
         GestureDetector(
           onTap: () {
-            showDialog(
-              context: context,
-              builder: (context) => _IconPicker(
-                onIconSelected: onChanged,
-              ),
-            );
+            showDialog(context: context, builder: (context) => _IconPicker(onIconSelected: onChanged));
           },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF222222),
-              borderRadius: BorderRadius.circular(4),
-            ),
+            decoration: BoxDecoration(color: const Color(0xFF222222), borderRadius: BorderRadius.circular(4)),
             child: Row(
               children: [
-                if (currentIcon != null) ...[
-                  Icon(currentIcon, color: Colors.white, size: 16),
-                ] else
-                  const Text('NONE', style: TextStyle(color: Color(0xFF666666), fontSize: 10)),
-               // const Spacer(),
+                if (currentIcon != null) ...[Icon(currentIcon, color: Colors.white, size: 16)] else const Text('NONE', style: TextStyle(color: Color(0xFF666666), fontSize: 10)),
                 const Icon(LucideIcons.chevronDown, color: Color(0xFF666666), size: 14),
               ],
             ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _InspectorTextField extends StatefulWidget {
+  const _InspectorTextField({required this.label, required this.value, required this.onChanged});
+  final String label;
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  State<_InspectorTextField> createState() => _InspectorTextFieldState();
+}
+
+class _InspectorTextFieldState extends State<_InspectorTextField> {
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value);
+  }
+
+  @override
+  void didUpdateWidget(_InspectorTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.value != _controller.text) {
+      _controller.text = widget.value;
+      _controller.selection = TextSelection.fromPosition(TextPosition(offset: _controller.text.length));
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(widget.label, style: const TextStyle(color: Color(0xFF666666), fontSize: 10, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _controller,
+          onChanged: widget.onChanged,
+          style: const TextStyle(color: Colors.white, fontSize: 12),
+          decoration: InputDecoration(
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            filled: true,
+            fillColor: const Color(0xFF222222),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
           ),
         ),
       ],

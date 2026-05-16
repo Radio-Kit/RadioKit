@@ -52,6 +52,7 @@ class RKMultiSelect extends StatelessWidget {
       contentWidth: contentWidth,
       contentHeight: contentHeight,
       labelColor: tokens.primary.withValues(alpha: 0.7),
+      fitContent: true,
       child: Container(
         padding: EdgeInsets.all(padding),
         decoration: BoxDecoration(

@@ -71,6 +71,7 @@ class _RKButtonState extends State<RKButton> with SingleTickerProviderStateMixin
       contentWidth: widget.size,
       contentHeight: widget.size,
       labelColor: tokens.primary.withValues(alpha: 0.7),
+      fitContent: true,
       child: Listener(
         onPointerDown: (_) => _handleDown(),
         onPointerUp: (_) => _handleUp(),

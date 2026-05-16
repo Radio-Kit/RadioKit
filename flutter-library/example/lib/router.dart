@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 
+import 'designer/designer_screen.dart';
 import 'screens/demo_screen.dart';
 
 final GoRouter router = GoRouter(
@@ -36,6 +37,10 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/leds',
       builder: (context, state) => const DemoScreen(selectedIndex: 7),
+    ),
+    GoRoute(
+      path: '/designer',
+      builder: (context, state) => const DesignerScreen(),
     ),
   ],
 );

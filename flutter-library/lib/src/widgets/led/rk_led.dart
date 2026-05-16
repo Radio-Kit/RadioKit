@@ -98,6 +98,7 @@ class _RKLedState extends State<RKLed> with SingleTickerProviderStateMixin {
       contentWidth: widget.size,
       contentHeight: widget.size,
       labelColor: tokens.primary.withValues(alpha: 0.7),
+      fitContent: true,
       child: AnimatedBuilder(
         animation: _opacity,
         builder: (context, child) {

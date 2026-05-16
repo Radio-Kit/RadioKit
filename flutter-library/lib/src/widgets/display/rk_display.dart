@@ -78,6 +78,7 @@ class RKDisplay extends StatelessWidget {
       contentWidth: width,
       contentHeight: height,
       labelColor: tokens.primary.withValues(alpha: 0.7),
+      fitContent: true,
       child: content,
     );
   }

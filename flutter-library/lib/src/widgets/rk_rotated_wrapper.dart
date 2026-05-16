@@ -1,8 +1,8 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-/// A wrapper that handles RadioKit widget rotation and ensures the layout
-/// respects the rotated bounding box, preventing overflows in preview containers.
+/// A wrapper that applies rotation to a RadioKit widget without scaling.
+/// The layout size remains [contentWidth] x [contentHeight]; rotation is
+/// visual only, so the widget never changes its allocated layout box.
 class RKRotatedWrapper extends StatelessWidget {
   final double rotation;
   final String? label;
@@ -10,6 +10,7 @@ class RKRotatedWrapper extends StatelessWidget {
   final double contentWidth;
   final double contentHeight;
   final Color labelColor;
+  final bool fitContent;
 
   const RKRotatedWrapper({
     super.key,
@@ -19,66 +20,53 @@ class RKRotatedWrapper extends StatelessWidget {
     required this.contentHeight,
     required this.labelColor,
     this.label,
+    this.fitContent = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (rotation == 0 && (label == null || label!.isEmpty)) {
-      return child;
+    Widget content = child;
+
+    if (fitContent) {
+      content = FittedBox(
+        fit: BoxFit.contain,
+        child: SizedBox(
+          width: contentWidth,
+          height: contentHeight,
+          child: content,
+        ),
+      );
     }
 
-    final double labelH = (label != null && label!.isNotEmpty) ? 33.0 : 0.0; // 25 (text) + 8 (gap)
-    final double totalH = contentHeight + (labelH * 2); // Double for symmetry
-    final double totalW = math.max(contentWidth, 120.0); // Minimum width for labels
-
-    // Calculate the bounding box of the rotated rectangle
-    final double absCos = math.cos(rotation).abs();
-    final double absSin = math.sin(rotation).abs();
-    
-    final double rotatedW = totalW * absCos + totalH * absSin;
-    final double rotatedH = totalW * absSin + totalH * absCos;
-
-    return Center(
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: SizedBox(
-          width: rotatedW,
-          height: rotatedH,
-          child: Center(
-            child: Transform.rotate(
-              angle: rotation,
-              child: SizedBox(
-                width: totalW,
-                height: totalH,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (label != null && label!.isNotEmpty) ...[
-                      Text(
-                        label!.toUpperCase(),
-                        style: TextStyle(
-                          color: labelColor,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2,
-                          fontFamily: 'monospace',
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                    child,
-                    if (label != null && label!.isNotEmpty)
-                      const SizedBox(height: 33), // Match top spacer height (text + gap)
-                  ],
-                ),
-              ),
+    if (label != null && label!.isNotEmpty) {
+      content = Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            label!.toUpperCase(),
+            style: TextStyle(
+              color: labelColor,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
+              fontFamily: 'monospace',
             ),
+            textAlign: TextAlign.center,
           ),
-        ),
-      ),
-    );
+          const SizedBox(height: 8),
+          content,
+        ],
+      );
+    }
 
+    if (rotation != 0) {
+      content = Transform.rotate(
+        angle: rotation,
+        child: content,
+      );
+    }
+
+    return content;
   }
 }

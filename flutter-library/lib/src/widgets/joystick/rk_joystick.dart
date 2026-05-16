@@ -254,6 +254,7 @@ class _RKJoystickState extends State<RKJoystick> with SingleTickerProviderStateM
       contentWidth: widget.size,
       contentHeight: widget.size,
       labelColor: tokens.primary.withValues(alpha: 0.7),
+      fitContent: true,
       child: GestureDetector(
         onPanStart: _onPanStart,
         onPanUpdate: _onPanUpdate,

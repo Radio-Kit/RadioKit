@@ -59,6 +59,7 @@ class _RKSerialMonitorState extends State<RKSerialMonitor> {
       contentWidth: widget.width,
       contentHeight: widget.height,
       labelColor: tokens.primary.withValues(alpha: 0.7),
+      fitContent: true,
       child: Listener(
         onPointerDown: (_) => widget.onInteractionChanged?.call(true),
         onPointerUp: (_) => widget.onInteractionChanged?.call(false),
