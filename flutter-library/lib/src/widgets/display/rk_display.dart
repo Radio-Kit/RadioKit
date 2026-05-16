@@ -51,30 +51,24 @@ class RKDisplay extends StatelessWidget {
       onPointerDown: (_) => onInteractionChanged?.call(true),
       onPointerUp: (_) => onInteractionChanged?.call(false),
       onPointerCancel: (_) => onInteractionChanged?.call(false),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final w = constraints.maxWidth;
-          final h = constraints.maxHeight;
-          return Container(
-            width: w,
-            height: h,
-            alignment: Alignment.centerLeft,
-            padding: EdgeInsets.symmetric(
-              horizontal: w * 0.06,
-              vertical: h * 0.1,
-            ),
-            decoration: BoxDecoration(
-              color: tokens.surface,
-              borderRadius: BorderRadius.circular(tokens.borderRadius),
-              border: Border.all(color: tokens.trackColor, width: 1.5),
-            ),
-            child: Text(
-              text,
-              style: textStyle.copyWith(fontSize: fontSize * (h / 40).clamp(0.6, 1.5)),
-              overflow: TextOverflow.ellipsis,
-            ),
-          );
-        },
+      child: Container(
+        width: width,
+        height: height,
+        alignment: Alignment.centerLeft,
+        padding: EdgeInsets.symmetric(
+          horizontal: width * 0.06,
+          vertical: height * 0.1,
+        ),
+        decoration: BoxDecoration(
+          color: tokens.surface,
+          borderRadius: BorderRadius.circular(tokens.borderRadius),
+          border: Border.all(color: tokens.trackColor, width: 1.5),
+        ),
+        child: Text(
+          text,
+          style: textStyle.copyWith(fontSize: fontSize * (height / 40).clamp(0.6, 1.5)),
+          overflow: TextOverflow.ellipsis,
+        ),
       ),
     );
 

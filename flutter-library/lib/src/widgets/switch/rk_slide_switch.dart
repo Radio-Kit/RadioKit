@@ -18,6 +18,7 @@ class RKSlideSwitch extends StatefulWidget {
     this.onText = 'ON',
     this.offText = 'OFF',
     this.label,
+    this.icon,
   });
 
   final bool value;
@@ -31,6 +32,7 @@ class RKSlideSwitch extends StatefulWidget {
   final String onText;
   final String offText;
   final String? label;
+  final Widget? icon;
 
   @override
   State<RKSlideSwitch> createState() => _RKSlideSwitchState();
@@ -101,6 +103,20 @@ class _RKSlideSwitchState extends State<RKSlideSwitch> with SingleTickerProvider
     final mutedActive = activeHSL.withSaturation(activeHSL.saturation * 0.4).withLightness((activeHSL.lightness * 0.5).clamp(0, 1)).toColor();
     final darkerMuted = activeHSL.withSaturation(activeHSL.saturation * 0.3).withLightness((activeHSL.lightness * 0.3).clamp(0, 1)).toColor();
     final borderMuted = activeHSL.withSaturation(activeHSL.saturation * 0.4).withLightness((activeHSL.lightness * 0.4).clamp(0, 1)).toColor();
+
+    final thumbChild = widget.icon != null
+        ? Center(
+            child: IconTheme(
+              data: IconThemeData(
+                color: widget.value
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.5),
+                size: thumbHeight * 0.4,
+              ),
+              child: widget.icon!,
+            ),
+          )
+        : _ThumbGripTexture(isActive: widget.value);
 
     return RKRotatedWrapper(
       rotation: widget.rotation,
@@ -238,7 +254,7 @@ class _RKSlideSwitchState extends State<RKSlideSwitch> with SingleTickerProvider
                                 ),
                             ],
                           ),
-                          child: _ThumbGripTexture(isActive: widget.value),
+                          child: thumbChild,
                         ),
                       );
                     },

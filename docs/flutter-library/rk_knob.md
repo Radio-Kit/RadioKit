@@ -13,8 +13,8 @@ RKKnob({
   String? label,
   int? divisions,
   ValueChanged<bool>? onInteractionChanged,
-  double startAngle = -135.0,
-  double endAngle = 135.0,
+  double minAngle = -135.0,
+  double maxAngle = 135.0,
   bool autoCenter = false,
   double center = 0.5,
   Curve springCurve = Curves.easeOutCubic,
@@ -34,7 +34,7 @@ RKKnob({
 | `label` | Optional text label displayed above the widget. |
 | `divisions` | If set, the knob snaps to the specified number of steps. |
 | `onInteractionChanged` | Triggered when the user starts or stops touching the widget. |
-| `startAngle` / `endAngle` | Angular range in degrees (default –135° to +135°). |
+| `minAngle` / `maxAngle` | Angular range in degrees (default –135° to +135°). |
 | `autoCenter` | When true, the knob springs back to `center` after interaction. |
 | `center` | Normalised centre position used for auto‑centering. |
 | `springCurve` / `springDuration` | Controls the spring‑back animation. |

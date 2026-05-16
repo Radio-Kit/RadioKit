@@ -17,8 +17,8 @@ class RKKnob extends StatefulWidget {
     this.size = 100.0,
     this.divisions,
     this.onInteractionChanged,
-    this.startAngle = -135.0,
-    this.endAngle = 135.0,
+    this.minAngle = -135.0,
+    this.maxAngle = 135.0,
     this.autoCenter = false,
     this.center = 0.5,
     this.springCurve = Curves.easeOutCubic,
@@ -43,11 +43,11 @@ class RKKnob extends StatefulWidget {
   final double size;
   final int? divisions;
 
-  /// Start angle in degrees (default -135)
-  final double startAngle;
+  /// Minimum angle in degrees (default -135)
+  final double minAngle;
 
-  /// End angle in degrees (default 135)
-  final double endAngle;
+  /// Maximum angle in degrees (default 135)
+  final double maxAngle;
 
   /// Whether the knob springs back to center
   final bool autoCenter;
@@ -132,8 +132,6 @@ class _RKKnobState extends State<RKKnob> with SingleTickerProviderStateMixin {
     if (val != _lastEmittedValue) {
       _lastEmittedValue = val;
       _addToHistory(val);
-      // Use a microtask to avoid "setState() or markNeedsBuild() called during build" 
-      // if this is triggered during a widget update cycle.
       Future.microtask(() => widget.onChanged(val));
     }
   }
@@ -156,10 +154,9 @@ class _RKKnobState extends State<RKKnob> with SingleTickerProviderStateMixin {
   Widget build(BuildContext context) {
     final tokens = RKTheme.of(context);
     final normalized = (widget.value - widget.min) / (widget.max - widget.min);
-    final zeroPos = ((0.0 - widget.min) / (widget.max - widget.min)).clamp(0.0, 1.0);
     
-    final sweepRad = (widget.endAngle - widget.startAngle) * math.pi / 180;
-    final startRad = (-math.pi / 2) + (widget.startAngle * math.pi / 180);
+    final sweepRad = (widget.maxAngle - widget.minAngle) * math.pi / 180;
+    final startRad = (-math.pi / 2) + (widget.minAngle * math.pi / 180);
     final currentAngle = startRad + normalized * sweepRad;
 
     final double indicatorH = (widget.variant == RKKnobVariant.steeringWheel) ? widget.size * 0.2 : 0.0;
@@ -180,31 +177,35 @@ class _RKKnobState extends State<RKKnob> with SingleTickerProviderStateMixin {
               _centerController.stop();
               setState(() => _isInteracting = true);
               widget.onInteractionChanged?.call(true);
-              final RenderBox box = context.findRenderObject() as RenderBox;
-              final center = box.size.center(Offset.zero);
-              final localPos = box.globalToLocal(details.globalPosition);
-              _previousTouchAngle = math.atan2(localPos.dy - center.dy, localPos.dx - center.dx) * 180 / math.pi;
-              _currentAccumulatedRotation = (normalized - widget.center) * (widget.endAngle - widget.startAngle);
+              final radius = widget.size / 2;
+              final localPos = details.localPosition;
+              _previousTouchAngle = math.atan2(localPos.dy - radius, localPos.dx - radius) * 180 / math.pi;
+              _currentAccumulatedRotation = (normalized - widget.center) * (widget.maxAngle - widget.minAngle);
             },
             onPanUpdate: (details) {
               if (_previousTouchAngle == null) return;
-              final RenderBox box = context.findRenderObject() as RenderBox;
-              final center = box.size.center(Offset.zero);
-              final localPos = box.globalToLocal(details.globalPosition);
-              final currentTouchAngle = math.atan2(localPos.dy - center.dy, localPos.dx - center.dx) * 180 / math.pi;
+              final radius = widget.size / 2;
+              final localPos = details.localPosition;
+              final currentTouchAngle = math.atan2(localPos.dy - radius, localPos.dx - radius) * 180 / math.pi;
               double delta = currentTouchAngle - _previousTouchAngle!;
               if (delta > 180) delta -= 360;
               if (delta < -180) delta += 360;
+              if (delta.abs() < 1.5) return;
               _currentAccumulatedRotation += delta;
               _previousTouchAngle = currentTouchAngle;
-              final minRot = (0.0 - widget.center) * (widget.endAngle - widget.startAngle);
-              final maxRot = (1.0 - widget.center) * (widget.endAngle - widget.startAngle);
+              final minRot = (0.0 - widget.center) * (widget.maxAngle - widget.minAngle);
+              final maxRot = (1.0 - widget.center) * (widget.maxAngle - widget.minAngle);
               final targetRotation = _currentAccumulatedRotation.clamp(minRot, maxRot);
               final norm = (targetRotation - minRot) / (maxRot - minRot);
               double newVal = widget.min + norm * (widget.max - widget.min);
               if (widget.divisions != null && widget.divisions! > 0) {
                 final step = (widget.max - widget.min) / widget.divisions!;
                 newVal = ((newVal - widget.min) / step).round() * step + widget.min;
+              }
+              final prevVal = _lastEmittedValue;
+              if (prevVal != null) {
+                final deadband = (widget.max - widget.min) * 0.003;
+                if ((newVal - prevVal).abs() < deadband) return;
               }
               _emitValue(newVal);
             },
@@ -216,47 +217,53 @@ class _RKKnobState extends State<RKKnob> with SingleTickerProviderStateMixin {
             child: SizedBox(
               width: widget.size,
               height: widget.size,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  CustomPaint(
-                    size: Size(widget.size, widget.size),
-                    painter: widget.variant == RKKnobVariant.steeringWheel
-                        ? _SteeringWheelPainter(
-                            angle: currentAngle,
-                            tokens: tokens,
-                            normalized: normalized,
-                            startAngle: startRad,
-                            sweepAngle: sweepRad,
-                            centerPos: widget.center,
-                          )
-                        : _KnobPainter(
-                            angle: currentAngle,
-                            tokens: tokens,
-                            normalized: normalized,
-                            startAngle: startRad,
-                            sweepAngle: sweepRad,
-                            centerPos: widget.center,
-                          ),
-                  ),
-                  if (widget.variant == RKKnobVariant.steeringWheel)
-                    _SteeringWheelHub(angle: currentAngle, tokens: tokens, centerIcon: widget.centerIcon, knobSize: widget.size),
-                  if (widget.variant == RKKnobVariant.standard && widget.centerIcon != null)
-                    Transform.rotate(
-                      angle: currentAngle + math.pi / 2,
-                      child: Icon(widget.centerIcon, color: tokens.primary.withValues(alpha: 0.5), size: widget.size * 0.25),
-                    ),
-                ],
-              ),
+              child: _buildKnobStack(tokens, currentAngle, startRad, sweepRad, normalized),
             ),
           ),
           if (widget.variant == RKKnobVariant.steeringWheel) ...[
-            SizedBox(height: widget.size * 0.14),
-            _RKKnobIndicator(normalized: normalized, tokens: tokens, knobSize: widget.size),
+            SizedBox(height: widget.size * 0.08),
+            // Scaled from 0.7 down to 0.5 to precisely lock its width to the wheel's rim
+            _RKKnobIndicator(normalized: normalized, tokens: tokens, knobSize: widget.size * 0.5),
           ],
         ],
       ),
     );
+  }
+
+  Widget _buildKnobStack(RKTokens tokens, double currentAngle, double startRad, double sweepRad, double normalized) {
+    final stackContent = Stack(
+      alignment: Alignment.center,
+      children: [
+        CustomPaint(
+          size: Size(widget.size, widget.size),
+          painter: widget.variant == RKKnobVariant.steeringWheel
+              ? _SteeringWheelPainter(tokens: tokens)
+              : _KnobPainter(
+                  angle: currentAngle,
+                  tokens: tokens,
+                  normalized: normalized,
+                  startAngle: startRad,
+                  sweepAngle: sweepRad,
+                  centerPos: widget.center,
+                ),
+        ),
+        if (widget.variant == RKKnobVariant.steeringWheel)
+          _SteeringWheelHub(tokens: tokens, centerIcon: widget.centerIcon, knobSize: widget.size),
+        if (widget.variant == RKKnobVariant.standard && widget.centerIcon != null)
+          Transform.rotate(
+            angle: currentAngle + math.pi / 2,
+            child: Icon(widget.centerIcon, color: tokens.primary.withValues(alpha: 0.5), size: widget.size * 0.25),
+          ),
+      ],
+    );
+
+    if (widget.variant == RKKnobVariant.steeringWheel) {
+      return Transform.rotate(
+        angle: currentAngle + math.pi / 2,
+        child: stackContent,
+      );
+    }
+    return stackContent;
   }
 }
 
@@ -346,20 +353,10 @@ class _KnobPainter extends CustomPainter {
 }
 
 class _SteeringWheelPainter extends CustomPainter {
-  final double angle;
   final RKTokens tokens;
-  final double normalized;
-  final double centerPos;
-  final double startAngle;
-  final double sweepAngle;
 
   const _SteeringWheelPainter({
-    required this.angle,
     required this.tokens,
-    required this.normalized,
-    required this.centerPos,
-    required this.startAngle,
-    required this.sweepAngle,
   });
 
   @override
@@ -369,6 +366,11 @@ class _SteeringWheelPainter extends CustomPainter {
     final center = Offset(w / 2, h / 2);
     final rect = Offset.zero & size;
 
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.scale(0.96);
+    canvas.translate(-center.dx, -center.dy);
+
     final rimDark = Color.lerp(Colors.black, tokens.surface, 0.4)!;
     final rimMid = tokens.surface;
     final rimLight = tokens.primary;
@@ -376,11 +378,6 @@ class _SteeringWheelPainter extends CustomPainter {
     final spoke = tokens.surface;
     final hubDark = Color.lerp(Colors.black, tokens.surface, 0.5)!;
     final hubMid = tokens.surface;
-
-    canvas.save();
-    canvas.translate(center.dx, center.dy);
-    canvas.rotate(angle + math.pi / 2);
-    canvas.translate(-center.dx, -center.dy);
 
     final fillPaint = Paint()..isAntiAlias = true;
     final strokePaint = Paint()
@@ -394,21 +391,9 @@ class _SteeringWheelPainter extends CustomPainter {
     ).createShader(rect);
 
     final outerRim = Path()
-      ..moveTo(w / 2, h)
-      ..cubicTo(w * 0.37, h, w * 0.24, h * 0.95, w * 0.15, h * 0.85)
-      ..cubicTo(w * 0.05, h * 0.76, 0, h * 0.63, 0, h / 2)
-      ..cubicTo(0, h * 0.37, w * 0.05, h * 0.24, w * 0.15, h * 0.15)
-      ..cubicTo(w * 0.24, h * 0.05, w * 0.37, 0, w / 2, 0)
-      ..cubicTo(w * 0.63, 0, w * 0.76, h * 0.05, w * 0.85, h * 0.15)
-      ..cubicTo(w * 0.95, h * 0.24, w, h * 0.37, w, h / 2)
-      ..cubicTo(w, h * 0.63, w * 0.95, h * 0.76, w * 0.85, h * 0.85)
-      ..cubicTo(w * 0.76, h * 0.95, w * 0.63, h, w / 2, h)
-      ..lineTo(w / 2, h * 0.1)
-      ..cubicTo(w * 0.28, h * 0.1, w * 0.1, h * 0.28, w * 0.1, h / 2)
-      ..cubicTo(w * 0.1, h * 0.72, w * 0.28, h * 0.9, w / 2, h * 0.9)
-      ..cubicTo(w * 0.72, h * 0.9, w * 0.9, h * 0.72, w * 0.9, h / 2)
-      ..cubicTo(w * 0.9, h * 0.28, w * 0.72, h * 0.1, w / 2, h * 0.1)
-      ..close();
+      ..fillType = PathFillType.evenOdd
+      ..addOval(Rect.fromCircle(center: center, radius: w / 2))
+      ..addOval(Rect.fromCircle(center: center, radius: w * 0.4));
     canvas.drawPath(outerRim, fillPaint);
 
     strokePaint
@@ -547,20 +532,15 @@ class _SteeringWheelPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_SteeringWheelPainter old) =>
-      old.angle != angle ||
-      old.centerPos != centerPos ||
-      old.normalized != normalized;
+  bool shouldRepaint(_SteeringWheelPainter old) => false;
 }
 
 class _SteeringWheelHub extends StatelessWidget {
-  final double angle;
   final RKTokens tokens;
   final IconData? centerIcon;
   final double knobSize;
   
   const _SteeringWheelHub({
-    required this.angle, 
     required this.tokens,
     this.centerIcon,
     required this.knobSize,
@@ -570,40 +550,37 @@ class _SteeringWheelHub extends StatelessWidget {
   Widget build(BuildContext context) {
     final hubSize = knobSize * 0.4;
     final iconSize = knobSize * 0.18;
-    return Transform.rotate(
-      angle: angle + math.pi / 2,
-      child: Container(
-        width: hubSize,
-        height: hubSize,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              tokens.surface,
-              Color.lerp(Colors.black, tokens.surface, 0.5)!,
-            ],
-          ),
-          border: Border.all(
-            color: tokens.primary.withValues(alpha: 0.55),
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.6),
-              blurRadius: hubSize * 0.16,
-              offset: Offset(0, hubSize * 0.065),
-            ),
+    return Container(
+      width: hubSize,
+      height: hubSize,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            tokens.surface,
+            Color.lerp(Colors.black, tokens.surface, 0.5)!,
           ],
         ),
-        child: Center(
-          child: centerIcon != null ? Icon(
-            centerIcon,
-            color: tokens.primary,
-            size: iconSize,
-          ) : null,
+        border: Border.all(
+          color: tokens.primary.withValues(alpha: 0.55),
+          width: 1.5,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.6),
+            blurRadius: hubSize * 0.16,
+            offset: Offset.zero,
+          ),
+        ],
+      ),
+      child: Center(
+        child: centerIcon != null ? Icon(
+          centerIcon,
+          color: tokens.primary,
+          size: iconSize,
+        ) : null,
       ),
     );
   }
@@ -663,29 +640,38 @@ class _GlowDot extends StatelessWidget {
   Widget build(BuildContext context) {
     final dimColor = Colors.white.withValues(alpha: 0.08);
     final baseSize = knobSize * 0.036;
+    
     final scale = 1.0 + (1.5 * intensity);
-    final size = baseSize * scale;
+    final currentSize = baseSize * scale;
+    
+    final double absoluteMaxSize = baseSize * 2.5;
 
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Color.lerp(dimColor, Colors.white, intensity),
-        boxShadow: [
-          if (intensity > 0.1)
-            BoxShadow(
-              color: color.withValues(alpha: intensity * 0.3),
-              blurRadius: knobSize * 0.04 * intensity,
-              spreadRadius: knobSize * 0.005 * intensity,
-            ),
-          if (intensity > 0.6)
-            BoxShadow(
-              color: color.withValues(alpha: (intensity - 0.6) * 0.6),
-              blurRadius: knobSize * 0.08 * intensity,
-              spreadRadius: knobSize * 0.012 * intensity,
-            ),
-        ],
+    return SizedBox(
+      width: absoluteMaxSize,
+      height: absoluteMaxSize,
+      child: Center(
+        child: Container(
+          width: currentSize,
+          height: currentSize,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Color.lerp(dimColor, Colors.white, intensity),
+            boxShadow: [
+              if (intensity > 0.1)
+                BoxShadow(
+                  color: color.withValues(alpha: intensity * 0.3),
+                  blurRadius: knobSize * 0.04 * intensity,
+                  spreadRadius: knobSize * 0.005 * intensity,
+                ),
+              if (intensity > 0.6)
+                BoxShadow(
+                  color: color.withValues(alpha: (intensity - 0.6) * 0.6),
+                  blurRadius: knobSize * 0.08 * intensity,
+                  spreadRadius: knobSize * 0.012 * intensity,
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

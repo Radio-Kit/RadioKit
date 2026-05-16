@@ -147,6 +147,25 @@ class WidgetAdapter {
 
     final isGasPedal = variantIsAlternateShape(config.variant);
 
+    if (isGasPedal) {
+      return RKGasPedal(
+        key: ValueKey('sl_${config.widgetId}'),
+        value: normalized,
+        min: 0.0,
+        max: 1.0,
+        orientation: orientation,
+        length: length,
+        autoCenter: autoCenter,
+        center: centerPos,
+        divisions: detents > 1 ? detents : null,
+        onChanged: (v) {
+          int intVal = ((v * 200) - 100).round().clamp(-100, 100);
+          if (detents > 1) intVal = snapToDetents(intVal, detents);
+          onInputChanged([intVal]);
+        },
+      );
+    }
+
     return RKSlider(
       key: ValueKey('sl_${config.widgetId}'),
       value: normalized,
@@ -157,9 +176,7 @@ class WidgetAdapter {
       autoCenter: autoCenter,
       center: centerPos,
       divisions: detents > 1 ? detents : null,
-      type: isGasPedal ? RKSliderType.gasPedal : RKSliderType.linear,
       onChanged: (v) {
-        // Normalized 0.0..1.0 → protocol -100..100
         int intVal = ((v * 200) - 100).round().clamp(-100, 100);
         if (detents > 1) intVal = snapToDetents(intVal, detents);
         onInputChanged([intVal]);
@@ -203,8 +220,8 @@ class WidgetAdapter {
       variant: knobVariant,
       autoCenter: autoCenter,
       center: centerPos,
-      startAngle: config.startAngle,
-      endAngle: config.endAngle,
+      minAngle: config.minAngle,
+      maxAngle: config.maxAngle,
       divisions: detents > 1 ? detents : null,
       onChanged: (v) {
         int intVal = ((v * 200) - 100).round().clamp(-100, 100);

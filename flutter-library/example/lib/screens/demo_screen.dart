@@ -65,8 +65,8 @@ class _DemoScreenState extends State<DemoScreen> {
   String _knobCenterPos = 'center';
   String _knobSpringBehavior = 'smooth';
   double _knobSpringDuration = 500;
-  double _knobStartAngle = -135.0;
-  double _knobEndAngle = 135.0;
+  double _knobMinAngle = -135.0;
+  double _knobMaxAngle = 135.0;
   double _knobMin = -100.0;
   double _knobMax = 100.0;
   double _knobResolution = 1.0;
@@ -275,8 +275,8 @@ class _DemoScreenState extends State<DemoScreen> {
               : widget.selectedIndex == 4
                 ? _knobResolution
                 : _sliderResolution,
-            startAngle: _knobStartAngle,
-            endAngle: _knobEndAngle,
+            minAngle: _knobMinAngle,
+            maxAngle: _knobMaxAngle,
             minValue: widget.selectedIndex == 4 ? _knobMin : _sliderMin,
             maxValue: widget.selectedIndex == 4 ? _knobMax : _sliderMax,
             
@@ -296,8 +296,8 @@ class _DemoScreenState extends State<DemoScreen> {
               else if (widget.selectedIndex == 4) _knobResolution = v;
               else _sliderResolution = v;
             }),
-            onStartAngleChanged: (v) => setState(() => _knobStartAngle = v),
-            onEndAngleChanged: (v) => setState(() => _knobEndAngle = v),
+            onMinAngleChanged: (v) => setState(() => _knobMinAngle = v),
+            onMaxAngleChanged: (v) => setState(() => _knobMaxAngle = v),
             onMinValueChanged: (v) => setState(() {
               if (widget.selectedIndex == 4) _knobMin = v;
               else _sliderMin = v;
@@ -682,7 +682,7 @@ class _DemoScreenState extends State<DemoScreen> {
                 
                 return DemoCard(
                   index: 1,
-                  title: 'INDUSTRIAL SLIDER',
+                  title: 'LINEAR SLIDER',
                   liveWidget: RKSlider(
                     value: value,
                     min: _sliderMin,
@@ -696,7 +696,6 @@ class _DemoScreenState extends State<DemoScreen> {
                     onInteractionChanged: (active) => _sliderActive.value = active,
                     orientation: isVertical ? RKAxis.vertical : RKAxis.horizontal,
                     length: isVertical ? 240 : 280,
-                    type: RKSliderType.linear,
                     rotation: _rotation * math.pi / 180,
                     label: _widgetLabel,
                   ),
@@ -747,7 +746,7 @@ class _DemoScreenState extends State<DemoScreen> {
                 return DemoCard(
                   index: 2,
                   title: 'GAS PEDAL',
-                  liveWidget: RKSlider(
+                  liveWidget: RKGasPedal(
                     value: value,
                     min: _sliderMin,
                     max: _sliderMax,
@@ -760,7 +759,6 @@ class _DemoScreenState extends State<DemoScreen> {
                     onInteractionChanged: (active) => _pedalActive.value = active,
                     orientation: isVertical ? RKAxis.vertical : RKAxis.horizontal,
                     length: isVertical ? 240 : 280,
-                    type: RKSliderType.gasPedal,
                     rotation: _rotation * math.pi / 180,
                   ),
                   inputLabel: 'INPUT CONTROL',
@@ -823,8 +821,8 @@ class _DemoScreenState extends State<DemoScreen> {
                     value: value,
                     min: _knobMin,
                     max: _knobMax,
-                    startAngle: _knobStartAngle,
-                    endAngle: _knobEndAngle,
+                    minAngle: _knobMinAngle,
+                    maxAngle: _knobMaxAngle,
                     autoCenter: _knobAutoCenter,
                     center: _getKnobCenter(_knobCenterPos),
                     springCurve: _getCurve(_knobSpringBehavior),
@@ -872,7 +870,7 @@ class _DemoScreenState extends State<DemoScreen> {
                       ),
                       TelemetryRow(
                         label: 'ANGLE', 
-                        value: (value / (_knobMax - _knobMin) * (_knobEndAngle - _knobStartAngle)).toStringAsFixed(1) + '°'
+                        value: (value / (_knobMax - _knobMin) * (_knobMaxAngle - _knobMinAngle)).toStringAsFixed(1) + '°'
                       ),
                       const TelemetryRow(label: 'MODE', value: 'ABSOLUTE'),
                     ],
@@ -894,8 +892,8 @@ class _DemoScreenState extends State<DemoScreen> {
                     value: value,
                     min: _knobMin,
                     max: _knobMax,
-                    startAngle: _knobStartAngle,
-                    endAngle: _knobEndAngle,
+                    minAngle: _knobMinAngle,
+                    maxAngle: _knobMaxAngle,
                     autoCenter: _knobAutoCenter,
                     center: _getKnobCenter(_knobCenterPos),
                     springCurve: _getCurve(_knobSpringBehavior),
@@ -942,7 +940,7 @@ class _DemoScreenState extends State<DemoScreen> {
                       ),
                       TelemetryRow(
                         label: 'ANGLE', 
-                        value: (value / (_knobMax - _knobMin) * (_knobEndAngle - _knobStartAngle)).toStringAsFixed(1) + '°'
+                        value: (value / (_knobMax - _knobMin) * (_knobMaxAngle - _knobMinAngle)).toStringAsFixed(1) + '°'
                       ),
                       const TelemetryRow(label: 'MODE', value: 'ABSOLUTE'),
                     ],

@@ -88,10 +88,10 @@ class WidgetConfig {
   final String content;
   
   /// Minimum sweep angle (present if kStrMaskExtra is set for Knob).
-  final double startAngle;
+  final double minAngle;
 
   /// Maximum sweep angle (present if kStrMaskExtra is set for Knob).
-  final double endAngle;
+  final double maxAngle;
 
   /// Rotation as stored on the wire (int16, degrees ÷ 2).
   /// Multiply by 2 to get display degrees.
@@ -163,8 +163,8 @@ class WidgetConfig {
     this.offText = '',
     this.content = '',
     this.rotation = 0,
-    this.startAngle = -135,
-    this.endAngle = 135,
+    this.minAngle = -135,
+    this.maxAngle = 135,
   });
 
   WidgetConfig copyWith({
@@ -183,8 +183,8 @@ class WidgetConfig {
     String? offText,
     String? content,
     int? rotation,
-    double? startAngle,
-    double? endAngle,
+    double? minAngle,
+    double? maxAngle,
   }) {
     return WidgetConfig(
       typeId:   typeId   ?? this.typeId,
@@ -202,8 +202,8 @@ class WidgetConfig {
       offText:  offText  ?? this.offText,
       content:  content  ?? this.content,
       rotation: rotation ?? this.rotation,
-      startAngle: startAngle ?? this.startAngle,
-      endAngle: endAngle ?? this.endAngle,
+      minAngle: minAngle ?? this.minAngle,
+      maxAngle: maxAngle ?? this.maxAngle,
     );
   }
 
