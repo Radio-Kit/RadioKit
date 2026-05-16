@@ -17,14 +17,13 @@
 // ── Widget declarations ──────────────────────────────────────────────
 
 // 1. Gas Pedal on the left. Springs to -100 (idle) on release.
-RK_Slider gasPedal({ .label = "Gas Pedal",
-                     .x = 15,
-                     .y = 60,
-                     .rotation = -90,  // Vertical orientation
-                     .scale = 1.2f,
-                     .aspect = 3.0f,  // Taller slider
-                     .centering = RK_CENTER_LEFT,
-                     .value = -100 });
+RK_GasPedal gasPedal({ .label = "Gas Pedal",
+                       .x = 15,
+                       .y = 60,
+                       .rotation = -90,  // Vertical orientation
+                       .scale = 1.2f,
+                       .aspect = 3.0f,  // Taller slider
+                       .value = -100 });
 
 // 2. Steering Wheel on the right. Springs to 0 (center) on release.
 RK_Knob steeringWheel({ .label = "Steering",
@@ -33,6 +32,7 @@ RK_Knob steeringWheel({ .label = "Steering",
                         .scale = 1.5f,
                         .centering = RK_CENTER,
                         .value = 0,
+                        .variant = 0x80 | RK_CENTER, // RK_SHAPE_ALT | RK_CENTER
                         .startAngle = -150,
                         .endAngle = 150 });
 

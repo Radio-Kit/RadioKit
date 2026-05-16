@@ -102,15 +102,18 @@ const int kVarUpdateMaxRetries = 5;
 
 // ── Self-centering modes (Slider / Knob variant bits [1:0]) ────────────────────
 const int kCenterNone  = 0; ///< No spring return
-const int kCenterLeft  = 1; ///< Springs to −100
+const int kCenterMin   = 1; ///< Springs to −100
 const int kCenterMid   = 2; ///< Springs to 0
-const int kCenterRight = 3; ///< Springs to +100
+const int kCenterMax   = 3; ///< Springs to +100
 
 /// Extract centering mode from variant byte (bits [1:0]).
 int variantCentering(int variant) => variant & 0x03;
 
-/// Extract detent count from variant byte (bits [7:2]).
-int variantDetents(int variant) => (variant >> 2) & 0x3F;
+/// Extract detent count from variant byte (bits [6:2]).
+int variantDetents(int variant) => (variant >> 2) & 0x1F;
+
+/// Extract alternate visual shape from variant byte (bit 7).
+bool variantIsAlternateShape(int variant) => (variant & 0x80) != 0;
 
 /// Snap a signed value (-100..100) to the nearest detent position.
 /// Returns [val] unchanged when [detents] <= 1.
@@ -160,33 +163,33 @@ String widgetVariantName(int typeId, int variant) {
       return variant == 1 ? 'Toggle' : '';
     case kWidgetMultiple:
       return variant == 1 ? 'Bitmask' : 'Index';
-    case kWidgetKnob:
-      if (variant == 1) return 'Steering';
-      break;
-    case kWidgetJoystick:
-      // Joysticks often use the centering variants directly
-      break;
   }
 
   // Common logic for centering/detents (Slider, Knob, Joystick)
   if (typeId == kWidgetSlider || typeId == kWidgetKnob || typeId == kWidgetJoystick) {
     final center = variantCentering(variant);
     final detents = variantDetents(variant);
+    final isAlt = variantIsAlternateShape(variant);
     
-    if (center == kCenterNone && detents <= 1) {
-      // If it's a Knob and we reached here, and variant was 1, it already returned 'Steering'.
-      // If variant was 0, it should return ''.
-      return variant == 0 ? '' : 'V:$variant';
+    final parts = <String>[];
+    
+    if (isAlt) {
+      if (typeId == kWidgetSlider) parts.add('GasPedal');
+      else if (typeId == kWidgetKnob) parts.add('Steering');
+      else parts.add('Alt');
     }
 
-    final parts = <String>[];
     if (center != kCenterNone) {
-      if (center == kCenterLeft) parts.add('Left');
+      if (center == kCenterMin) parts.add('Min');
       else if (center == kCenterMid) parts.add('Mid');
-      else if (center == kCenterRight) parts.add('Right');
+      else if (center == kCenterMax) parts.add('Max');
     }
     if (detents > 1) {
       parts.add('D$detents');
+    }
+    
+    if (parts.isEmpty) {
+      return variant == 0 ? '' : 'V:$variant';
     }
     return parts.join('+');
   }

@@ -138,13 +138,13 @@ Each widget's data is encoded according to its type:
 | 1     | PushButton      | 1 byte                                  | Current state (0/1)             |
 | 2     | ToggleButton    | 1 byte                                  | Current state (0/1)             |
 | 3     | SlideSwitch     | 1 byte                                  | Current state (0/1)             |
-| 4     | Slider          | 1 byte                                  | Value (-100 to +100, offset 128)|
-| 5     | Knob            | 1 byte                                  | Value (-100 to +100, offset 128)|
-| 6     | Joystick        | 2 bytes                                 | X, Y values (each offset 128)   |
-| 7     | LED             | 4 bytes                                 | State (1), R, G, B              |
+| 4     | Slider          | 1 byte                                  | Value (Signed int8, -100 to +100)|
+| 5     | Knob            | 1 byte                                  | Value (Signed int8, -100 to +100)|
+| 6     | Joystick        | 2 bytes                                 | X, Y values (Signed int8, -100 to +100)|
+| 7     | LED             | 5 bytes                                 | State (1), R, G, B, Opacity     |
 | 8     | Text            | 32 bytes                                | UTF-8 string (null-padded)      |
-| 9     | MultipleButton  | 1 byte                                  | Bitmask of selected items       |
-| 10    | MultipleSelect  | 1 byte                                  | Bitmask of selected items       |
+| 9     | MultipleButton  | 1 byte                                  | Selected item(s) (Index or Bitmask)|
+| 10    | MultipleSelect  | 1 byte                                  | Selected item(s) (Index or Bitmask)|
 
 ### SET_INPUT (Arduino → App)
 

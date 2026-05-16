@@ -135,15 +135,17 @@ class WidgetAdapter {
 
     // Determine center position (normalized)
     double centerPos = 0.5;
-    if (centerMode == kCenterLeft) centerPos = 0.0;
+    if (centerMode == kCenterMin) centerPos = 0.0;
     else if (centerMode == kCenterMid) centerPos = 0.5;
-    else if (centerMode == kCenterRight) centerPos = 1.0;
+    else if (centerMode == kCenterMax) centerPos = 1.0;
 
     // Determine orientation from aspect ratio
     final orientation = config.w > config.h ? RKAxis.horizontal : RKAxis.vertical;
 
     // Determine length from the longer dimension
     final length = (orientation == RKAxis.horizontal ? config.w : config.h) * scale;
+
+    final isGasPedal = variantIsAlternateShape(config.variant);
 
     return RKSlider(
       key: ValueKey('sl_${config.widgetId}'),
@@ -155,6 +157,7 @@ class WidgetAdapter {
       autoCenter: autoCenter,
       center: centerPos,
       divisions: detents > 1 ? detents : null,
+      type: isGasPedal ? RKSliderType.gasPedal : RKSliderType.linear,
       onChanged: (v) {
         // Normalized 0.0..1.0 → protocol -100..100
         int intVal = ((v * 200) - 100).round().clamp(-100, 100);
@@ -182,12 +185,14 @@ class WidgetAdapter {
     final autoCenter = centerMode != kCenterNone;
 
     double centerPos = 0.5;
-    if (centerMode == kCenterLeft) centerPos = 0.0;
+    if (centerMode == kCenterMin) centerPos = 0.0;
     else if (centerMode == kCenterMid) centerPos = 0.5;
-    else if (centerMode == kCenterRight) centerPos = 1.0;
+    else if (centerMode == kCenterMax) centerPos = 1.0;
 
     final size = config.h * scale;
-    final knobVariant = config.variant == 1 ? RKKnobVariant.steeringWheel : RKKnobVariant.standard;
+    final knobVariant = variantIsAlternateShape(config.variant)
+        ? RKKnobVariant.steeringWheel
+        : RKKnobVariant.standard;
 
     return RKKnob(
       key: ValueKey('kn_${config.widgetId}'),
@@ -288,14 +293,10 @@ class WidgetAdapter {
   ) {
     final value = state?.outputValues[config.widgetId] ?? '';
     final text = value.toString();
-    final w = config.w * scale;
-    final h = config.h * scale;
 
     return RKDisplay(
       key: ValueKey('txt_${config.widgetId}'),
       text: text.isEmpty ? '—' : text,
-      width: w,
-      height: h,
     );
   }
 

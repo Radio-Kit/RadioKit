@@ -3,12 +3,16 @@
  * RK_Slider — linear analog control (-100 to +100).
  *
  * variant byte: RK_VARIANT(centering, detents)
- *   bits[1:0] = centering  (RK_CENTER_NONE / LEFT / CENTER / RIGHT)
- *   bits[7:2] = detents    (0 = continuous, 1-63 = snap positions)
+ *   bits[1:0] = centering  (RK_CENTER_NONE / CENTER / MIN / MAX)
+ *   bits[6:2] = detents    (0 = continuous, 1-31 = snap positions)
+ *   bit 7     = alt shape  (1 = GasPedal/Steering)
  */
 
 #ifndef RADIOKIT_WIDGET_SLIDER_H
 #define RADIOKIT_WIDGET_SLIDER_H
+
+#define RK_SHAPE_STANDARD 0x00
+#define RK_SHAPE_ALT      0x80
 
 #include "Widget.h"
 
@@ -48,11 +52,15 @@ protected:
 
 // ── GasPedal ──────────────────────────────────────────────────────────────
 class RK_GasPedal : public RK_Slider {
+private:
+    static RK_SliderProps _modify(RK_SliderProps p) {
+        p.variant = RK_SHAPE_ALT | RK_SPRING_CENTER; // GasPedal: springs to 0 (~IDLE)
+        p.centering = RK_SPRING_CENTER;
+        return p;
+    }
 public:
-    RK_GasPedal(RK_SliderProps p) : RK_Slider(p) {
+    RK_GasPedal(RK_SliderProps p) : RK_Slider(_modify(p)) {
         typeId = RK_TYPE_SLIDER;
-        props.variant = 1; // Gas Pedal variant
-        props.centering = RK_SPRING_LEFT;
     }
 };
 

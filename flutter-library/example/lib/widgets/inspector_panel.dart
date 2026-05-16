@@ -43,8 +43,6 @@ class InspectorPanel extends StatelessWidget {
     this.onOrientationChanged,
     this.fontFamily,
     this.onFontFamilyChanged,
-    this.textColor,
-    this.onTextColorChanged,
 
     this.multiItems,
     this.onMultiItemChanged,
@@ -100,8 +98,6 @@ class InspectorPanel extends StatelessWidget {
   final ValueChanged<String>? onOrientationChanged;
   final String? fontFamily;
   final ValueChanged<String>? onFontFamilyChanged;
-  final Color? textColor;
-  final ValueChanged<Color>? onTextColorChanged;
 
   final List<RKToggleItem>? multiItems;
   final void Function(int, RKToggleItem)? onMultiItemChanged;
@@ -296,19 +292,16 @@ class InspectorPanel extends StatelessWidget {
                         : null,
                   ),
                 ],
-                
-
-                if (isSlider || isMultiple || selectedIndex == 6) ...[
+                if (isSlider) ...[
                   const SizedBox(height: 16),
                   _buildOptionSelector(
                     tokens,
                     'Orientation',
                     ['horizontal', 'vertical'],
-                    orientation ?? (isSlider ? 'vertical' : 'horizontal'),
+                    orientation ?? 'vertical',
                     onOrientationChanged ?? (_) {},
                   ),
                 ],
-
 
 
                 // ─── CONTENT ───
@@ -323,6 +316,14 @@ class InspectorPanel extends StatelessWidget {
                       ['1', '2', '3', '4', '5', '6', '7', '8'],
                       (multiItemCount ?? 4).toString(),
                       (v) => onMultiItemCountChanged?.call(int.parse(v)),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildOptionSelector(
+                      tokens,
+                      'Orientation',
+                      ['horizontal', 'vertical'],
+                      orientation ?? 'horizontal',
+                      onOrientationChanged ?? (_) {},
                     ),
                     const SizedBox(height: 24),
                     _buildMultiItemEditor(context, tokens),
@@ -349,14 +350,6 @@ class InspectorPanel extends StatelessWidget {
                       ['monospace', 'serif', 'sans-serif', 'Inter', 'Roboto', 'Outfit', 'Lexend'],
                       fontFamily ?? 'monospace',
                       onFontFamilyChanged ?? (_) {},
-                    ),
-                    const SizedBox(height: 16),
-                    _buildColorSelector(
-                      context,
-                      tokens,
-                      'Text Color',
-                      textColor ?? tokens.primary,
-                      onTextColorChanged ?? (_) {},
                     ),
                   ] else if (isKnob) ...[
                     _buildIconSelector(context, tokens, 'Center Icon', iconOn, onIconOnChanged ?? (_) {}),
@@ -410,9 +403,9 @@ class InspectorPanel extends StatelessWidget {
                       tokens,
                       'CENTER POSITION',
                       isSlider
-                          ? ['left', 'right', 'center']
+                          ? ['min', 'max', 'center']
                           : isKnob
-                              ? ['left', 'right', 'center']
+                              ? ['min', 'max', 'center']
                               : ['left', 'right', 'top', 'bottom', 'center'],
                       centerPosition ?? 'center',
                       onCenterPositionChanged ?? (_) {},

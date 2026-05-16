@@ -17,7 +17,6 @@ class RKButton extends StatefulWidget {
     this.onIcon,
     this.offIcon,
     this.size = 100.0,
-    this.activeColor,
     this.enableHapticFeedback = true,
     this.onInteractionChanged,
     this.rotation = 0.0,
@@ -31,7 +30,6 @@ class RKButton extends StatefulWidget {
   final IconData? onIcon;
   final IconData? offIcon;
   final double size;
-  final Color? activeColor;
   final bool enableHapticFeedback;
   final ValueChanged<bool>? onInteractionChanged;
   final double rotation;
@@ -65,7 +63,7 @@ class _RKButtonState extends State<RKButton> with SingleTickerProviderStateMixin
   @override
   Widget build(BuildContext context) {
     final tokens = RKTheme.of(context);
-    final activeColor = widget.activeColor ?? tokens.primary;
+    final activeColor = tokens.primary;
 
     return RKRotatedWrapper(
       rotation: widget.rotation,

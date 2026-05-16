@@ -98,13 +98,13 @@
 // ─────────────────────────────────────────────
 #define RK_SPRING_NONE   0  ///< No spring return (stays where released)
 #define RK_SPRING_CENTER 1  ///< Springs to 0 (centre) on release
-#define RK_SPRING_LEFT   2  ///< Springs to -100 on release (Horizontal)
-#define RK_SPRING_RIGHT  3  ///< Springs to +100 on release (Horizontal)
+#define RK_SPRING_MIN    2  ///< Springs to -100 on release (Horizontal)
+#define RK_SPRING_MAX    3  ///< Springs to +100 on release (Horizontal)
 #define RK_SPRING_TOP    4  ///< Springs to -100 on release (Vertical)
 #define RK_SPRING_BOTTOM 5  ///< Springs to +100 on release (Vertical)
 
 /// Pack centering mode and detent count into a single variant byte.
-/// @param centering  RK_CENTER_NONE / LEFT / CENTER / RIGHT  (bits [1:0])
+/// @param centering  RK_CENTER_NONE / CENTER / MIN / MAX  (bits [1:0])
 /// @param detents    0 = continuous; 1–63 = snap positions  (bits [7:2])
 #define RK_VARIANT(centering, detents) \
     ((uint8_t)(((detents) << 2) | ((centering) & 0x03)))

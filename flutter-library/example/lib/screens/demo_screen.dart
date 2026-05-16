@@ -45,17 +45,14 @@ class _DemoScreenState extends State<DemoScreen> {
 
   // ─── Slider live state ───
   bool _sliderAutoCenter = true;
-  String _sliderCenterPos = 'left';
+  String _sliderCenterPos = 'min';
   String _sliderSpringBehavior = 'smooth';
   double _sliderSpringDuration = 300;
   double _sliderMin = 0.0;
   double _sliderMax = 100.0;
   double _sliderResolution = 1.0;
   String _sliderOrientation = 'vertical';
-  String _buttonOrientation = 'horizontal';
-  String _rockerOrientation = 'vertical';
   String _multiOrientation = 'horizontal';
-  String _displayOrientation = 'horizontal';
 
   // ─── Switch live state ───
   String _switchOnText = 'ON';
@@ -79,7 +76,6 @@ class _DemoScreenState extends State<DemoScreen> {
 
   // ─── Display live state ───
   String _displayFont = 'monospace';
-  Color? _displayColor;
   final List<String> _serialMessages = ['> SYS: Booting...', '> SYS: Online'];
   final _displayText = ValueNotifier<String>('RADIOKIT');
   final _serialInput = ValueNotifier<String>('');
@@ -322,17 +318,12 @@ class _DemoScreenState extends State<DemoScreen> {
               else if (widget.selectedIndex == 4) _knobSpringDuration = v;
               else _sliderSpringDuration = v;
             }),
+
             orientation: widget.selectedIndex == 3 ? _sliderOrientation :
-                        widget.selectedIndex == 0 ? _buttonOrientation :
-                        widget.selectedIndex == 1 ? _multiOrientation :
-                        widget.selectedIndex == 2 ? _rockerOrientation :
-                        widget.selectedIndex == 6 ? _displayOrientation : null,
+                        widget.selectedIndex == 1 ? _multiOrientation : null,
             onOrientationChanged: (v) => setState(() {
               if (widget.selectedIndex == 3) _sliderOrientation = v;
-              else if (widget.selectedIndex == 0) _buttonOrientation = v;
               else if (widget.selectedIndex == 1) _multiOrientation = v;
-              else if (widget.selectedIndex == 2) _rockerOrientation = v;
-              else if (widget.selectedIndex == 6) _displayOrientation = v;
             }),
 
             // Switch Content
@@ -348,8 +339,6 @@ class _DemoScreenState extends State<DemoScreen> {
             onHapticsChanged: (v) => setState(() => _hapticsEnabled = v),
             fontFamily: _displayFont,
             onFontFamilyChanged: (v) => setState(() => _displayFont = v),
-            textColor: _displayColor,
-            onTextColorChanged: (v) => setState(() => _displayColor = v),
 
             
             // Multiple config
@@ -388,9 +377,9 @@ class _DemoScreenState extends State<DemoScreen> {
 
   double _getKnobCenter(String pos) {
     switch (pos) {
-      case 'left': return 0.0;
-      case 'right': return 1.0;
-      default: return 0.5;
+      case 'min':   return 0.0;
+      case 'max':   return 1.0;
+      default:      return 0.5;
     }
   }
 
@@ -482,7 +471,6 @@ class _DemoScreenState extends State<DemoScreen> {
                     onChanged: (v) => _toggleState.value = v,
                     onInteractionChanged: (v) => _toggleActive.value = v,
                     enableHapticFeedback: _hapticsEnabled,
-                    activeColor: tokens.primary,
                     rotation: _rotation * math.pi / 180,
                     label: _widgetLabel,
                   ),
@@ -649,8 +637,8 @@ class _DemoScreenState extends State<DemoScreen> {
                     onInteractionChanged: (active) => _rockerActive.value = active,
                     width: 72,
                     height: 120,
-                    onIcon: _switchOnIcon != null ? Icon(_switchOnIcon, size: 28, color: Colors.white) : null,
-                    offIcon: _switchOffIcon != null ? Icon(_switchOffIcon, size: 24, color: Colors.white.withValues(alpha: 0.5)) : null,
+                    onIcon: _switchOnIcon,
+                    offIcon: _switchOffIcon,
                     enableHapticFeedback: _hapticsEnabled,
                     label: _widgetLabel,
                     rotation: _rotation * math.pi / 180,
@@ -742,7 +730,6 @@ class _DemoScreenState extends State<DemoScreen> {
                         label: 'RAW', 
                         value: ((value - _sliderMin) / (_sliderMax - _sliderMin) * 2 - 1).toStringAsFixed(3)
                       ),
-                      TelemetryRow(label: 'AXIS', value: _sliderOrientation.toUpperCase()),
                     ],
                   ),
                 );
@@ -806,7 +793,6 @@ class _DemoScreenState extends State<DemoScreen> {
                         label: 'RAW', 
                         value: ((value - _sliderMin) / (_sliderMax - _sliderMin) * 2 - 1).toStringAsFixed(3)
                       ),
-                      TelemetryRow(label: 'AXIS', value: _sliderOrientation.toUpperCase()),
                     ],
                   ),
                 );
@@ -848,7 +834,6 @@ class _DemoScreenState extends State<DemoScreen> {
                     onInteractionChanged: (active) => _knobActive.value = active,
                     size: 120,
                     variant: RKKnobVariant.standard,
-                    orientation: _knobOrientation == 'horizontal' ? RKAxis.horizontal : RKAxis.vertical,
                     label: _widgetLabel,
 
                     centerIcon: _switchOnIcon,
@@ -1081,8 +1066,6 @@ class _DemoScreenState extends State<DemoScreen> {
                   liveWidget: RKDisplay(
                     text: text,
                     fontFamily: _displayFont,
-                    textColor: _displayColor,
-                    orientation: _displayOrientation == 'vertical' ? RKAxis.vertical : RKAxis.horizontal,
                     onInteractionChanged: (active) => _displayActive.value = active,
                     rotation: _rotation * math.pi / 180,
                     label: _widgetLabel,
@@ -1117,7 +1100,6 @@ class _DemoScreenState extends State<DemoScreen> {
               liveWidget: RKSerialMonitor(
                 messages: _serialMessages,
                 fontFamily: _displayFont,
-                textColor: _displayColor,
                 onInteractionChanged: (active) => _serialActive.value = active,
                 rotation: _rotation * math.pi / 180,
                 label: _widgetLabel,

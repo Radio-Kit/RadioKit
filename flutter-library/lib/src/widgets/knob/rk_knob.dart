@@ -24,14 +24,12 @@ class RKKnob extends StatefulWidget {
     this.springCurve = Curves.easeOutCubic,
     this.springDuration = const Duration(milliseconds: 500),
     this.variant = RKKnobVariant.standard,
-    this.orientation = RKAxis.vertical,
     this.centerIcon,
     this.rotation = 0.0,
     this.label,
   });
 
   final IconData? centerIcon;
-  final RKAxis orientation;
   final RKKnobVariant variant;
   final double rotation;
   final String? label;
@@ -164,7 +162,7 @@ class _RKKnobState extends State<RKKnob> with SingleTickerProviderStateMixin {
     final startRad = (-math.pi / 2) + (widget.startAngle * math.pi / 180);
     final currentAngle = startRad + normalized * sweepRad;
 
-    final double indicatorH = (widget.variant == RKKnobVariant.steeringWheel) ? 20.0 : 0.0;
+    final double indicatorH = (widget.variant == RKKnobVariant.steeringWheel) ? widget.size * 0.2 : 0.0;
     final double contentH = widget.size + indicatorH;
     final double contentW = widget.size;
 
@@ -242,7 +240,7 @@ class _RKKnobState extends State<RKKnob> with SingleTickerProviderStateMixin {
                           ),
                   ),
                   if (widget.variant == RKKnobVariant.steeringWheel)
-                    _SteeringWheelHub(angle: currentAngle, tokens: tokens, centerIcon: widget.centerIcon),
+                    _SteeringWheelHub(angle: currentAngle, tokens: tokens, centerIcon: widget.centerIcon, knobSize: widget.size),
                   if (widget.variant == RKKnobVariant.standard && widget.centerIcon != null)
                     Transform.rotate(
                       angle: currentAngle + math.pi / 2,
@@ -253,8 +251,8 @@ class _RKKnobState extends State<RKKnob> with SingleTickerProviderStateMixin {
             ),
           ),
           if (widget.variant == RKKnobVariant.steeringWheel) ...[
-            const SizedBox(height: 14),
-            _RKKnobIndicator(normalized: normalized, tokens: tokens),
+            SizedBox(height: widget.size * 0.14),
+            _RKKnobIndicator(normalized: normalized, tokens: tokens, knobSize: widget.size),
           ],
         ],
       ),
@@ -559,20 +557,24 @@ class _SteeringWheelHub extends StatelessWidget {
   final double angle;
   final RKTokens tokens;
   final IconData? centerIcon;
+  final double knobSize;
   
   const _SteeringWheelHub({
     required this.angle, 
     required this.tokens,
     this.centerIcon,
+    required this.knobSize,
   });
 
   @override
   Widget build(BuildContext context) {
+    final hubSize = knobSize * 0.4;
+    final iconSize = knobSize * 0.18;
     return Transform.rotate(
       angle: angle + math.pi / 2,
       child: Container(
-        width: 62,
-        height: 62,
+        width: hubSize,
+        height: hubSize,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: LinearGradient(
@@ -590,8 +592,8 @@ class _SteeringWheelHub extends StatelessWidget {
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.6),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              blurRadius: hubSize * 0.16,
+              offset: Offset(0, hubSize * 0.065),
             ),
           ],
         ),
@@ -599,7 +601,7 @@ class _SteeringWheelHub extends StatelessWidget {
           child: centerIcon != null ? Icon(
             centerIcon,
             color: tokens.primary,
-            size: 28,
+            size: iconSize,
           ) : null,
         ),
       ),
@@ -611,15 +613,18 @@ class _RKKnobIndicator extends StatelessWidget {
   final double normalized;
   final RKTokens tokens;
   final int dotCount;
+  final double knobSize;
 
   const _RKKnobIndicator({
     required this.normalized,
     required this.tokens,
     this.dotCount = 11,
+    required this.knobSize,
   });
 
   @override
   Widget build(BuildContext context) {
+    final spacing = knobSize * 0.04;
     return Row(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
@@ -628,10 +633,11 @@ class _RKKnobIndicator extends StatelessWidget {
         final intensity = _getIntensity(progress, index);
         
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+          padding: EdgeInsets.symmetric(horizontal: spacing),
           child: _GlowDot(
             intensity: intensity,
             color: tokens.primary,
+            knobSize: knobSize,
           ),
         );
       }),
@@ -649,13 +655,16 @@ class _RKKnobIndicator extends StatelessWidget {
 class _GlowDot extends StatelessWidget {
   final double intensity;
   final Color color;
+  final double knobSize;
 
-  const _GlowDot({required this.intensity, required this.color});
+  const _GlowDot({required this.intensity, required this.color, required this.knobSize});
 
   @override
   Widget build(BuildContext context) {
     final dimColor = Colors.white.withValues(alpha: 0.08);
-    final size = 3.6 + (1.5 * intensity);
+    final baseSize = knobSize * 0.036;
+    final scale = 1.0 + (1.5 * intensity);
+    final size = baseSize * scale;
 
     return Container(
       width: size,
@@ -667,14 +676,14 @@ class _GlowDot extends StatelessWidget {
           if (intensity > 0.1)
             BoxShadow(
               color: color.withValues(alpha: intensity * 0.3),
-              blurRadius: 4.0 * intensity,
-              spreadRadius: 0.5 * intensity,
+              blurRadius: knobSize * 0.04 * intensity,
+              spreadRadius: knobSize * 0.005 * intensity,
             ),
           if (intensity > 0.6)
             BoxShadow(
               color: color.withValues(alpha: (intensity - 0.6) * 0.6),
-              blurRadius: 8.0 * intensity,
-              spreadRadius: 1.2 * intensity,
+              blurRadius: knobSize * 0.08 * intensity,
+              spreadRadius: knobSize * 0.012 * intensity,
             ),
         ],
       ),

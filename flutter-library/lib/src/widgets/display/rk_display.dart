@@ -12,8 +12,6 @@ class RKDisplay extends StatelessWidget {
     this.height = 40,
     this.fontSize = 14,
     this.fontFamily = 'monospace',
-    this.textColor,
-    this.orientation = RKAxis.horizontal,
     this.onInteractionChanged,
     this.rotation = 0.0,
     this.label,
@@ -24,8 +22,6 @@ class RKDisplay extends StatelessWidget {
   final double height;
   final double fontSize;
   final String fontFamily;
-  final Color? textColor;
-  final RKAxis orientation;
   final ValueChanged<bool>? onInteractionChanged;
   final double rotation;
   final String? label;
@@ -33,10 +29,9 @@ class RKDisplay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = RKTheme.of(context);
-    final isVertical = orientation == RKAxis.vertical;
 
     final baseStyle = TextStyle(
-      color: textColor ?? tokens.primary,
+      color: tokens.primary,
       fontSize: fontSize,
       fontFamily: fontFamily,
     );
@@ -56,48 +51,40 @@ class RKDisplay extends StatelessWidget {
       onPointerDown: (_) => onInteractionChanged?.call(true),
       onPointerUp: (_) => onInteractionChanged?.call(false),
       onPointerCancel: (_) => onInteractionChanged?.call(false),
-      child: Container(
-        width: width,
-        height: height,
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: tokens.surface,
-          borderRadius: BorderRadius.circular(tokens.borderRadius),
-          border: Border.all(color: tokens.trackColor, width: 1.5),
-        ),
-        child: Text(
-          text,
-          style: textStyle,
-          overflow: TextOverflow.ellipsis,
-        ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final w = constraints.maxWidth;
+          final h = constraints.maxHeight;
+          return Container(
+            width: w,
+            height: h,
+            alignment: Alignment.centerLeft,
+            padding: EdgeInsets.symmetric(
+              horizontal: w * 0.06,
+              vertical: h * 0.1,
+            ),
+            decoration: BoxDecoration(
+              color: tokens.surface,
+              borderRadius: BorderRadius.circular(tokens.borderRadius),
+              border: Border.all(color: tokens.trackColor, width: 1.5),
+            ),
+            child: Text(
+              text,
+              style: textStyle.copyWith(fontSize: fontSize * (h / 40).clamp(0.6, 1.5)),
+              overflow: TextOverflow.ellipsis,
+            ),
+          );
+        },
       ),
     );
-
-    Widget finalContent;
-    double finalWidth;
-    double finalHeight;
-
-    if (isVertical) {
-      finalContent = RotatedBox(
-        quarterTurns: 1,
-        child: content,
-      );
-      finalWidth = height;
-      finalHeight = width;
-    } else {
-      finalContent = content;
-      finalWidth = width;
-      finalHeight = height;
-    }
 
     return RKRotatedWrapper(
       rotation: rotation,
       label: label,
-      contentWidth: finalWidth,
-      contentHeight: finalHeight,
+      contentWidth: width,
+      contentHeight: height,
       labelColor: tokens.primary.withValues(alpha: 0.7),
-      child: finalContent,
+      child: content,
     );
   }
 }

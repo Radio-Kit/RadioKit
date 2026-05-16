@@ -212,11 +212,10 @@ class DeviceProvider extends ChangeNotifier {
     } 
     else if (demoId == 'RC_CONTROLLER') {
       _widgets = [
-        const WidgetConfig(typeId: kWidgetSlider,    widgetId: 1, x: 45,  y: 50,  height: 25, variant: kCenterMid, label: 'L_STICK', strMask: kStrMaskLabel),
-        const WidgetConfig(typeId: kWidgetLed,         widgetId: 3, x: 100, y: 90,  height: 12, label: 'LINK', strMask: kStrMaskLabel),
-        const WidgetConfig(typeId: kWidgetButton,      widgetId: 4, x: 30,  y: 90,  height: 10, variant: 1, label: 'ARM', onText: 'ARMED', offText: 'DISARM', strMask: kStrMaskLabel | kStrMaskOnText | kStrMaskOffText),
-        const WidgetConfig(typeId: kWidgetButton,      widgetId: 5, x: 170, y: 90,  height: 10, label: 'KILL', icon: 'skull', onText: 'ENGAGED', offText: 'READY', strMask: kStrMaskLabel | kStrMaskIcon | kStrMaskOnText | kStrMaskOffText),
-        const WidgetConfig(typeId: kWidgetText,        widgetId: 6, x: 100, y: 15, width: 70, height: 10, label: 'TELEMETRY', strMask: kStrMaskLabel),
+        const WidgetConfig(typeId: kWidgetSlider,      widgetId: 1, x: 25,  y: 60,  width: 8, height: 50, variant: 129, label: 'GAS', strMask: kStrMaskLabel), // 128 (AltShape) + 1 (Min)
+        const WidgetConfig(typeId: kWidgetKnob,        widgetId: 2, x: 160, y: 60,  height: 30, variant: 130, label: 'STEERING', strMask: kStrMaskLabel), // 128 (AltShape) + 2 (CenterMid)
+        const WidgetConfig(typeId: kWidgetMultiple,    widgetId: 3, x: 100, y: 55,  height: 12, variant: 1, label: 'LIGHTS', content: 'Head:lightbulb|Fog:cloud|Hazard:warning|Cabin:home', strMask: kStrMaskLabel | kStrMaskContent),
+        const WidgetConfig(typeId: kWidgetText,        widgetId: 5, x: 100, y: 80,  width: 50, height: 12, label: 'TELEMETRY', strMask: kStrMaskLabel),
       ];
       _orientation = kOrientationLandscape;
     }
@@ -245,8 +244,9 @@ class DeviceProvider extends ChangeNotifier {
       _widgetState = _widgetState?.copyWithOutput(9, [1, 57, 255, 20, 255]); // Neon Green
       _widgetState = _widgetState?.copyWithOutput(4, 'LINK_READY_v1.7');
     } else if (demoId == 'RC_CONTROLLER') {
-      _widgetState = _widgetState?.copyWithOutput(3, [1, 255, 120, 0, 255]); // Amber
-      _widgetState = _widgetState?.copyWithOutput(6, '912MHz / -84dBm');
+      _widgetState = _widgetState?.copyWithInput(1, [-100]); // Gas pedal idles at -100
+      _widgetState = _widgetState?.copyWithOutput(4, [1, 255, 120, 0, 255]); // Amber LED
+      _widgetState = _widgetState?.copyWithOutput(5, '912MHz / -84dBm');
     } else if (demoId == 'IOT_DASHBOARD') {
       _widgetState = _widgetState?.copyWithOutput(4, [1, 0, 255, 255, 255]); // Cyan
       _widgetState = _widgetState?.copyWithOutput(5, [1, 255, 255, 0, 255]); // Yellow
@@ -420,10 +420,10 @@ class DeviceProvider extends ChangeNotifier {
         // next = next.copyWithInput(1, [driftX, driftY]);
         // next = next.copyWithInput(2, [-driftY, driftX]);
         
-        // ID 6: Dynamic telemetry
+        // ID 5: Dynamic telemetry
         if ((_simTime * 10).toInt() % 20 == 0) {
            final bat = 85 + (5 * sin(_simTime * 0.1)).toInt();
-           next = next.copyWithOutput(6, 'BATT: $bat% | PKT: 1.2k');
+           next = next.copyWithOutput(5, 'BATT: $bat% | PKT: 1.2k');
         }
       }
       else if (_configName == 'IOT_DASHBOARD') {
@@ -771,11 +771,14 @@ class DeviceProvider extends ChangeNotifier {
           return '→ index $v';
         }
       case kWidgetKnob:
-        if (w.variant == 1) {
+        if (variantIsAlternateShape(w.variant)) {
           return '→ Steering ${v.toString().padLeft(4)}%';
         }
         return '→ $v%';
       case kWidgetSlider:
+        if (variantIsAlternateShape(w.variant)) {
+          return '→ Gas Pedal ${v.toString().padLeft(4)}%';
+        }
         return '→ $v%';
       case kWidgetJoystick:
         final vx = values.isNotEmpty ? values[0] : 0;
@@ -827,4 +830,3 @@ String utf8Decode(List<int> bytes) {
 /// Interpret a raw unsigned wire byte as a signed int8 (-128..127).
 /// Used for Slider and Knob which use two's complement on the wire.
 int _signedByte(int b) => b > 127 ? b - 256 : b;
-

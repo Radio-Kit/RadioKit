@@ -21,6 +21,8 @@ struct RK_KnobProps {
     int16_t     startAngle = -135;
     int16_t     endAngle = 135;
     uint8_t     centering = RK_SPRING_NONE;
+    uint8_t     variant = 0;          // 0=standard, 1=steeringWheel
+    const char* centerIcon = nullptr;
     const char* label = nullptr;
     bool        active = false;
     int8_t      value = 0;
@@ -41,6 +43,8 @@ public:
     void    set(int8_t val)       { props.value = val > 100 ? 100 : (val < -100 ? -100 : val); }
     uint8_t centering()     const { return props.centering; }
     uint8_t detents()       const { return props.detents; }
+    uint8_t knobVariant()   const { return props.variant; }
+    const char* centerIconStr() const { return props.centerIcon; }
 
     RK_KnobProps props;
 

@@ -34,6 +34,7 @@ public:
 
     int8_t getX() const { return props.xvalue; }
     int8_t getY() const { return props.yvalue; }
+    uint8_t centering() const { return props.centering; }
 
     RK_JoystickProps props;
 

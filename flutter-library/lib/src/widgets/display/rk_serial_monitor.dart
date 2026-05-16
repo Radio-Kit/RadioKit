@@ -12,7 +12,6 @@ class RKSerialMonitor extends StatefulWidget {
     this.height = 200,
     this.fontSize = 12,
     this.fontFamily = 'monospace',
-    this.textColor,
     this.onInteractionChanged,
     this.rotation = 0.0,
     this.label,
@@ -23,7 +22,6 @@ class RKSerialMonitor extends StatefulWidget {
   final double height;
   final double fontSize;
   final String fontFamily;
-  final Color? textColor;
   final ValueChanged<bool>? onInteractionChanged;
   final double rotation;
   final String? label;
@@ -38,7 +36,7 @@ class _RKSerialMonitorState extends State<RKSerialMonitor> {
     final tokens = RKTheme.of(context);
 
     final baseStyle = TextStyle(
-      color: widget.textColor ?? tokens.primary,
+      color: tokens.primary,
       fontSize: widget.fontSize,
       fontFamily: widget.fontFamily,
       height: 1.2,

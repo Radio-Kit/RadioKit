@@ -65,6 +65,7 @@ class WidgetConfig {
   /// Widget-specific variant byte (uint8, v3).
   /// Button: 0 = push/momentary, 1 = toggle
   /// Multiple: number of items (1–8)
+  /// Slider/Knob: bit 7 is Alt Shape (GasPedal/Steering), bits 1:0 are centering.
   final int variant;
 
   /// String presence bitmask (uint8, v3). See kStrMask* constants.
@@ -104,6 +105,12 @@ class WidgetConfig {
 
   /// Whether this widget supports independent width/height control.
   bool get isResizable => typeId == kWidgetSlider || typeId == kWidgetText;
+
+  /// Returns true if this slider is a Gas Pedal variant.
+  bool get isGasPedal => typeId == kWidgetSlider && variantIsAlternateShape(variant);
+
+  /// Returns true if this knob is a Steering Wheel variant.
+  bool get isSteeringWheel => typeId == kWidgetKnob && variantIsAlternateShape(variant);
 
   /// Returns a full descriptive label for debug mode (e.g. "Knob:Steering").
   String get debugLabel {

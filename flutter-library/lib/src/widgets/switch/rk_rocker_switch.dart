@@ -25,8 +25,8 @@ class RKRockerSwitch extends StatefulWidget {
   final ValueChanged<bool>? onInteractionChanged;
   final double width;
   final double height;
-  final Widget? onIcon;
-  final Widget? offIcon;
+  final IconData? onIcon;
+  final IconData? offIcon;
   final Color? activeColor;
   final bool enableHapticFeedback;
   final double rotation;
@@ -401,11 +401,17 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
                     child: Center(
                       child: Opacity(
                         opacity: (0.35 + 0.65 * glowIntensity).clamp(0.0, 1.0),
-                        child: _surfaceGlowIcon(
-                          child: widget.onIcon ?? _defaultOnIcon(),
-                          color: activeColor,
-                          intensity: glowIntensity,
-                        ),
+                        child: widget.onIcon != null
+                            ? _surfaceGlowIcon(
+                                child: Icon(widget.onIcon, size: rockerH * 0.18, color: activeColor),
+                                color: activeColor,
+                                intensity: glowIntensity,
+                              )
+                            : _surfaceGlowIcon(
+                                child: _defaultOnIcon(),
+                                color: activeColor,
+                                intensity: glowIntensity,
+                              ),
                       ),
                     ),
                   ),
@@ -416,7 +422,9 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
                     child: Center(
                       child: Opacity(
                         opacity: (1.0 - 0.72 * glowIntensity).clamp(0.0, 1.0),
-                        child: widget.offIcon ?? _defaultOffIcon(),
+                        child: widget.offIcon != null
+                            ? Icon(widget.offIcon, size: rockerH * 0.15, color: Colors.white.withValues(alpha: 0.5))
+                            : _defaultOffIcon(),
                       ),
                     ),
                   ),
