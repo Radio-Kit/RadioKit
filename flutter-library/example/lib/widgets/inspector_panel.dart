@@ -177,15 +177,15 @@ class InspectorPanel extends StatelessWidget {
                     ],
                     if (isSlider) ...[
                       const SizedBox(height: 12),
-                      InspectorFieldBuilders.buildOptionSelector(tokens, 'Orientation', orientation ?? 'vertical', ['horizontal', 'vertical'], onOrientationChanged ?? (_) {}),
+                      InspectorFieldBuilders.buildCenterPinnedSelector(tokens, 'Orientation', orientation ?? 'vertical', ['horizontal', 'vertical'], (v) => onOrientationChanged?.call(v)),
                     ],
                   ]),
                   if (isSwitch || selectedIndex == 0 || isMultiple || selectedIndex == 6 || isKnob) ...[
                     InspectorFieldBuilders.buildSection(tokens, 'CONTENT', [
                       if (isMultiple) ...[
-                        InspectorFieldBuilders.buildOptionSelector(tokens, 'Count', (multiItemCount ?? 4).toString(), ['1', '2', '3', '4', '5', '6', '7', '8'], (v) => onMultiItemCountChanged?.call(int.parse(v))),
+                        InspectorFieldBuilders.buildCenterPinnedSelector(tokens, 'Count', (multiItemCount ?? 4).toString(), ['1', '2', '3', '4', '5', '6', '7', '8'], (v) => onMultiItemCountChanged?.call(int.parse(v))),
                         const SizedBox(height: 8),
-                        InspectorFieldBuilders.buildOptionSelector(tokens, 'Orientation', orientation ?? 'horizontal', ['horizontal', 'vertical'], onOrientationChanged ?? (_) {}),
+                        InspectorFieldBuilders.buildCenterPinnedSelector(tokens, 'Orientation', orientation ?? 'horizontal', ['horizontal', 'vertical'], (v) => onOrientationChanged?.call(v)),
                         const SizedBox(height: 12),
                         _buildMultiItemEditor(context, tokens),
                       ] else if (isSwitch || selectedIndex == 0) ...[
@@ -223,9 +223,9 @@ class InspectorPanel extends StatelessWidget {
                       InspectorFieldBuilders.buildBoolToggle(tokens, 'AutoCenter', selfCentering ?? true, onSelfCenteringChanged ?? (_) {}),
                       if (selfCentering ?? true) ...[
                         const SizedBox(height: 8),
-                        InspectorFieldBuilders.buildOptionSelector(tokens, 'Center Pos', centerPosition ?? 'center', isSlider ? ['min', 'max', 'center'] : isKnob ? ['min', 'max', 'center'] : ['left', 'right', 'top', 'bottom', 'center'], onCenterPositionChanged ?? (_) {}),
+                        InspectorFieldBuilders.buildCenterPinnedSelector(tokens, 'Center Pos', centerPosition ?? 'center', isSlider ? ['min', 'max', 'center'] : isKnob ? ['min', 'max', 'center'] : ['left', 'right', 'top', 'bottom', 'center'], onCenterPositionChanged ?? (_) {}),
                         const SizedBox(height: 8),
-                        InspectorFieldBuilders.buildOptionSelector(tokens, 'Spring', springBehavior ?? 'elastic', ['elastic', 'smooth', 'linear'], onSpringBehaviorChanged ?? (_) {}),
+                        InspectorFieldBuilders.buildCenterPinnedSelector(tokens, 'Spring', springBehavior ?? 'elastic', ['elastic', 'smooth', 'linear'], onSpringBehaviorChanged ?? (_) {}),
                         const SizedBox(height: 8),
                         InspectorFieldBuilders.buildNumField(tokens, 'Dur. (ms)', (springDuration ?? 300).toInt(), (v) => onSpringDurationChanged?.call(v.toDouble()), min: 0, max: 2000),
                       ],

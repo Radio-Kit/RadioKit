@@ -85,6 +85,9 @@ class ArduinoGenerator {
           case DesignerElementType.knob:
             buf.writeln('  int8_t ${name}Val = $name.get();  // -100 to +100');
             break;
+          case DesignerElementType.steeringWheel:
+            buf.writeln('  int8_t ${name}Val = $name.get();  // -100 to +100');
+            break;
           case DesignerElementType.joystick:
             buf.writeln('  int8_t ${name}X = $name.getX();  // -100 to +100');
             buf.writeln('  int8_t ${name}Y = $name.getY();  // -100 to +100');

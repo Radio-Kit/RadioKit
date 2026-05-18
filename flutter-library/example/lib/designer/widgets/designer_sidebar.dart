@@ -15,8 +15,8 @@ class DesignerSidebar extends StatelessWidget {
     _SidebarVariant('Multiple Select', LucideIcons.badgeCheck, DesignerElementType.multiSelect, <String, dynamic>{}),
     _SidebarVariant('Linear Slider', LucideIcons.slidersHorizontal, DesignerElementType.slider, <String, dynamic>{}),
     _SidebarVariant('Gas Pedal', LucideIcons.gauge, DesignerElementType.gasPedal, <String, dynamic>{}),
-    _SidebarVariant('Rotary Knob', LucideIcons.cog, DesignerElementType.knob, {'variant': 'standard'}),
-    _SidebarVariant('Steering Wheel', LucideIcons.rotateCw, DesignerElementType.knob, {'variant': 'steeringWheel'}),
+    _SidebarVariant('Rotary Knob', LucideIcons.cog, DesignerElementType.knob, <String, dynamic>{}),
+    _SidebarVariant('Steering Wheel', LucideIcons.rotateCw, DesignerElementType.steeringWheel, <String, dynamic>{}),
     _SidebarVariant('Joystick', LucideIcons.gamepad2, DesignerElementType.joystick, <String, dynamic>{}),
   ];
 

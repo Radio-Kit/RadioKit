@@ -9,6 +9,7 @@
 .codex/
 .claude/
 references/
+tmp/
 *.iml
 *.swp
 *.swo

@@ -89,7 +89,7 @@ class DesignerInspector extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         InspectorFieldBuilders.buildSection(tokens, 'CONNECTION', [
-          _buildOptionSelector(
+          InspectorFieldBuilders.buildCenterPinnedSelector(
             tokens, 'Type',
             state.connectionType,
             ['ble', 'serial'],
@@ -105,119 +105,28 @@ class DesignerInspector extends StatelessWidget {
               (v) => state.setConnectionPassword(v)),
         ]),
         InspectorFieldBuilders.buildSection(tokens, 'CANVAS', [
-          _buildSkinSelector(tokens),
-          _buildGridStyleSelector(tokens),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-            child: Row(
-              children: [
-                const SizedBox(
-                  width: 80,
-                  child: Text(
-                    'Size',
-                    style: TextStyle(
-                      color: Color(0xFF888888),
-                      fontSize: 11,
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '${state.canvasWidth} × ${state.canvasHeight}',
-                  style: const TextStyle(
-                    color: Color(0xFFE0E0E0),
-                    fontSize: 11,
-                    fontFamily: 'monospace',
-                  ),
-                ),
-              ],
-            ),
+          InspectorFieldBuilders.buildCenterPinnedSelector(
+            tokens, 'Grid',
+            state.gridStyle.name,
+            ['lines', 'dots', 'none'],
+            (v) => state.setGridStyle(GridStyle.values.byName(v)),
+          ),
+          InspectorFieldBuilders.buildCenterPinnedSelector(
+            tokens, 'Skin',
+            state.activeSkin,
+            ['dragon', 'neon', 'minimal'],
+            (v) {
+              state.setSkin(v);
+              themeNotifier.value = switch (v) {
+                'neon' => RKTokens.neon,
+                'minimal' => RKTokens.minimal,
+                _ => RKTokens.rambros,
+              };
+            },
           ),
         ]),
       ],
     );
-  }
-
-  Widget _buildSkinSelector(RKTokens tokens) {
-    return _buildOptionSelector(tokens, 'Skin', state.activeSkin, ['dragon', 'neon', 'minimal'], (v) {
-      state.setSkin(v);
-      themeNotifier.value = switch (v) {
-        'neon' => RKTokens.neon,
-        'minimal' => RKTokens.minimal,
-        _ => RKTokens.rambros,
-      };
-    });
-  }
-
-  Widget _buildGridStyleSelector(RKTokens tokens) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      child: Row(
-        children: [
-          const SizedBox(
-            width: 80,
-            child: Text(
-              'Grid',
-              style: TextStyle(
-                color: Color(0xFF888888),
-                fontSize: 11,
-                fontFamily: 'monospace',
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          ...GridStyle.values.map((style) {
-            final isSelected = style == state.gridStyle;
-            return Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: GestureDetector(
-                onTap: () => state.setGridStyle(style),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isSelected ? tokens.primary : const Color(0xFF1A1A1A),
-                    border: Border.all(
-                      color: isSelected ? tokens.primary : const Color(0xFF444444),
-                      width: 1,
-                    ),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        switch (style) {
-                          GridStyle.lines => LucideIcons.grid2x2,
-                          GridStyle.dots => LucideIcons.circle,
-                          GridStyle.none => LucideIcons.eyeOff,
-                        },
-                        color: isSelected ? Colors.black : const Color(0xFF888888),
-                        size: 12,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        style.name.toUpperCase(),
-                        style: TextStyle(
-                          color: isSelected ? Colors.black : const Color(0xFF888888),
-                          fontSize: 10,
-                          fontFamily: 'monospace',
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOptionSelector(RKTokens tokens, String label, String value, List<String> options, ValueChanged<String> onChanged) {
-    return InspectorFieldBuilders.buildOptionSelector(tokens, label, value, options, onChanged);
   }
 
   Widget _buildPositionRow(RKTokens tokens, DesignerElement el) {
@@ -319,12 +228,10 @@ class DesignerInspector extends StatelessWidget {
 
     switch (el.type) {
       case DesignerElementType.button:
-        fields.add(InspectorFieldBuilders.buildOptionSelector(
-          tokens, 'Mode',
-          el.properties['mode'] ?? 'push',
-          ['push', 'toggle'],
-          (v) => state.updateElementProperty(el.id, 'mode', v),
-        ));
+        fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(tokens, 'Mode',
+            el.properties['mode'] ?? 'push',
+            ['push', 'toggle'],
+            (v) => state.updateElementProperty(el.id, 'mode', v)));
         fields.add(InspectorFieldBuilders.buildTextField(tokens, 'On Text', el.properties['onText'] ?? 'ON',
             (v) => state.updateElementProperty(el.id, 'onText', v)));
         fields.add(InspectorFieldBuilders.buildTextField(tokens, 'Off Text', el.properties['offText'] ?? 'OFF',
@@ -354,11 +261,12 @@ class DesignerInspector extends StatelessWidget {
             (v) => state.updateElementProperty(el.id, 'max', v)));
         fields.add(InspectorFieldBuilders.buildBoolToggle(tokens, 'AutoCenter', el.properties['autoCenter'] ?? false,
             (v) => state.updateElementProperty(el.id, 'autoCenter', v)));
-        fields.add(InspectorFieldBuilders.buildOptionSelector(tokens, 'Spring',
+        final autoCenterSlider = el.properties['autoCenter'] ?? false;
+        if (autoCenterSlider) fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(tokens, 'Spring',
             el.properties['springBehavior'] ?? 'smooth',
             ['smooth', 'elastic', 'linear'],
             (v) => state.updateElementProperty(el.id, 'springBehavior', v)));
-        fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Dur. (ms)', (el.properties['springDuration'] as num?)?.toDouble() ?? 300,
+        if (autoCenterSlider) fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Dur. (ms)', (el.properties['springDuration'] as num?)?.toDouble() ?? 300,
             (v) => state.updateElementProperty(el.id, 'springDuration', v)));
         break;
 
@@ -371,28 +279,46 @@ class DesignerInspector extends StatelessWidget {
             (v) => state.updateElementProperty(el.id, 'minAngle', v)));
         fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Max Angle', (el.properties['maxAngle'] as num?)?.toDouble() ?? 135,
             (v) => state.updateElementProperty(el.id, 'maxAngle', v)));
-        fields.add(InspectorFieldBuilders.buildOptionSelector(tokens, 'Variant',
-            el.properties['variant'] ?? 'standard',
-            ['standard', 'steeringWheel'],
-            (v) => state.updateElementProperty(el.id, 'variant', v)));
         fields.add(InspectorFieldBuilders.buildBoolToggle(tokens, 'AutoCenter', el.properties['autoCenter'] ?? false,
             (v) => state.updateElementProperty(el.id, 'autoCenter', v)));
-        fields.add(InspectorFieldBuilders.buildOptionSelector(tokens, 'Spring',
+        final autoCenterKnob = el.properties['autoCenter'] ?? false;
+        if (autoCenterKnob) fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(tokens, 'Spring',
             el.properties['springBehavior'] ?? 'smooth',
             ['smooth', 'elastic', 'linear'],
             (v) => state.updateElementProperty(el.id, 'springBehavior', v)));
-        fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Dur. (ms)', (el.properties['springDuration'] as num?)?.toDouble() ?? 500,
+        if (autoCenterKnob) fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Dur. (ms)', (el.properties['springDuration'] as num?)?.toDouble() ?? 500,
+            (v) => state.updateElementProperty(el.id, 'springDuration', v)));
+        break;
+
+      case DesignerElementType.steeringWheel: // forceSwitch
+        fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Min', (el.properties['min'] as num?)?.toDouble() ?? 0,
+            (v) => state.updateElementProperty(el.id, 'min', v)));
+        fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Max', (el.properties['max'] as num?)?.toDouble() ?? 100,
+            (v) => state.updateElementProperty(el.id, 'max', v)));
+        fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Min Angle', (el.properties['minAngle'] as num?)?.toDouble() ?? -135,
+            (v) => state.updateElementProperty(el.id, 'minAngle', v)));
+        fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Max Angle', (el.properties['maxAngle'] as num?)?.toDouble() ?? 135,
+            (v) => state.updateElementProperty(el.id, 'maxAngle', v)));
+        fields.add(InspectorFieldBuilders.buildBoolToggle(tokens, 'AutoCenter', el.properties['autoCenter'] ?? false,
+            (v) => state.updateElementProperty(el.id, 'autoCenter', v)));
+        final autoCenterSteering = el.properties['autoCenter'] ?? false;
+        if (autoCenterSteering) fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(tokens, 'Spring',
+            el.properties['springBehavior'] ?? 'smooth',
+            ['smooth', 'elastic', 'linear'],
+            (v) => state.updateElementProperty(el.id, 'springBehavior', v)));
+        if (autoCenterSteering) fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Dur. (ms)', (el.properties['springDuration'] as num?)?.toDouble() ?? 500,
             (v) => state.updateElementProperty(el.id, 'springDuration', v)));
         break;
 
       case DesignerElementType.joystick:
         fields.add(InspectorFieldBuilders.buildBoolToggle(tokens, 'AutoCenter', el.properties['autoCenter'] ?? true,
             (v) => state.updateElementProperty(el.id, 'autoCenter', v)));
-        fields.add(InspectorFieldBuilders.buildOptionSelector(tokens, 'Spring',
+        final autoCenterJoystick = el.properties['autoCenter'] ?? true;
+        if (autoCenterJoystick) fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(tokens, 'Spring',
             el.properties['springBehavior'] ?? 'smooth',
             ['smooth', 'elastic', 'linear'],
             (v) => state.updateElementProperty(el.id, 'springBehavior', v)));
-        fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Dur. (ms)', (el.properties['springDuration'] as num?)?.toDouble() ?? 300,
+        if (autoCenterJoystick) fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Dur. (ms)', (el.properties['springDuration'] as num?)?.toDouble() ?? 300,
             (v) => state.updateElementProperty(el.id, 'springDuration', v)));
         break;
 
@@ -417,20 +343,21 @@ class DesignerInspector extends StatelessWidget {
             (v) => state.updateElementProperty(el.id, 'max', v)));
         fields.add(InspectorFieldBuilders.buildBoolToggle(tokens, 'AutoCenter', el.properties['autoCenter'] ?? false,
             (v) => state.updateElementProperty(el.id, 'autoCenter', v)));
-        fields.add(InspectorFieldBuilders.buildOptionSelector(tokens, 'Spring',
+        final autoCenterPedal = el.properties['autoCenter'] ?? false;
+        if (autoCenterPedal) fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(tokens, 'Spring',
             el.properties['springBehavior'] ?? 'smooth',
             ['smooth', 'elastic', 'linear'],
             (v) => state.updateElementProperty(el.id, 'springBehavior', v)));
-        fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Dur. (ms)', (el.properties['springDuration'] as num?)?.toDouble() ?? 300,
+        if (autoCenterPedal) fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Dur. (ms)', (el.properties['springDuration'] as num?)?.toDouble() ?? 300,
             (v) => state.updateElementProperty(el.id, 'springDuration', v)));
         break;
 
       case DesignerElementType.led:
-        fields.add(InspectorFieldBuilders.buildOptionSelector(tokens, 'State',
+        fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(tokens, 'State',
             el.properties['state'] ?? 'off',
             ['off', 'on', 'blink', 'breathe'],
             (v) => state.updateElementProperty(el.id, 'state', v)));
-        fields.add(InspectorFieldBuilders.buildOptionSelector(tokens, 'Shape',
+        fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(tokens, 'Shape',
             el.properties['shape'] ?? 'circle',
             ['circle', 'square', 'diamond', 'star'],
             (v) => state.updateElementProperty(el.id, 'shape', v)));
@@ -443,7 +370,7 @@ class DesignerInspector extends StatelessWidget {
             (v) => state.updateElementProperty(el.id, 'text', v)));
         fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Font Size', (el.properties['fontSize'] as num?)?.toDouble() ?? 14,
             (v) => state.updateElementProperty(el.id, 'fontSize', v)));
-        fields.add(InspectorFieldBuilders.buildOptionSelector(tokens, 'Font',
+        fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(tokens, 'Font',
             el.properties['fontFamily'] ?? 'monospace',
             ['monospace', 'sans-serif', 'serif'],
             (v) => state.updateElementProperty(el.id, 'fontFamily', v)));
@@ -452,7 +379,7 @@ class DesignerInspector extends StatelessWidget {
       case DesignerElementType.serialMonitor:
         fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Font Size', (el.properties['fontSize'] as num?)?.toDouble() ?? 12,
             (v) => state.updateElementProperty(el.id, 'fontSize', v)));
-        fields.add(InspectorFieldBuilders.buildOptionSelector(tokens, 'Font',
+        fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(tokens, 'Font',
             el.properties['fontFamily'] ?? 'monospace',
             ['monospace', 'sans-serif', 'serif'],
             (v) => state.updateElementProperty(el.id, 'fontFamily', v)));

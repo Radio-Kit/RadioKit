@@ -123,9 +123,8 @@ class CanvasElement extends StatelessWidget {
       case DesignerElementType.slider:
         return _buildSlider(id, isPlay, cs, rotationRad);
 
-      case DesignerElementType.knob:
-        if (element.properties['variant'] == 'steeringWheel') {
-          return RKSteeringWheel(
+      case DesignerElementType.steeringWheel:
+        return RKSteeringWheel(
             value: isPlay
                 ? (designerState!.getRuntimeWidgetValue(id, 0.5) as double)
                 : 0.5,
@@ -147,7 +146,8 @@ class CanvasElement extends StatelessWidget {
             label: element.label.isNotEmpty ? element.label : null,
             size: math.min(element.width.toDouble(), element.height.toDouble()) * cs,
           );
-        }
+
+      case DesignerElementType.knob:
         return RKKnob(
           value: isPlay
               ? (designerState!.getRuntimeWidgetValue(id, 0.5) as double)

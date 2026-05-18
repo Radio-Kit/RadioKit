@@ -11,6 +11,7 @@ class RKRotatedWrapper extends StatelessWidget {
   final double contentHeight;
   final Color labelColor;
   final bool fitContent;
+  final Widget? indicator;
 
   const RKRotatedWrapper({
     super.key,
@@ -21,52 +22,63 @@ class RKRotatedWrapper extends StatelessWidget {
     required this.labelColor,
     this.label,
     this.fitContent = false,
+    this.indicator,
   });
 
   @override
   Widget build(BuildContext context) {
-    Widget content = child;
+    Widget cyanBox = SizedBox(
+      width: contentWidth,
+      height: contentHeight,
+      child: child,
+    );
 
     if (fitContent) {
-      content = FittedBox(
+      cyanBox = FittedBox(
         fit: BoxFit.contain,
-        child: SizedBox(
-          width: contentWidth,
-          height: contentHeight,
-          child: content,
-        ),
-      );
-    }
-
-    if (label != null && label!.isNotEmpty) {
-      content = Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            label!.toUpperCase(),
-            style: TextStyle(
-              color: labelColor,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-              fontFamily: 'monospace',
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          content,
-        ],
+        child: cyanBox,
       );
     }
 
     if (rotation != 0) {
-      content = Transform.rotate(
+      cyanBox = Transform.rotate(
         angle: rotation,
-        child: content,
+        child: cyanBox,
       );
     }
 
-    return content;
+    final columnChildren = <Widget>[];
+
+    if (label != null && label!.isNotEmpty) {
+      columnChildren.add(Text(
+        label!.toUpperCase(),
+        style: TextStyle(
+          color: labelColor,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1.2,
+          fontFamily: 'monospace',
+        ),
+        textAlign: TextAlign.center,
+      ));
+      columnChildren.add(const SizedBox(height: 8));
+    }
+
+    columnChildren.add(cyanBox);
+
+    if (indicator != null) {
+      columnChildren.add(const SizedBox(height: 8));
+      columnChildren.add(indicator!);
+    }
+
+    if (columnChildren.length == 1) {
+      return columnChildren.first;
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: columnChildren,
+    );
   }
 }

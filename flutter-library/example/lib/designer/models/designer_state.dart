@@ -8,7 +8,7 @@ class DesignerState extends ChangeNotifier {
   String? _selectedElementId;
   bool _isLandscape = true;
   bool _isPlayMode = false;
-  GridStyle _gridStyle = GridStyle.lines;
+  GridStyle _gridStyle = GridStyle.none;
   String _activeSkin = 'dragon';
   String _connectionType = 'ble';
   String _modelName = '';

@@ -143,9 +143,8 @@ class _RKSteeringWheelState extends State<RKSteeringWheel> with SingleTickerProv
     final startRad = (-math.pi / 2) + (widget.minAngle * math.pi / 180);
     final currentAngle = startRad + normalized * sweepRad;
 
-    final double indicatorH = widget.size * 0.2;
-    final double contentH = widget.size + indicatorH;
     final double contentW = widget.size;
+    final double contentH = widget.size;
 
     return RKRotatedWrapper(
       rotation: widget.rotation * math.pi / 180,
@@ -154,72 +153,66 @@ class _RKSteeringWheelState extends State<RKSteeringWheel> with SingleTickerProv
       contentHeight: contentH,
       labelColor: tokens.primary.withValues(alpha: 0.7),
       fitContent: true,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          GestureDetector(
-            onPanStart: (details) {
-              _centerController.stop();
-              setState(() => _isInteracting = true);
-              widget.onInteractionChanged?.call(true);
-              final radius = widget.size / 2;
-              final localPos = details.localPosition;
-              _previousTouchAngle = math.atan2(localPos.dy - radius, localPos.dx - radius) * 180 / math.pi;
-              _currentAccumulatedRotation = (normalized - widget.center) * (widget.maxAngle - widget.minAngle);
-            },
-            onPanUpdate: (details) {
-              if (_previousTouchAngle == null) return;
-              final radius = widget.size / 2;
-              final localPos = details.localPosition;
-              final currentTouchAngle = math.atan2(localPos.dy - radius, localPos.dx - radius) * 180 / math.pi;
-              double delta = currentTouchAngle - _previousTouchAngle!;
-              if (delta > 180) delta -= 360;
-              if (delta < -180) delta += 360;
-              if (delta.abs() < 1.5) return;
-              _currentAccumulatedRotation += delta;
-              _previousTouchAngle = currentTouchAngle;
-              final minRot = (0.0 - widget.center) * (widget.maxAngle - widget.minAngle);
-              final maxRot = (1.0 - widget.center) * (widget.maxAngle - widget.minAngle);
-              final targetRotation = _currentAccumulatedRotation.clamp(minRot, maxRot);
-              final norm = (targetRotation - minRot) / (maxRot - minRot);
-              double newVal = widget.min + norm * (widget.max - widget.min);
-              if (widget.divisions != null && widget.divisions! > 0) {
-                final step = (widget.max - widget.min) / widget.divisions!;
-                newVal = ((newVal - widget.min) / step).round() * step + widget.min;
-              }
-              final prevVal = _lastEmittedValue;
-              if (prevVal != null) {
-                final deadband = (widget.max - widget.min) * 0.003;
-                if ((newVal - prevVal).abs() < deadband) return;
-              }
-              _emitValue(newVal);
-            },
-            onPanEnd: (_) {
-              setState(() => _isInteracting = false);
-              widget.onInteractionChanged?.call(false);
-              if (widget.autoCenter) _triggerCenter();
-            },
-            child: SizedBox(
-              width: widget.size,
-              height: widget.size,
-              child: Transform.rotate(
-                angle: currentAngle + math.pi / 2,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    CustomPaint(
-                      size: Size(widget.size, widget.size),
-                      painter: _SteeringWheelPainter(tokens: tokens),
-                    ),
-                    _SteeringWheelHub(tokens: tokens, centerIcon: widget.centerIcon, knobSize: widget.size),
-                  ],
+      indicator: _RKKnobIndicator(normalized: normalized, tokens: tokens, knobSize: widget.size * 0.5),
+      child: GestureDetector(
+        onPanStart: (details) {
+          _centerController.stop();
+          setState(() => _isInteracting = true);
+          widget.onInteractionChanged?.call(true);
+          final radius = widget.size / 2;
+          final localPos = details.localPosition;
+          _previousTouchAngle = math.atan2(localPos.dy - radius, localPos.dx - radius) * 180 / math.pi;
+          _currentAccumulatedRotation = (normalized - widget.center) * (widget.maxAngle - widget.minAngle);
+        },
+        onPanUpdate: (details) {
+          if (_previousTouchAngle == null) return;
+          final radius = widget.size / 2;
+          final localPos = details.localPosition;
+          final currentTouchAngle = math.atan2(localPos.dy - radius, localPos.dx - radius) * 180 / math.pi;
+          double delta = currentTouchAngle - _previousTouchAngle!;
+          if (delta > 180) delta -= 360;
+          if (delta < -180) delta += 360;
+          if (delta.abs() < 1.5) return;
+          _currentAccumulatedRotation += delta;
+          _previousTouchAngle = currentTouchAngle;
+          final minRot = (0.0 - widget.center) * (widget.maxAngle - widget.minAngle);
+          final maxRot = (1.0 - widget.center) * (widget.maxAngle - widget.minAngle);
+          final targetRotation = _currentAccumulatedRotation.clamp(minRot, maxRot);
+          final norm = (targetRotation - minRot) / (maxRot - minRot);
+          double newVal = widget.min + norm * (widget.max - widget.min);
+          if (widget.divisions != null && widget.divisions! > 0) {
+            final step = (widget.max - widget.min) / widget.divisions!;
+            newVal = ((newVal - widget.min) / step).round() * step + widget.min;
+          }
+          final prevVal = _lastEmittedValue;
+          if (prevVal != null) {
+            final deadband = (widget.max - widget.min) * 0.003;
+            if ((newVal - prevVal).abs() < deadband) return;
+          }
+          _emitValue(newVal);
+        },
+        onPanEnd: (_) {
+          setState(() => _isInteracting = false);
+          widget.onInteractionChanged?.call(false);
+          if (widget.autoCenter) _triggerCenter();
+        },
+        child: SizedBox(
+          width: widget.size,
+          height: widget.size,
+          child: Transform.rotate(
+            angle: currentAngle + math.pi / 2,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                CustomPaint(
+                  size: Size(widget.size, widget.size),
+                  painter: _SteeringWheelPainter(tokens: tokens),
                 ),
-              ),
+                _SteeringWheelHub(tokens: tokens, centerIcon: widget.centerIcon, knobSize: widget.size),
+              ],
             ),
           ),
-          SizedBox(height: widget.size * 0.08),
-          _RKKnobIndicator(normalized: normalized, tokens: tokens, knobSize: widget.size * 0.5),
-        ],
+        ),
       ),
     );
   }

@@ -4,6 +4,7 @@ enum DesignerElementType {
   rockerSwitch,
   slider,
   knob,
+  steeringWheel,
   joystick,
   multiButton,
   multiSelect,
@@ -82,7 +83,18 @@ class DesignerElement {
           'springBehavior': 'smooth',
           'springDuration': 500.0,
           'divisions': null,
-          'variant': 'standard',
+        };
+      case DesignerElementType.steeringWheel:
+        return {
+          'min': 0.0,
+          'max': 100.0,
+          'minAngle': -135.0,
+          'maxAngle': 135.0,
+          'autoCenter': false,
+          'center': 0.5,
+          'springBehavior': 'smooth',
+          'springDuration': 500.0,
+          'divisions': null,
         };
       case DesignerElementType.joystick:
         return {
@@ -144,6 +156,8 @@ class DesignerElement {
         return (40, 10);
       case DesignerElementType.knob:
         return (20, 20);
+      case DesignerElementType.steeringWheel:
+        return (25, 25);
       case DesignerElementType.joystick:
         return (30, 30);
       case DesignerElementType.multiButton:

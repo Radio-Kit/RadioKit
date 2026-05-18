@@ -44,7 +44,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const DesignerSidebar(),
+          if (!_state.isPlayMode) const DesignerSidebar(),
           Expanded(
             child: Column(
               children: [
@@ -53,10 +53,11 @@ class _DesignerScreenState extends State<DesignerScreen> {
               ],
             ),
           ),
-          ListenableBuilder(
-            listenable: _state,
-            builder: (context, _) => DesignerInspector(state: _state),
-          ),
+          if (!_state.isPlayMode)
+            ListenableBuilder(
+              listenable: _state,
+              builder: (context, _) => DesignerInspector(state: _state),
+            ),
         ],
       ),
     );
