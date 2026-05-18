@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// Maps preset names to RKTokens instances.
 const Map<String, RKTokens> kTokenPresets = {
-  'rambros': RKTokens.rambros,
+  'dragon': RKTokens.dragon,
   'neon': RKTokens.neon,
   'minimal': RKTokens.minimal,
 };
@@ -13,8 +13,8 @@ const Map<String, RKTokens> kTokenPresets = {
 class SkinProvider extends ChangeNotifier {
   static const String _prefsKey = 'active_skin';
 
-  String _activePreset = 'rambros';
-  RKTokens _tokens = RKTokens.rambros;
+  String _activePreset = 'dragon';
+  RKTokens _tokens = RKTokens.dragon;
 
   SkinProvider();
 
@@ -28,8 +28,8 @@ class SkinProvider extends ChangeNotifier {
         _tokens = kTokenPresets[saved]!;
       } else if (saved == 'debug') {
         // Fallback if they were on the removed debug skin
-        _activePreset = 'rambros';
-        _tokens = RKTokens.rambros;
+        _activePreset = 'dragon';
+        _tokens = RKTokens.dragon;
       }
     } catch (_) {}
     notifyListeners();

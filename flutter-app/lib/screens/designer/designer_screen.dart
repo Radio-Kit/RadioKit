@@ -108,7 +108,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                         tokens: switch (_state.activeSkin) {
                           'neon' => RKTokens.neon,
                           'minimal' => RKTokens.minimal,
-                          _ => RKTokens.rambros,
+                          _ => RKTokens.dragon,
                         },
                         child: DesignerCanvas(state: _state),
                       ),

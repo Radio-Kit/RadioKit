@@ -37,6 +37,7 @@ class _ConsoleLogViewState extends State<ConsoleLogView> {
       builder: (context, console, _) {
         WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
 
+        final isExpanded = widget.height == double.infinity;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -90,27 +91,50 @@ class _ConsoleLogViewState extends State<ConsoleLogView> {
                 ],
               ),
             ),
-            Container(
-              height: widget.height,
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white10),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(12),
-                  itemCount: console.entries.length,
-                  itemBuilder: (context, index) {
-                    final entry = console.entries[index];
-                    return _buildLogLine(entry);
-                  },
+            if (isExpanded)
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.all(12),
+                      itemCount: console.entries.length,
+                      itemBuilder: (context, index) {
+                        final entry = console.entries[index];
+                        return _buildLogLine(entry);
+                      },
+                    ),
+                  ),
+                ),
+              )
+            else
+              Container(
+                height: widget.height,
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white10),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(12),
+                    itemCount: console.entries.length,
+                    itemBuilder: (context, index) {
+                      final entry = console.entries[index];
+                      return _buildLogLine(entry);
+                    },
+                  ),
                 ),
               ),
-            ),
           ],
         );
       },

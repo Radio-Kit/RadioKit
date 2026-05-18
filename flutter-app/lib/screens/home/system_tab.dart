@@ -10,6 +10,62 @@ import '../../theme/app_theme.dart';
 import '../../widgets/logo_icon.dart';
 
 class SystemTab extends StatelessWidget {
+  Widget _buildProVersionCard(BuildContext context) {
+    return Card(
+      color: Colors.white.withValues(alpha: 0.05),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppColors.brandOrange.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.star, color: AppColors.brandOrange, size: 20),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      _SettingLabel(label: 'GET_PRO_VERSION', value: ''),
+                      SizedBox(height: 8),
+                      Text(
+                        'Support the project to keep development alive.',
+                        style: TextStyle(color: Colors.white, fontSize: 16),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.brandOrange,
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  elevation: 0,
+                ),
+                onPressed: () => context.push('/donate'),
+                child: Text('GET_PRO_VERSION', style: GoogleFonts.changa(fontWeight: FontWeight.w700, letterSpacing: 1.2, fontSize: 13)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   const SystemTab({super.key});
 
   @override
@@ -42,23 +98,10 @@ class SystemTab extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
-          const SizedBox(height: 16),
-          Text(
-            'SYSTEM_CONFIGURATION',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: AppColors.brandOrange,
-              letterSpacing: 2.0,
-            ),
-          ),
           const SizedBox(height: 8),
-          Text(
-            'WORKSPACE',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.w900,
-              letterSpacing: -1.0,
-            ),
-          ),
-          const SizedBox(height: 32),
+          
+          _buildProVersionCard(context),
+          const SizedBox(height: 16),
           
           _buildSectionTag(context, '01. ENVIRONMENT'),
           _buildApplicationCard(context, themeProvider),

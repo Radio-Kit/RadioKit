@@ -83,8 +83,8 @@ class RKTokens {
   /// Default neon dark theme tokens.
   static const RKTokens neon = RKTokens();
 
-  /// RamBros industrial theme tokens (matches the reference design).
-  static const RKTokens rambros = RKTokens(
+  /// Dragon industrial theme tokens (matches the reference design).
+  static const RKTokens dragon = RKTokens(
     primary: Color(0xFFFF8C00),
     onPrimary: Color(0xFF000000),
     surface: Color(0xFF1A1A1A),

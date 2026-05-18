@@ -1467,7 +1467,7 @@ class _AestheticCoreBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final styles = {
-      'RAMBROS': RKTokens.rambros,
+      'DRAGON': RKTokens.dragon,
       'NEON': RKTokens.neon,
       'MINIMAL': RKTokens.minimal,
     };

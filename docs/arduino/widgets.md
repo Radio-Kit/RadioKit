@@ -668,7 +668,7 @@ String-based identifiers for UI skins. Pass to `RadioKit.config.theme`:
 
 | Identifier | Description |
 |------------|-------------|
-| `"default"` | RAMBROS theme (default) |
+| `"default"` | DRAGON theme (default) |
 | `"neon"` | Cyberpunk neon |
 | `"minimal"` | Flat, minimal |
 | `"https://..."` | Custom skin pack URL (GitHub raw ZIP) |

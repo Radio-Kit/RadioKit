@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 
 /// Global notifier for the current RadioKit theme tokens.
-final themeNotifier = ValueNotifier<RKTokens>(RKTokens.rambros);
+final themeNotifier = ValueNotifier<RKTokens>(RKTokens.dragon);
 
 /// Wraps the app with the selected RadioKit theme.
 class AppTheme extends StatelessWidget {

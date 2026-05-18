@@ -152,20 +152,56 @@ class _PairTabState extends State<PairTab> {
           const SizedBox(width: 8),
         ],
       ),
-      body: Column(
-        children: [
-          _buildTransportToggle(),
-          Expanded(
-            child: _selectedTransportIndex == 0
-                ? _BleTab(onDeviceTapped: _connectBle)
-                : _SerialTab(
-                    onPortTapped: (device, baud) =>
-                        _connectSerial(device, baudRate: baud)),
-          ),
-          const ConsoleLogView(),
-          const SizedBox(height: 16),
-        ],
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth > constraints.maxHeight) {
+            return _buildLandscapeLayout();
+          }
+          return _buildPortraitLayout();
+        },
       ),
+    );
+  }
+
+  Widget _buildPortraitLayout() {
+    return Column(
+      children: [
+        _buildTransportToggle(),
+        Expanded(
+          child: _selectedTransportIndex == 0
+              ? _BleTab(onDeviceTapped: _connectBle)
+              : _SerialTab(
+                  onPortTapped: (device, baud) =>
+                      _connectSerial(device, baudRate: baud)),
+        ),
+        const ConsoleLogView(),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildLandscapeLayout() {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            children: [
+              _buildTransportToggle(),
+              Expanded(
+                child: _selectedTransportIndex == 0
+                    ? _BleTab(onDeviceTapped: _connectBle)
+                    : _SerialTab(
+                        onPortTapped: (device, baud) =>
+                            _connectSerial(device, baudRate: baud)),
+              ),
+            ],
+          ),
+        ),
+        const VerticalDivider(width: 1),
+        Expanded(
+          child: const ConsoleLogView(height: double.infinity),
+        ),
+      ],
     );
   }
 
