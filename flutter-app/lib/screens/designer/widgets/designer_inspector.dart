@@ -65,6 +65,30 @@ class _DesignerInspectorState extends State<DesignerInspector> {
     );
   }
 
+  String _headerTitle() {
+    final el = widget.state.selectedElement;
+    if (el == null) return 'Model Settings';
+    return '${_widgetTypeName(el.type)} Widget';
+  }
+
+  static String _widgetTypeName(DesignerElementType type) {
+    switch (type) {
+      case DesignerElementType.button:        return 'Button';
+      case DesignerElementType.slideSwitch:   return 'Slide Switch';
+      case DesignerElementType.rockerSwitch:  return 'Rocker Switch';
+      case DesignerElementType.slider:        return 'Linear Slider';
+      case DesignerElementType.gasPedal:      return 'Gas Pedal';
+      case DesignerElementType.knob:          return 'Rotary Knob';
+      case DesignerElementType.steeringWheel: return 'Steering Wheel';
+      case DesignerElementType.joystick:      return 'Joystick';
+      case DesignerElementType.multiButton:   return 'Multi Button';
+      case DesignerElementType.multiSelect:   return 'Multi Select';
+      case DesignerElementType.led:           return 'LED';
+      case DesignerElementType.text:          return 'Text Display';
+      case DesignerElementType.serialMonitor: return 'Serial Monitor';
+    }
+  }
+
   Widget _buildHeader(RKTokens tokens) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -72,10 +96,10 @@ class _DesignerInspectorState extends State<DesignerInspector> {
         children: [
           Icon(LucideIcons.list, color: tokens.primary, size: 20),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Text(
-              'CONFIGURATION',
-              style: TextStyle(
+              _headerTitle(),
+              style: const TextStyle(
                 color: Color(0xFFE0E0E0),
                 fontSize: 14,
                 fontFamily: 'monospace',

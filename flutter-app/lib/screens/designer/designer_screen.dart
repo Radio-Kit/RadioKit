@@ -171,13 +171,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
         children: [
           IconButton(
             icon: Icon(LucideIcons.arrowLeft, color: tokens.primary, size: 20),
-            onPressed: () {
-              if (context.canPop()) {
-                context.pop();
-              } else {
-                context.go('/designs');
-              }
-            },
+            onPressed: () => _handleBack(context),
           ),
           const SizedBox(width: 8),
           ListenableBuilder(
@@ -209,9 +203,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
           const SizedBox(width: 12),
           _buildUndoRedoButtons(tokens),
           const SizedBox(width: 8),
-          _buildOpenButton(tokens),
-          const SizedBox(width: 8),
-          _buildSaveButton(tokens),
+          _buildShareButton(tokens),
           const SizedBox(width: 12),
           _buildGetSourceButton(tokens),
         ],
@@ -284,39 +276,18 @@ class _DesignerScreenState extends State<DesignerScreen> {
     );
   }
 
-  Widget _buildOpenButton(RKTokens tokens) {
+  Widget _buildShareButton(RKTokens tokens) {
     return GestureDetector(
-      onTap: _openHeaderFile,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: const BoxDecoration(
-          color: Color(0xFF1A237E),
-          borderRadius: BorderRadius.all(Radius.circular(2)),
-        ),
-        child: const Row(
-        
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(LucideIcons.folderOpen, color: Color(0xFF90CAF9), size: 14),
-            SizedBox(width: 6),
-            Text(
-              'OPEN',
-              style: TextStyle(
-                color: Color(0xFF90CAF9),
-                fontSize: 11,
-                fontFamily: 'monospace',
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  Widget _buildSaveButton(RKTokens tokens) {
-    return GestureDetector(
-      onTap: _saveHeaderFile,
+      onTap: () async {
+        _autoSaveToApp();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Design saved'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
@@ -326,10 +297,10 @@ class _DesignerScreenState extends State<DesignerScreen> {
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(LucideIcons.save, color: Color(0xFFA5D6A7), size: 14),
+            Icon(LucideIcons.share2, color: Color(0xFFA5D6A7), size: 14),
             SizedBox(width: 6),
             Text(
-              'SAVE',
+              'SHARE',
               style: TextStyle(
                 color: Color(0xFFA5D6A7),
                 fontSize: 11,
@@ -415,6 +386,68 @@ class _DesignerScreenState extends State<DesignerScreen> {
         ),
       ),
     );
+  }
+
+  // ── Back navigation ───────────────────────────────────────────────────────
+
+  Future<void> _handleBack(BuildContext context) async {
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF181818),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        title: const Text(
+          'Unsaved Changes',
+          style: TextStyle(
+            color: Color(0xFFE0E0E0),
+            fontFamily: 'monospace',
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        content: const Text(
+          'Do you want to save your changes before leaving?',
+          style: TextStyle(color: Color(0xFFAAAAAA), fontFamily: 'monospace'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'discard'),
+            child: const Text(
+              'DISCARD',
+              style: TextStyle(
+                color: Color(0xFFFF5555),
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'save'),
+            child: const Text(
+              'SAVE',
+              style: TextStyle(
+                color: Color(0xFF90CAF9),
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (result == 'save') {
+      _autoSaveToApp();
+    }
+    // Both 'save' and 'discard' navigate back; null means dialog was dismissed
+    if (result != null) {
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/designs');
+      }
+    }
   }
 
   // ── .h file I/O ──────────────────────────────────────────────────────────

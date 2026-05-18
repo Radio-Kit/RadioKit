@@ -97,7 +97,7 @@ class DesignerWidgetDialog extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 0),
           child: GridView.count(
-            crossAxisCount: 5,
+            crossAxisCount: 4,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: 8,
@@ -153,23 +153,133 @@ class _GridItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(variant.icon, color: const Color(0xFFAAAAAA), size: 18),
-          const SizedBox(height: 4),
-          Text(
-            variant.label,
-            style: const TextStyle(
-              color: Color(0xFFAAAAAA),
-              fontSize: 9,
-              fontFamily: 'monospace',
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: IgnorePointer(
+                  child: _buildPreview(),
+                ),
+              ),
             ),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 4, right: 4, bottom: 8),
+            child: Text(
+              variant.label,
+              style: const TextStyle(
+                color: Color(0xFFAAAAAA),
+                fontSize: 9,
+                fontFamily: 'monospace',
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildPreview() {
+    switch (variant.type) {
+      case DesignerElementType.button:
+        return RKButton(
+          mode: variant.properties['mode'] == 'toggle'
+              ? RKButtonMode.toggle
+              : RKButtonMode.push,
+          onText: variant.properties['onText'] ?? 'ON',
+          offText: variant.properties['offText'] ?? 'OFF',
+          size: 40,
+          onChanged: (_) {},
+        );
+      case DesignerElementType.slideSwitch:
+        return RKSlideSwitch(
+          value: false,
+          onText: variant.properties['onText'] ?? 'ON',
+          offText: variant.properties['offText'] ?? 'OFF',
+          width: 50,
+          height: 25,
+          onChanged: (_) {},
+        );
+      case DesignerElementType.rockerSwitch:
+        return RKRockerSwitch(
+          value: false,
+          width: 25,
+          height: 44,
+          onChanged: (_) {},
+        );
+      case DesignerElementType.slider:
+        return RKSlider(
+          value: 0.5,
+          orientation: RKAxis.horizontal,
+          thickness: 6,
+          length: 60,
+          onChanged: (_) {},
+        );
+      case DesignerElementType.steeringWheel:
+        return RKSteeringWheel(
+          value: 0.5,
+          size: 44,
+          onChanged: (_) {},
+        );
+      case DesignerElementType.knob:
+        return RKKnob(
+          value: 0.5,
+          size: 44,
+          onChanged: (_) {},
+        );
+      case DesignerElementType.joystick:
+        return RKJoystick(
+          size: 44,
+          onChanged: (_) {},
+        );
+      case DesignerElementType.multiButton:
+        return RKMultiButton(
+          items: List.generate(3, (i) => RKToggleItem(onLabel: String.fromCharCode(65 + i))),
+          selected: 0,
+          buttonSize: 15,
+          orientation: RKAxis.horizontal,
+          onChanged: (_) {},
+        );
+      case DesignerElementType.multiSelect:
+        return RKMultiSelect(
+          items: List.generate(3, (i) => RKToggleItem(onLabel: String.fromCharCode(65 + i))),
+          bitmask: 0,
+          buttonSize: 15,
+          orientation: RKAxis.horizontal,
+          onChanged: (_) {},
+        );
+      case DesignerElementType.gasPedal:
+        return RKGasPedal(
+          value: 0.0,
+          orientation: RKAxis.vertical,
+          thickness: 5,
+          length: 44,
+          onChanged: (_) {},
+        );
+      case DesignerElementType.led:
+        return const RKLed(
+          state: RKLEDState.on,
+          shape: RKLEDShape.circle,
+          size: 24,
+        );
+      case DesignerElementType.text:
+        return const RKDisplay(
+          text: 'Display',
+          fontSize: 9,
+          width: 60,
+          height: 22,
+        );
+      case DesignerElementType.serialMonitor:
+        return const RKSerialMonitor(
+          messages: ['> Serial'],
+          fontSize: 7,
+          width: 60,
+          height: 32,
+        );
+    }
   }
 }
