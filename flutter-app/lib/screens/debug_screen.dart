@@ -422,6 +422,7 @@ class _DebugScreenState extends State<DebugScreen>
                           );
                           setState(() => _sendError = err);
                           if (err == null) {
+                            if (!context.mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text('Packet sent'),

@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'designer_element.dart';
 
@@ -8,14 +10,21 @@ class DesignerState extends ChangeNotifier {
   String? _selectedElementId;
   bool _isLandscape = true;
   bool _isPlayMode = false;
+  bool _isInspectorVisible = true;
   GridStyle _gridStyle = GridStyle.none;
   String _activeSkin = 'dragon';
   String _connectionType = 'ble';
   String _modelName = '';
-  String _modelType = '';
+  String _modelType = 'Locomotive';
+  String _modelDescription = '';
   String _connectionPassword = '';
+  String _screenSize = '200 x 100';
+  
+  String? _originalHeaderContent;
+  String? _originalHeaderPath;
 
   final Map<String, dynamic> _runtimeWidgetValues = {};
+  void Function(String id, dynamic value)? onRuntimeValueChanged;
 
   final List<List<DesignerElement>> _undoStack = [];
   final List<List<DesignerElement>> _redoStack = [];
@@ -25,12 +34,15 @@ class DesignerState extends ChangeNotifier {
   String? get selectedElementId => _selectedElementId;
   bool get isLandscape => _isLandscape;
   bool get isPlayMode => _isPlayMode;
+  bool get isInspectorVisible => _isInspectorVisible;
   GridStyle get gridStyle => _gridStyle;
   String get activeSkin => _activeSkin;
   String get connectionType => _connectionType;
   String get modelName => _modelName;
   String get modelType => _modelType;
+  String get modelDescription => _modelDescription;
   String get connectionPassword => _connectionPassword;
+  String get screenSize => _screenSize;
   bool get canUndo => _undoStack.isNotEmpty;
   bool get canRedo => _redoStack.isNotEmpty;
 
@@ -161,6 +173,7 @@ class DesignerState extends ChangeNotifier {
 
   void toggleOrientation() {
     _isLandscape = !_isLandscape;
+    _screenSize = _isLandscape ? '200 x 100' : '100 x 200';
     notifyListeners();
   }
 
@@ -189,6 +202,9 @@ class DesignerState extends ChangeNotifier {
 
   void setRuntimeWidgetValue(String id, dynamic value) {
     _runtimeWidgetValues[id] = value;
+    if (onRuntimeValueChanged != null) {
+      onRuntimeValueChanged!(id, value);
+    }
     notifyListeners();
   }
 
@@ -197,7 +213,15 @@ class DesignerState extends ChangeNotifier {
     if (_isPlayMode) {
       _selectedElementId = null;
       _runtimeWidgetValues.clear();
+      _isInspectorVisible = false;
+    } else {
+      _isInspectorVisible = true;
     }
+    notifyListeners();
+  }
+
+  void setInspectorVisible(bool visible) {
+    _isInspectorVisible = visible;
     notifyListeners();
   }
 
@@ -220,8 +244,22 @@ class DesignerState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setModelDescription(String value) {
+    _modelDescription = value;
+    notifyListeners();
+  }
+
   void setConnectionPassword(String value) {
     _connectionPassword = value;
+    notifyListeners();
+  }
+
+  void setScreenSize(String value) {
+    _screenSize = value;
+    final newLandscape = (value == '200 x 100');
+    if (newLandscape != _isLandscape) {
+      _isLandscape = newLandscape;
+    }
     notifyListeners();
   }
 
@@ -249,4 +287,113 @@ class DesignerState extends ChangeNotifier {
     _runtimeWidgetValues.clear();
     notifyListeners();
   }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  //  .h-file persistence — reads/writes the JSON inside
+  //  /*__RadioKit_UI_Designer_Config__ … RadioKit_UI_Designer_Config__*/
+  // ──────────────────────────────────────────────────────────────────────────
+
+  static const _configStart = '/*__RadioKit_UI_Designer_Config__';
+  static const _configEnd = 'RadioKit_UI_Designer_Config__*/';
+
+  static final RegExp configPattern = RegExp(
+    RegExp.escape(_configStart) + r'(.*?)' + RegExp.escape(_configEnd),
+    dotAll: true,
+  );
+
+  /// Load designer state from a `.h` file's embedded JSON comment block.
+  Future<void> loadFromHeaderFile(String filePath) async {
+    if (kIsWeb || !(Platform.isLinux || Platform.isMacOS || Platform.isWindows)) {
+      throw UnsupportedError('Header-file I/O requires a desktop platform');
+    }
+    final content = await File(filePath).readAsString();
+    loadFromHeaderContent(content);
+  }
+
+  /// Load designer state from raw header string content.
+  void loadFromHeaderContent(String content, {String? path}) {
+    _originalHeaderContent = content;
+    _originalHeaderPath = path;
+
+    final match = configPattern.firstMatch(content);
+    if (match == null || match.group(1) == null) {
+      throw FormatException(
+        'No /*__RadioKit_UI_Designer_Config__ … */ block found in content',
+      );
+    }
+    final jsonStr = (match.group(1) as String).trim();
+    final decoded = json.decode(jsonStr) as Map<String, dynamic>;
+    loadFromJson(decoded);
+  }
+
+  void loadFromJson(Map<String, dynamic> decoded) {
+    _elements.clear();
+    for (final wJson in (decoded['widgets'] as List? ?? [])) {
+      _elements.add(DesignerElement.fromJson(wJson as Map<String, dynamic>));
+    }
+
+    // restore model name so the generated header block uses the right name
+    _modelName = (decoded['config']?['name'] as String?) ?? '';
+    _modelType = (decoded['config']?['type'] as String?) ?? 'Locomotive';
+    _modelDescription = (decoded['config']?['description'] as String?) ?? '';
+
+    final orientation =
+        (decoded['canvas']?['orientation'] as String?) ?? 'landscape';
+    _isLandscape = orientation == 'landscape' || orientation == 'auto';
+    final rawSize = decoded['canvas']?['screenSize'] as String?;
+    if (rawSize == '200 x 100' || rawSize == '100 x 200') {
+      _screenSize = rawSize!;
+    } else {
+      _screenSize = _isLandscape ? '200 x 100' : '100 x 200';
+    }
+
+    _selectedElementId = null;
+    notifyListeners();
+  }
+
+  String? get originalHeaderContent => _originalHeaderContent;
+  String? get originalHeaderPath => _originalHeaderPath;
+
+  /// Write the current designer state into the `.h` file's embedded JSON block,
+  /// preserving everything else (user code below the markers) unchanged.
+  Future<void> saveToHeaderFile(String filePath) async {
+    if (kIsWeb || !(Platform.isLinux || Platform.isMacOS || Platform.isWindows)) {
+      throw UnsupportedError('Header-file I/O requires a desktop platform');
+    }
+    final content = await File(filePath).readAsString();
+    final result = generateHeaderContent(content);
+    await File(filePath).writeAsString(result);
+  }
+
+  /// Replaces the embedded JSON block in the given [originalContent] with the
+  /// current designer state and returns the new complete header string.
+  String generateHeaderContent(String originalContent) {
+    final match = configPattern.firstMatch(originalContent);
+    final encoder = JsonEncoder.withIndent('  ');
+    final newJson = encoder.convert(toJson());
+    final fullBlock = '$_configStart\n$newJson\n$_configEnd\n';
+
+    if (match == null || match.group(1) == null) {
+      if (originalContent.trim().isEmpty) {
+        return '$fullBlock\n//__RadioKit_Generated_Code__\n';
+      }
+      return '$originalContent\n\n$fullBlock';
+    }
+    return originalContent.replaceRange(match.start, match.end, fullBlock);
+  }
+
+  /// Build the serialisable map for saveToHeaderFile.
+  Map<String, dynamic> toJson() => {
+        'version': 1,
+        'config': {
+          'name': _modelName,
+          'type': _modelType,
+          'description': _modelDescription,
+        },
+        'canvas': {
+          'orientation': _isLandscape ? 'landscape' : 'portrait',
+          'screenSize': _screenSize,
+        },
+        'widgets': _elements.map((e) => e.toJson()).toList(),
+      };
 }

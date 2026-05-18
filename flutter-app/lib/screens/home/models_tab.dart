@@ -263,8 +263,7 @@ class _TelemetryItem extends StatelessWidget {
     required this.label,
     required this.value,
     required this.unit,
-    this.color,
-  });
+  }) : color = null;
 
   @override
   Widget build(BuildContext context) {
@@ -441,7 +440,7 @@ class _PairedModelsList extends StatelessWidget {
 class _InteractiveDemoSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return const Column(
       children: [
         _DemoModelTile(
           icon: Icons.widgets_rounded,

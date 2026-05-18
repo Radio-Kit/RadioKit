@@ -197,7 +197,7 @@ class SystemTab extends StatelessWidget {
                   builder: (context, settings, _) => Switch(
                     value: settings.showDemo,
                     onChanged: (v) => settings.setShowDemo(v),
-                    activeColor: AppColors.brandOrange,
+                    activeThumbColor: AppColors.brandOrange,
                   ),
                 ),
               ],
@@ -213,7 +213,7 @@ class SystemTab extends StatelessWidget {
                   builder: (context, settings, _) => Switch(
                     value: settings.useFullscreen,
                     onChanged: (v) => settings.setUseFullscreen(v),
-                    activeColor: AppColors.brandOrange,
+                    activeThumbColor: AppColors.brandOrange,
                   ),
                 ),
               ],

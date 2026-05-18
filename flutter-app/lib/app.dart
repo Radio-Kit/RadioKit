@@ -12,6 +12,7 @@ import 'providers/history_provider.dart';
 import 'providers/console_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/skin_provider.dart';
+import 'providers/designs_provider.dart';
 import 'router.dart';
 
 class RadioKitApp extends StatefulWidget {
@@ -29,6 +30,7 @@ class _RadioKitAppState extends State<RadioKitApp> {
   late final ConsoleProvider _consoleProvider;
   late final DeviceProvider _deviceProvider;
   late final SkinProvider _skinProvider;
+  late final DesignsProvider _designsProvider;
   late final ConnectionNotifier _connectionNotifier;
   late final GoRouter _router;
 
@@ -38,6 +40,10 @@ class _RadioKitAppState extends State<RadioKitApp> {
 
     _skinProvider = SkinProvider();
     _skinProvider.init(); // Restore persisted theme choice
+    
+    _designsProvider = DesignsProvider();
+    _designsProvider.load();
+    
     _bleProvider = BleProvider();
     _serialProvider = SerialProvider();
     _debugProvider = DebugProvider();
@@ -74,6 +80,7 @@ class _RadioKitAppState extends State<RadioKitApp> {
         ChangeNotifierProvider<ConsoleProvider>.value(value: _consoleProvider),
         ChangeNotifierProvider<DeviceProvider>.value(value: _deviceProvider),
         ChangeNotifierProvider<SettingsProvider>.value(value: SettingsProvider()),
+        ChangeNotifierProvider<DesignsProvider>.value(value: _designsProvider),
       ],
       child: Consumer2<ThemeProvider, SkinProvider>(
         builder: (context, themeProvider, skinProvider, child) {

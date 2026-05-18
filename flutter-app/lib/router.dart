@@ -9,6 +9,8 @@ import 'screens/control_screen.dart';
 import 'screens/debug_screen.dart';
 import 'screens/skin_browser_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/designer/designer_screen.dart';
+import 'screens/home/designs_tab.dart';
 import 'theme/app_theme.dart';
 
 class ConnectionNotifier extends ChangeNotifier {
@@ -76,6 +78,14 @@ GoRouter createRouter(ConnectionNotifier connectionNotifier) {
           StatefulShellBranch(
             routes: [
               GoRoute(
+                path: '/designs',
+                builder: (context, state) => const DesignsTab(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
                 path: '/system',
                 builder: (context, state) => const SystemTab(),
               ),
@@ -86,6 +96,13 @@ GoRouter createRouter(ConnectionNotifier connectionNotifier) {
       GoRoute(
         path: '/control',
         builder: (context, state) => const ControlScreen(),
+      ),
+      GoRoute(
+        path: '/designer',
+        builder: (context, state) {
+          final id = state.uri.queryParameters['id'];
+          return DesignerScreen(designId: id);
+        },
       ),
       GoRoute(
         path: '/debug',

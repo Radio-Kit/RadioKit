@@ -12,7 +12,6 @@
 library;
 
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import '../models/device_info.dart';
 import 'transport_service.dart';
@@ -22,18 +21,18 @@ export 'transport_service.dart';
 // This avoids pulling usb_serial into the iOS/desktop build graph.
 import 'serial_service_android.dart'
     if (dart.library.js_interop) 'serial_service_stub.dart'
-    as _android;
+    as android;
 
 /// The platform-dispatched [SerialService] that providers interact with.
 ///
-/// On Android it wraps [_android.SerialService].
+/// On Android it wraps [android.SerialService].
 /// On all other native platforms it returns [isSupported] = false.
 class SerialService implements TransportService {
   late final TransportService _impl;
 
   SerialService() {
     if (defaultTargetPlatform == TargetPlatform.android) {
-      _impl = _android.SerialService();
+      _impl = android.SerialService();
     } else {
       _impl = _UnsupportedSerialService();
     }
@@ -64,7 +63,7 @@ class SerialService implements TransportService {
   /// List available serial ports. Returns an empty stream on unsupported platforms.
   Stream<DeviceInfo> listPorts() {
     final impl = _impl;
-    if (impl is _android.SerialService) return impl.listPorts();
+    if (impl is android.SerialService) return impl.listPorts();
     return const Stream.empty();
   }
 

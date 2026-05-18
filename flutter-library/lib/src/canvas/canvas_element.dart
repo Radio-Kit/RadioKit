@@ -214,7 +214,7 @@ class CanvasElement extends StatelessWidget {
           size: math.min(element.width.toDouble(), element.height.toDouble()) * cs,
         );
 
-      case DesignerElementType.display:
+      case DesignerElementType.text:
         return RKDisplay(
           text: element.properties['text'] ?? 'Display',
           fontSize: (element.properties['fontSize'] as num?)?.toDouble() ?? 14,
@@ -282,8 +282,6 @@ class CanvasElement extends StatelessWidget {
       selected: isPlay ? (designerState!.getRuntimeWidgetValue(id, 0) as int?) ?? 0 : 0,
       onChanged: isPlay ? (v) => designerState!.setRuntimeWidgetValue(id, v) : (_) {},
       buttonSize: buttonSize,
-      spacing: spacing,
-      padding: padding,
       enableHapticFeedback: element.properties['enableHapticFeedback'] ?? true,
       orientation: horizontal ? RKAxis.horizontal : RKAxis.vertical,
       rotation: rotationRad,
@@ -307,8 +305,6 @@ class CanvasElement extends StatelessWidget {
       bitmask: isPlay ? (designerState!.getRuntimeWidgetValue(id, 0) as int?) ?? 0 : 0,
       onChanged: isPlay ? (v) => designerState!.setRuntimeWidgetValue(id, v) : (_) {},
       buttonSize: buttonSize,
-      spacing: spacing,
-      padding: padding,
       enableHapticFeedback: element.properties['enableHapticFeedback'] ?? true,
       orientation: horizontal ? RKAxis.horizontal : RKAxis.vertical,
       rotation: rotationRad,

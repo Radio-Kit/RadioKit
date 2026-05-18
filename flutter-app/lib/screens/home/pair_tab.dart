@@ -426,10 +426,15 @@ class _SignalBars extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     int bars = 0;
-    if (rssi > -60) bars = 4;
-    else if (rssi > -70) bars = 3;
-    else if (rssi > -80) bars = 2;
-    else if (rssi > -90) bars = 1;
+    if (rssi > -60) {
+      bars = 4;
+    } else if (rssi > -70) {
+      bars = 3;
+    } else if (rssi > -80) {
+      bars = 2;
+    } else if (rssi > -90) {
+      bars = 1;
+    }
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,

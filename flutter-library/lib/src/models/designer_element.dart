@@ -10,7 +10,7 @@ enum DesignerElementType {
   multiSelect,
   gasPedal,
   led,
-  display,
+  text,
   serialMonitor,
 }
 
@@ -130,7 +130,7 @@ class DesignerElement {
           'color': 0x00FF00,
           'timing': 500,
         };
-      case DesignerElementType.display:
+      case DesignerElementType.text:
         return {
           'text': 'Display',
           'fontSize': 14.0,
@@ -168,7 +168,7 @@ class DesignerElement {
         return (15, 30);
       case DesignerElementType.led:
         return (10, 10);
-      case DesignerElementType.display:
+      case DesignerElementType.text:
         return (60, 15);
       case DesignerElementType.serialMonitor:
         return (60, 40);
@@ -199,27 +199,83 @@ class DesignerElement {
     );
   }
 
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'type': type.name,
-        'x': x,
-        'y': y,
-        'width': width,
-        'height': height,
-        'properties': properties,
-        'label': label,
-        'rotation': rotation,
-      };
+  String get jsonTypeStr {
+    switch (type) {
+      case DesignerElementType.button: return 'button';
+      case DesignerElementType.slideSwitch: return 'slideSwitch';
+      case DesignerElementType.rockerSwitch: return 'switch';
+      case DesignerElementType.slider: return 'slider';
+      case DesignerElementType.gasPedal: return 'slider';
+      case DesignerElementType.knob: return 'knob';
+      case DesignerElementType.steeringWheel: return 'knob';
+      case DesignerElementType.joystick: return 'joystick';
+      case DesignerElementType.multiButton: return 'multiple';
+      case DesignerElementType.multiSelect: return 'multiple';
+      case DesignerElementType.led: return 'led';
+      case DesignerElementType.text: return 'text';
+      case DesignerElementType.serialMonitor: return 'serialMonitor';
+    }
+  }
+
+  Map<String, dynamic> toJson() {
+    final props = Map<String, dynamic>.from(properties);
+    if (type == DesignerElementType.gasPedal) props['variant'] = 'gasPedal';
+    if (type == DesignerElementType.steeringWheel) props['variant'] = 'steeringWheel';
+    if (type == DesignerElementType.multiSelect) props['variant'] = 'multiSelect';
+    if (type == DesignerElementType.multiButton) props['variant'] = 'multiButton';
+    if (type == DesignerElementType.rockerSwitch) props['variant'] = 'rockerSwitch';
+
+    return {
+      'id': id,
+      'type': jsonTypeStr,
+      'x': x,
+      'y': y,
+      'width': width,
+      'height': height,
+      'properties': props,
+      'label': label,
+      'rotation': rotation,
+    };
+  }
 
   factory DesignerElement.fromJson(Map<String, dynamic> json) {
+    String typeStr = json['type'] as String;
+    Map<String, dynamic> props = Map<String, dynamic>.from(json['properties'] as Map? ?? {});
+    DesignerElementType parsedType;
+
+    switch (typeStr) {
+      case 'button': parsedType = DesignerElementType.button; break;
+      case 'switch': parsedType = DesignerElementType.rockerSwitch; break;
+      case 'slideSwitch': parsedType = DesignerElementType.slideSwitch; break;
+      case 'slider':
+        parsedType = (props['variant'] == 'gasPedal') ? DesignerElementType.gasPedal : DesignerElementType.slider;
+        break;
+      case 'knob':
+        parsedType = (props['variant'] == 'steeringWheel') ? DesignerElementType.steeringWheel : DesignerElementType.knob;
+        break;
+      case 'joystick': parsedType = DesignerElementType.joystick; break;
+      case 'multiple':
+        parsedType = (props['variant'] == 'multiSelect') ? DesignerElementType.multiSelect : DesignerElementType.multiButton;
+        break;
+      case 'led': parsedType = DesignerElementType.led; break;
+      case 'text': parsedType = DesignerElementType.text; break;
+      case 'display': parsedType = DesignerElementType.text; break;
+      default:
+        try {
+          parsedType = DesignerElementType.values.byName(typeStr);
+        } catch (_) {
+          parsedType = DesignerElementType.button;
+        }
+    }
+
     return DesignerElement(
       id: json['id'] as String,
-      type: DesignerElementType.values.byName(json['type'] as String),
+      type: parsedType,
       x: json['x'] as int,
       y: json['y'] as int,
       width: json['width'] as int,
       height: json['height'] as int,
-      properties: Map<String, dynamic>.from(json['properties'] as Map),
+      properties: props,
       label: json['label'] as String? ?? '',
       rotation: json['rotation'] as int? ?? 0,
     );

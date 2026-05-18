@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
@@ -52,7 +51,9 @@ class ProtocolService {
     pkt[1] = total & 0xFF;
     pkt[2] = (total >> 8) & 0xFF;
     pkt[3] = cmd;
-    for (int i = 0; i < p.length; i++) pkt[4 + i] = p[i] & 0xFF;
+    for (int i = 0; i < p.length; i++) {
+      pkt[4 + i] = p[i] & 0xFF;
+    }
     pkt[total - 2] = crc & 0xFF;
     pkt[total - 1] = (crc >> 8) & 0xFF;
     return pkt;
@@ -441,10 +442,7 @@ class ProtocolService {
     return (updated, current);
   }
 
-  static int _signed(int byte) {
-    final b = byte & 0xFF;
-    return b >= 128 ? b - 256 : b;
-  }
+
 }
 
 /// Result of a successfully parsed packet.

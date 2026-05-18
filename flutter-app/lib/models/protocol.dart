@@ -1,5 +1,5 @@
 /// Protocol constants for the RadioKit binary protocol v3.0
-library protocol;
+library;
 
 // BLE Service and Characteristic UUIDs
 const String kRadioKitServiceUuid = '0000FFE0-0000-1000-8000-00805F9B34FB';
@@ -174,15 +174,23 @@ String widgetVariantName(int typeId, int variant) {
     final parts = <String>[];
     
     if (isAlt) {
-      if (typeId == kWidgetSlider) parts.add('GasPedal');
-      else if (typeId == kWidgetKnob) parts.add('Steering');
-      else parts.add('Alt');
+      if (typeId == kWidgetSlider) {
+        parts.add('GasPedal');
+      } else if (typeId == kWidgetKnob) {
+        parts.add('Steering');
+      } else {
+        parts.add('Alt');
+      }
     }
 
     if (center != kCenterNone) {
-      if (center == kCenterMin) parts.add('Min');
-      else if (center == kCenterMid) parts.add('Mid');
-      else if (center == kCenterMax) parts.add('Max');
+      if (center == kCenterMin) {
+        parts.add('Min');
+      } else if (center == kCenterMid) {
+        parts.add('Mid');
+      } else if (center == kCenterMax) {
+        parts.add('Max');
+      }
     }
     if (detents > 1) {
       parts.add('D$detents');

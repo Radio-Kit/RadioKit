@@ -57,11 +57,12 @@ void main() {
       test('returns empty list for zero widgets', () {
         final payload = [
           0x03, // version
-          0x00, // theme
           0x00, // orientation
           0x00, // 0 widgets
           0x00, // nameLen=0
+          0x00, // descLen=0
           0x00, // pwdLen=0
+          0x05, 0x74, 0x68, 0x65, 0x6d, 0x65, // themeLen=5, "theme"
         ];
         final parsed = ProtocolService.parseConfData(payload);
         expect(parsed, isNotNull);
@@ -75,14 +76,15 @@ void main() {
       });
 
       test('parses a single button widget descriptor', () {
-        // [version][theme][orientation][count][nameLen][name...][pwdLen][pwd...][TYPE][ID][X][Y][SCALE][ASPECT][ROT_L][ROT_H][STYLE][VARIANT][STR_MASK][STRINGS...]
+        // [version][orientation][count][nameLen][name...][descLen][pwdLen][themeLen][theme...][TYPE][ID][X][Y][SCALE][ASPECT][ROT_L][ROT_H][STYLE][VARIANT][STR_MASK][STRINGS...]
         final payload = [
           0x03, // version
-          0x00, // theme
           0x00, // orientation
           0x01, // 1 widget
           0x04, 0x54, 0x65, 0x73, 0x74, // nameLen=4, "Test"
+          0x00, // descLen=0
           0x00, // pwdLen=0
+          0x05, 0x74, 0x68, 0x65, 0x6d, 0x65, // themeLen=5, "theme"
           0x01, // TYPE = BUTTON
           0x05, // WIDGET_ID = 5
           0x64, // X = 100

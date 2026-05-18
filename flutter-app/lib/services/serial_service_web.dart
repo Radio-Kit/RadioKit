@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 import 'package:flutter/foundation.dart';
-import 'dart:typed_data';
 import 'package:webserial/webserial.dart';
 import '../models/device_info.dart';
 import 'protocol_service.dart';
@@ -157,7 +156,7 @@ class SerialService implements TransportService {
       )).toDart;
     } catch (_) {}
 
-    _writer = port.writable?.getWriter() as WritableStreamDefaultWriter?;
+    _writer = port.writable?.getWriter();
 
     // Start continuous read loop in background
     _readLoop(port);

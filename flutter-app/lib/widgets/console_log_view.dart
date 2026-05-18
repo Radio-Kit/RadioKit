@@ -64,6 +64,7 @@ class _ConsoleLogViewState extends State<ConsoleLogView> {
                         icon: const Icon(Icons.copy_all_rounded, size: 16),
                         onPressed: () {
                           console.copyToClipboard().then((_) {
+                            if (!context.mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text('Log copied to clipboard'),

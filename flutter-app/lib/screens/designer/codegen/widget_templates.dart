@@ -1,4 +1,4 @@
-import '../models/designer_element.dart';
+import 'package:radiokit_widgets/radiokit_widgets.dart';
 
 typedef WidgetTemplate = String Function(DesignerElement element, int pinIndex);
 
@@ -94,7 +94,7 @@ RK_LED ${_widgetName(el)} {
   ${_widgetName(el)}.setColor(0x${color.toInt().toRadixString(16).padLeft(6, '0')});''';
   },
 
-  DesignerElementType.display: (el, pin) {
+  DesignerElementType.text: (el, pin) {
     final text = el.properties['text'] ?? 'Display';
     return '''
 RK_Text ${_widgetName(el)} {

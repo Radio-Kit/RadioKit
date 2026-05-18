@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import '../models/device_info.dart';
 import '../models/widget_config.dart';
@@ -36,16 +35,15 @@ class _PendingUpdate {
     required this.widgetId,
     required this.seq,
     required this.values,
-    this.retries = 0,
-  });
+  }) : retries = 0;
 }
 
 /// Manages the connected device, widget configuration, and variable
 /// polling/update loop. Transport-agnostic.
 class DeviceProvider extends ChangeNotifier {
   TransportService _transport;
-  ConsoleProvider? _console;
-  SkinProvider? _skinProvider;
+  final ConsoleProvider? _console;
+  final SkinProvider? _skinProvider;
 
   DeviceInfo?              _connectedDevice;
   DeviceConnectionState    _connectionState = DeviceConnectionState.disconnected;
@@ -62,10 +60,9 @@ class DeviceProvider extends ChangeNotifier {
   Timer?                   _pingTimer;
   Timer?                   _telemetryTimer;
   Timer?                   _confTimeoutTimer;
-  bool                     _isWaitingForVars = false;
   DateTime?                _lastRxAt;
   DateTime?                _lastTxAt;
-  DebugLogSink?            _debugSink;
+  final DebugLogSink?            _debugSink;
   Completer<void>?         _confCompleter;
   DateTime?                _pingSentAt;
 
@@ -110,13 +107,13 @@ class DeviceProvider extends ChangeNotifier {
     // 1. Strip all existing DebugTransport wrappers to find the true base transport
     TransportService base = transport;
     while (base is DebugTransport) {
-      base = (base as DebugTransport).inner;
+      base = (base).inner;
     }
     
     // 2. Identify current true base
     TransportService currentBase = _transport;
     while (currentBase is DebugTransport) {
-      currentBase = (currentBase as DebugTransport).inner;
+      currentBase = (currentBase).inner;
     }
         
     // 3. Check if we have exactly the right number of wrapper layers
@@ -138,7 +135,7 @@ class DeviceProvider extends ChangeNotifier {
     // 5. Build exactly one layer of wrapper if sink is available
     TransportService next = base;
     if (_debugSink != null) {
-      next = DebugTransport(inner: base, sink: _debugSink!);
+      next = DebugTransport(inner: base, sink: _debugSink);
     }
     
     _transport = next;
@@ -149,7 +146,7 @@ class DeviceProvider extends ChangeNotifier {
 
     // 7. Synchronize DebugProvider if it's our sink
     if (_debugSink is DebugProvider) {
-      (_debugSink as DebugProvider).attachTransport(_transport);
+      (_debugSink).attachTransport(_transport);
     }
   }
 
@@ -260,7 +257,7 @@ class DeviceProvider extends ChangeNotifier {
   }
 
   Future<void> _requestConfig() async {
-    _log('ESTABLISHING HANDSHAKE (Protocol v${kProtocolVersion})...');
+    _log('ESTABLISHING HANDSHAKE (Protocol v$kProtocolVersion)...');
     _connectionState = DeviceConnectionState.fetchingConfig;
     notifyListeners();
 
@@ -516,7 +513,7 @@ class DeviceProvider extends ChangeNotifier {
           '${payload.take(32).map((b) => b.toRadixString(16).padLeft(2, "0")).join(" ")}');
       return;
     }
-    _log('RECEIVED CONFIG: "${(conf as ParsedConf).name}" with ${conf.widgets.length} widgets', level: ConsoleLogLevel.success);
+    _log('RECEIVED CONFIG: "${(conf).name}" with ${conf.widgets.length} widgets', level: ConsoleLogLevel.success);
     _configName      = conf.name;
     _description     = conf.description;
     _widgets         = conf.widgets;
@@ -542,7 +539,6 @@ class DeviceProvider extends ChangeNotifier {
   }
 
   void _handleVarData(List<int> payload) {
-    _isWaitingForVars = false; // Response received, clear wait flag
     final current = _widgetState;
     if (current == null) return;
     final next = ProtocolService.parseVarData(payload, _widgets, current);
@@ -702,7 +698,7 @@ class DeviceProvider extends ChangeNotifier {
 
       entry.retries++;
       entry.timer = Timer(
-        Duration(milliseconds: kVarUpdateTimeoutMs),
+        const Duration(milliseconds: kVarUpdateTimeoutMs),
         trySend,
       );
     }

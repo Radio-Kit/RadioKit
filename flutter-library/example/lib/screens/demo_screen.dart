@@ -513,7 +513,6 @@ class _DemoScreenState extends State<DemoScreen> {
                 fit: BoxFit.scaleDown,
                 child: RKMultiButton(
                   buttonSize: 80,
-                  spacing: 10,
                   items: _multiItems,
                   selected: _multiButtonValue % (_multiItems.isEmpty ? 1 : _multiItems.length),
                   orientation: _multiOrientation == 'vertical' ? RKAxis.vertical : RKAxis.horizontal,
@@ -544,7 +543,6 @@ class _DemoScreenState extends State<DemoScreen> {
                 fit: BoxFit.scaleDown,
                 child: RKMultiSelect(
                   buttonSize: 80,
-                  spacing: 10,
                   items: _multiItems,
                   bitmask: _multiSelectBitmask,
                   orientation: _multiOrientation == 'vertical' ? RKAxis.vertical : RKAxis.horizontal,
@@ -1456,34 +1454,6 @@ class _TopBar extends StatelessWidget {
               fontFamily: 'monospace',
               fontWeight: FontWeight.bold,
               letterSpacing: 1,
-            ),
-          ),
-          const Spacer(),
-          GestureDetector(
-            onTap: () => context.go('/designer'),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1B5E20),
-                borderRadius: BorderRadius.circular(2),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(LucideIcons.palette, color: tokens.primary, size: 14),
-                  const SizedBox(width: 6),
-                  const Text(
-                    'UI DESIGNER',
-                    style: TextStyle(
-                      color: Color(0xFFA5D6A7),
-                      fontSize: 12,
-                      fontFamily: 'monospace',
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                ],
-              ),
             ),
           ),
         ],

@@ -22,3 +22,9 @@ export 'src/widgets/multiple/rk_multi_button.dart';
 export 'src/widgets/multiple/rk_multi_select.dart';
 export 'src/widgets/display/rk_display.dart';
 export 'src/widgets/display/rk_serial_monitor.dart';
+
+// Canvas & Models
+export 'src/canvas/designer_canvas.dart';
+export 'src/canvas/canvas_element.dart';
+export 'src/models/designer_state.dart';
+export 'src/models/designer_element.dart';

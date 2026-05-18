@@ -22,15 +22,20 @@ class RKToggleItem {
 }
 
 /// Radio-style multi-button group for RadioKit.
+///
+/// ### Defined aspect ratio
+/// The widget enforces a strict **N:1** width:height ratio where **N = number
+/// of items**.  Each per-button slot is `buttonSize` × `buttonSize`; a fixed
+/// `gap` separates consecutive buttons.  There are no freeform spacing
+/// parameters.
 class RKMultiButton extends StatelessWidget {
   const RKMultiButton({
     super.key,
     required this.items,
     required this.selected,
     required this.onChanged,
-    this.buttonSize = 64.0,
-    this.spacing = 8.0,
-    this.padding = 12.0,
+    this.buttonSize = 24.0,
+    this.gap = 8.0,
     this.enableHapticFeedback = true,
     this.onActiveChanged,
     this.orientation = RKAxis.horizontal,
@@ -42,36 +47,40 @@ class RKMultiButton extends StatelessWidget {
   final int selected;
   final ValueChanged<int> onChanged;
   final double buttonSize;
-  final double spacing;
-  final double padding;
+  final double gap;
   final bool enableHapticFeedback;
   final ValueChanged<bool>? onActiveChanged;
   final RKAxis orientation;
   final double rotation;
   final String? label;
 
+  /// Content dimensions that enforce the strict N:1 aspect ratio.
+  ///
+  /// `buttonSize * count` × `buttonSize` → N:1 exactly.
+  static Offset _contentSize(int count, double buttonSize, {required bool horizontal}) =>
+      horizontal
+          ? Offset(buttonSize * count, buttonSize)
+          : Offset(buttonSize, buttonSize * count);
+
   @override
   Widget build(BuildContext context) {
     final tokens = RKTheme.of(context);
+    final int count = items.length;
+    final bool isHorizontal = orientation == RKAxis.horizontal;
 
-    final count = items.length;
-    final totalButtonDim = (buttonSize * count) + (spacing * (count - 1));
-    final contentWidth = orientation == RKAxis.horizontal 
-        ? totalButtonDim + (padding * 2) 
-        : buttonSize + (padding * 2);
-    final contentHeight = orientation == RKAxis.horizontal 
-        ? buttonSize + (padding * 2) 
-        : totalButtonDim + (padding * 2);
+    final double cw = _contentSize(count, buttonSize, horizontal: isHorizontal).dx;
+    final double ch = _contentSize(count, buttonSize, horizontal: isHorizontal).dy;
 
     return RKRotatedWrapper(
       rotation: rotation,
       label: label,
-      contentWidth: contentWidth,
-      contentHeight: contentHeight,
+      contentWidth: cw,
+      contentHeight: ch,
       labelColor: tokens.primary.withValues(alpha: 0.7),
       fitContent: true,
       child: Container(
-        padding: EdgeInsets.all(padding),
+        width: cw,
+        height: ch,
         decoration: BoxDecoration(
           color: tokens.surface,
           border: Border.all(color: tokens.trackColor, width: 1),
@@ -82,63 +91,66 @@ class RKMultiButton extends StatelessWidget {
           onPointerDown: (_) => onActiveChanged?.call(true),
           onPointerUp: (_) => onActiveChanged?.call(false),
           onPointerCancel: (_) => onActiveChanged?.call(false),
-          child: orientation == RKAxis.horizontal 
-            ? Row(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: _buildButtons(spacing),
-              )
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: _buildButtons(spacing),
-              ),
+          child: _buildAxis(count, tokens, isHorizontal),
         ),
       ),
     );
   }
 
-  List<Widget> _buildButtons(double spacing) {
-    return List<Widget>.generate(items.length, (int index) {
-      final button = _RKToggleButton(
-        item: items[index],
-        selected: index == selected,
-        size: buttonSize,
+  Widget _buildAxis(int count, RKTokens tokens, bool isHorizontal) {
+    final children = <Widget>[];
+    for (int i = 0; i < count; i++) {
+      if (i > 0) {
+        children.add(isHorizontal
+            ? SizedBox(width: gap)
+            : SizedBox(height: gap));
+      }
+      children.add(_Button(
+        item: items[i],
+        selected: i == selected,
+        buttonSize: buttonSize,
         onTap: () {
           if (enableHapticFeedback) {
             HapticFeedback.lightImpact();
           }
-          onChanged(index);
+          onChanged(i);
         },
+        tokens: tokens,
+      ));
+    }
+    if (isHorizontal) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: children,
       );
-
-      if (index == items.length - 1) return button;
-      return Padding(
-        padding: orientation == RKAxis.horizontal 
-            ? EdgeInsets.only(right: spacing)
-            : EdgeInsets.only(bottom: spacing),
-        child: button,
+    } else {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: children,
       );
-    });
+    }
   }
 }
 
-class _RKToggleButton extends StatelessWidget {
+class _Button extends StatelessWidget {
   final RKToggleItem item;
   final bool selected;
-  final double size;
+  final double buttonSize;
   final VoidCallback onTap;
+  final RKTokens tokens;
 
-  const _RKToggleButton({
+  const _Button({
     required this.item,
     required this.selected,
-    required this.size,
+    required this.buttonSize,
     required this.onTap,
+    required this.tokens,
   });
 
   @override
   Widget build(BuildContext context) {
-    final tokens = RKTheme.of(context);
     final double radius = tokens.borderRadius * 2.0;
 
     return Material(
@@ -149,8 +161,8 @@ class _RKToggleButton extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 350),
           curve: Curves.easeInOutQuart,
-          width: size,
-          height: size,
+          width: buttonSize,
+          height: buttonSize,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(radius),
             gradient: selected
@@ -175,16 +187,16 @@ class _RKToggleButton extends StatelessWidget {
               children: [
                 Icon(
                   item.iconFor(selected),
-                  size: size * 0.3,
+                  size: buttonSize * 0.3,
                   color: selected ? tokens.surface : tokens.onSurface.withValues(alpha: 0.5),
                 ),
-                SizedBox(height: size * 0.08),
+                SizedBox(height: buttonSize * 0.08),
                 Text(
                   item.labelFor(selected).toUpperCase(),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: selected ? tokens.surface : tokens.onSurface.withValues(alpha: 0.5),
-                    fontSize: size * 0.1,
+                    fontSize: buttonSize * 0.1,
                     letterSpacing: 1.2,
                     fontWeight: FontWeight.w800,
                   ),

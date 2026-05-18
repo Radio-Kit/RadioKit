@@ -1,19 +1,13 @@
-import 'dart:math' show pi;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../providers/device_provider.dart';
 import '../providers/debug_provider.dart';
-import '../providers/skin_provider.dart';
 import '../providers/settings_provider.dart';
-import '../services/debug_transport.dart';
-import '../models/widget_config.dart';
-import '../models/protocol.dart';
 import '../theme/app_theme.dart';
-import '../widgets/widget_adapter.dart';
+import '../widgets/device_designer_bridge.dart';
 
 /// Dynamic widget rendering screen for the connected RadioKit device.
 class ControlScreen extends StatefulWidget {
@@ -24,7 +18,6 @@ class ControlScreen extends StatefulWidget {
 }
 
 class _ControlScreenState extends State<ControlScreen> {
-  bool _debugWrapped = false;
 
   @override
   void initState() {
@@ -82,10 +75,11 @@ class _ControlScreenState extends State<ControlScreen> {
         final device      = deviceProvider.connectedDevice;
         final isConnected = deviceProvider.isConnected;
 
-        return WillPopScope(
-          onWillPop: () async {
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
             context.go('/models');
-            return false;
           },
           child: Scaffold(
             backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -137,7 +131,7 @@ class _ControlScreenState extends State<ControlScreen> {
                                 padding: const EdgeInsets.symmetric(horizontal: 4),
                                 child: Text('|', style: TextStyle(color: Colors.white.withValues(alpha: 0.1), fontSize: 10)),
                               ),
-                              Icon(Icons.timer_rounded, size: 14, color: Colors.white54),
+                              const Icon(Icons.timer_rounded, size: 14, color: Colors.white54),
                               const SizedBox(width: 4),
                               Text('${deviceProvider.latencyMs ?? "--"}ms', 
                                 style: const TextStyle(fontSize: 10, color: Colors.white54)),
@@ -250,12 +244,7 @@ class _ControlScreenState extends State<ControlScreen> {
     );
   }
 
-  (double, double) _canvasDimensions(int orientation) {
-    if (orientation == kOrientationPortrait) {
-      return (kCanvasPortraitW, kCanvasPortraitH);
-    }
-    return (kCanvasLandscapeW, kCanvasLandscapeH);
-  }
+
 
   Color _getRssiColor(int rssi) {
     if (rssi == -127) return Colors.white24;
@@ -265,208 +254,10 @@ class _ControlScreenState extends State<ControlScreen> {
   }
 
   Widget _buildCanvas(DeviceProvider deviceProvider) {
-    final orientation = deviceProvider.orientation;
-    final (canvasVW, canvasVH) = _canvasDimensions(orientation);
-    
-    // Fixed internal scale of 8.0 ensures consistent 1:1 proportions
-    const double internalScale = 8.0;
-    final double physicalW = canvasVW * internalScale;
-    final double physicalH = canvasVH * internalScale;
-
-    // Source grid color from RKTokens
-    final skinProvider = context.watch<SkinProvider>();
     final debugProvider = context.watch<DebugProvider>();
-    final tokens = skinProvider.tokens;
-    final gridColor = tokens.trackColor.withValues(alpha: 0.3);
-    final debugMode = debugProvider.debugMode;
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: FittedBox(
-          fit: BoxFit.contain,
-          child: Container(
-            width: physicalW,
-            height: physicalH,
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              border: Border.all(color: Theme.of(context).dividerColor, width: 1),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(24.0), // Margin for debug labels
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  CustomPaint(
-                    size: Size(physicalW, physicalH),
-                    painter: _GridPainter(
-                      color: gridColor,
-                      style: GridStyle.lines,
-                      spacing: 10.0,
-                      scaleX: internalScale,
-                      scaleY: internalScale,
-                    ),
-                  ),
-                  ...deviceProvider.widgets.map((config) {
-                    return _buildPositionedWidget(
-                        config, internalScale, canvasVH, deviceProvider, debugMode);
-                  }),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
+    return DeviceDesignerBridge(
+      deviceProvider: deviceProvider,
+      debugMode: debugProvider.debugMode,
     );
-  }
-
-  Widget _buildPositionedWidget(
-    WidgetConfig config,
-    double scale,
-    double canvasVH,
-    DeviceProvider deviceProvider,
-    bool debugMode,
-  ) {
-    final scaledW  = config.w * scale;
-    final scaledH  = config.h * scale;
-    final screenX  = config.x * scale;
-    final screenY  = (canvasVH - config.y) * scale;
-    final left     = screenX - scaledW / 2;
-    final top      = screenY - scaledH / 2;
-    final angleRad = config.rotationDegrees * pi / 180.0;
-    
-    final state = deviceProvider.widgetState;
-
-    return Positioned(
-      left: left,
-      top: top,
-      width: scaledW,
-      height: scaledH,
-      child: Transform.rotate(
-        angle: angleRad,
-        alignment: Alignment.center,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Center(
-              child: WidgetAdapter.build(
-                config: config,
-                state: state,
-                onInputChanged: (values) => deviceProvider.setInputValue(config.widgetId, values),
-                scale: scale,
-              ),
-            ),
-            if (debugMode) ...[
-              // Bounding box
-              IgnorePointer(
-                child: Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: Colors.grey.withValues(alpha: 0.5),
-                      width: 1,
-                    ),
-                  ),
-                ),
-              ),
-              // Variant top-left
-              Positioned(
-                top: -12,
-                left: 0,
-                child: IgnorePointer(
-                  child: Text(
-                    config.debugLabel,
-                    style: const TextStyle(
-                      fontSize: 8,
-                      color: Colors.grey,
-                      fontWeight: FontWeight.bold,
-                      backgroundColor: Colors.black12,
-                    ),
-                  ),
-                ),
-              ),
-              // Position bottom-right
-              Positioned(
-                bottom: -12,
-                right: 0,
-                child: IgnorePointer(
-                  child: Text(
-                    '${config.x},${config.y}',
-                    style: const TextStyle(
-                      fontSize: 8,
-                      color: Colors.grey,
-                      fontWeight: FontWeight.bold,
-                      backgroundColor: Colors.black12,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Grid background painter ───────────────────────────────────────────────────
-
-/// Defines how the background grid should be rendered.
-enum GridStyle { lines, dots, none }
-
-class _GridPainter extends CustomPainter {
-  final Color color;
-  final GridStyle style;
-  final double spacing;
-  final double scaleX;
-  final double scaleY;
-
-  _GridPainter({
-    required this.color,
-    required this.style,
-    required this.spacing,
-    required this.scaleX,
-    required this.scaleY,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (style == GridStyle.none) return;
-
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 1.0;
-
-    final physSpacingX = spacing * scaleX;
-    final physSpacingY = spacing * scaleY;
-
-    if (style == GridStyle.lines) {
-      // Draw vertical lines
-      for (double x = 0; x <= size.width + 0.1; x += physSpacingX) {
-        canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-      }
-      // Draw horizontal lines
-      for (double y = 0; y <= size.height + 0.1; y += physSpacingY) {
-        canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-      }
-    } else {
-      // Draw dots
-      paint.style = PaintingStyle.fill;
-      const radius = 1.25;
-      for (double x = 0; x <= size.width + 0.1; x += physSpacingX) {
-        for (double y = 0; y <= size.height + 0.1; y += physSpacingY) {
-          canvas.drawCircle(Offset(x, y), radius, paint);
-        }
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _GridPainter oldDelegate) {
-    return oldDelegate.color != color ||
-           oldDelegate.style != style ||
-           oldDelegate.spacing != spacing ||
-           oldDelegate.scaleX != scaleX ||
-           oldDelegate.scaleY != scaleY;
   }
 }

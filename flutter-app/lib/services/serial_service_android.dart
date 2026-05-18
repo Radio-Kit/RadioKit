@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:usb_serial/usb_serial.dart';
 import '../models/device_info.dart';
@@ -26,10 +25,7 @@ class SerialService implements TransportService {
   final _logController = StreamController<String>.broadcast();
   @override Stream<String> get logStream => _logController.stream;
 
-  void _log(String msg) {
-    debugPrint('SERIAL_SERVICE: $msg');
-    _logController.add(msg);
-  }
+
 
   UsbPort? _port;
   StreamSubscription<Uint8List>? _rxSub;
@@ -53,12 +49,12 @@ class SerialService implements TransportService {
   Stream<DeviceInfo> listPorts() async* {
     final devices = await UsbSerial.listDevices();
     for (final d in devices) {
-      final serial = d.serial?.isNotEmpty == true ? d.serial! : (d.deviceName ?? 'usb');
+      final serial = d.serial?.isNotEmpty == true ? d.serial! : d.deviceName;
       yield DeviceInfo(
         id: '${d.vid}:${d.pid}:$serial',
         name: d.productName?.isNotEmpty == true
             ? d.productName!
-            : (d.deviceName ?? 'USB Serial Device'),
+            : d.deviceName,
         rssi: 0, // not applicable for serial
       );
     }
@@ -74,7 +70,7 @@ class SerialService implements TransportService {
 
     UsbDevice? target;
     for (final d in devices) {
-      final serial = d.serial?.isNotEmpty == true ? d.serial! : (d.deviceName ?? 'usb');
+      final serial = d.serial?.isNotEmpty == true ? d.serial! : d.deviceName;
       if ('${d.vid}:${d.pid}:$serial' == deviceId) {
         target = d;
         break;

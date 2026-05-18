@@ -232,7 +232,7 @@ class WidgetConfig {
       'WidgetConfig(id=$widgetId, type=$typeName, label="$label", '
       'pos=($x,$y), w=$widthF× h=$heightF× → '
       '${w.toStringAsFixed(1)}×${h.toStringAsFixed(1)}, '
-      'style=$style, variant=$variant, rot=${rotationDegrees}°)';
+      'style=$style, variant=$variant, rot=$rotationDegrees°)';
 }
 
 /// Holds the current state (values) for all widgets.

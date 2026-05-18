@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
-import '../models/designer_element.dart';
 
-class DesignerSidebar extends StatelessWidget {
-  const DesignerSidebar({super.key});
+class DesignerWidgetDialog extends StatelessWidget {
+  final DesignerState state;
+  const DesignerWidgetDialog({super.key, required this.state});
 
   static const _controlVariants = [
     _SidebarVariant('Push Button', LucideIcons.square, DesignerElementType.button, {'mode': 'push'}),
@@ -21,7 +21,7 @@ class DesignerSidebar extends StatelessWidget {
   ];
 
   static const _indicatorVariants = [
-    _SidebarVariant('Text Display', LucideIcons.monitor, DesignerElementType.display, <String, dynamic>{}),
+    _SidebarVariant('Text Display', LucideIcons.monitor, DesignerElementType.text, <String, dynamic>{}),
     _SidebarVariant('Serial Monitor', LucideIcons.terminal, DesignerElementType.serialMonitor, <String, dynamic>{}),
     _SidebarVariant('LED', LucideIcons.circle, DesignerElementType.led, <String, dynamic>{}),
   ];
@@ -30,60 +30,59 @@ class DesignerSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = RKTheme.of(context);
 
-    return Container(
-      width: 240,
-      decoration: const BoxDecoration(
-        color: Color(0xFF181818),
-        border: Border(
-          right: BorderSide(color: Color(0xFF222222), width: 1),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildHeader(tokens),
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
+    return Dialog(
+      backgroundColor: const Color(0xFF181818),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Container(
+        width: 600,
+        height: 700,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                _buildCategory('CONTROLS', _controlVariants, tokens),
-                _buildCategory('INDICATORS', _indicatorVariants, tokens),
+                Icon(LucideIcons.palette, color: tokens.primary, size: 24),
+                const SizedBox(width: 10),
+                const Text(
+                  'ADD WIDGET',
+                  style: TextStyle(
+                    color: Color(0xFFE0E0E0),
+                    fontSize: 16,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(LucideIcons.x, color: Color(0xFFE0E0E0)),
+                  onPressed: () => Navigator.pop(context),
+                )
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader(RKTokens tokens) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      child: Row(
-        children: [
-          Icon(LucideIcons.palette, color: tokens.primary, size: 20),
-          const SizedBox(width: 10),
-          const Text(
-            'RADIOKIT WIDGETS',
-            style: TextStyle(
-              color: Color(0xFFE0E0E0),
-              fontSize: 14,
-              fontFamily: 'monospace',
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1,
+            const SizedBox(height: 16),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  _buildCategory('CONTROLS', _controlVariants, tokens, context),
+                  _buildCategory('INDICATORS', _indicatorVariants, tokens, context),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildCategory(String title, List<_SidebarVariant> items, RKTokens tokens) {
+  Widget _buildCategory(String title, List<_SidebarVariant> items, RKTokens tokens, BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
           child: Text(
             title,
             style: TextStyle(
@@ -96,18 +95,18 @@ class DesignerSidebar extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 0),
           child: GridView.count(
-            crossAxisCount: 3,
+            crossAxisCount: 5,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 4,
-            crossAxisSpacing: 4,
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
             childAspectRatio: 1.0,
-            children: items.map((v) => _GridItem(variant: v, tokens: tokens)).toList(),
+            children: items.map((v) => _GridItem(variant: v, tokens: tokens, state: state)).toList(),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
       ],
     );
   }
@@ -124,45 +123,24 @@ class _SidebarVariant {
 class _GridItem extends StatelessWidget {
   final _SidebarVariant variant;
   final RKTokens tokens;
+  final DesignerState state;
 
-  const _GridItem({required this.variant, required this.tokens});
+  const _GridItem({required this.variant, required this.tokens, required this.state});
 
   @override
   Widget build(BuildContext context) {
-    return Draggable<WidgetDragPayload>(
-      data: WidgetDragPayload(variant.type, variant.properties),
-      feedback: Material(
-        color: Colors.transparent,
-        child: Container(
-          width: 72,
-          height: 72,
-          decoration: BoxDecoration(
-            color: tokens.primary.withValues(alpha: 0.9),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(variant.icon, color: Colors.black, size: 20),
-              const SizedBox(height: 4),
-              Text(
-                variant.label,
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: 9,
-                  fontFamily: 'monospace',
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
-      childWhenDragging: Opacity(
-        opacity: 0.2,
-        child: _buildCell(),
-      ),
+    return InkWell(
+      onTap: () {
+        // Place widget near the center
+        state.addElement(
+          variant.type,
+          100, // x
+          100, // y
+          properties: variant.properties,
+        );
+        Navigator.pop(context);
+      },
+      borderRadius: BorderRadius.circular(4),
       child: _buildCell(),
     );
   }

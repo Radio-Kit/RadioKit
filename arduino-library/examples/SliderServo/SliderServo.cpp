@@ -19,51 +19,71 @@
  *   2. Connect to "ServoControl" in the RadioKit app
  *   3. Drag the slider to move the servo
  *
- * Swap startBLE → startSerial(Serial) for USB testing.
+ * ───────────────────────────────────────────────────────────────
+ *  Editing policy
+ *
+ *  • Widget positions / labels / transport selection → RadioKitUI.h
+ *  • This file: hardware pins, servo driving, and loop() logic only
+ * ───────────────────────────────────────────────────────────────
  */
 
 #include <Arduino.h>
-#include <RadioKit.h>
 #include <ESP32Servo.h>
+#include "RadioKitUI.h"
 
 // ── Pin definitions ───────────────────────────────────────────
 #define SERVO_PIN 18
 
-// ── Widget declarations ───────────────────────────────────────────
-//                        label       x    y  size
-RadioKit_Slider servoSlider("Angle", 100,  50,  12, 8.0);  // wide bar
-RadioKit_LED    zoneLED    (          20,  20,  14);
-RadioKit_Text   angleText  ("Deg",    20,  80,  10);
-
-// ── Servo object ───────────────────────────────────────────────────
+// ── Servo object ────────────────────────────────────────────────
 Servo myServo;
 
-// ────────────────────────────────────────────────────────────
-void setup() {
-    myServo.attach(SERVO_PIN, 500, 2400);
-    myServo.write(90);  // centre on boot
+// ──────────────────────────────────────────────────────────────
+//  State tracking for zone LED debounce
+// ──────────────────────────────────────────────────────────────
+static int   lastAngle     = -1;
+static uint8_t lastLedColor = 0xFF;
 
-    RadioKit.startBLE("ServoControl");
-    
-    // To test over USB Serial: comment out startBLE and uncomment these:
-    // Serial.begin(115200);
-    // RadioKit.startSerial(Serial);
+// ──────────────────────────────────────────────────────────────
+void setup()
+{
+    myServo.attach(SERVO_PIN, 500, 2400);
+    myServo.write(90);   // centre on boot
+
+    Serial.begin(115200);
+    delay(2000);
+    Serial.println("--- RadioKit SliderServo Start ---");
+
+    initRadioKit();   // <-- all RadioKit init lives in RadioKitUI.cpp
+
+    zoneLED.off();
+    Serial.println("RK: Setup complete.");
 }
 
-// ────────────────────────────────────────────────────────────
-void loop() {
-    RadioKit.update();
+// ──────────────────────────────────────────────────────────────
+void loop()
+{
+    RadioKit.update();   // always pump the transport first
 
-    int angle = map(servoSlider.value(), 0, 100, 0, 180);
+    // ── Servo range: slider -100..+100 → 0°..180° ──────────
+    int angle = map(servoSlider.get(), -100, 100, 0, 180);
     myServo.write(angle);
 
-    // Angle text
-    char buf[16];
-    snprintf(buf, sizeof(buf), "%d deg", angle);
-    angleText.set(buf);
+    // ── Text widget: update only on change ───────────────────
+    if (angle != lastAngle) {
+        lastAngle = angle;
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%d deg", angle);
+        angleText.set(buf);
+    }
 
-    // Zone LED
-    if      (angle <= 30)  zoneLED.set(RadioKit_LED::RED);
-    else if (angle <= 150) zoneLED.set(RadioKit_LED::GREEN);
-    else                   zoneLED.set(RadioKit_LED::BLUE);
+    // ── Zone LED: update only on zone change ─────────────────
+    uint8_t zoneColor = RK_GREEN;   // default: centre zone
+    if      (angle <= 30)   zoneColor = RK_RED;
+    else if (angle <= 150)  zoneColor = RK_GREEN;
+    else                    zoneColor = RK_BLUE;
+
+    if (zoneColor != lastLedColor) {
+        lastLedColor = zoneColor;
+        zoneLED.setColor(zoneColor);
+    }
 }

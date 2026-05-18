@@ -15,6 +15,7 @@ tmp/
 *.swo
 *~
 *.log
+*.txt
 
 # PlatformIO
 .pio/
@@ -29,42 +30,42 @@ build_log.txt
 .clangd
 
 # Flutter
-flutter-app/.dart_tool/
-flutter-app/.packages
-flutter-app/.pub-cache/
-flutter-app/.pub/
-flutter-app/build/
-flutter-app/.flutter-plugins
-flutter-app/.flutter-plugins-dependencies
-flutter-app/pubspec.lock
-flutter-app/.metadata
-flutter-app/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+.flutter-plugins
+.flutter-plugins-dependencies
+pubspec.lock
+.metadata
+GeneratedPluginRegistrant.java
 .screenshots/
+.xconfig
 
 # Android
-flutter-app/android/.gradle/
-flutter-app/android/local.properties
-flutter-app/android/gradle-wrapper.jar
-flutter-app/android/gradlew
-flutter-app/android/gradlew.bat
-flutter-app/android/captures/
-flutter-app/android/.cxx/
-flutter-app/android/app/build/
-flutter-app/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+.gradle/
+local.properties
+gradle-wrapper.jar
+gradlew
+gradlew.bat
+captures/
+.cxx/
+build/
 *.apk
 *.aab
 
 # iOS
-flutter-app/ios/Pods/
-flutter-app/ios/.symlinks/
-flutter-app/ios/Flutter/Flutter.framework
-flutter-app/ios/Flutter/Flutter.podspec
-flutter-app/ios/Flutter/Generated.xcconfig
-flutter-app/ios/Flutter/flutter_export_environment.sh
-flutter-app/ios/Flutter/ephemeral/
-flutter-app/ios/Runner/GeneratedPluginRegistrant.h
-flutter-app/ios/Runner/GeneratedPluginRegistrant.m
-flutter-app/ios/Runner.xcworkspace/
+Pods/
+.symlinks/
+Flutter.framework
+Flutter.podspec
+Generated.xcconfig
+flutter_export_environment.sh
+ephemeral/
+GeneratedPluginRegistrant.h
+GeneratedPluginRegistrant.m
+Runner.xcworkspace/
+.xconfig
 
 # macOS
 .DS_Store
@@ -76,17 +77,16 @@ flutter-app/ios/Runner.xcworkspace/
 *.dylib
 
 # Specific Flutter & Android additions
-flutter-app/android/key.properties
-flutter-app/android/*.keystore
-flutter-app/android/*.jks
-flutter-app/android/app/src/main/res/raw/
-flutter-app/android/app/src/main/res/xml/
-flutter-app/android/app/google-services.json
-flutter-app/android/app/src/debug/lib*
-flutter-app/android/app/src/main/jniLibs
-flutter-app/assets/fonts/
-!flutter-app/assets/fonts/.gitkeep
-flutter-app/flutter_*.png
+key.properties
+*.keystore
+*.jks
+raw/
+xml/
+debug/lib*
+main/jniLibs
+assets/fonts/
+!assets/fonts/.gitkeep
+flutter_*.png
 
 # AI Agent Specifics (Comprehensive)
 .agent/
@@ -97,6 +97,7 @@ flutter-app/flutter_*.png
 .codex/
 .claude/
 .screenshots/
+.kmeta.*
 walkthrough.md
 task.md
 implementation_plan.md

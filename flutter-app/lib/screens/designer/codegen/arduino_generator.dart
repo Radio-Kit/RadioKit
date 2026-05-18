@@ -1,5 +1,4 @@
-import '../models/designer_element.dart';
-import '../models/designer_state.dart';
+import 'package:radiokit_widgets/radiokit_widgets.dart';
 import 'widget_templates.dart';
 
 class ArduinoGenerator {
@@ -103,7 +102,7 @@ class ArduinoGenerator {
             break;
           case DesignerElementType.led:
             break;
-          case DesignerElementType.display:
+          case DesignerElementType.text:
             break;
           case DesignerElementType.serialMonitor:
             break;
