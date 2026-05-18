@@ -82,7 +82,7 @@ class DesignsTab extends StatelessWidget {
                                   showDialog(
                                     context: context,
                                     builder: (ctx) => AlertDialog(
-                                      title: const Text('Delete Design?'),
+                                      title: const Text('Delete Project?'),
                                       content: Text('Are you sure you want to delete "${design.name}"?'),
                                       actions: [
                                         TextButton(

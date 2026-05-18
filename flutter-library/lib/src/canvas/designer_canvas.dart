@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import '../models/designer_element.dart';
 import '../models/designer_state.dart';
 import 'canvas_element.dart';
@@ -162,6 +163,13 @@ class _MovableElementState extends State<_MovableElement> {
   int? _dragStartGridY;
   Offset? _dragStartCanvas;
   Offset? _pointerDownScreen;
+  int? _resizeStartWidth;
+  int? _resizeStartHeight;
+  Offset? _resizeStartPos;
+  bool _isResizing = false;
+  double? _rotateStartAngle;
+  Offset? _rotateStartPos;
+  bool _isRotating = false;
 
   void _onPointerDown(PointerDownEvent event) {
     _pointerDownScreen = event.position;
@@ -170,6 +178,15 @@ class _MovableElementState extends State<_MovableElement> {
 
   void _onPointerMove(PointerMoveEvent event) {
     if (_pointerDownScreen == null) return;
+
+    if (_isResizing) {
+      _handleResizeDrag(event);
+      return;
+    }
+    if (_isRotating) {
+      _handleRotateDrag(event);
+      return;
+    }
 
     if (_dragStartCanvas == null) {
       final dist = (event.position - _pointerDownScreen!).distance;
@@ -199,6 +216,16 @@ class _MovableElementState extends State<_MovableElement> {
   }
 
   void _onPointerUp(PointerUpEvent event) {
+    if (_isResizing) {
+      _isResizing = false;
+      _resizeStartPos = null;
+      return;
+    }
+    if (_isRotating) {
+      _isRotating = false;
+      _rotateStartPos = null;
+      return;
+    }
     if (_pointerDownScreen != null && _dragStartCanvas == null) {
       widget.onTap();
     }
@@ -206,6 +233,55 @@ class _MovableElementState extends State<_MovableElement> {
     _dragStartGridX = null;
     _dragStartGridY = null;
     _dragStartCanvas = null;
+  }
+
+  void _handleResizeDrag(PointerMoveEvent event) {
+    if (_resizeStartPos == null) return;
+    final renderBox =
+        widget.canvasKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+
+    final dy = event.position.dy - _resizeStartPos!.dy;
+    final dx = event.position.dx - _resizeStartPos!.dx;
+
+    final widthDelta = (dx / widget.canvasPixelW * widget.cw).round();
+    final heightDelta = (dy / widget.canvasPixelH * widget.ch).round();
+
+    final newWidth = (_resizeStartWidth! + widthDelta).clamp(8, widget.cw - 8);
+    final newHeight = (_resizeStartHeight! + heightDelta).clamp(8, widget.ch - 8);
+
+    widget.designerState.updateElementSize(
+      widget.element.id,
+      width: newWidth,
+      height: newHeight,
+    );
+  }
+
+  void _handleRotateDrag(PointerMoveEvent event) {
+    if (_rotateStartPos == null) return;
+    final renderBox =
+        widget.canvasKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+
+    final el = widget.element;
+    final elCenterX = (el.x / widget.cw * widget.canvasPixelW);
+    final elCenterY = (el.y / widget.ch * widget.canvasPixelH);
+
+    final pos = renderBox.globalToLocal(event.position);
+    final currentDx = pos.dx - elCenterX;
+    final currentDy = pos.dy - elCenterY;
+
+    final startDx = _rotateStartPos!.dx - elCenterX;
+    final startDy = _rotateStartPos!.dy - elCenterY;
+
+    final startAngle = math.atan2(startDy, startDx);
+    final currentAngle = math.atan2(currentDy, currentDx);
+    final deltaRadians = currentAngle - startAngle;
+    final deltaDegrees = (deltaRadians * 180 / math.pi).round();
+
+    final newRotation = (widget.element.rotation + deltaDegrees) % 360;
+
+    widget.designerState.updateElementRotation(widget.element.id, newRotation);
   }
 
   @override
@@ -225,15 +301,81 @@ class _MovableElementState extends State<_MovableElement> {
       );
     }
 
-    return Listener(
-      behavior: HitTestBehavior.opaque,
-      onPointerDown: _onPointerDown,
-      onPointerMove: _onPointerMove,
-      onPointerUp: _onPointerUp,
-      child: FittedBox(
-        fit: BoxFit.contain,
-        clipBehavior: Clip.hardEdge,
-        child: canvasChild,
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Listener(
+          behavior: HitTestBehavior.opaque,
+          onPointerDown: _onPointerDown,
+          onPointerMove: _onPointerMove,
+          onPointerUp: _onPointerUp,
+          child: FittedBox(
+            fit: BoxFit.contain,
+            clipBehavior: Clip.hardEdge,
+            child: canvasChild,
+          ),
+        ),
+        if (widget.isSelected && !widget.isPlayMode)
+          Positioned(
+            left: -24,
+            top: -24,
+            child: _HandleWidget(
+              icon: Icons.rotate_right,
+              onTapDown: () {
+                _isRotating = true;
+                _rotateStartPos = _pointerDownScreen;
+              },
+              size: 24.0,
+            ),
+          ),
+        if (widget.isSelected && !widget.isPlayMode)
+          Positioned(
+            right: -24,
+            bottom: -24,
+            child: _HandleWidget(
+              icon: Icons.crop_square,
+              onTapDown: () {
+                _isResizing = true;
+                _resizeStartWidth = widget.element.width;
+                _resizeStartHeight = widget.element.height;
+                _resizeStartPos = _pointerDownScreen;
+              },
+              size: 24.0,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _HandleWidget extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTapDown;
+  final double size;
+
+  const _HandleWidget({
+    required this.icon,
+    required this.onTapDown,
+    required this.size,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => onTapDown(),
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A1A),
+          border: Border.all(color: const Color(0xFF555555), width: 1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(
+          icon,
+          size: size * 1.0,
+          color: const Color(0xFF00D4FF),
+        ),
       ),
     );
   }
@@ -274,7 +416,6 @@ class _GridPainter extends CustomPainter {
       return;
     }
 
-    // Lines
     final finePaint = Paint()
       ..color = const Color(0xFF252525)
       ..strokeWidth = 0.5;

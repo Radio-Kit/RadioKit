@@ -40,19 +40,16 @@ class CanvasElement extends StatelessWidget {
     );
 
     if (isSelected) {
-      child = SizedBox(
+      child = Container(
         width: w,
         height: h,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            child,
-            RKDebugOverlay(
-              show: true,
-              rotation: rotationRad,
-            ),
-          ],
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: const Color(0xFF00D4FF).withValues(alpha: 0.6),
+            width: 1,
+          ),
         ),
+        child: child,
       );
     } else {
       child = SizedBox(

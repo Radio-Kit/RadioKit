@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+
 import '../theme/app_theme.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -35,24 +36,24 @@ class HomeScreen extends StatelessWidget {
           fontWeight: FontWeight.w500,
           letterSpacing: 1.0,
         ),
-        items: const [
+        items: [
           BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard_rounded, size: 20),
+            icon: Icon(Icons.dashboard_outlined, size: 18),
             activeIcon: Icon(Icons.dashboard_rounded, size: 22),
             label: 'MODELS',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.add_circle_outline_rounded, size: 20),
+            icon: Icon(Icons.add_circle_outline_rounded, size: 18),
             activeIcon: Icon(Icons.add_circle_rounded, size: 22),
             label: 'PAIR',
           ),
           BottomNavigationBarItem(
-            icon: Icon(LucideIcons.penTool, size: 20),
-            activeIcon: Icon(LucideIcons.penTool, size: 22),
+            icon: Icon(Icons.create_new_folder_outlined, size: 18),
+            activeIcon: Icon(Icons.create_new_folder_rounded, size: 22),
             label: 'PROJECTS',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.settings_outlined, size: 20),
+            icon: Icon(Icons.settings_outlined, size: 18),
             activeIcon: Icon(Icons.settings_rounded, size: 22),
             label: 'SYSTEM',
           ),
