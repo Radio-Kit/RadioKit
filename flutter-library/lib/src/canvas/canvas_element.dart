@@ -26,14 +26,18 @@ class CanvasElement extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = _cellSize;
+    final rotationRad = element.rotation * math.pi / 180;
 
     if (isPlayMode) {
-      return _buildWidget(context);
+      Widget w = _buildWidget(context);
+      if (rotationRad != 0) {
+        w = Transform.rotate(angle: rotationRad, child: w);
+      }
+      return w;
     }
 
     final w = element.width.toDouble() * cs;
     final h = element.height.toDouble() * cs;
-    final rotationRad = element.rotation * math.pi / 180;
 
     Widget child = IgnorePointer(
       child: _buildWidget(context),
@@ -44,10 +48,8 @@ class CanvasElement extends StatelessWidget {
         width: w,
         height: h,
         decoration: BoxDecoration(
-          border: Border.all(
-            color: const Color(0xFF00D4FF).withValues(alpha: 0.6),
-            width: 1,
-          ),
+          border: Border.all(color: Colors.cyanAccent, width: 1.5),
+          borderRadius: BorderRadius.circular(2),
         ),
         child: child,
       );
@@ -59,14 +61,23 @@ class CanvasElement extends StatelessWidget {
       );
     }
 
+    // Rotate the entire widget (content + selection border) together.
+    // Internal widget calls no longer pass rotation to avoid double-rotation.
+    if (rotationRad != 0) {
+      child = Transform.rotate(
+        angle: rotationRad,
+        child: child,
+      );
+    }
+
     return child;
   }
 
   Widget _buildWidget(BuildContext context) {
     final cs = _cellSize;
-    final rotationRad = element.rotation * math.pi / 180;
     final isPlay = isPlayMode && designerState != null;
     final id = element.id;
+    final showDebug = isPlayMode ? true : isSelected;
 
     switch (element.type) {
       case DesignerElementType.button:
@@ -77,12 +88,12 @@ class CanvasElement extends StatelessWidget {
           onText: element.properties['onText'] ?? 'ON',
           offText: element.properties['offText'] ?? 'OFF',
           enableHapticFeedback: element.properties['enableHapticFeedback'] ?? true,
-          rotation: rotationRad,
           label: element.label.isNotEmpty ? element.label : null,
           onChanged: isPlay
               ? (v) => designerState!.setRuntimeWidgetValue(id, v)
               : (_) {},
           size: math.min(element.width.toDouble(), element.height.toDouble()) * cs,
+          showDebug: showDebug,
         );
 
       case DesignerElementType.slideSwitch:
@@ -96,10 +107,10 @@ class CanvasElement extends StatelessWidget {
           onText: element.properties['onText'] ?? 'ON',
           offText: element.properties['offText'] ?? 'OFF',
           enableHapticFeedback: element.properties['enableHapticFeedback'] ?? true,
-          rotation: rotationRad,
           label: element.label.isNotEmpty ? element.label : null,
           width: element.width.toDouble() * cs,
           height: element.height.toDouble() * cs,
+          showDebug: showDebug,
         );
 
       case DesignerElementType.rockerSwitch:
@@ -111,14 +122,14 @@ class CanvasElement extends StatelessWidget {
               ? (v) => designerState!.setRuntimeWidgetValue(id, v)
               : (_) {},
           enableHapticFeedback: element.properties['enableHapticFeedback'] ?? true,
-          rotation: rotationRad,
           label: element.label.isNotEmpty ? element.label : null,
           width: element.width.toDouble() * cs,
           height: element.height.toDouble() * cs,
+          showDebug: showDebug,
         );
 
       case DesignerElementType.slider:
-        return _buildSlider(id, isPlay, cs, rotationRad);
+        return _buildSlider(id, isPlay, cs, showDebug);
 
       case DesignerElementType.steeringWheel:
         return RKSteeringWheel(
@@ -139,9 +150,9 @@ class CanvasElement extends StatelessWidget {
               milliseconds: (element.properties['springDuration'] as num?)?.toInt() ?? 500,
             ),
             divisions: element.properties['divisions'] as int?,
-            rotation: rotationRad,
             label: element.label.isNotEmpty ? element.label : null,
             size: math.min(element.width.toDouble(), element.height.toDouble()) * cs,
+            showDebug: showDebug,
           );
 
       case DesignerElementType.knob:
@@ -163,9 +174,9 @@ class CanvasElement extends StatelessWidget {
             milliseconds: (element.properties['springDuration'] as num?)?.toInt() ?? 500,
           ),
           divisions: element.properties['divisions'] as int?,
-          rotation: rotationRad,
           label: element.label.isNotEmpty ? element.label : null,
           size: math.min(element.width.toDouble(), element.height.toDouble()) * cs,
+          showDebug: showDebug,
         );
 
       case DesignerElementType.joystick:
@@ -182,31 +193,31 @@ class CanvasElement extends StatelessWidget {
           springDuration: Duration(
             milliseconds: (element.properties['springDuration'] as num?)?.toInt() ?? 300,
           ),
-          rotation: rotationRad,
           label: element.label.isNotEmpty ? element.label : null,
           size: math.min(element.width.toDouble(), element.height.toDouble()) * cs,
+          showDebug: showDebug,
         );
 
       case DesignerElementType.multiButton:
         final mbCount = (element.properties['itemCount'] as num?)?.toInt() ?? 3;
-        return _buildMultiButton(id, mbCount, isPlay, cs, rotationRad);
+        return _buildMultiButton(id, mbCount, isPlay, cs, showDebug);
 
       case DesignerElementType.multiSelect:
         final msCount = (element.properties['itemCount'] as num?)?.toInt() ?? 3;
-        return _buildMultiSelect(id, msCount, isPlay, cs, rotationRad);
+        return _buildMultiSelect(id, msCount, isPlay, cs, showDebug);
 
       case DesignerElementType.gasPedal:
-        return _buildGasPedal(id, isPlay, cs, rotationRad);
+        return _buildGasPedal(id, isPlay, cs, showDebug);
 
       case DesignerElementType.led:
         return RKLed(
+          showDebug: showDebug,
           state: _getLEDState(element.properties['state'] as String?),
           shape: _getLEDShape(element.properties['shape'] as String?),
           color: element.properties['color'] != null
               ? Color(element.properties['color'] as int)
               : null,
           timing: (element.properties['timing'] as num?)?.toInt() ?? 500,
-          rotation: rotationRad,
           label: element.label.isNotEmpty ? element.label : null,
           size: math.min(element.width.toDouble(), element.height.toDouble()) * cs,
         );
@@ -216,10 +227,10 @@ class CanvasElement extends StatelessWidget {
           text: element.properties['text'] ?? 'Display',
           fontSize: (element.properties['fontSize'] as num?)?.toDouble() ?? 14,
           fontFamily: element.properties['fontFamily'] ?? 'monospace',
-          rotation: rotationRad,
           label: element.label.isNotEmpty ? element.label : null,
           width: element.width.toDouble() * cs,
           height: element.height.toDouble() * cs,
+          showDebug: showDebug,
         );
 
       case DesignerElementType.serialMonitor:
@@ -227,15 +238,15 @@ class CanvasElement extends StatelessWidget {
           messages: const ['> Serial Monitor'],
           fontSize: (element.properties['fontSize'] as num?)?.toDouble() ?? 12,
           fontFamily: element.properties['fontFamily'] ?? 'monospace',
-          rotation: rotationRad,
           label: element.label.isNotEmpty ? element.label : null,
           width: element.width.toDouble() * cs,
           height: element.height.toDouble() * cs,
+          showDebug: showDebug,
         );
     }
   }
 
-  Widget _buildSlider(String id, bool isPlay, double cs, double rotationRad) {
+  Widget _buildSlider(String id, bool isPlay, double cs, bool showDebug) {
     final horizontal = element.width >= element.height;
     final pixelW = element.width.toDouble() * cs;
     final pixelH = element.height.toDouble() * cs;
@@ -258,12 +269,12 @@ class CanvasElement extends StatelessWidget {
         milliseconds: (element.properties['springDuration'] as num?)?.toInt() ?? 300,
       ),
       divisions: element.properties['divisions'] as int?,
-      rotation: rotationRad,
       label: element.label.isNotEmpty ? element.label : null,
+      showDebug: showDebug,
     );
   }
 
-  Widget _buildMultiButton(String id, int count, bool isPlay, double cs, double rotationRad) {
+  Widget _buildMultiButton(String id, int count, bool isPlay, double cs, bool showDebug) {
     final horizontal = element.width >= element.height;
     final pixelW = element.width.toDouble() * cs;
     final pixelH = element.height.toDouble() * cs;
@@ -281,12 +292,12 @@ class CanvasElement extends StatelessWidget {
       buttonSize: buttonSize,
       enableHapticFeedback: element.properties['enableHapticFeedback'] ?? true,
       orientation: horizontal ? RKAxis.horizontal : RKAxis.vertical,
-      rotation: rotationRad,
       label: element.label.isNotEmpty ? element.label : null,
+      showDebug: showDebug,
     );
   }
 
-  Widget _buildMultiSelect(String id, int count, bool isPlay, double cs, double rotationRad) {
+  Widget _buildMultiSelect(String id, int count, bool isPlay, double cs, bool showDebug) {
     final horizontal = element.width >= element.height;
     final pixelW = element.width.toDouble() * cs;
     final pixelH = element.height.toDouble() * cs;
@@ -304,12 +315,12 @@ class CanvasElement extends StatelessWidget {
       buttonSize: buttonSize,
       enableHapticFeedback: element.properties['enableHapticFeedback'] ?? true,
       orientation: horizontal ? RKAxis.horizontal : RKAxis.vertical,
-      rotation: rotationRad,
       label: element.label.isNotEmpty ? element.label : null,
+      showDebug: showDebug,
     );
   }
 
-  Widget _buildGasPedal(String id, bool isPlay, double cs, double rotationRad) {
+  Widget _buildGasPedal(String id, bool isPlay, double cs, bool showDebug) {
     final vertical = element.height > element.width;
     final pixelW = element.width.toDouble() * cs;
     final pixelH = element.height.toDouble() * cs;
@@ -328,8 +339,8 @@ class CanvasElement extends StatelessWidget {
         milliseconds: (element.properties['springDuration'] as num?)?.toInt() ?? 300,
       ),
       divisions: element.properties['divisions'] as int?,
-      rotation: rotationRad,
       label: element.label.isNotEmpty ? element.label : null,
+      showDebug: showDebug,
     );
   }
 
@@ -359,5 +370,4 @@ class CanvasElement extends StatelessWidget {
     }
   }
 }
-
 

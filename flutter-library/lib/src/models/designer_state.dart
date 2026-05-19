@@ -163,9 +163,12 @@ class DesignerState extends ChangeNotifier {
     final index = _elements.indexWhere((e) => e.id == id);
     if (index == -1) return;
     _pushUndo();
+    // Normalize to -180..180
+    var r = rotation % 360;
+    if (r > 180) r -= 360;
     _elements = [
       for (int i = 0; i < _elements.length; i++)
-        if (i == index) _elements[i].copyWith(rotation: rotation)
+        if (i == index) _elements[i].copyWith(rotation: r)
         else _elements[i],
     ];
     notifyListeners();

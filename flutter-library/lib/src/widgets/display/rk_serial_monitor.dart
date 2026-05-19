@@ -15,6 +15,7 @@ class RKSerialMonitor extends StatefulWidget {
     this.onInteractionChanged,
     this.rotation = 0.0,
     this.label,
+    this.showDebug = true,
   });
 
   final List<String> messages;
@@ -25,6 +26,7 @@ class RKSerialMonitor extends StatefulWidget {
   final ValueChanged<bool>? onInteractionChanged;
   final double rotation;
   final String? label;
+  final bool showDebug;
 
   @override
   State<RKSerialMonitor> createState() => _RKSerialMonitorState();
@@ -56,6 +58,7 @@ class _RKSerialMonitorState extends State<RKSerialMonitor> {
     return RKRotatedWrapper(
       rotation: widget.rotation,
       label: widget.label,
+      showDebug: widget.showDebug,
       contentWidth: widget.width,
       contentHeight: widget.height,
       labelColor: tokens.trackColor.withValues(alpha: 0.8),

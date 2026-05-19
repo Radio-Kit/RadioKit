@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'rk_debug_overlay.dart';
 
@@ -48,6 +49,10 @@ class RKRotatedWrapper extends StatelessWidget {
   /// preserving its aspect ratio.
   final bool fitContent;
 
+  /// Whether to show the debug overlay for this widget instance.
+  /// Ignored when [RKDebugOverlay.enabled] is `false`.
+  final bool showDebug;
+
   /// Optional status indicator drawn immediately below the core widget.
   ///
   /// Sits outside the debug border.  Rotates around the core's centre.
@@ -55,7 +60,10 @@ class RKRotatedWrapper extends StatelessWidget {
 
   /// Vertical gap between [label] and the core, and between the core and
   /// [indicator], in logical pixels.
-  static const double _spacing = 8.0;
+  static const double _spacing = 4.0;
+
+  /// Scale factor for sizing label offsets and typography relative to the core widget size.
+  final double? scale;
 
   const RKRotatedWrapper({
     super.key,
@@ -66,7 +74,9 @@ class RKRotatedWrapper extends StatelessWidget {
     required this.labelColor,
     this.label,
     this.fitContent = false,
+    this.showDebug = true,
     this.indicator,
+    this.scale,
   });
 
   @override
@@ -75,6 +85,10 @@ class RKRotatedWrapper extends StatelessWidget {
     // is supplied.
     final double width = contentWidth;
     final double height = contentHeight ?? contentWidth;
+
+    // Calculate a dynamic scale based on the smaller dimension if scale is not provided.
+    // 100.0 is the reference base size.
+    final double resolvedScale = scale ?? (math.min(width, height) / 100.0);
 
     // ── Core widget ──────────────────────────────────────────────────────
     Widget inner = child;
@@ -92,7 +106,7 @@ class RKRotatedWrapper extends StatelessWidget {
     // matches the core's rectangle exactly, and its centre is the rotation
     // pivot.
     if (RKDebugOverlay.enabled) {
-      core = RKDebugOverlay(show: true, child: core);
+      core = RKDebugOverlay(show: showDebug, child: core);
     }
 
     // ── Assemble in a Stack ──────────────────────────────────────────────
@@ -110,14 +124,14 @@ class RKRotatedWrapper extends StatelessWidget {
         Positioned(
           left: 0,
           right: 0,
-          top: -(20 + _spacing),
+          bottom: height + (_spacing * resolvedScale),
           child: Text(
             label!.toUpperCase(),
             style: TextStyle(
               color: labelColor,
-              fontSize: 10,
+              fontSize: 10 * resolvedScale,
               fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
+              letterSpacing: 1.2 * resolvedScale,
               fontFamily: 'monospace',
             ),
             textAlign: TextAlign.center,
@@ -133,7 +147,7 @@ class RKRotatedWrapper extends StatelessWidget {
         Positioned(
           left: 0,
           right: 0,
-          bottom: -(20 + _spacing),
+          top: height + (_spacing * resolvedScale * 2.0),
           child: indicator!,
         ),
       );
@@ -161,3 +175,4 @@ class RKRotatedWrapper extends StatelessWidget {
     return unit;
   }
 }
+

@@ -22,11 +22,13 @@ class RKSteeringWheel extends StatefulWidget {
     this.centerIcon,
     this.rotation = 0.0,
     this.label,
+    this.showDebug = true,
   });
 
   final IconData? centerIcon;
   final double rotation;
   final String? label;
+  final bool showDebug;
   final double value;
   final ValueChanged<double> onChanged;
   final ValueChanged<bool>? onInteractionChanged;
@@ -149,6 +151,7 @@ class _RKSteeringWheelState extends State<RKSteeringWheel> with SingleTickerProv
     return RKRotatedWrapper(
       rotation: widget.rotation,
       label: widget.label,
+      showDebug: widget.showDebug,
       contentWidth: contentW,
       contentHeight: contentH,
       labelColor: tokens.trackColor.withValues(alpha: 0.8),

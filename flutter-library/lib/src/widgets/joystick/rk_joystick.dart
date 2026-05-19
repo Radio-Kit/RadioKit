@@ -45,6 +45,7 @@ class RKJoystick extends StatefulWidget {
     this.springCurve = Curves.easeOutCubic,
     this.springDuration = const Duration(milliseconds: 300),
     this.rotation = 0.0,
+    this.showDebug = true,
   });
 
   final ValueChanged<RKJoystickValue> onChanged;
@@ -56,6 +57,7 @@ class RKJoystick extends StatefulWidget {
   final Curve springCurve;
   final Duration springDuration;
   final double rotation;
+  final bool showDebug;
 
   @override
   State<RKJoystick> createState() => _RKJoystickState();
@@ -251,6 +253,7 @@ class _RKJoystickState extends State<RKJoystick> with SingleTickerProviderStateM
     return RKRotatedWrapper(
       rotation: widget.rotation,
       label: widget.label,
+      showDebug: widget.showDebug,
       contentWidth: widget.size,
       contentHeight: widget.size,
       labelColor: tokens.trackColor.withValues(alpha: 0.8),

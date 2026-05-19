@@ -28,7 +28,7 @@ class _DesignerCanvasState extends State<DesignerCanvas> {
         child: Center(
           child: FittedBox(
             fit: BoxFit.scaleDown,
-            clipBehavior: Clip.hardEdge,
+            clipBehavior: Clip.none,
             child: DragTarget<WidgetDragPayload>(
               onAcceptWithDetails: (details) {
                 final renderBox =
@@ -54,14 +54,16 @@ class _DesignerCanvasState extends State<DesignerCanvas> {
                     ),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(3),
-                    child: ListenableBuilder(
-                      listenable: state,
-                      builder: (context, _) {
-                        return Stack(
-                          children: [
-                            GestureDetector(
+                  child: ListenableBuilder(
+                    listenable: state,
+                    builder: (context, _) {
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          // Background grid clipped to rounded rect
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(3),
+                            child: GestureDetector(
                               onTap: () => state.selectElement(null),
                               child: CustomPaint(
                                 size: Size(canvasPixelW, canvasPixelH),
@@ -71,50 +73,104 @@ class _DesignerCanvasState extends State<DesignerCanvas> {
                                 ),
                               ),
                             ),
-                              ...state.elements.map((el) {
-                                final halfW = el.width / 2;
-                                final halfH = el.height / 2;
-                                return Positioned(
-                                  left: (el.x - halfW) / cw * canvasPixelW,
-                                  top: (el.y - halfH) / ch * canvasPixelH,
-                                  width: el.width / cw * canvasPixelW,
-                                  height: el.height / ch * canvasPixelH,
-                                  child: _MovableElement(
-                                    element: el,
-                                    isSelected: el.id == state.selectedElementId,
-                                    isPlayMode: state.isPlayMode,
-                                    designerState: state,
-                                    canvasKey: _canvasKey,
-                                    cw: cw,
-                                    ch: ch,
-                                    canvasPixelW: canvasPixelW,
-                                    canvasPixelH: canvasPixelH,
-                                    onTap: () => state.selectElement(
-                                      el.id == state.selectedElementId ? null : el.id,
-                                    ),
-                                    onSelect: () => state.selectElement(el.id),
-                                    onMoved: (newX, newY) {
-                                      el.x = newX;
-                                      el.y = newY;
-                                      state.notifyChanged();
-                                    },
+                          ),
+                          // Elements + handles as direct Stack children
+                          ...state.elements.expand((el) {
+                            final halfW = el.width / 2;
+                            final halfH = el.height / 2;
+                            final left = (el.x - halfW) / cw * canvasPixelW;
+                            final top = (el.y - halfH) / ch * canvasPixelH;
+                            final w = el.width / cw * canvasPixelW;
+                            final h = el.height / ch * canvasPixelH;
+                            final isSelected = el.id == state.selectedElementId;
+
+                            final widgets = <Widget>[
+                              Positioned(
+                                left: left, top: top, width: w, height: h,
+                                child: _MovableElement(
+                                  element: el,
+                                  isSelected: isSelected,
+                                  isPlayMode: state.isPlayMode,
+                                  designerState: state,
+                                  canvasKey: _canvasKey,
+                                  cw: cw, ch: ch,
+                                  canvasPixelW: canvasPixelW,
+                                  canvasPixelH: canvasPixelH,
+                                  onTap: () => state.selectElement(
+                                    isSelected ? null : el.id,
                                   ),
-                                );
-                              }),
-                              if (candidates.isNotEmpty)
-                                Positioned.fill(
-                                  child: IgnorePointer(
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: Colors.cyanAccent.withValues(alpha: 0.05),
-                                      ),
-                                    ),
+                                  onSelect: () => state.selectElement(el.id),
+                                  onMoved: (newX, newY) {
+                                    el.x = newX;
+                                    el.y = newY;
+                                    state.notifyChanged();
+                                  },
+                                ),
+                              ),
+                            ];
+
+                            if (isSelected && !state.isPlayMode) {
+                              // Compute rotated corner positions so handles
+                              // follow the widget's visual rotation.
+                              final angle = el.rotation * math.pi / 180;
+                              final sinR = math.sin(angle);
+                              final cosR = math.cos(angle);
+                              final cx = left + w / 2;
+                              final cy = top + h / 2;
+                              // Rotated top-left corner
+                              final rtlX = cx + (-w/2 * cosR - (-h/2) * sinR);
+                              final rtlY = cy + (-w/2 * sinR + (-h/2) * cosR);
+                              // Rotated bottom-right corner
+                              final rbrX = cx + (w/2 * cosR - h/2 * sinR);
+                              final rbrY = cy + (w/2 * sinR + h/2 * cosR);
+
+                              // Rotate handle at rotated top-left corner
+                              widgets.add(Positioned(
+                                left: rtlX - 12,
+                                top: rtlY - 12,
+                                child: _DragHandle(
+                                  icon: Icons.rotate_right,
+                                  element: el,
+                                  designerState: state,
+                                  canvasKey: _canvasKey,
+                                  cw: cw, ch: ch,
+                                  canvasPixelW: canvasPixelW,
+                                  canvasPixelH: canvasPixelH,
+                                  isRotateHandle: true,
+                                ),
+                              ));
+                              // Resize handle at rotated bottom-right corner
+                              widgets.add(Positioned(
+                                left: rbrX - 12,
+                                top: rbrY - 12,
+                                child: _DragHandle(
+                                  icon: Icons.crop_square,
+                                  element: el,
+                                  designerState: state,
+                                  canvasKey: _canvasKey,
+                                  cw: cw, ch: ch,
+                                  canvasPixelW: canvasPixelW,
+                                  canvasPixelH: canvasPixelH,
+                                  isRotateHandle: false,
+                                ),
+                              ));
+                            }
+
+                            return widgets;
+                          }),
+                          if (candidates.isNotEmpty)
+                            Positioned.fill(
+                              child: IgnorePointer(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.cyanAccent.withValues(alpha: 0.05),
                                   ),
                                 ),
-                            ],
-                          );
-                      },
-                    ),
+                              ),
+                            ),
+                        ],
+                      );
+                    },
                   ),
                 );
               },
@@ -162,48 +218,27 @@ class _MovableElementState extends State<_MovableElement> {
   int? _dragStartGridX;
   int? _dragStartGridY;
   Offset? _dragStartCanvas;
-  Offset? _pointerDownScreen;
-  int? _resizeStartWidth;
-  int? _resizeStartHeight;
-  Offset? _resizeStartPos;
-  bool _isResizing = false;
-  double? _rotateStartAngle;
-  Offset? _rotateStartPos;
-  bool _isRotating = false;
 
-  void _onPointerDown(PointerDownEvent event) {
-    _pointerDownScreen = event.position;
-    _dragStartCanvas = null;
+  void _onTap() {
+    widget.onTap();
   }
 
-  void _onPointerMove(PointerMoveEvent event) {
-    if (_pointerDownScreen == null) return;
+  void _onPanStart(DragStartDetails details) {
+    final renderBox =
+        widget.canvasKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    _dragStartGridX = widget.element.x;
+    _dragStartGridY = widget.element.y;
+    _dragStartCanvas = renderBox.globalToLocal(details.globalPosition);
+  }
 
-    if (_isResizing) {
-      _handleResizeDrag(event);
-      return;
-    }
-    if (_isRotating) {
-      _handleRotateDrag(event);
-      return;
-    }
-
-    if (_dragStartCanvas == null) {
-      final dist = (event.position - _pointerDownScreen!).distance;
-      if (dist < 5) return;
-      final renderBox =
-          widget.canvasKey.currentContext?.findRenderObject() as RenderBox?;
-      if (renderBox == null) return;
-      _dragStartGridX = widget.element.x;
-      _dragStartGridY = widget.element.y;
-      _dragStartCanvas = renderBox.globalToLocal(event.position);
-      return;
-    }
+  void _onPanUpdate(DragUpdateDetails details) {
+    if (_dragStartCanvas == null) return;
 
     final renderBox =
         widget.canvasKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
-    final canvasPos = renderBox.globalToLocal(event.position);
+    final canvasPos = renderBox.globalToLocal(details.globalPosition);
     final dx = canvasPos.dx - _dragStartCanvas!.dx;
     final dy = canvasPos.dy - _dragStartCanvas!.dy;
 
@@ -215,73 +250,10 @@ class _MovableElementState extends State<_MovableElement> {
     widget.onMoved(newX, newY);
   }
 
-  void _onPointerUp(PointerUpEvent event) {
-    if (_isResizing) {
-      _isResizing = false;
-      _resizeStartPos = null;
-      return;
-    }
-    if (_isRotating) {
-      _isRotating = false;
-      _rotateStartPos = null;
-      return;
-    }
-    if (_pointerDownScreen != null && _dragStartCanvas == null) {
-      widget.onTap();
-    }
-    _pointerDownScreen = null;
+  void _onPanEnd(DragEndDetails details) {
     _dragStartGridX = null;
     _dragStartGridY = null;
     _dragStartCanvas = null;
-  }
-
-  void _handleResizeDrag(PointerMoveEvent event) {
-    if (_resizeStartPos == null) return;
-    final renderBox =
-        widget.canvasKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null) return;
-
-    final dy = event.position.dy - _resizeStartPos!.dy;
-    final dx = event.position.dx - _resizeStartPos!.dx;
-
-    final widthDelta = (dx / widget.canvasPixelW * widget.cw).round();
-    final heightDelta = (dy / widget.canvasPixelH * widget.ch).round();
-
-    final newWidth = (_resizeStartWidth! + widthDelta).clamp(8, widget.cw - 8);
-    final newHeight = (_resizeStartHeight! + heightDelta).clamp(8, widget.ch - 8);
-
-    widget.designerState.updateElementSize(
-      widget.element.id,
-      width: newWidth,
-      height: newHeight,
-    );
-  }
-
-  void _handleRotateDrag(PointerMoveEvent event) {
-    if (_rotateStartPos == null) return;
-    final renderBox =
-        widget.canvasKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null) return;
-
-    final el = widget.element;
-    final elCenterX = (el.x / widget.cw * widget.canvasPixelW);
-    final elCenterY = (el.y / widget.ch * widget.canvasPixelH);
-
-    final pos = renderBox.globalToLocal(event.position);
-    final currentDx = pos.dx - elCenterX;
-    final currentDy = pos.dy - elCenterY;
-
-    final startDx = _rotateStartPos!.dx - elCenterX;
-    final startDy = _rotateStartPos!.dy - elCenterY;
-
-    final startAngle = math.atan2(startDy, startDx);
-    final currentAngle = math.atan2(currentDy, currentDx);
-    final deltaRadians = currentAngle - startAngle;
-    final deltaDegrees = (deltaRadians * 180 / math.pi).round();
-
-    final newRotation = (widget.element.rotation + deltaDegrees) % 360;
-
-    widget.designerState.updateElementRotation(widget.element.id, newRotation);
   }
 
   @override
@@ -301,77 +273,153 @@ class _MovableElementState extends State<_MovableElement> {
       );
     }
 
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Listener(
-          behavior: HitTestBehavior.opaque,
-          onPointerDown: _onPointerDown,
-          onPointerMove: _onPointerMove,
-          onPointerUp: _onPointerUp,
-          child: FittedBox(
-            fit: BoxFit.contain,
-            clipBehavior: Clip.hardEdge,
-            child: canvasChild,
-          ),
-        ),
-        if (widget.isSelected && !widget.isPlayMode)
-          Positioned(
-            left: -24,
-            top: -24,
-            child: _HandleWidget(
-              icon: Icons.rotate_right,
-              onTapDown: () {
-                _isRotating = true;
-                _rotateStartPos = _pointerDownScreen;
-              },
-              size: 24.0,
-            ),
-          ),
-        if (widget.isSelected && !widget.isPlayMode)
-          Positioned(
-            right: -24,
-            bottom: -24,
-            child: _HandleWidget(
-              icon: Icons.crop_square,
-              onTapDown: () {
-                _isResizing = true;
-                _resizeStartWidth = widget.element.width;
-                _resizeStartHeight = widget.element.height;
-                _resizeStartPos = _pointerDownScreen;
-              },
-              size: 24.0,
-            ),
-          ),
-      ],
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _onTap,
+      onPanStart: _onPanStart,
+      onPanUpdate: _onPanUpdate,
+      onPanEnd: _onPanEnd,
+      child: FittedBox(
+        fit: BoxFit.contain,
+        clipBehavior: Clip.hardEdge,
+        child: canvasChild,
+      ),
     );
   }
 }
 
-class _HandleWidget extends StatelessWidget {
+class _DragHandle extends StatefulWidget {
   final IconData icon;
-  final VoidCallback onTapDown;
-  final double size;
+  final DesignerElement element;
+  final DesignerState designerState;
+  final GlobalKey canvasKey;
+  final int cw;
+  final int ch;
+  final double canvasPixelW;
+  final double canvasPixelH;
+  final bool isRotateHandle;
 
-  const _HandleWidget({
+  const _DragHandle({
     required this.icon,
-    required this.onTapDown,
-    required this.size,
+    required this.element,
+    required this.designerState,
+    required this.canvasKey,
+    required this.cw,
+    required this.ch,
+    required this.canvasPixelW,
+    required this.canvasPixelH,
+    required this.isRotateHandle,
   });
 
   @override
+  State<_DragHandle> createState() => _DragHandleState();
+}
+
+class _DragHandleState extends State<_DragHandle> {
+  static const double _size = 24.0;
+
+  Offset? _startCanvasPos;
+  int? _startWidth;
+  int? _startHeight;
+  int? _startRotation;
+
+  void _onPanStart(DragStartDetails details) {
+    _startWidth = widget.element.width;
+    _startHeight = widget.element.height;
+    _startRotation = widget.element.rotation;
+
+    final renderBox = widget.canvasKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox != null) {
+      _startCanvasPos = renderBox.globalToLocal(details.globalPosition);
+    }
+  }
+
+  void _onPanUpdate(DragUpdateDetails details) {
+    if (_startCanvasPos == null) return;
+
+    if (widget.isRotateHandle) {
+      _handleRotate(details);
+    } else {
+      _handleResize(details);
+    }
+  }
+
+  void _handleResize(DragUpdateDetails details) {
+    final renderBox = widget.canvasKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null || _startCanvasPos == null) return;
+
+    final pos = renderBox.globalToLocal(details.globalPosition);
+    final dx = pos.dx - _startCanvasPos!.dx;
+    final dy = pos.dy - _startCanvasPos!.dy;
+
+    final widthDelta = (dx / widget.canvasPixelW * widget.cw).round();
+    final heightDelta = (dy / widget.canvasPixelH * widget.ch).round();
+
+    final newWidth = (_startWidth! + widthDelta).clamp(8, widget.cw - 8);
+    final newHeight = (_startHeight! + heightDelta).clamp(8, widget.ch - 8);
+
+    widget.designerState.updateElementSize(
+      widget.element.id,
+      width: newWidth,
+      height: newHeight,
+    );
+  }
+
+  void _handleRotate(DragUpdateDetails details) {
+    final renderBox = widget.canvasKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null || _startCanvasPos == null || _startRotation == null) return;
+
+    final el = widget.element;
+    final elCenterX = (el.x / widget.cw * widget.canvasPixelW);
+    final elCenterY = (el.y / widget.ch * widget.canvasPixelH);
+
+    final pos = renderBox.globalToLocal(details.globalPosition);
+    final currentDx = pos.dx - elCenterX;
+    final currentDy = pos.dy - elCenterY;
+
+    final startDx = _startCanvasPos!.dx - elCenterX;
+    final startDy = _startCanvasPos!.dy - elCenterY;
+
+    final startAngle = math.atan2(startDy, startDx);
+    final currentAngle = math.atan2(currentDy, currentDx);
+    final deltaRadians = currentAngle - startAngle;
+    // Always compute from the fixed start position, not frame-by-frame,
+    // to avoid cumulative rounding drift.
+    // Normalize to -180..180 instead of 0..360.
+    var newRotation = (_startRotation! + (deltaRadians * 180 / math.pi).round()) % 360;
+    if (newRotation > 180) newRotation -= 360;
+    widget.designerState.updateElementRotation(widget.element.id, newRotation);
+  }
+
+  void _onPanEnd(DragEndDetails details) {
+    _startCanvasPos = null;
+    _startRotation = null;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return IconButton(
-      onPressed: onTapDown,
-      icon: Icon(icon),
-      iconSize: size * 0.75,
-      style: IconButton.styleFrom(
-        backgroundColor: const Color(0xFF1A1A1A),
-        foregroundColor: const Color(0xFF00D4FF),
-        side: const BorderSide(color: Color(0xFF555555), width: 1),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        padding: EdgeInsets.zero,
-        minimumSize: Size(size, size),
+    return GestureDetector(
+      onPanStart: _onPanStart,
+      onPanUpdate: _onPanUpdate,
+      onPanEnd: _onPanEnd,
+      child: MouseRegion(
+        cursor: widget.isRotateHandle
+            ? SystemMouseCursors.grab
+            : SystemMouseCursors.resizeDownRight,
+        child: Container(
+          width: _size,
+          height: _size,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A1A),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFF555555), width: 1),
+          ),
+          child: Icon(
+            widget.icon,
+            color: const Color(0xFF00D4FF),
+            size: _size * 0.75,
+          ),
+        ),
       ),
     );
   }

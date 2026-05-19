@@ -18,6 +18,7 @@ class RKRockerSwitch extends StatefulWidget {
     this.onInteractionChanged,
     this.rotation = 0.0,
     this.label,
+    this.showDebug = true,
   });
 
   final bool value;
@@ -31,6 +32,7 @@ class RKRockerSwitch extends StatefulWidget {
   final bool enableHapticFeedback;
   final double rotation;
   final String? label;
+  final bool showDebug;
 
   @override
   State<RKRockerSwitch> createState() => _RKRockerSwitchState();
@@ -148,6 +150,7 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
     return RKRotatedWrapper(
       rotation: widget.rotation,
       label: widget.label,
+      showDebug: widget.showDebug,
       contentWidth: totalWidth,
       contentHeight: totalHeight,
       labelColor: tokens.trackColor.withValues(alpha: 0.8),

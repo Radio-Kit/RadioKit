@@ -24,6 +24,7 @@ class RKGasPedal extends StatelessWidget {
     this.divisions,
     this.rotation = 0.0,
     this.label,
+    this.showDebug = true,
   });
 
   final double value;
@@ -41,6 +42,7 @@ class RKGasPedal extends StatelessWidget {
   final int? divisions;
   final double rotation;
   final String? label;
+  final bool showDebug;
 
   @override
   Widget build(BuildContext context) {
@@ -60,6 +62,7 @@ class RKGasPedal extends StatelessWidget {
       divisions: divisions,
       rotation: rotation,
       label: label,
+      showDebug: showDebug,
       invertGesture: true,
       builder: _buildGasPedal,
     );

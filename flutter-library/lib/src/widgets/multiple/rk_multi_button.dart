@@ -43,6 +43,7 @@ class RKMultiButton extends StatelessWidget {
     this.orientation = RKAxis.horizontal,
     this.rotation = 0.0,
     this.label,
+    this.showDebug = true,
   });
 
 
@@ -56,6 +57,7 @@ class RKMultiButton extends StatelessWidget {
   final RKAxis orientation;
   final double rotation;
   final String? label;
+  final bool showDebug;
 
 
   @override
@@ -77,6 +79,7 @@ class RKMultiButton extends StatelessWidget {
     return RKRotatedWrapper(
       rotation: rotation,
       label: label,
+      showDebug: showDebug,
       contentWidth: cw,
       contentHeight: ch,
       labelColor: tokens.trackColor.withValues(alpha: 0.8),
@@ -166,6 +169,7 @@ class RKMultiSelect extends StatelessWidget {
     this.orientation = RKAxis.horizontal,
     this.rotation = 0.0,
     this.label,
+    this.showDebug = true,
   });
 
 
@@ -179,6 +183,7 @@ class RKMultiSelect extends StatelessWidget {
   final RKAxis orientation;
   final double rotation;
   final String? label;
+  final bool showDebug;
 
 
   @override
@@ -200,6 +205,7 @@ class RKMultiSelect extends StatelessWidget {
     return RKRotatedWrapper(
       rotation: rotation,
       label: label,
+      showDebug: showDebug,
       contentWidth: cw,
       contentHeight: ch,
       labelColor: tokens.trackColor.withValues(alpha: 0.8),

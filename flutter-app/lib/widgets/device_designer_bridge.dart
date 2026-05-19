@@ -24,6 +24,7 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
   @override
   void initState() {
     super.initState();
+    RKDebugOverlay.enabled = widget.debugMode;
     _designerState = DesignerState();
     // Start in play mode so elements are interactable and scaling works correctly
     if (!_designerState.isPlayMode) {
@@ -37,6 +38,9 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
   @override
   void didUpdateWidget(DeviceDesignerBridge oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.debugMode != widget.debugMode) {
+      RKDebugOverlay.enabled = widget.debugMode;
+    }
     if (oldWidget.deviceProvider.widgets != widget.deviceProvider.widgets || 
         oldWidget.deviceProvider.orientation != widget.deviceProvider.orientation) {
       _syncElements();
@@ -47,6 +51,7 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
   @override
   void dispose() {
     _designerState.dispose();
+    RKDebugOverlay.enabled = false;
     super.dispose();
   }
 

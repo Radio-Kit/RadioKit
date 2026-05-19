@@ -19,6 +19,7 @@ class RKSlideSwitch extends StatefulWidget {
     this.offText = 'OFF',
     this.label,
     this.icon,
+    this.showDebug = true,
   });
 
   final bool value;
@@ -33,6 +34,7 @@ class RKSlideSwitch extends StatefulWidget {
   final String offText;
   final String? label;
   final Widget? icon;
+  final bool showDebug;
 
   @override
   State<RKSlideSwitch> createState() => _RKSlideSwitchState();
@@ -121,6 +123,7 @@ class _RKSlideSwitchState extends State<RKSlideSwitch> with SingleTickerProvider
     return RKRotatedWrapper(
       rotation: widget.rotation,
       label: widget.label,
+      showDebug: widget.showDebug,
       contentWidth: outerWidth,
       contentHeight: outerHeight,
       labelColor: tokens.trackColor.withValues(alpha: 0.8),

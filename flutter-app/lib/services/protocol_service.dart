@@ -213,7 +213,8 @@ class ProtocolService {
       // Rotation: signed LE int16
       final rotRaw   = payload[offset + 6] | (payload[offset + 7] << 8);
       final rotation = rotRaw >= 0x8000 ? rotRaw - 0x10000 : rotRaw;
-      final style    = payload[offset + 8];
+      final styleByte = payload[offset + 8];
+      final style    = styleByte & 0x07; // low 3 bits = color variant
       final variant  = payload[offset + 9];
       offset += 10;
 

@@ -29,6 +29,7 @@ class RKSlider extends StatefulWidget {
     this.label,
     this.builder,
     this.invertGesture = false,
+    this.showDebug = true,
   });
 
   final double value;
@@ -50,6 +51,7 @@ class RKSlider extends StatefulWidget {
   final String? label;
   final Widget Function(BuildContext, RKTokens, double normalized)? builder;
   final bool invertGesture;
+  final bool showDebug;
 
   @override
   State<RKSlider> createState() => _RKSliderState();
@@ -197,6 +199,7 @@ class _RKSliderState extends State<RKSlider>
     return RKRotatedWrapper(
       rotation: widget.rotation,
       label: widget.label,
+      showDebug: widget.showDebug,
       contentWidth: contentW,
       contentHeight: contentH,
       labelColor: tokens.trackColor.withValues(alpha: 0.8),

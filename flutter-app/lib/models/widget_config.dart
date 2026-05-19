@@ -147,6 +147,7 @@ class WidgetConfig {
   /// Display rotation in degrees.
   double get rotationDegrees => rotation.toDouble();
 
+
   const WidgetConfig({
     required this.typeId,
     required this.widgetId,

@@ -21,6 +21,7 @@ class RKButton extends StatefulWidget {
     this.onInteractionChanged,
     this.rotation = 0.0,
     this.label,
+    this.showDebug = true,
   });
 
   final ValueChanged<bool> onChanged;
@@ -34,6 +35,7 @@ class RKButton extends StatefulWidget {
   final ValueChanged<bool>? onInteractionChanged;
   final double rotation;
   final String? label;
+  final bool showDebug;
 
   @override
   State<RKButton> createState() => _RKButtonState();
@@ -68,6 +70,7 @@ class _RKButtonState extends State<RKButton> with SingleTickerProviderStateMixin
     return RKRotatedWrapper(
       rotation: widget.rotation,
       label: widget.label,
+      showDebug: widget.showDebug,
       contentWidth: widget.size,
       contentHeight: widget.size,
       labelColor: tokens.trackColor.withValues(alpha: 0.8),

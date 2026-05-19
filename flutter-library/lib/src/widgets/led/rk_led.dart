@@ -30,6 +30,7 @@ class RKLed extends StatefulWidget {
     this.timing = 500,
     this.rotation = 0.0,
     this.label,
+    this.showDebug = true,
   });
 
   final RKLEDState state;
@@ -39,6 +40,7 @@ class RKLed extends StatefulWidget {
   final int timing;
   final double rotation;
   final String? label;
+  final bool showDebug;
 
   @override
   State<RKLed> createState() => _RKLedState();
@@ -95,6 +97,7 @@ class _RKLedState extends State<RKLed> with SingleTickerProviderStateMixin {
     return RKRotatedWrapper(
       rotation: widget.rotation,
       label: widget.label,
+      showDebug: widget.showDebug,
       contentWidth: widget.size,
       contentHeight: widget.size,
       labelColor: tokens.trackColor.withValues(alpha: 0.8),

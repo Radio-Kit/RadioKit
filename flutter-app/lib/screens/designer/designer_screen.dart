@@ -34,7 +34,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
     super.initState();
     _currentDesignId = widget.designId;
     _state.addListener(_onStateChanged);
-    RKDebugOverlay.enabled = true;
+    RKDebugOverlay.enabled = !_state.isPlayMode;
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadInitialDesign();
@@ -66,10 +66,12 @@ class _DesignerScreenState extends State<DesignerScreen> {
     _saveTimer?.cancel();
     _state.removeListener(_onStateChanged);
     _state.dispose();
+    RKDebugOverlay.enabled = false;
     super.dispose();
   }
 
   void _onStateChanged() {
+    RKDebugOverlay.enabled = !_state.isPlayMode;
     setState(() {});
     
     _saveTimer?.cancel();
@@ -116,16 +118,26 @@ class _DesignerScreenState extends State<DesignerScreen> {
                         Positioned(
                           left: 16,
                           bottom: 16,
-                          child: FloatingActionButton(
-                            onPressed: () {
+                          child: _DesignerFabMenu(
+                            state: _state,
+                            tokens: tokens,
+                            onAddWidget: () {
                               showDialog(
                                 context: context,
                                 builder: (context) => DesignerWidgetDialog(state: _state),
                               );
                             },
-                            backgroundColor: tokens.primary,
-                            foregroundColor: Colors.black,
-                            child: const Icon(LucideIcons.plus),
+                            onShare: () {
+                              _autoSaveToApp();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Design saved'),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            },
+                            onViewCode: () => _showSourceCode(context, tokens),
+                            onDownloadCode: _downloadCode,
                           ),
                         ),
                       if (!_state.isPlayMode && !_state.isInspectorVisible)
@@ -202,10 +214,6 @@ class _DesignerScreenState extends State<DesignerScreen> {
           _buildPlayModeButton(tokens),
           const SizedBox(width: 12),
           _buildUndoRedoButtons(tokens),
-          const SizedBox(width: 8),
-          _buildShareButton(tokens),
-          const SizedBox(width: 12),
-          _buildGetSourceButton(tokens),
         ],
       ),
     );
@@ -276,45 +284,6 @@ class _DesignerScreenState extends State<DesignerScreen> {
     );
   }
 
-  Widget _buildShareButton(RKTokens tokens) {
-    return GestureDetector(
-      onTap: () async {
-        _autoSaveToApp();
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Design saved'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1B5E20),
-          borderRadius: BorderRadius.circular(2),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(LucideIcons.share2, color: Color(0xFFA5D6A7), size: 14),
-            SizedBox(width: 6),
-            Text(
-              'SHARE',
-              style: TextStyle(
-                color: Color(0xFFA5D6A7),
-                fontSize: 11,
-                fontFamily: 'monospace',
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildPlayModeButton(RKTokens tokens) {
     return ListenableBuilder(
       listenable: _state,
@@ -355,36 +324,6 @@ class _DesignerScreenState extends State<DesignerScreen> {
           ),
         );
       },
-    );
-  }
-
-  Widget _buildGetSourceButton(RKTokens tokens) {
-    return GestureDetector(
-      onTap: () => _showSourceCode(context, tokens),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1B5E20),
-          borderRadius: BorderRadius.circular(2),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(LucideIcons.code, color: tokens.primary, size: 14),
-            const SizedBox(width: 6),
-            const Text(
-              'CODE',
-              style: TextStyle(
-                color: Color(0xFFA5D6A7),
-                fontSize: 11,
-                fontFamily: 'monospace',
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -528,6 +467,15 @@ class _DesignerScreenState extends State<DesignerScreen> {
 
   // ── Code generation dialog ───────────────────────────────────────────────
 
+  void _downloadCode() {
+    final code = ArduinoGenerator.generate(_state);
+    downloadFile('RadioKit_UI.ino', code);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: SelectableText('RadioKit_UI.ino downloaded')),
+    );
+  }
+
   void _showSourceCode(BuildContext context, RKTokens tokens) {
     final code = ArduinoGenerator.generate(_state);
 
@@ -621,6 +569,142 @@ class _DesignerScreenState extends State<DesignerScreen> {
                     height: 1.5,
                   ),
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DesignerFabMenu extends StatefulWidget {
+  final DesignerState state;
+  final RKTokens tokens;
+  final VoidCallback onAddWidget;
+  final VoidCallback onShare;
+  final VoidCallback onViewCode;
+  final VoidCallback onDownloadCode;
+
+  const _DesignerFabMenu({
+    required this.state,
+    required this.tokens,
+    required this.onAddWidget,
+    required this.onShare,
+    required this.onViewCode,
+    required this.onDownloadCode,
+  });
+
+  @override
+  State<_DesignerFabMenu> createState() => _DesignerFabMenuState();
+}
+
+class _DesignerFabMenuState extends State<_DesignerFabMenu>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _expandAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+    _expandAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    if (_controller.isCompleted) {
+      _controller.reverse();
+    } else {
+      _controller.forward();
+    }
+  }
+
+  void _close() {
+    if (_controller.isCompleted || _controller.isAnimating) {
+      _controller.reverse();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizeTransition(
+          sizeFactor: _expandAnimation,
+          alignment: Alignment.bottomCenter,
+          child: FadeTransition(
+            opacity: _expandAnimation,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildMenuItem(LucideIcons.plus, 'Add Widget', widget.onAddWidget),
+                const SizedBox(height: 8),
+                _buildMenuItem(LucideIcons.share2, 'Share', widget.onShare),
+                const SizedBox(height: 8),
+                _buildMenuItem(LucideIcons.code, 'View Code', widget.onViewCode),
+                const SizedBox(height: 8),
+                _buildMenuItem(LucideIcons.download, 'Download Code', widget.onDownloadCode),
+                const SizedBox(height: 12),
+              ],
+            ),
+          ),
+        ),
+        FloatingActionButton(
+          onPressed: _toggle,
+          backgroundColor: widget.tokens.primary,
+          foregroundColor: Colors.black,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: Icon(
+              _controller.isCompleted ? Icons.close : LucideIcons.plus,
+              key: ValueKey(_controller.isCompleted),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMenuItem(IconData icon, String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: () {
+        _close();
+        onTap();
+      },
+      child: Container(
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A1A),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFF333333)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: widget.tokens.primary, size: 16),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFFE0E0E0),
+                fontSize: 12,
+                fontFamily: 'monospace',
               ),
             ),
           ],

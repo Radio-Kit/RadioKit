@@ -15,6 +15,7 @@ class RKDisplay extends StatelessWidget {
     this.onInteractionChanged,
     this.rotation = 0.0,
     this.label,
+    this.showDebug = true,
   });
 
   final String text;
@@ -25,6 +26,7 @@ class RKDisplay extends StatelessWidget {
   final ValueChanged<bool>? onInteractionChanged;
   final double rotation;
   final String? label;
+  final bool showDebug;
 
   @override
   Widget build(BuildContext context) {
@@ -75,6 +77,7 @@ class RKDisplay extends StatelessWidget {
     return RKRotatedWrapper(
       rotation: rotation,
       label: label,
+      showDebug: showDebug,
       contentWidth: width,
       contentHeight: height,
       labelColor: tokens.trackColor.withValues(alpha: 0.8),

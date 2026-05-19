@@ -29,6 +29,7 @@ class RKSlider extends StatefulWidget {
     this.type = RKSliderType.linear,
     this.rotation = 0.0,
     this.label,
+    this.showDebug = true,
   });
 
   final double value;
@@ -49,6 +50,7 @@ class RKSlider extends StatefulWidget {
   final RKSliderType type;
   final double rotation;
   final String? label;
+  final bool showDebug;
 
   @override
   State<RKSlider> createState() => _RKSliderState();
@@ -185,6 +187,7 @@ class _RKSliderState extends State<RKSlider> with SingleTickerProviderStateMixin
     return RKRotatedWrapper(
       rotation: widget.rotation,
       label: widget.label,
+      showDebug: widget.showDebug,
       contentWidth: contentW,
       contentHeight: contentH,
       labelColor: tokens.trackColor.withValues(alpha: 0.8),
