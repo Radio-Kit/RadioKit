@@ -10,7 +10,7 @@ import '../../providers/serial_provider.dart';
 import '../../providers/console_provider.dart';
 import '../../models/console_entry.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/logo_icon.dart';
+import '../../widgets/radiokit_app_bar.dart';
 
 class ModelsTab extends StatelessWidget {
   const ModelsTab({super.key});
@@ -18,20 +18,7 @@ class ModelsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            const LogoIcon(),
-            const SizedBox(width: 12),
-            Text(
-              'RADIO_KIT', 
-              style: GoogleFonts.audiowide(
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.0,
-              ),
-            ),
-          ],
-        ),
+      appBar: RadioKitAppBar(
         actions: [
           IconButton(
             icon: const Icon(Icons.search_rounded, size: 20),

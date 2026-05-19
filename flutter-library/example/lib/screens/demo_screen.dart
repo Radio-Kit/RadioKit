@@ -363,6 +363,7 @@ class _DemoScreenState extends State<DemoScreen> {
             onLEDColorChanged: (v) => setState(() => _ledColor = v),
             rotation: _rotation,
             onRotationChanged: (v) => setState(() => _rotation = v),
+            onRotationReset: () => setState(() => _rotation = 0),
             label: _widgetLabel,
             onLabelChanged: (v) => setState(() => _widgetLabel = v),
           ),

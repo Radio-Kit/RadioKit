@@ -151,7 +151,7 @@ class _RKSteeringWheelState extends State<RKSteeringWheel> with SingleTickerProv
       label: widget.label,
       contentWidth: contentW,
       contentHeight: contentH,
-      labelColor: tokens.primary.withValues(alpha: 0.7),
+      labelColor: tokens.trackColor.withValues(alpha: 0.8),
       fitContent: true,
       indicator: _RKKnobIndicator(normalized: normalized, tokens: tokens, knobSize: widget.size * 0.5),
       child: GestureDetector(

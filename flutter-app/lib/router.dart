@@ -11,7 +11,6 @@ import 'screens/skin_browser_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/designer/designer_screen.dart';
 import 'screens/home/designs_tab.dart';
-import 'screens/donate_screen.dart';
 import 'theme/app_theme.dart';
 
 class ConnectionNotifier extends ChangeNotifier {
@@ -110,13 +109,9 @@ GoRouter createRouter(ConnectionNotifier connectionNotifier) {
          builder: (context, state) => const DebugScreen(),
        ),
        GoRoute(
-         path: '/donate',
-         builder: (context, state) => const DonateScreen(),
+         path: '/skins',
+         builder: (context, state) => const SkinBrowserScreen(),
        ),
-       GoRoute(
-        path: '/skins',
-        builder: (context, state) => const SkinBrowserScreen(),
-      ),
     ],
   );
 }

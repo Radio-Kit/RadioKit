@@ -121,7 +121,7 @@ class InspectorFieldBuilders {
     );
   }
 
-  static Widget buildRotationSlider(RKTokens tokens, double rotation, ValueChanged<double> onChanged) {
+  static Widget buildRotationSlider(RKTokens tokens, double rotation, ValueChanged<double> onChanged, {VoidCallback? onReset}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       child: Column(
@@ -138,14 +138,30 @@ class InspectorFieldBuilders {
                   fontFamily: 'monospace',
                 ),
               ),
-              Text(
-                '${rotation.toInt()}°',
-                style: TextStyle(
-                  color: tokens.primary,
-                  fontSize: 12,
-                  fontFamily: 'monospace',
-                  fontWeight: FontWeight.bold,
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (rotation != 0 && onReset != null)
+                    GestureDetector(
+                      onTap: onReset,
+                      child: Icon(
+                        Icons.refresh_rounded,
+                        color: tokens.primary,
+                        size: 14,
+                      ),
+                    ),
+                  if (rotation != 0 && onReset != null)
+                    const SizedBox(width: 4),
+                  Text(
+                    '${rotation.toInt()}°',
+                    style: TextStyle(
+                      color: tokens.primary,
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

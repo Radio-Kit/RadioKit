@@ -3,12 +3,14 @@ import 'package:flutter/services.dart';
 import '../../theme/rk_theme.dart';
 import '../rk_rotated_wrapper.dart';
 
+
 /// Data model for a single toggle item in [RKMultiButton] or [RKMultiSelect].
 class RKToggleItem {
   final String? onLabel;
   final String? offLabel;
   final IconData? onIcon;
   final IconData? offIcon;
+
 
   const RKToggleItem({
     this.onLabel,
@@ -17,9 +19,11 @@ class RKToggleItem {
     this.offIcon,
   });
 
+
   String labelFor(bool selected) => (selected ? onLabel : offLabel) ?? '';
   IconData? iconFor(bool selected) => (selected ? onIcon : offIcon);
 }
+
 
 /// Radio-style multi-button group for RadioKit.
 ///
@@ -41,6 +45,7 @@ class RKMultiButton extends StatelessWidget {
     this.label,
   });
 
+
   final List<RKToggleItem> items;
   final int selected;
   final ValueChanged<int> onChanged;
@@ -52,11 +57,13 @@ class RKMultiButton extends StatelessWidget {
   final double rotation;
   final String? label;
 
+
   @override
   Widget build(BuildContext context) {
     final tokens = RKTheme.of(context);
     final int count = items.length;
     final bool isHorizontal = orientation == RKAxis.horizontal;
+
 
     final double shellPadding = (buttonSize * 0.08).clamp(2.0, 10.0);
     final double cw = isHorizontal
@@ -66,12 +73,13 @@ class RKMultiButton extends StatelessWidget {
         ? buttonSize + shellPadding * 2
         : buttonSize * count + gap * (count - 1) + shellPadding * 2;
 
+
     return RKRotatedWrapper(
       rotation: rotation,
       label: label,
       contentWidth: cw,
       contentHeight: ch,
-      labelColor: tokens.primary.withValues(alpha: 0.7),
+      labelColor: tokens.trackColor.withValues(alpha: 0.8),
       fitContent: true,
       child: Container(
         width: cw,
@@ -100,6 +108,7 @@ class RKMultiButton extends StatelessWidget {
       ),
     );
   }
+
 
   Widget _buildAxis(int count, RKTokens tokens, bool isHorizontal) {
     final children = <Widget>[];
@@ -138,6 +147,7 @@ class RKMultiButton extends StatelessWidget {
   }
 }
 
+
 /// Bitmask multi-select group for RadioKit.
 ///
 /// ### Defined aspect ratio
@@ -158,6 +168,7 @@ class RKMultiSelect extends StatelessWidget {
     this.label,
   });
 
+
   final List<RKToggleItem> items;
   final int bitmask;
   final ValueChanged<int> onChanged;
@@ -169,11 +180,13 @@ class RKMultiSelect extends StatelessWidget {
   final double rotation;
   final String? label;
 
+
   @override
   Widget build(BuildContext context) {
     final tokens = RKTheme.of(context);
     final int count = items.length;
     final bool isHorizontal = orientation == RKAxis.horizontal;
+
 
     final double shellPadding = (buttonSize * 0.08).clamp(2.0, 10.0);
     final double cw = isHorizontal
@@ -183,12 +196,13 @@ class RKMultiSelect extends StatelessWidget {
         ? buttonSize + shellPadding * 2
         : buttonSize * count + gap * (count - 1) + shellPadding * 2;
 
+
     return RKRotatedWrapper(
       rotation: rotation,
       label: label,
       contentWidth: cw,
       contentHeight: ch,
-      labelColor: tokens.primary.withValues(alpha: 0.7),
+      labelColor: tokens.trackColor.withValues(alpha: 0.8),
       fitContent: true,
       child: Container(
         width: cw,
@@ -217,6 +231,7 @@ class RKMultiSelect extends StatelessWidget {
       ),
     );
   }
+
 
   Widget _buildAxis(int count, RKTokens tokens, bool isHorizontal) {
     final children = <Widget>[];
@@ -256,12 +271,14 @@ class RKMultiSelect extends StatelessWidget {
   }
 }
 
+
 class _ToggleButton extends StatelessWidget {
   final RKToggleItem item;
   final bool selected;
   final double buttonSize;
   final VoidCallback onTap;
   final RKTokens tokens;
+
 
   const _ToggleButton({
     required this.item,
@@ -271,14 +288,17 @@ class _ToggleButton extends StatelessWidget {
     required this.tokens,
   });
 
+
   @override
   Widget build(BuildContext context) {
     final activeAccent = tokens.primary;
+
 
     // Create buttonDark and buttonDark2 dynamically based on tokens.surface
     // to preserve dark/light theme options and look incredibly good.
     final double lightness = HSLColor.fromColor(tokens.surface).lightness;
     final isDark = lightness < 0.5;
+
 
     final Color buttonDark = isDark
         ? HSLColor.fromColor(tokens.surface)
@@ -288,6 +308,7 @@ class _ToggleButton extends StatelessWidget {
             .withLightness((lightness - 0.03).clamp(0.0, 1.0))
             .toColor();
 
+
     final Color buttonDark2 = isDark
         ? HSLColor.fromColor(tokens.surface)
             .withLightness((lightness - 0.03).clamp(0.0, 1.0))
@@ -296,11 +317,14 @@ class _ToggleButton extends StatelessWidget {
             .withLightness((lightness + 0.03).clamp(0.0, 1.0))
             .toColor();
 
+
     final borderColor = tokens.trackColor;
     final dullGrey = tokens.onSurface.withValues(alpha: 0.4);
 
+
     final double radius = (buttonSize * 0.25).clamp(4.0, 32.0);
     final double scale = buttonSize / 120.0;
+
 
     Widget? iconWidget;
     final iconData = item.iconFor(selected);
@@ -320,6 +344,7 @@ class _ToggleButton extends StatelessWidget {
       );
     }
 
+
     Widget? textWidget;
     final labelText = item.labelFor(selected);
     if (labelText.isNotEmpty) {
@@ -331,7 +356,8 @@ class _ToggleButton extends StatelessWidget {
           maxLines: 1,
           style: TextStyle(
             color: selected ? activeAccent : dullGrey,
-            fontSize: (buttonSize * 0.16).clamp(8.0, 26.0),
+            // Reduced text size here (was 0.16 multiplier and 26.0 upper clamp)
+            fontSize: (buttonSize * 0.14).clamp(8.0, 24.0),
             height: 1.1,
             letterSpacing: 1.2,
             fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
@@ -339,6 +365,7 @@ class _ToggleButton extends StatelessWidget {
         ),
       );
     }
+
 
     Widget innerContent;
     if (iconWidget != null && textWidget != null) {
@@ -365,9 +392,11 @@ class _ToggleButton extends StatelessWidget {
       innerContent = const SizedBox.shrink();
     }
 
-    // Border width: scale dynamically
-    final double selectedBorderWidth = (buttonSize * 0.04).clamp(1.5, 5.0);
-    final double unselectedBorderWidth = (buttonSize * 0.033).clamp(1.0, 4.0);
+
+    // Border width: scale dynamically and made thinner
+    final double selectedBorderWidth = (buttonSize * 0.005).clamp(0.1, 1.0); // reduced from 0.04
+    final double unselectedBorderWidth = (buttonSize * 0.025).clamp(0.1, 1.0); // reduced from 0.033
+
 
     return Material(
       color: Colors.transparent,

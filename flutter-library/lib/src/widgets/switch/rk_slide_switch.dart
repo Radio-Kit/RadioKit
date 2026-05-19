@@ -123,7 +123,7 @@ class _RKSlideSwitchState extends State<RKSlideSwitch> with SingleTickerProvider
       label: widget.label,
       contentWidth: outerWidth,
       contentHeight: outerHeight,
-      labelColor: tokens.primary.withValues(alpha: 0.7),
+      labelColor: tokens.trackColor.withValues(alpha: 0.8),
       fitContent: true,
       child: GestureDetector(
         onTapDown: (_) => widget.onInteractionChanged?.call(true),

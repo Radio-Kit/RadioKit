@@ -7,7 +7,8 @@ import '../../providers/history_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/skin_provider.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/logo_icon.dart';
+import '../../widgets/radiokit_app_bar.dart';
+import '../donate_screen.dart';
 
 class SystemTab extends StatelessWidget {
   Widget _buildProVersionCard(BuildContext context) {
@@ -30,10 +31,10 @@ class SystemTab extends StatelessWidget {
                   child: const Icon(Icons.star, color: AppColors.brandOrange, size: 20),
                 ),
                 const SizedBox(width: 16),
-                Expanded(
+                const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       _SettingLabel(label: 'GET_PRO_VERSION', value: ''),
                       SizedBox(height: 8),
                       Text(
@@ -56,7 +57,7 @@ class SystemTab extends StatelessWidget {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                   elevation: 0,
                 ),
-                onPressed: () => context.push('/donate'),
+                onPressed: () => DonateBottomSheet.show(context),
                 child: Text('GET_PRO_VERSION', style: GoogleFonts.changa(fontWeight: FontWeight.w700, letterSpacing: 1.2, fontSize: 13)),
               ),
             ),
@@ -73,20 +74,7 @@ class SystemTab extends StatelessWidget {
     final themeProvider = context.watch<ThemeProvider>();
     
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            const LogoIcon(),
-            const SizedBox(width: 12),
-            Text(
-              'RADIO_KIT',
-              style: GoogleFonts.audiowide(
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.0,
-              ),
-            ),
-          ],
-        ),
+      appBar: RadioKitAppBar(
         actions: [
           IconButton(
             icon: const Icon(Icons.sensors_rounded, size: 20),

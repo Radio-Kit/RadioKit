@@ -56,6 +56,7 @@ class InspectorPanel extends StatelessWidget {
     this.onLEDColorChanged,
     this.rotation,
     this.onRotationChanged,
+    this.onRotationReset,
     this.label,
     this.onLabelChanged,
   });
@@ -109,6 +110,7 @@ class InspectorPanel extends StatelessWidget {
   final ValueChanged<Color>? onLEDColorChanged;
   final double? rotation;
   final ValueChanged<double>? onRotationChanged;
+  final VoidCallback? onRotationReset;
   final String? label;
   final ValueChanged<String>? onLabelChanged;
 
@@ -234,7 +236,7 @@ class InspectorPanel extends StatelessWidget {
                     ],
                   ]),
                   InspectorFieldBuilders.buildSection(tokens, 'TRANSFORM', [
-                    InspectorFieldBuilders.buildRotationSlider(tokens, rotation ?? 0.0, onRotationChanged ?? (_) {}),
+                    InspectorFieldBuilders.buildRotationSlider(tokens, rotation ?? 0.0, onRotationChanged ?? (_) {}, onReset: onRotationReset),
                   ]),
                 ],
               ),

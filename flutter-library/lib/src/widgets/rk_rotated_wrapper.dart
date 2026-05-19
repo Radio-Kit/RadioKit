@@ -2,20 +2,60 @@ import 'package:flutter/material.dart';
 import 'rk_debug_overlay.dart';
 
 /// A wrapper that applies rotation to a RadioKit widget without scaling.
-/// The layout size remains [contentWidth] x [contentHeight]; rotation is
-/// visual only, so the widget never changes its allocated layout box.
+///
+/// The widget is laid out in a fixed box whose dimensions are determined by
+/// [contentWidth] and (optionally) [contentHeight].  Rotation is **visual
+/// only** — the layout box never changes size, so neighbouring widgets are
+/// never disturbed.
+///
+/// ## Rotation pivot
+/// The pivot is always the geometric centre of the core box
+/// (the fixed [contentWidth] × [contentHeight] area).  The debug border
+/// (`RKDebugOverlay`), the [label], and the optional [indicator] all orbit
+/// that same centre.
+///
+/// ## Layout inside the core box
+/// * [label] sits just **outside** the debug border (above the core).
+/// * [indicator] sits just **outside** the debug border (below the core).
+/// * Both the label and indicator rotate together with the core.
 class RKRotatedWrapper extends StatelessWidget {
+  /// Clockwise rotation in **radians**.
+  ///
+  /// The pivot is the centre of the core widget, not the centre of the
+  /// label or indicator.
   final double rotation;
+
+  /// Optional text drawn immediately above the core widget.
+  ///
+  /// Sits outside the debug border.  Rotates around the core's centre.
   final String? label;
+
+  /// The underlying control to display.
   final Widget child;
+
+  /// Width of the core layout box in logical pixels.
   final double contentWidth;
-  // For square‑aspect widgets only one dimension is required; if
-  // contentHeight is supplied it must equal contentWidth. The wrapper
-  // computes a unified size to avoid contradictory constraints.
+
+  /// Height of the core layout box in logical pixels.
+  ///
+  /// If `null`, defaults to [contentWidth] for a square aspect ratio.
   final double? contentHeight;
+
+  /// Text colour for [label].
   final Color labelColor;
+
+  /// When `true`, the child is scaled to fit the fixed box while
+  /// preserving its aspect ratio.
   final bool fitContent;
+
+  /// Optional status indicator drawn immediately below the core widget.
+  ///
+  /// Sits outside the debug border.  Rotates around the core's centre.
   final Widget? indicator;
+
+  /// Vertical gap between [label] and the core, and between the core and
+  /// [indicator], in logical pixels.
+  static const double _spacing = 8.0;
 
   const RKRotatedWrapper({
     super.key,
@@ -31,61 +71,86 @@ class RKRotatedWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Determine the actual size. If height is omitted, use width to keep a square box.
+    // Resolve final dimensions.  Square aspect is kept when only one dim
+    // is supplied.
     final double width = contentWidth;
     final double height = contentHeight ?? contentWidth;
 
-    // Optional scaling to fit content.
+    // ── Core widget ──────────────────────────────────────────────────────
     Widget inner = child;
     if (fitContent) {
-      inner = FittedBox(
-        fit: BoxFit.contain,
-        child: inner,
-      );
+      inner = FittedBox(fit: BoxFit.contain, child: inner);
     }
 
-    // Fixed‑size container for the interactive widget. The debug overlay
-    // wraps only this core box, so the dashed border appears around the
-    // control itself; the label and indicator are not inside the border.
     Widget core = SizedBox(
       width: width,
       height: height,
       child: inner,
     );
+
+    // The debug overlay wraps only the core.  The dashed border therefore
+    // matches the core's rectangle exactly, and its centre is the rotation
+    // pivot.
     if (RKDebugOverlay.enabled) {
       core = RKDebugOverlay(show: true, child: core);
     }
 
-    // Assemble the full unit (label / core / indicator).
-    final unitChildren = <Widget>[];
+    // ── Assemble in a Stack ──────────────────────────────────────────────
+    // A Stack keeps the measured size locked to the core widget only
+    // (the non‑positioned child).  The label and indicator are
+    // Positioned relative to that same origin so their painted positions
+    // are always known, and they participate in the parent Transform.
+    final stackChildren = <Widget>[
+      // non‑positioned child → defines Stack's measured size = core size
+      core,
+    ];
+
     if (label != null && label!.isNotEmpty) {
-      unitChildren.add(Text(
-        label!.toUpperCase(),
-        style: TextStyle(
-          color: labelColor,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1.2,
-          fontFamily: 'monospace',
+      stackChildren.add(
+        Positioned(
+          left: 0,
+          right: 0,
+          top: -(20 + _spacing),
+          child: Text(
+            label!.toUpperCase(),
+            style: TextStyle(
+              color: labelColor,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
+              fontFamily: 'monospace',
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
-        textAlign: TextAlign.center,
-      ));
-      unitChildren.add(const SizedBox(height: 8));
-    }
-    unitChildren.add(core);
-    if (indicator != null) {
-      unitChildren.add(const SizedBox(height: 8));
-      unitChildren.add(indicator!);
+      );
     }
 
-    Widget unit = Column(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: unitChildren,
+    if (indicator != null) {
+      stackChildren.add(
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: -(20 + _spacing),
+          child: indicator!,
+        ),
+      );
+    }
+
+    // The Stack's measured size = core size (120×120, for example), which
+    // is always exactly the core widget's rectangle.  The rotation pivot
+    // (Stack centre = core centre) therefore never moves even when a label
+    // or an indicator is present.
+    Widget unit = Stack(
+      alignment: Alignment.center,
+      clipBehavior: Clip.none,
+      children: stackChildren,
     );
 
-    // Rotate the whole assembly so label and indicator turn together with
-    // the core widget (and its debug overlay).
+    // Rotate the entire unit around its centre, which is the same as the
+    // core's centre (and the debug overlay's centre when enabled).
     if (rotation != 0) {
       unit = Transform.rotate(
         angle: rotation,

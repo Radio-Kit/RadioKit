@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../theme/app_theme.dart';
 
@@ -36,7 +35,7 @@ class HomeScreen extends StatelessWidget {
           fontWeight: FontWeight.w500,
           letterSpacing: 1.0,
         ),
-        items: [
+        items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.dashboard_outlined, size: 18),
             activeIcon: Icon(Icons.dashboard_rounded, size: 22),

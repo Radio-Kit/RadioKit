@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
+import '../widgets/radiokit_app_bar.dart';
 import '../providers/skin_provider.dart';
 import '../theme/app_theme.dart';
 
@@ -16,15 +17,7 @@ class SkinBrowserScreen extends StatelessWidget {
     final presets = skinProvider.availablePresets;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'THEME_GALLERY',
-          style: GoogleFonts.exo2(
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.0,
-          ),
-        ),
-      ),
+      appBar: RadioKitAppBar(),
       body: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: presets.length,

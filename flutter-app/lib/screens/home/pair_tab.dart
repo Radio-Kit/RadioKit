@@ -12,7 +12,7 @@ import '../../models/device_info.dart';
 import '../../models/console_entry.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/console_log_view.dart';
-import '../../widgets/logo_icon.dart';
+import '../../widgets/radiokit_app_bar.dart';
 
 class PairTab extends StatefulWidget {
   const PairTab({super.key});
@@ -131,24 +131,9 @@ class _PairTabState extends State<PairTab> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            const LogoIcon(),
-            const SizedBox(width: 12),
-            Text(
-              'RADIO_KIT',
-              style: GoogleFonts.audiowide(
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.0,
-              ),
-            ),
-          ],
-        ),
+      appBar: RadioKitAppBar(
         actions: [
-          IconButton(
-              icon: const Icon(Icons.grid_view_rounded, size: 18),
-              onPressed: () {}),
+          _buildTransportButtonGroup(),
           const SizedBox(width: 8),
         ],
       ),
@@ -166,7 +151,6 @@ class _PairTabState extends State<PairTab> {
   Widget _buildPortraitLayout() {
     return Column(
       children: [
-        _buildTransportToggle(),
         Expanded(
           child: _selectedTransportIndex == 0
               ? _BleTab(onDeviceTapped: _connectBle)
@@ -186,7 +170,6 @@ class _PairTabState extends State<PairTab> {
         Expanded(
           child: Column(
             children: [
-              _buildTransportToggle(),
               Expanded(
                 child: _selectedTransportIndex == 0
                     ? _BleTab(onDeviceTapped: _connectBle)
@@ -198,77 +181,95 @@ class _PairTabState extends State<PairTab> {
           ),
         ),
         const VerticalDivider(width: 1),
-        Expanded(
-          child: const ConsoleLogView(height: double.infinity),
+        const Expanded(
+          child: ConsoleLogView(height: double.infinity),
         ),
       ],
     );
   }
 
-  Widget _buildTransportToggle() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Container(
-        height: 44,
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(8),
+  Widget _buildTransportButtonGroup() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _TransportButton(
+          icon: Icons.bluetooth,
+          label: 'BLE',
+          isSelected: _selectedTransportIndex == 0,
+          onTap: () {
+            setState(() => _selectedTransportIndex = 0);
+            _startScan();
+          },
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: _ToggleOption(
-                label: 'BLE',
-                isActive: _selectedTransportIndex == 0,
-                onTap: () {
-                  setState(() => _selectedTransportIndex = 0);
-                  _startScan();
-                },
-              ),
-            ),
-            Expanded(
-              child: _ToggleOption(
-                label: 'USB',
-                isActive: _selectedTransportIndex == 1,
-                onTap: () {
-                  setState(() => _selectedTransportIndex = 1);
-                  _startScan();
-                },
-              ),
-            ),
-          ],
+        const SizedBox(width: 6),
+        _TransportButton(
+          icon: Icons.usb,
+          label: 'Serial',
+          isSelected: _selectedTransportIndex == 1,
+          onTap: () {
+            setState(() => _selectedTransportIndex = 1);
+            _startScan();
+          },
         ),
-      ),
+      ],
     );
   }
 }
 
-class _ToggleOption extends StatelessWidget {
+class _TransportButton extends StatelessWidget {
+  final IconData icon;
   final String label;
-  final bool isActive;
+  final bool isSelected;
   final VoidCallback onTap;
 
-  const _ToggleOption(
-      {required this.label, required this.isActive, required this.onTap});
+  const _TransportButton({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: isActive ? AppColors.brandOrange : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: GoogleFonts.changa(
-            fontWeight: FontWeight.w600,
-            color: isActive ? Colors.black : Colors.white38,
-            letterSpacing: 1.2,
-            fontSize: 12,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? AppColors.brandOrange
+                : Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isSelected
+                  ? AppColors.brandOrange
+                  : Colors.white.withValues(alpha: 0.15),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: isSelected ? Colors.black : Colors.white38,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: GoogleFonts.changa(
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.0,
+                  fontSize: 11,
+                  color: isSelected ? Colors.black : Colors.white38,
+                ),
+              ),
+            ],
           ),
         ),
       ),

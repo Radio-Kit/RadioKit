@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../widgets/radiokit_app_bar.dart';
 import '../providers/debug_provider.dart';
 import '../models/debug_log_entry.dart';
 import '../theme/app_theme.dart';
@@ -79,8 +80,8 @@ class _DebugScreenState extends State<DebugScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: const Text('Debug Monitor'),
+      appBar: RadioKitAppBar(
+        title: 'DEBUG_MONITOR',
         actions: [
           _buildDebugModeToggle(context),
           const SizedBox(width: 8),

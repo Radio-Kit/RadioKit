@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../widgets/logo_icon.dart';
+import '../widgets/radiokit_app_bar.dart';
 import '../providers/ble_provider.dart';
 import '../providers/serial_provider.dart';
 import '../providers/device_provider.dart';
@@ -113,14 +115,7 @@ class _ScanScreenState extends State<ScanScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: const Row(
-          children: [
-            _RadioKitLogo(),
-            SizedBox(width: 10),
-            Text('RadioKit'),
-          ],
-        ),
+      appBar: RadioKitAppBar(
         actions: [
           IconButton(
             icon: Icon(
@@ -192,7 +187,7 @@ class _BleTab extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const _RadioKitLogo(),
+            const LogoIcon(),
             const SizedBox(height: 32),
             Text('RadioKit Web', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 12),
@@ -680,55 +675,6 @@ class _SignalBars extends StatelessWidget {
       }),
     );
   }
-}
-
-class _RadioKitLogo extends StatelessWidget {
-  const _RadioKitLogo();
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      size: const Size(28, 28),
-      painter: _LogoPainter(),
-    );
-  }
-}
-
-class _LogoPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final r      = size.width / 2;
-    final center = Offset(r, r);
-
-    final outerRingPaint = Paint()
-      ..color = AppColors.brandOrange
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5;
-
-    final innerDotPaint = Paint()
-      ..color = AppColors.brandOrange
-      ..style = PaintingStyle.fill;
-
-    final signalPaint = Paint()
-      ..color = AppColors.brandOrange.withValues(alpha: 0.6)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawCircle(center, r - 2, outerRingPaint);
-    canvas.drawCircle(center, 4, innerDotPaint);
-    canvas.drawArc(
-      Rect.fromCenter(center: center, width: r * 1.0, height: r * 1.0),
-      2.5, 1.3, false, signalPaint,
-    );
-    canvas.drawArc(
-      Rect.fromCenter(center: center, width: r * 1.0, height: r * 1.0),
-      -0.8, 1.3, false, signalPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _DemoModeButton extends StatelessWidget {

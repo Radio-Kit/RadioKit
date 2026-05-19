@@ -2,22 +2,59 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 
-class DonateScreen extends StatelessWidget {
-  const DonateScreen({super.key});
+class DonateBottomSheet {
+  static void show(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1A1A2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => const _DonateSheetContent(),
+    );
+  }
+}
+
+class _DonateSheetContent extends StatelessWidget {
+  const _DonateSheetContent();
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('SUPPORT RADIOKIT'),
-        foregroundColor: AppColors.brandOrange,
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 32,
       ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
+          Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: Colors.white24,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Text(
+            'SUPPORT RADIOKIT',
+            style: GoogleFonts.changa(
+              color: AppColors.brandOrange,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 24),
           _buildProVersionCard(context),
-          const SizedBox(height: 32),
+          const SizedBox(height: 16),
           _buildLicenseKeyCard(context),
+          const SizedBox(height: 16),
         ],
       ),
     );
@@ -43,15 +80,15 @@ class DonateScreen extends StatelessWidget {
                   child: const Icon(Icons.star, color: AppColors.brandOrange, size: 20),
                 ),
                 const SizedBox(width: 16),
-                Expanded(
+                const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const _SettingLabel(label: 'GET_PRO_VERSION', value: ''),
-                      const SizedBox(height: 8),
+                      _SettingLabel(label: 'GET_PRO_VERSION', value: ''),
+                      SizedBox(height: 8),
                       Text(
                         'The free version of RadioKit includes all features of the Pro version. If you find the app useful, please consider supporting the project to help cover development costs and keep the project alive.',
-                        style: const TextStyle(color: Colors.white, fontSize: 16),
+                        style: TextStyle(color: Colors.white, fontSize: 14),
                       ),
                     ],
                   ),
@@ -99,15 +136,15 @@ class DonateScreen extends StatelessWidget {
                   child: const Icon(Icons.lock, color: Colors.white, size: 20),
                 ),
                 const SizedBox(width: 16),
-                Expanded(
+                const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const _SettingLabel(label: 'ENTER LICENSE KEY', value: ''),
-                      const SizedBox(height: 8),
+                      _SettingLabel(label: 'ENTER LICENSE KEY', value: ''),
+                      SizedBox(height: 8),
                       Text(
                         'Already have a license key? Enter it here to unlock Pro features.',
-                        style: const TextStyle(color: Colors.white, fontSize: 16),
+                        style: TextStyle(color: Colors.white, fontSize: 14),
                       ),
                     ],
                   ),
@@ -155,15 +192,12 @@ class DonateScreen extends StatelessWidget {
   }
 
   void _openDonateLink(BuildContext context) {
-    // This would open the browser to buymeacoffee.com/rambros
-    // For now, we'll show a placeholder
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Opening buymeacoffee.com/rambros...')),
     );
   }
 
   void _validateLicenseKey(BuildContext context) {
-    // Placeholder for license key validation
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('License key activated!')),
     );
