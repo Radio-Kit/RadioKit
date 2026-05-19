@@ -147,7 +147,7 @@ class _RKSteeringWheelState extends State<RKSteeringWheel> with SingleTickerProv
     final double contentH = widget.size;
 
     return RKRotatedWrapper(
-      rotation: widget.rotation * math.pi / 180,
+      rotation: widget.rotation,
       label: widget.label,
       contentWidth: contentW,
       contentHeight: contentH,

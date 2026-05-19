@@ -19,7 +19,6 @@ export 'src/widgets/knob/rk_steering_wheel.dart';
 export 'src/widgets/joystick/rk_joystick.dart';
 export 'src/widgets/led/rk_led.dart';
 export 'src/widgets/multiple/rk_multi_button.dart';
-export 'src/widgets/multiple/rk_multi_select.dart';
 export 'src/widgets/display/rk_display.dart';
 export 'src/widgets/display/rk_serial_monitor.dart';
 

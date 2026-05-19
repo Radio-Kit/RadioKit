@@ -361,21 +361,17 @@ class _HandleWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => onTapDown(),
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
-          border: Border.all(color: const Color(0xFF555555), width: 1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(
-          icon,
-          size: size * 1.0,
-          color: const Color(0xFF00D4FF),
-        ),
+    return IconButton(
+      onPressed: onTapDown,
+      icon: Icon(icon),
+      iconSize: size * 0.75,
+      style: IconButton.styleFrom(
+        backgroundColor: const Color(0xFF1A1A1A),
+        foregroundColor: const Color(0xFF00D4FF),
+        side: const BorderSide(color: Color(0xFF555555), width: 1),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        padding: EdgeInsets.zero,
+        minimumSize: Size(size, size),
       ),
     );
   }

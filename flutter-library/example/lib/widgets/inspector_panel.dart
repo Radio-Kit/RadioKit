@@ -357,7 +357,7 @@ class InspectorPanel extends StatelessWidget {
     final shapes = {
       RKLEDShape.circle: Icons.circle,
       RKLEDShape.square: Icons.square,
-      RKLEDShape.diamond: Icons.diamond,
+      RKLEDShape.diamond: Icons.layers,
       RKLEDShape.star: Icons.star,
     };
 
@@ -485,68 +485,67 @@ class _IconPickerState extends State<_IconPicker> {
   Widget build(BuildContext context) {
     final filteredKeys = _allIcons.keys.where((k) => k.toLowerCase().contains(_search.toLowerCase())).toList();
 
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-      child: Material(
-        color: const Color(0xFF181818),
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 400,
-          height: 500,
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              TextField(
-                onChanged: (v) => setState(() => _search = v),
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  hintText: 'Search icons...',
-                  hintStyle: TextStyle(color: Color(0xFF666666)),
-                  prefixIcon: Icon(LucideIcons.search, size: 16, color: Color(0xFF666666)),
-                  border: InputBorder.none,
+    return AlertDialog(
+      backgroundColor: const Color(0xFF181818),
+      titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      title: TextField(
+        onChanged: (v) => setState(() => _search = v),
+        style: const TextStyle(color: Colors.white, fontSize: 14),
+        decoration: const InputDecoration(
+          hintText: 'Search icons...',
+          hintStyle: TextStyle(color: Color(0xFF666666)),
+          prefixIcon: Icon(LucideIcons.search, size: 16, color: Color(0xFF666666)),
+          border: InputBorder.none,
+          isDense: true,
+        ),
+      ),
+      content: SizedBox(
+        width: 400,
+        height: 400,
+        child: Column(
+          children: [
+            const Divider(color: Color(0xFF222222)),
+            const SizedBox(height: 8),
+            Expanded(
+              child: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 5,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
                 ),
-              ),
-              const Divider(color: Color(0xFF222222)),
-              Expanded(
-                child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 5,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                  ),
-                  itemCount: filteredKeys.length + 1,
-                  itemBuilder: (context, index) {
-                    if (index == 0) {
-                      return GestureDetector(
-                        onTap: () { widget.onIconSelected(null); Navigator.pop(context); },
-                        child: Container(
-                          decoration: BoxDecoration(color: const Color(0xFF222222), borderRadius: BorderRadius.circular(8)),
-                          child: const Center(child: Text('NONE', style: TextStyle(color: Color(0xFF666666), fontSize: 10))),
-                        ),
-                      );
-                    }
-                    final key = filteredKeys[index - 1];
-                    final icon = _allIcons[key]!;
+                itemCount: filteredKeys.length + 1,
+                itemBuilder: (context, index) {
+                  if (index == 0) {
                     return GestureDetector(
-                      onTap: () { widget.onIconSelected(icon); Navigator.pop(context); },
+                      onTap: () { widget.onIconSelected(null); Navigator.pop(context); },
                       child: Container(
                         decoration: BoxDecoration(color: const Color(0xFF222222), borderRadius: BorderRadius.circular(8)),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(icon, color: Colors.white, size: 20),
-                            const SizedBox(height: 4),
-                            Text(key, style: const TextStyle(color: Color(0xFF888888), fontSize: 8), overflow: TextOverflow.ellipsis),
-                          ],
-                        ),
+                        child: const Center(child: Text('NONE', style: TextStyle(color: Color(0xFF888888), fontSize: 10, fontWeight: FontWeight.bold))),
                       ),
                     );
-                  },
-                ),
+                  }
+                  final key = filteredKeys[index - 1];
+                  final icon = _allIcons[key]!;
+                  return GestureDetector(
+                    onTap: () { widget.onIconSelected(icon); Navigator.pop(context); },
+                    child: Container(
+                      decoration: BoxDecoration(color: const Color(0xFF222222), borderRadius: BorderRadius.circular(8)),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(icon, color: Colors.white, size: 20),
+                          const SizedBox(height: 4),
+                          Text(key, style: const TextStyle(color: Color(0xFF888888), fontSize: 8), overflow: TextOverflow.ellipsis),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -584,91 +583,83 @@ class _ColorPickerState extends State<_ColorPicker> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      child: Material(
-        color: const Color(0xFF181818),
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 300,
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('COLOR PICKER', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: _currentColor,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: Colors.white24, width: 1),
-                    ),
+    return AlertDialog(
+      backgroundColor: const Color(0xFF181818),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      title: const Text('COLOR PICKER', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
+      contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+      content: SizedBox(
+        width: 300,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: _currentColor,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.white24, width: 1),
                   ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('HEX VALUE', style: TextStyle(color: Color(0xFF666666), fontSize: 9, fontWeight: FontWeight.bold)),
-                      Text('#${_currentColor.toARGB32().toRadixString(16).toUpperCase().substring(2)}', style: const TextStyle(color: Colors.white, fontSize: 16, fontFamily: 'monospace', fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              _buildRGBSlider('RED', (_currentColor.r * 255).round(), (v) {
-                _updateColor(Color.fromARGB((_currentColor.a * 255).round(), v, (_currentColor.g * 255).round(), (_currentColor.b * 255).round()));
-              }),
-              const SizedBox(height: 12),
-              _buildRGBSlider('GREEN', (_currentColor.g * 255).round(), (v) {
-                _updateColor(Color.fromARGB((_currentColor.a * 255).round(), (_currentColor.r * 255).round(), v, (_currentColor.b * 255).round()));
-              }),
-              const SizedBox(height: 12),
-              _buildRGBSlider('BLUE', (_currentColor.b * 255).round(), (v) {
-                _updateColor(Color.fromARGB((_currentColor.a * 255).round(), (_currentColor.r * 255).round(), (_currentColor.g * 255).round(), v));
-              }),
-              const SizedBox(height: 24),
-              const Text('PRESETS', style: TextStyle(color: Color(0xFF666666), fontSize: 9, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _brandColors.map((color) {
-                  return GestureDetector(
-                    onTap: () => _updateColor(color),
-                    child: Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: color == _currentColor ? Colors.white : Colors.transparent, width: 2),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF222222),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                  ),
-                  child: const Text('DONE'),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('HEX VALUE', style: TextStyle(color: Color(0xFF666666), fontSize: 9, fontWeight: FontWeight.bold)),
+                    Text('#${_currentColor.toARGB32().toRadixString(16).toUpperCase().substring(2)}', style: const TextStyle(color: Colors.white, fontSize: 16, fontFamily: 'monospace', fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            _buildRGBSlider('RED', (_currentColor.r * 255).round(), (v) {
+              _updateColor(Color.fromARGB((_currentColor.a * 255).round(), v, (_currentColor.g * 255).round(), (_currentColor.b * 255).round()));
+            }),
+            const SizedBox(height: 12),
+            _buildRGBSlider('GREEN', (_currentColor.g * 255).round(), (v) {
+              _updateColor(Color.fromARGB((_currentColor.a * 255).round(), (_currentColor.r * 255).round(), v, (_currentColor.b * 255).round()));
+            }),
+            const SizedBox(height: 12),
+            _buildRGBSlider('BLUE', (_currentColor.b * 255).round(), (v) {
+              _updateColor(Color.fromARGB((_currentColor.a * 255).round(), (_currentColor.r * 255).round(), (_currentColor.g * 255).round(), v));
+            }),
+            const SizedBox(height: 20),
+            const Text('PRESETS', style: TextStyle(color: Color(0xFF666666), fontSize: 9, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _brandColors.map((color) {
+                return GestureDetector(
+                  onTap: () => _updateColor(color),
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: color == _currentColor ? Colors.white : Colors.transparent, width: 2),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
         ),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('DONE'),
+        ),
+      ],
     );
   }
 
@@ -853,24 +844,17 @@ class _InspectorTextFieldState extends State<_InspectorTextField> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(widget.label, style: const TextStyle(color: Color(0xFF666666), fontSize: 10, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 6),
-        TextField(
-          controller: _controller,
-          onChanged: widget.onChanged,
-          style: const TextStyle(color: Colors.white, fontSize: 12),
-          decoration: InputDecoration(
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            filled: true,
-            fillColor: const Color(0xFF222222),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
-          ),
-        ),
-      ],
+    return TextField(
+      controller: _controller,
+      onChanged: widget.onChanged,
+      style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'monospace'),
+      decoration: InputDecoration(
+        labelText: widget.label,
+        labelStyle: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+        border: const OutlineInputBorder(),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      ),
     );
   }
 }

@@ -26,6 +26,7 @@ class RKDebugOverlay extends StatelessWidget {
 
   final double strokeWidth;
   final double borderRadius;
+  final Widget child;
 
   const RKDebugOverlay({
     super.key,
@@ -36,19 +37,22 @@ class RKDebugOverlay extends StatelessWidget {
     this.gapLength = 3,
     this.strokeWidth = 1.5,
     this.borderRadius = 2,
+    required this.child,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (!enabled || !show) return const SizedBox.shrink();
+    if (!enabled || !show) return child;
 
-    Widget border = CustomPaint(
-      painter: _DashedBorderPainter(
-        color: color,
-        strokeWidth: strokeWidth,
-        dashLength: dashLength,
-        gapLength: gapLength,
-        borderRadius: borderRadius,
+     Widget border = IgnorePointer(
+      child: CustomPaint(
+        painter: _DashedBorderPainter(
+          color: color,
+          strokeWidth: strokeWidth,
+          dashLength: dashLength,
+          gapLength: gapLength,
+          borderRadius: borderRadius,
+        ),
       ),
     );
 
@@ -59,7 +63,12 @@ class RKDebugOverlay extends StatelessWidget {
       );
     }
 
-    return border;
+    return Stack(
+      children: [
+        child,
+        Positioned.fill(child: border),
+      ],
+    );
   }
 }
 

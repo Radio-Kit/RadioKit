@@ -19,7 +19,7 @@ class ExampleApp extends StatelessWidget {
           elevation: 0,
         ),
       ),
-      builder: (context, child) => AppTheme(child: child!),
+       builder: (context, child) => AppTheme(child: child!),
     );
   }
 }

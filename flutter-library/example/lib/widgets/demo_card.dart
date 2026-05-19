@@ -28,25 +28,18 @@ class DemoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = RKTheme.of(context);
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
+    return Card(
       margin: const EdgeInsets.only(bottom: 20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF141414),
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFF222222),
+        side: const BorderSide(
+          color: Color(0xFF222222),
           width: 1,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
+      color: const Color(0xFF141414),
       clipBehavior: Clip.antiAlias,
+      elevation: 4,
       child: Column(
         children: [
           // ─── Card header ───

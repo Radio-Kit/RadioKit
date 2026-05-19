@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'rk_debug_overlay.dart';
 
 /// A wrapper that applies rotation to a RadioKit widget without scaling.
 /// The layout size remains [contentWidth] x [contentHeight]; rotation is
@@ -8,7 +9,10 @@ class RKRotatedWrapper extends StatelessWidget {
   final String? label;
   final Widget child;
   final double contentWidth;
-  final double contentHeight;
+  // For square‑aspect widgets only one dimension is required; if
+  // contentHeight is supplied it must equal contentWidth. The wrapper
+  // computes a unified size to avoid contradictory constraints.
+  final double? contentHeight;
   final Color labelColor;
   final bool fitContent;
   final Widget? indicator;
@@ -18,7 +22,7 @@ class RKRotatedWrapper extends StatelessWidget {
     required this.rotation,
     required this.child,
     required this.contentWidth,
-    required this.contentHeight,
+    this.contentHeight,
     required this.labelColor,
     this.label,
     this.fitContent = false,
@@ -27,30 +31,35 @@ class RKRotatedWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget cyanBox = SizedBox(
-      width: contentWidth,
-      height: contentHeight,
-      child: child,
-    );
+    // Determine the actual size. If height is omitted, use width to keep a square box.
+    final double width = contentWidth;
+    final double height = contentHeight ?? contentWidth;
 
+    // Optional scaling to fit content.
+    Widget inner = child;
     if (fitContent) {
-      cyanBox = FittedBox(
+      inner = FittedBox(
         fit: BoxFit.contain,
-        child: cyanBox,
+        child: inner,
       );
     }
 
-    if (rotation != 0) {
-      cyanBox = Transform.rotate(
-        angle: rotation,
-        child: cyanBox,
-      );
+    // Fixed‑size container for the interactive widget. The debug overlay
+    // wraps only this core box, so the dashed border appears around the
+    // control itself; the label and indicator are not inside the border.
+    Widget core = SizedBox(
+      width: width,
+      height: height,
+      child: inner,
+    );
+    if (RKDebugOverlay.enabled) {
+      core = RKDebugOverlay(show: true, child: core);
     }
 
-    final columnChildren = <Widget>[];
-
+    // Assemble the full unit (label / core / indicator).
+    final unitChildren = <Widget>[];
     if (label != null && label!.isNotEmpty) {
-      columnChildren.add(Text(
+      unitChildren.add(Text(
         label!.toUpperCase(),
         style: TextStyle(
           color: labelColor,
@@ -61,24 +70,29 @@ class RKRotatedWrapper extends StatelessWidget {
         ),
         textAlign: TextAlign.center,
       ));
-      columnChildren.add(const SizedBox(height: 8));
+      unitChildren.add(const SizedBox(height: 8));
     }
-
-    columnChildren.add(cyanBox);
-
+    unitChildren.add(core);
     if (indicator != null) {
-      columnChildren.add(const SizedBox(height: 8));
-      columnChildren.add(indicator!);
+      unitChildren.add(const SizedBox(height: 8));
+      unitChildren.add(indicator!);
     }
 
-    if (columnChildren.length == 1) {
-      return columnChildren.first;
-    }
-
-    return Column(
+    Widget unit = Column(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
-      children: columnChildren,
+      children: unitChildren,
     );
+
+    // Rotate the whole assembly so label and indicator turn together with
+    // the core widget (and its debug overlay).
+    if (rotation != 0) {
+      unit = Transform.rotate(
+        angle: rotation,
+        child: unit,
+      );
+    }
+
+    return unit;
   }
 }

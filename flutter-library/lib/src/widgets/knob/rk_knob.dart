@@ -144,7 +144,7 @@ class _RKKnobState extends State<RKKnob> with SingleTickerProviderStateMixin {
     final currentAngle = startRad + normalized * sweepRad;
 
     return RKRotatedWrapper(
-      rotation: widget.rotation * math.pi / 180,
+      rotation: widget.rotation,
       label: widget.label,
       contentWidth: widget.size,
       contentHeight: widget.size,

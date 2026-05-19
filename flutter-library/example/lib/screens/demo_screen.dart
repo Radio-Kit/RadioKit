@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 import '../theme/app_theme.dart';
@@ -20,6 +19,8 @@ class DemoScreen extends StatefulWidget {
 }
 
 class _DemoScreenState extends State<DemoScreen> {
+  // Debug overlay toggle
+  final ValueNotifier<bool> _debugEnabled = ValueNotifier<bool>(false);
   // ─── State persistence ───
   final _pushState = ValueNotifier<bool>(false);
   final _pushActive = ValueNotifier<bool>(false);
@@ -154,7 +155,7 @@ class _DemoScreenState extends State<DemoScreen> {
     _serialInput.dispose();
     _displayActive.dispose();
     _serialActive.dispose();
-    _serialTimer?.cancel();
+    _debugEnabled.dispose();
     super.dispose();
   }
 
@@ -185,36 +186,19 @@ class _DemoScreenState extends State<DemoScreen> {
 
   Widget _buildBooleanInput(bool value, ValueChanged<bool> onChanged) {
     final tokens = RKTheme.of(context);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildSimpleToggleBtn('0', !value, () => onChanged(false), tokens),
-        const SizedBox(width: 8),
-        _buildSimpleToggleBtn('1', value, () => onChanged(true), tokens),
+    return SegmentedButton<bool>(
+      segments: const [
+        ButtonSegment(value: false, label: Text('0')),
+        ButtonSegment(value: true, label: Text('1')),
       ],
-    );
-  }
-
-  Widget _buildSimpleToggleBtn(String label, bool active, VoidCallback onTap, RKTokens tokens) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: active ? tokens.primary : const Color(0xFF222222),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: active ? Colors.black : Colors.white54,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
+      selected: {value},
+      showSelectedIcon: false,
+      onSelectionChanged: (newSelection) {
+        onChanged(newSelection.first);
+      },
+      style: SegmentedButton.styleFrom(
+        selectedBackgroundColor: tokens.primary,
+        selectedForegroundColor: Colors.black,
       ),
     );
   }
@@ -233,7 +217,19 @@ class _DemoScreenState extends State<DemoScreen> {
             child: Column(
               children: [
                 // ─── Top bar ───
-                const _TopBar(title: 'RADIOKIT WIDGETS DEMO'),
+                ValueListenableBuilder<bool>(
+                  valueListenable: _debugEnabled,
+                  builder: (context, enabled, _) => _TopBar(
+                    title: 'RADIOKIT WIDGETS DEMO',
+                    debugEnabled: enabled,
+                    onDebugToggle: () {
+                      setState(() {
+                        RKDebugOverlay.enabled = !RKDebugOverlay.enabled;
+                        _debugEnabled.value = RKDebugOverlay.enabled;
+                      });
+                    },
+                  ),
+                ),
 
                 // Aesthetic core tabs
                 _AestheticCoreBar(),
@@ -1178,8 +1174,6 @@ class _DemoScreenState extends State<DemoScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('STATE SELECTION', style: TextStyle(color: Color(0xFF888888), fontSize: 10, fontFamily: 'monospace')),
-        const SizedBox(height: 8),
         Row(
           children: RKLEDState.values.map((state) {
             final isSelected = _ledOpState == state;
@@ -1298,53 +1292,29 @@ class _TextInputState extends State<TextInput> {
   @override
   Widget build(BuildContext context) {
     final tokens = RKTheme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          widget.label.toUpperCase(),
-          style: const TextStyle(
-            color: Color(0xFF666666),
-            fontSize: 10,
-            fontFamily: 'monospace',
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          height: 36,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            color: const Color(0xFF0A0A0A),
-            border: Border.all(color: const Color(0xFF222222), width: 1),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Center(
-            child: TextField(
-              controller: _controller,
-              onSubmitted: (v) {
-                widget.onSubmitted(v);
-                if (widget.label == 'SERIAL') {
-                  _controller.clear();
-                }
-              },
-              style: TextStyle(
-                color: tokens.primary,
-                fontSize: 12,
-                fontFamily: 'monospace',
-              ),
-              cursorColor: tokens.primary,
-              decoration: const InputDecoration(
-                isDense: true,
-                border: InputBorder.none,
-                hintText: 'ENTER VALUE...',
-                hintStyle: TextStyle(color: Color(0xFF333333), fontSize: 10),
-              ),
-            ),
-          ),
-        ),
-      ],
+    return TextField(
+      controller: _controller,
+      onSubmitted: (v) {
+        widget.onSubmitted(v);
+        if (widget.label == 'SERIAL') {
+          _controller.clear();
+        }
+      },
+      style: TextStyle(
+        color: tokens.primary,
+        fontSize: 12,
+        fontFamily: 'monospace',
+      ),
+      cursorColor: tokens.primary,
+      decoration: InputDecoration(
+        labelText: widget.label.toUpperCase(),
+        labelStyle: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Color(0xFF888888)),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        border: const OutlineInputBorder(),
+        hintText: 'ENTER VALUE...',
+        hintStyle: const TextStyle(color: Color(0xFF444444), fontSize: 10, fontFamily: 'monospace'),
+      ),
     );
   }
 }
@@ -1396,28 +1366,13 @@ class InputSlider extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 2),
-        SizedBox(
-          height: 24,
-          child: SliderTheme(
-            data: SliderThemeData(
-              trackHeight: 2,
-              activeTrackColor: tokens.primary.withValues(alpha: 0.4),
-              inactiveTrackColor: const Color(0xFF222222),
-              thumbColor: const Color(0xFFD0D0D0),
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
-              activeTickMarkColor: Colors.transparent,
-              inactiveTickMarkColor: Colors.transparent,
-            ),
-            child: Slider(
-              value: value.clamp(min, max),
-              min: min,
-              max: max,
-              onChanged: onChanged,
-              onChangeEnd: onChangeEnd,
-            ),
-          ),
+        Slider(
+          value: value.clamp(min, max),
+          min: min,
+          max: max,
+          activeColor: tokens.primary,
+          onChanged: onChanged,
+          onChangeEnd: onChangeEnd,
         ),
       ],
     );
@@ -1427,9 +1382,12 @@ class InputSlider extends StatelessWidget {
 
 // ─── Top system bar ───
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.title});
-
   final String title;
+
+
+  const _TopBar({required this.title, required this.debugEnabled, required this.onDebugToggle});
+  final bool debugEnabled;
+  final VoidCallback onDebugToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -1444,20 +1402,26 @@ class _TopBar extends StatelessWidget {
           bottom: BorderSide(color: Color(0xFF222222), width: 1),
         ),
       ),
-      child: Row(
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: tokens.primary,
-              fontSize: 18,
-              fontFamily: 'monospace',
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1,
+        child: Row(
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                color: tokens.primary,
+                fontSize: 18,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1,
+              ),
             ),
-          ),
-        ],
-      ),
+            const Spacer(),
+            IconButton(
+              icon: Icon(Icons.bug_report, color: debugEnabled ? tokens.primary : Colors.white38),
+              tooltip: 'Toggle Debug Overlay',
+              onPressed: onDebugToggle,
+            ),
+          ],
+        ),
     );
   }
 }
