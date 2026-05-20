@@ -31,6 +31,33 @@ class DesignerElement {
   String label;
   int rotation;
 
+  /// Whether this widget type renders at a fixed 1:1 aspect ratio.
+  /// These widgets use `size = min(width, height)`, so the debug overlay
+  /// is always square and resize must maintain equal width/height.
+  bool get hasFixedAspectRatio {
+    switch (type) {
+      case DesignerElementType.button:
+      case DesignerElementType.knob:
+      case DesignerElementType.steeringWheel:
+      case DesignerElementType.joystick:
+      case DesignerElementType.led:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  /// The effective rendered size in grid units.
+  /// For fixed-aspect-ratio widgets this is `min(width, height)` × `min(width, height)`;
+  /// for free-aspect widgets it is `width` × `height`.
+  (int, int) get renderedGridSize {
+    if (hasFixedAspectRatio) {
+      final s = width < height ? width : height;
+      return (s, s);
+    }
+    return (width, height);
+  }
+
   DesignerElement({
     required this.id,
     required this.type,

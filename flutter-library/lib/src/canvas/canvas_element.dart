@@ -36,33 +36,25 @@ class CanvasElement extends StatelessWidget {
       return w;
     }
 
-    final w = element.width.toDouble() * cs;
-    final h = element.height.toDouble() * cs;
+    // Use the rendered size so the bounding box matches the debug overlay.
+    // For fixed-aspect-ratio widgets (button, knob, etc.) this is square:
+    // min(width, height) × min(width, height).
+    final (rw, rh) = element.renderedGridSize;
+    final rWpx = rw.toDouble() * cs;
+    final rHpx = rh.toDouble() * cs;
 
     Widget child = IgnorePointer(
       child: _buildWidget(context),
     );
 
-    if (isSelected) {
-      child = Container(
-        width: w,
-        height: h,
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.cyanAccent, width: 1.5),
-          borderRadius: BorderRadius.circular(2),
-        ),
-        child: child,
-      );
-    } else {
-      child = SizedBox(
-        width: w,
-        height: h,
-        child: child,
-      );
-    }
+    child = SizedBox(
+      width: rWpx,
+      height: rHpx,
+      child: child,
+    );
 
-    // Rotate the entire widget (content + selection border) together.
-    // Internal widget calls no longer pass rotation to avoid double-rotation.
+    // Rotate the entire widget together. Rotation is applied here so individual
+    // widgets don't need to handle it, avoiding double-rotation.
     if (rotationRad != 0) {
       child = Transform.rotate(
         angle: rotationRad,
@@ -77,7 +69,10 @@ class CanvasElement extends StatelessWidget {
     final cs = _cellSize;
     final isPlay = isPlayMode && designerState != null;
     final id = element.id;
-    final showDebug = isPlayMode ? true : isSelected;
+    // In play mode the global RKDebugOverlay.enabled is false, so showDebug
+    // is irrelevant; pass false for clarity. In designer mode only the
+    // selected element shows the debug border.
+    final showDebug = isPlayMode ? false : isSelected;
 
     switch (element.type) {
       case DesignerElementType.button:

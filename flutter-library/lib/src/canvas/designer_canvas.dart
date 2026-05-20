@@ -76,11 +76,14 @@ class _DesignerCanvasState extends State<DesignerCanvas> {
                           ),
                           // Elements + handles as direct Stack children
                           ...state.elements.expand((el) {
+                            // The element's stored position is its grid centre.
+                            // The Positioned widget covers the full grid area so
+                            // _MovableElement can intercept taps anywhere.
                             final halfW = el.width / 2;
                             final halfH = el.height / 2;
                             final left = (el.x - halfW) / cw * canvasPixelW;
-                            final top = (el.y - halfH) / ch * canvasPixelH;
-                            final w = el.width / cw * canvasPixelW;
+                            final top  = (el.y - halfH) / ch * canvasPixelH;
+                            final w = el.width  / cw * canvasPixelW;
                             final h = el.height / ch * canvasPixelH;
                             final isSelected = el.id == state.selectedElementId;
 
@@ -110,24 +113,35 @@ class _DesignerCanvasState extends State<DesignerCanvas> {
                             ];
 
                             if (isSelected && !state.isPlayMode) {
+                              // Use the rendered size for handle positions so they
+                              // sit at the corners of the debug overlay box.
+                              final (rw, rh) = el.renderedGridSize;
+                              final rWpx = rw / cw * canvasPixelW;
+                              final rHpx = rh / ch * canvasPixelH;
+
+                              // Centre of the rendered (debug overlay) box.
+                              // For free-aspect widgets this equals the element
+                              // centre; for square widgets it is the same centre
+                              // because the widget is drawn centred in its area.
+                              final cx = left + w / 2;
+                              final cy = top  + h / 2;
+
                               // Compute rotated corner positions so handles
                               // follow the widget's visual rotation.
                               final angle = el.rotation * math.pi / 180;
-                              final sinR = math.sin(angle);
-                              final cosR = math.cos(angle);
-                              final cx = left + w / 2;
-                              final cy = top + h / 2;
-                              // Rotated top-left corner
-                              final rtlX = cx + (-w/2 * cosR - (-h/2) * sinR);
-                              final rtlY = cy + (-w/2 * sinR + (-h/2) * cosR);
-                              // Rotated bottom-right corner
-                              final rbrX = cx + (w/2 * cosR - h/2 * sinR);
-                              final rbrY = cy + (w/2 * sinR + h/2 * cosR);
+                              final sinR  = math.sin(angle);
+                              final cosR  = math.cos(angle);
 
-                              // Rotate handle at rotated top-left corner
+                              // Rotated top-left of the rendered box
+                              final rtlX = cx + (-rWpx/2 * cosR - (-rHpx/2) * sinR);
+                              final rtlY = cy + (-rWpx/2 * sinR + (-rHpx/2) * cosR);
+                              // Rotated bottom-right of the rendered box
+                              final rbrX = cx + ( rWpx/2 * cosR -  rHpx/2  * sinR);
+                              final rbrY = cy + ( rWpx/2 * sinR +  rHpx/2  * cosR);
+
                               widgets.add(Positioned(
                                 left: rtlX - 12,
-                                top: rtlY - 12,
+                                top:  rtlY - 12,
                                 child: _DragHandle(
                                   icon: Icons.rotate_right,
                                   element: el,
@@ -139,10 +153,9 @@ class _DesignerCanvasState extends State<DesignerCanvas> {
                                   isRotateHandle: true,
                                 ),
                               ));
-                              // Resize handle at rotated bottom-right corner
                               widgets.add(Positioned(
                                 left: rbrX - 12,
-                                top: rbrY - 12,
+                                top:  rbrY - 12,
                                 child: _DragHandle(
                                   icon: Icons.crop_square,
                                   element: el,
@@ -352,17 +365,28 @@ class _DragHandleState extends State<_DragHandle> {
     final dx = pos.dx - _startCanvasPos!.dx;
     final dy = pos.dy - _startCanvasPos!.dy;
 
-    final widthDelta = (dx / widget.canvasPixelW * widget.cw).round();
+    final widthDelta  = (dx / widget.canvasPixelW * widget.cw).round();
     final heightDelta = (dy / widget.canvasPixelH * widget.ch).round();
 
-    final newWidth = (_startWidth! + widthDelta).clamp(8, widget.cw - 8);
-    final newHeight = (_startHeight! + heightDelta).clamp(8, widget.ch - 8);
-
-    widget.designerState.updateElementSize(
-      widget.element.id,
-      width: newWidth,
-      height: newHeight,
-    );
+    if (widget.element.hasFixedAspectRatio) {
+      // Lock to 1:1 — use the larger delta so dragging in any direction grows
+      // the widget uniformly. The element stores equal width and height.
+      final delta = widthDelta.abs() > heightDelta.abs() ? widthDelta : heightDelta;
+      final size = (_startWidth! + delta).clamp(8, widget.cw - 8);
+      widget.designerState.updateElementSize(
+        widget.element.id,
+        width: size,
+        height: size,
+      );
+    } else {
+      final newWidth  = (_startWidth!  + widthDelta ).clamp(8, widget.cw - 8);
+      final newHeight = (_startHeight! + heightDelta).clamp(8, widget.ch - 8);
+      widget.designerState.updateElementSize(
+        widget.element.id,
+        width: newWidth,
+        height: newHeight,
+      );
+    }
   }
 
   void _handleRotate(DragUpdateDetails details) {
