@@ -194,7 +194,7 @@ class _PairTabState extends State<PairTab> {
       children: [
         _TransportButton(
           icon: Icons.bluetooth,
-          label: 'BLE',
+          label: 'Bluetooth',
           isSelected: _selectedTransportIndex == 0,
           onTap: () {
             setState(() => _selectedTransportIndex = 0);
@@ -204,7 +204,7 @@ class _PairTabState extends State<PairTab> {
         const SizedBox(width: 6),
         _TransportButton(
           icon: Icons.usb,
-          label: 'Serial',
+          label: 'USB Serial',
           isSelected: _selectedTransportIndex == 1,
           onTap: () {
             setState(() => _selectedTransportIndex = 1);
@@ -259,16 +259,18 @@ class _TransportButton extends StatelessWidget {
                 size: 16,
                 color: isSelected ? Colors.black : Colors.white38,
               ),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: GoogleFonts.changa(
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.0,
-                  fontSize: 11,
-                  color: isSelected ? Colors.black : Colors.white38,
+              if (isSelected) ...[
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: GoogleFonts.changa(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.0,
+                    fontSize: 11,
+                    color: isSelected ? Colors.black : Colors.white38,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),

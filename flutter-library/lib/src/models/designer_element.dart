@@ -91,36 +91,36 @@ class DesignerElement {
         };
       case DesignerElementType.slider:
         return {
-          'min': 0.0,
-          'max': 100.0,
+          'min': 0,
+          'max': 100,
           'autoCenter': false,
           'center': 0.5,
           'springBehavior': 'smooth',
-          'springDuration': 300.0,
+          'springDuration': 300,
           'divisions': null,
         };
       case DesignerElementType.knob:
         return {
-          'min': 0.0,
-          'max': 100.0,
-          'minAngle': -135.0,
-          'maxAngle': 135.0,
+          'min': 0,
+          'max': 100,
+          'minAngle': -135,
+          'maxAngle': 135,
           'autoCenter': false,
           'center': 0.5,
           'springBehavior': 'smooth',
-          'springDuration': 500.0,
+          'springDuration': 500,
           'divisions': null,
         };
       case DesignerElementType.steeringWheel:
         return {
-          'min': 0.0,
-          'max': 100.0,
-          'minAngle': -135.0,
-          'maxAngle': 135.0,
+          'min': 0,
+          'max': 100,
+          'minAngle': -135,
+          'maxAngle': 135,
           'autoCenter': false,
           'center': 0.5,
           'springBehavior': 'smooth',
-          'springDuration': 500.0,
+          'springDuration': 500,
           'divisions': null,
         };
       case DesignerElementType.joystick:
@@ -129,7 +129,7 @@ class DesignerElement {
           'centerX': 0.0,
           'centerY': 0.0,
           'springBehavior': 'smooth',
-          'springDuration': 300.0,
+          'springDuration': 300,
         };
       case DesignerElementType.multiButton:
         return {
@@ -143,12 +143,12 @@ class DesignerElement {
         };
       case DesignerElementType.gasPedal:
         return {
-          'min': 0.0,
-          'max': 100.0,
+          'min': 0,
+          'max': 100,
           'autoCenter': false,
           'center': 0.0,
           'springBehavior': 'smooth',
-          'springDuration': 300.0,
+          'springDuration': 300,
         };
       case DesignerElementType.led:
         return {
@@ -160,12 +160,12 @@ class DesignerElement {
       case DesignerElementType.text:
         return {
           'text': 'Display',
-          'fontSize': 14.0,
+          'fontSize': 14,
           'fontFamily': 'monospace',
         };
       case DesignerElementType.serialMonitor:
         return {
-          'fontSize': 12.0,
+          'fontSize': 12,
           'fontFamily': 'monospace',
         };
     }

@@ -337,8 +337,10 @@ class DesignerState extends ChangeNotifier {
 
     // restore model name so the generated header block uses the right name
     _modelName = (decoded['config']?['name'] as String?) ?? '';
-    _modelType = (decoded['config']?['type'] as String?) ?? 'Locomotive';
     _modelDescription = (decoded['config']?['description'] as String?) ?? '';
+    _connectionType = ((decoded['config']?['transport'] as String?) ?? 'BLE').toLowerCase();
+    _activeSkin = _arduinoToTheme((decoded['config']?['theme'] as String?) ?? 'RK_DEFAULT');
+    _connectionPassword = (decoded['config']?['password'] as String?) ?? '';
 
     final orientation =
         (decoded['canvas']?['orientation'] as String?) ?? 'landscape';
@@ -386,12 +388,38 @@ class DesignerState extends ChangeNotifier {
   }
 
   /// Build the serialisable map for saveToHeaderFile.
+  String _themeToArduino(String skin) {
+    switch (skin) {
+      case 'neon':
+        return 'RK_NEON';
+      case 'minimal':
+        return 'RK_MINIMAL';
+      case 'dragon':
+      default:
+        return 'RK_DEFAULT';
+    }
+  }
+
+  String _arduinoToTheme(String theme) {
+    switch (theme) {
+      case 'RK_NEON':
+        return 'neon';
+      case 'RK_MINIMAL':
+        return 'minimal';
+      case 'RK_DEFAULT':
+      default:
+        return 'dragon';
+    }
+  }
+
   Map<String, dynamic> toJson() => {
         'version': 1,
         'config': {
           'name': _modelName,
-          'type': _modelType,
           'description': _modelDescription,
+          'transport': _connectionType.toUpperCase(),
+          'theme': _themeToArduino(_activeSkin),
+          'password': _connectionPassword,
         },
         'canvas': {
           'orientation': _isLandscape ? 'landscape' : 'portrait',

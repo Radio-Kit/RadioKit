@@ -209,52 +209,67 @@ class InspectorFieldBuilders {
     );
   }
 
-  static Widget buildOptionSelector(RKTokens tokens, String label, String value, List<String> options, ValueChanged<String> onChanged) {
+  static Widget buildOptionSelector(RKTokens tokens, String label, String value, List<String> options, ValueChanged<String> onChanged, {Widget? suffix}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
             width: 80,
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: Color(0xFF888888),
-                fontSize: 11,
-                fontFamily: 'monospace',
+            child: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: Color(0xFF888888),
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                ),
               ),
             ),
           ),
           const SizedBox(width: 8),
-          ...options.map((opt) {
-            final isSelected = opt == value;
-            return Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: GestureDetector(
-                onTap: () => onChanged(opt),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isSelected ? tokens.primary : const Color(0xFF1A1A1A),
-                    border: Border.all(
-                      color: isSelected ? tokens.primary : const Color(0xFF444444),
-                      width: 1,
+          Expanded(
+            child: Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: [
+                ...options.map((opt) {
+                  final isSelected = opt == value;
+                  return GestureDetector(
+                    onTap: () => onChanged(opt),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isSelected ? tokens.primary : const Color(0xFF1A1A1A),
+                        border: Border.all(
+                          color: isSelected ? tokens.primary : const Color(0xFF444444),
+                          width: 1,
+                        ),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      child: Text(
+                        opt.toUpperCase(),
+                        style: TextStyle(
+                          color: isSelected ? Colors.black : const Color(0xFF888888),
+                          fontSize: 10,
+                          fontFamily: 'monospace',
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
                     ),
-                    borderRadius: BorderRadius.circular(2),
+                  );
+                }),
+                if (suffix != null) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, top: 4),
+                    child: suffix,
                   ),
-                  child: Text(
-                    opt.toUpperCase(),
-                    style: TextStyle(
-                      color: isSelected ? Colors.black : const Color(0xFF888888),
-                      fontSize: 10,
-                      fontFamily: 'monospace',
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );

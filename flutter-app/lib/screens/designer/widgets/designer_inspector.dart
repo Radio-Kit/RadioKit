@@ -43,10 +43,10 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                         InspectorFieldBuilders.buildTextField(tokens, 'Label', el.label, (v) {
                           widget.state.updateElementLabel(el.id, v);
                         }),
-                        _buildSizeRow(tokens, el),
                       ]),
                       InspectorFieldBuilders.buildSection(tokens, 'BEHAVIOR', _buildBehaviorFields(tokens, el)),
                       InspectorFieldBuilders.buildSection(tokens, 'TRANSFORM', [
+                        _buildSizeRow(tokens, el),
                         _buildPositionRow(tokens, el),
                         const SizedBox(height: 8),
                         InspectorFieldBuilders.buildRotationSlider(tokens, el.rotation.toDouble(), (v) {
@@ -183,64 +183,76 @@ class _DesignerInspectorState extends State<DesignerInspector> {
   Widget _buildPositionRow(RKTokens tokens, DesignerElement el) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: InspectorFieldBuilders.buildCompactNumField(tokens, 'X', el.x, (v) {
-              widget.state.updateElementPosition(el.id, v, el.y);
-            }),
+          const Text(
+            'Position',
+            style: TextStyle(
+              color: Color(0xFF888888),
+              fontSize: 11,
+              fontFamily: 'monospace',
+            ),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: InspectorFieldBuilders.buildCompactNumField(tokens, 'Y', el.y, (v) {
-              widget.state.updateElementPosition(el.id, el.x, v);
-            }),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Expanded(
+                child: InspectorFieldBuilders.buildCompactNumField(tokens, 'X', el.x, (v) {
+                  widget.state.updateElementPosition(el.id, v, el.y);
+                }),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: InspectorFieldBuilders.buildCompactNumField(tokens, 'Y', el.y, (v) {
+                  widget.state.updateElementPosition(el.id, el.x, v);
+                }),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  static const _squareTypes = {
-    DesignerElementType.button,
-    DesignerElementType.knob,
-    DesignerElementType.joystick,
-    DesignerElementType.led,
-  };
-
   Widget _buildSizeRow(RKTokens tokens, DesignerElement el) {
-    final isSquare = _squareTypes.contains(el.type);
-
-    if (isSquare) {
-      final edge = math.max(el.width, el.height);
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-        child: Row(
-          children: [
-            Expanded(
-              child: InspectorFieldBuilders.buildCompactNumField(tokens, 'Size', edge, (v) {
-                widget.state.updateElementSize(el.id, width: v, height: v);
-              }),
-            ),
-          ],
-        ),
-      );
-    }
-
+    final edge = math.max(el.width, el.height);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: InspectorFieldBuilders.buildCompactNumField(tokens, 'W', el.width, (v) {
-              widget.state.updateElementSize(el.id, width: v);
-            }),
+          const Text(
+            'Size',
+            style: TextStyle(
+              color: Color(0xFF888888),
+              fontSize: 11,
+              fontFamily: 'monospace',
+            ),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: InspectorFieldBuilders.buildCompactNumField(tokens, 'H', el.height, (v) {
-              widget.state.updateElementSize(el.id, height: v);
-            }),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              if (el.hasFixedAspectRatio)
+                Expanded(
+                  child: InspectorFieldBuilders.buildCompactNumField(tokens, 'H', edge, (v) {
+                    widget.state.updateElementSize(el.id, width: v, height: v);
+                  }),
+                )
+              else ...[
+                Expanded(
+                  child: InspectorFieldBuilders.buildCompactNumField(tokens, 'W', el.width, (v) {
+                    widget.state.updateElementSize(el.id, width: v);
+                  }),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: InspectorFieldBuilders.buildCompactNumField(tokens, 'H', el.height, (v) {
+                    widget.state.updateElementSize(el.id, height: v);
+                  }),
+                ),
+              ],
+            ],
           ),
         ],
       ),
@@ -306,10 +318,31 @@ class _DesignerInspectorState extends State<DesignerInspector> {
         break;
 
       case DesignerElementType.slider:
-        fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Min', (el.properties['min'] as num?)?.toDouble() ?? 0,
-            (v) => widget.state.updateElementProperty(el.id, 'min', v)));
-        fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Max', (el.properties['max'] as num?)?.toDouble() ?? 100,
-            (v) => widget.state.updateElementProperty(el.id, 'max', v)));
+        final currentMin = (el.properties['min'] as num?)?.toInt() ?? 0;
+        final currentType = currentMin == -100 ? 'bi' : 'uni';
+        fields.add(InspectorFieldBuilders.buildOptionSelector(
+          tokens,
+          'Range',
+          currentType,
+          ['uni', 'bi'],
+          (v) {
+            if (v == 'bi') {
+              widget.state.updateElementProperty(el.id, 'min', -100);
+              widget.state.updateElementProperty(el.id, 'max', 100);
+            } else {
+              widget.state.updateElementProperty(el.id, 'min', 0);
+              widget.state.updateElementProperty(el.id, 'max', 100);
+            }
+          },
+          suffix: Text(
+            currentType == 'bi' ? '(-100 - 100)' : '(0 - 100)',
+            style: const TextStyle(
+              color: Color(0xFF666666),
+              fontSize: 10,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ));
         fields.add(InspectorFieldBuilders.buildBoolToggle(tokens, 'AutoCenter', el.properties['autoCenter'] ?? false,
             (v) => widget.state.updateElementProperty(el.id, 'autoCenter', v)));
         final autoCenterSlider = el.properties['autoCenter'] ?? false;
@@ -323,7 +356,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
           } else {
             positionString = 'center';
           }
-          fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(
+          fields.add(InspectorFieldBuilders.buildOptionSelector(
             tokens,
             'Position',
             positionString,
@@ -335,24 +368,45 @@ class _DesignerInspectorState extends State<DesignerInspector> {
               widget.state.updateElementProperty(el.id, 'center', targetVal);
             },
           ));
-          fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(tokens, 'Spring',
+          fields.add(InspectorFieldBuilders.buildOptionSelector(tokens, 'Spring',
             el.properties['springBehavior'] ?? 'smooth',
             ['smooth', 'elastic', 'linear'],
             (v) => widget.state.updateElementProperty(el.id, 'springBehavior', v)));
-          fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Dur. (ms)', (el.properties['springDuration'] as num?)?.toDouble() ?? 300,
+          fields.add(InspectorFieldBuilders.buildNumField(tokens, 'Dur. (ms)', (el.properties['springDuration'] as num?)?.toInt() ?? 300,
             (v) => widget.state.updateElementProperty(el.id, 'springDuration', v)));
         }
         break;
 
       case DesignerElementType.knob:
-        fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Min', (el.properties['min'] as num?)?.toDouble() ?? 0,
-            (v) => widget.state.updateElementProperty(el.id, 'min', v)));
-        fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Max', (el.properties['max'] as num?)?.toDouble() ?? 100,
-            (v) => widget.state.updateElementProperty(el.id, 'max', v)));
-        fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Min Angle', (el.properties['minAngle'] as num?)?.toDouble() ?? -135,
-            (v) => widget.state.updateElementProperty(el.id, 'minAngle', v)));
-        fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Max Angle', (el.properties['maxAngle'] as num?)?.toDouble() ?? 135,
-            (v) => widget.state.updateElementProperty(el.id, 'maxAngle', v)));
+        final currentMin = (el.properties['min'] as num?)?.toInt() ?? 0;
+        final currentType = currentMin == -100 ? 'bi' : 'uni';
+        fields.add(InspectorFieldBuilders.buildOptionSelector(
+          tokens,
+          'Range',
+          currentType,
+          ['uni', 'bi'],
+          (v) {
+            if (v == 'bi') {
+              widget.state.updateElementProperty(el.id, 'min', -100);
+              widget.state.updateElementProperty(el.id, 'max', 100);
+            } else {
+              widget.state.updateElementProperty(el.id, 'min', 0);
+              widget.state.updateElementProperty(el.id, 'max', 100);
+            }
+          },
+          suffix: Text(
+            currentType == 'bi' ? '(-100 - 100)' : '(0 - 100)',
+            style: const TextStyle(
+              color: Color(0xFF666666),
+              fontSize: 10,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ));
+        fields.add(InspectorFieldBuilders.buildNumField(tokens, 'Min Angle', (el.properties['minAngle'] as num?)?.toInt() ?? -135,
+            (v) => widget.state.updateElementProperty(el.id, 'minAngle', v), min: -360.0, max: 360.0));
+        fields.add(InspectorFieldBuilders.buildNumField(tokens, 'Max Angle', (el.properties['maxAngle'] as num?)?.toInt() ?? 135,
+            (v) => widget.state.updateElementProperty(el.id, 'maxAngle', v), min: -360.0, max: 360.0));
         fields.add(InspectorFieldBuilders.buildBoolToggle(tokens, 'AutoCenter', el.properties['autoCenter'] ?? false,
             (v) => widget.state.updateElementProperty(el.id, 'autoCenter', v)));
         final autoCenterKnob = el.properties['autoCenter'] ?? false;
@@ -366,7 +420,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
           } else {
             positionString = 'center';
           }
-          fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(
+          fields.add(InspectorFieldBuilders.buildOptionSelector(
             tokens,
             'Position',
             positionString,
@@ -378,24 +432,45 @@ class _DesignerInspectorState extends State<DesignerInspector> {
               widget.state.updateElementProperty(el.id, 'center', targetVal);
             },
           ));
-          fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(tokens, 'Spring',
+          fields.add(InspectorFieldBuilders.buildOptionSelector(tokens, 'Spring',
             el.properties['springBehavior'] ?? 'smooth',
             ['smooth', 'elastic', 'linear'],
             (v) => widget.state.updateElementProperty(el.id, 'springBehavior', v)));
-          fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Dur. (ms)', (el.properties['springDuration'] as num?)?.toDouble() ?? 500,
+          fields.add(InspectorFieldBuilders.buildNumField(tokens, 'Dur. (ms)', (el.properties['springDuration'] as num?)?.toInt() ?? 500,
             (v) => widget.state.updateElementProperty(el.id, 'springDuration', v)));
         }
         break;
 
       case DesignerElementType.steeringWheel: // forceSwitch
-        fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Min', (el.properties['min'] as num?)?.toDouble() ?? 0,
-            (v) => widget.state.updateElementProperty(el.id, 'min', v)));
-        fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Max', (el.properties['max'] as num?)?.toDouble() ?? 100,
-            (v) => widget.state.updateElementProperty(el.id, 'max', v)));
-        fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Min Angle', (el.properties['minAngle'] as num?)?.toDouble() ?? -135,
-            (v) => widget.state.updateElementProperty(el.id, 'minAngle', v)));
-        fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Max Angle', (el.properties['maxAngle'] as num?)?.toDouble() ?? 135,
-            (v) => widget.state.updateElementProperty(el.id, 'maxAngle', v)));
+        final currentMin = (el.properties['min'] as num?)?.toInt() ?? 0;
+        final currentType = currentMin == -100 ? 'bi' : 'uni';
+        fields.add(InspectorFieldBuilders.buildOptionSelector(
+          tokens,
+          'Range',
+          currentType,
+          ['uni', 'bi'],
+          (v) {
+            if (v == 'bi') {
+              widget.state.updateElementProperty(el.id, 'min', -100);
+              widget.state.updateElementProperty(el.id, 'max', 100);
+            } else {
+              widget.state.updateElementProperty(el.id, 'min', 0);
+              widget.state.updateElementProperty(el.id, 'max', 100);
+            }
+          },
+          suffix: Text(
+            currentType == 'bi' ? '(-100 - 100)' : '(0 - 100)',
+            style: const TextStyle(
+              color: Color(0xFF666666),
+              fontSize: 10,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ));
+        fields.add(InspectorFieldBuilders.buildNumField(tokens, 'Min Angle', (el.properties['minAngle'] as num?)?.toInt() ?? -135,
+            (v) => widget.state.updateElementProperty(el.id, 'minAngle', v), min: -360.0, max: 360.0));
+        fields.add(InspectorFieldBuilders.buildNumField(tokens, 'Max Angle', (el.properties['maxAngle'] as num?)?.toInt() ?? 135,
+            (v) => widget.state.updateElementProperty(el.id, 'maxAngle', v), min: -360.0, max: 360.0));
         fields.add(InspectorFieldBuilders.buildBoolToggle(tokens, 'AutoCenter', el.properties['autoCenter'] ?? false,
             (v) => widget.state.updateElementProperty(el.id, 'autoCenter', v)));
         final autoCenterSteering = el.properties['autoCenter'] ?? false;
@@ -409,7 +484,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
           } else {
             positionString = 'center';
           }
-          fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(
+          fields.add(InspectorFieldBuilders.buildOptionSelector(
             tokens,
             'Position',
             positionString,
@@ -421,11 +496,11 @@ class _DesignerInspectorState extends State<DesignerInspector> {
               widget.state.updateElementProperty(el.id, 'center', targetVal);
             },
           ));
-          fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(tokens, 'Spring',
+          fields.add(InspectorFieldBuilders.buildOptionSelector(tokens, 'Spring',
             el.properties['springBehavior'] ?? 'smooth',
             ['smooth', 'elastic', 'linear'],
             (v) => widget.state.updateElementProperty(el.id, 'springBehavior', v)));
-          fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Dur. (ms)', (el.properties['springDuration'] as num?)?.toDouble() ?? 500,
+          fields.add(InspectorFieldBuilders.buildNumField(tokens, 'Dur. (ms)', (el.properties['springDuration'] as num?)?.toInt() ?? 500,
             (v) => widget.state.updateElementProperty(el.id, 'springDuration', v)));
         }
         break;
@@ -449,7 +524,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
           } else {
             positionString = 'center';
           }
-          fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(
+          fields.add(InspectorFieldBuilders.buildOptionSelector(
             tokens,
             'Position',
             positionString,
@@ -465,11 +540,11 @@ class _DesignerInspectorState extends State<DesignerInspector> {
               widget.state.updateElementProperty(el.id, 'centerY', targetCy);
             },
           ));
-          fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(tokens, 'Spring',
+          fields.add(InspectorFieldBuilders.buildOptionSelector(tokens, 'Spring',
             el.properties['springBehavior'] ?? 'smooth',
             ['smooth', 'elastic', 'linear'],
             (v) => widget.state.updateElementProperty(el.id, 'springBehavior', v)));
-          fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Dur. (ms)', (el.properties['springDuration'] as num?)?.toDouble() ?? 300,
+          fields.add(InspectorFieldBuilders.buildNumField(tokens, 'Dur. (ms)', (el.properties['springDuration'] as num?)?.toInt() ?? 300,
             (v) => widget.state.updateElementProperty(el.id, 'springDuration', v)));
         }
         break;
@@ -489,10 +564,31 @@ class _DesignerInspectorState extends State<DesignerInspector> {
         break;
 
       case DesignerElementType.gasPedal:
-        fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Min', (el.properties['min'] as num?)?.toDouble() ?? 0,
-            (v) => widget.state.updateElementProperty(el.id, 'min', v)));
-        fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Max', (el.properties['max'] as num?)?.toDouble() ?? 100,
-            (v) => widget.state.updateElementProperty(el.id, 'max', v)));
+        final currentMin = (el.properties['min'] as num?)?.toInt() ?? 0;
+        final currentType = currentMin == -100 ? 'bi' : 'uni';
+        fields.add(InspectorFieldBuilders.buildOptionSelector(
+          tokens,
+          'Range',
+          currentType,
+          ['uni', 'bi'],
+          (v) {
+            if (v == 'bi') {
+              widget.state.updateElementProperty(el.id, 'min', -100);
+              widget.state.updateElementProperty(el.id, 'max', 100);
+            } else {
+              widget.state.updateElementProperty(el.id, 'min', 0);
+              widget.state.updateElementProperty(el.id, 'max', 100);
+            }
+          },
+          suffix: Text(
+            currentType == 'bi' ? '(-100 - 100)' : '(0 - 100)',
+            style: const TextStyle(
+              color: Color(0xFF666666),
+              fontSize: 10,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ));
         fields.add(InspectorFieldBuilders.buildBoolToggle(tokens, 'AutoCenter', el.properties['autoCenter'] ?? false,
             (v) => widget.state.updateElementProperty(el.id, 'autoCenter', v)));
         final autoCenterPedal = el.properties['autoCenter'] ?? false;
@@ -506,7 +602,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
           } else {
             positionString = 'center';
           }
-          fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(
+          fields.add(InspectorFieldBuilders.buildOptionSelector(
             tokens,
             'Position',
             positionString,
@@ -518,11 +614,11 @@ class _DesignerInspectorState extends State<DesignerInspector> {
               widget.state.updateElementProperty(el.id, 'center', targetVal);
             },
           ));
-          fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(tokens, 'Spring',
+          fields.add(InspectorFieldBuilders.buildOptionSelector(tokens, 'Spring',
             el.properties['springBehavior'] ?? 'smooth',
             ['smooth', 'elastic', 'linear'],
             (v) => widget.state.updateElementProperty(el.id, 'springBehavior', v)));
-          fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Dur. (ms)', (el.properties['springDuration'] as num?)?.toDouble() ?? 300,
+          fields.add(InspectorFieldBuilders.buildNumField(tokens, 'Dur. (ms)', (el.properties['springDuration'] as num?)?.toInt() ?? 300,
             (v) => widget.state.updateElementProperty(el.id, 'springDuration', v)));
         }
         break;
@@ -543,7 +639,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
       case DesignerElementType.text:
         fields.add(InspectorFieldBuilders.buildTextField(tokens, 'Text', el.properties['text'] ?? 'Display',
             (v) => widget.state.updateElementProperty(el.id, 'text', v)));
-        fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Font Size', (el.properties['fontSize'] as num?)?.toDouble() ?? 14,
+        fields.add(InspectorFieldBuilders.buildNumField(tokens, 'Font Size', (el.properties['fontSize'] as num?)?.toInt() ?? 14,
             (v) => widget.state.updateElementProperty(el.id, 'fontSize', v)));
         fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(tokens, 'Font',
             el.properties['fontFamily'] ?? 'monospace',
@@ -552,7 +648,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
         break;
 
       case DesignerElementType.serialMonitor:
-        fields.add(InspectorFieldBuilders.buildDoubleField(tokens, 'Font Size', (el.properties['fontSize'] as num?)?.toDouble() ?? 12,
+        fields.add(InspectorFieldBuilders.buildNumField(tokens, 'Font Size', (el.properties['fontSize'] as num?)?.toInt() ?? 12,
             (v) => widget.state.updateElementProperty(el.id, 'fontSize', v)));
         fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(tokens, 'Font',
             el.properties['fontFamily'] ?? 'monospace',

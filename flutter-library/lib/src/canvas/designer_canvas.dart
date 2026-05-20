@@ -23,11 +23,14 @@ class _DesignerCanvasState extends State<DesignerCanvas> {
     const canvasPixelW = 600.0;
     final canvasPixelH = 600.0 * ch / cw;
 
-    return Container(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => state.selectElement(null),
+      child: Container(
         color: const Color(0xFF0D0D0D),
         child: Center(
           child: FittedBox(
-            fit: BoxFit.scaleDown,
+            fit: BoxFit.contain,
             clipBehavior: Clip.none,
             child: DragTarget<WidgetDragPayload>(
               onAcceptWithDetails: (details) {
@@ -39,7 +42,7 @@ class _DesignerCanvasState extends State<DesignerCanvas> {
                 final gy = (localPos.dy / canvasPixelH * ch).round();
                 state.addElement(details.data.type, gx, gy, properties: details.data.properties);
               },
-              builder: (context, candidates, rejected) {
+               builder: (context, candidates, rejected) {
                 return Container(
                   key: _canvasKey,
                   width: canvasPixelW,
@@ -57,131 +60,122 @@ class _DesignerCanvasState extends State<DesignerCanvas> {
                   child: ListenableBuilder(
                     listenable: state,
                     builder: (context, _) {
-                      return Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          // Background grid clipped to rounded rect
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(3),
-                            child: GestureDetector(
-                              onTap: () => state.selectElement(null),
-                              child: CustomPaint(
-                                size: Size(canvasPixelW, canvasPixelH),
-                                painter: _GridPainter(
-                                  cw: cw, ch: ch,
-                                  style: state.gridStyle,
-                                ),
+                      final widgets = <Widget>[];
+
+                      // Grid background
+                      widgets.add(Positioned(
+                        left: 0, top: 0, width: canvasPixelW, height: canvasPixelH,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(3),
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => state.selectElement(null),
+                            child: CustomPaint(
+                              size: Size(canvasPixelW, canvasPixelH),
+                              painter: _GridPainter(
+                                cw: cw, ch: ch,
+                                style: state.gridStyle,
                               ),
                             ),
                           ),
-                          // Elements + handles as direct Stack children
-                          ...state.elements.expand((el) {
-                            // The element's stored position is its grid centre.
-                            // The Positioned widget covers the full grid area so
-                            // _MovableElement can intercept taps anywhere.
-                            final halfW = el.width / 2;
-                            final halfH = el.height / 2;
-                            final left = (el.x - halfW) / cw * canvasPixelW;
-                            final top  = (el.y - halfH) / ch * canvasPixelH;
-                            final w = el.width  / cw * canvasPixelW;
-                            final h = el.height / ch * canvasPixelH;
-                            final isSelected = el.id == state.selectedElementId;
+                        ),
+                      ));
 
-                            final widgets = <Widget>[
-                              Positioned(
-                                left: left, top: top, width: w, height: h,
-                                child: _MovableElement(
-                                  element: el,
-                                  isSelected: isSelected,
-                                  isPlayMode: state.isPlayMode,
-                                  designerState: state,
-                                  canvasKey: _canvasKey,
-                                  cw: cw, ch: ch,
-                                  canvasPixelW: canvasPixelW,
-                                  canvasPixelH: canvasPixelH,
-                                  onTap: () => state.selectElement(
-                                    isSelected ? null : el.id,
-                                  ),
-                                  onSelect: () => state.selectElement(el.id),
-                                  onMoved: (newX, newY) {
-                                    el.x = newX;
-                                    el.y = newY;
-                                    state.notifyChanged();
-                                  },
-                                ),
-                              ),
-                            ];
+                      // Elements and their handles
+                      for (final el in state.elements) {
+                        final halfW = el.width / 2;
+                        final halfH = el.height / 2;
+                        final left = (el.x - halfW) / cw * canvasPixelW;
+                        final top  = (el.y - halfH) / ch * canvasPixelH;
+                        final w = el.width  / cw * canvasPixelW;
+                        final h = el.height / ch * canvasPixelH;
+                        final isSelected = el.id == state.selectedElementId;
 
-                            if (isSelected && !state.isPlayMode) {
-                              // Use the rendered size for handle positions so they
-                              // sit at the corners of the debug overlay box.
-                              final (rw, rh) = el.renderedGridSize;
-                              final rWpx = rw / cw * canvasPixelW;
-                              final rHpx = rh / ch * canvasPixelH;
-
-                              // Centre of the rendered (debug overlay) box.
-                              // For free-aspect widgets this equals the element
-                              // centre; for square widgets it is the same centre
-                              // because the widget is drawn centred in its area.
-                              final cx = left + w / 2;
-                              final cy = top  + h / 2;
-
-                              // Compute rotated corner positions so handles
-                              // follow the widget's visual rotation.
-                              final angle = el.rotation * math.pi / 180;
-                              final sinR  = math.sin(angle);
-                              final cosR  = math.cos(angle);
-
-                              // Rotated top-left of the rendered box
-                              final rtlX = cx + (-rWpx/2 * cosR - (-rHpx/2) * sinR);
-                              final rtlY = cy + (-rWpx/2 * sinR + (-rHpx/2) * cosR);
-                              // Rotated bottom-right of the rendered box
-                              final rbrX = cx + ( rWpx/2 * cosR -  rHpx/2  * sinR);
-                              final rbrY = cy + ( rWpx/2 * sinR +  rHpx/2  * cosR);
-
-                              widgets.add(Positioned(
-                                left: rtlX - 12,
-                                top:  rtlY - 12,
-                                child: _DragHandle(
-                                  icon: Icons.rotate_right,
-                                  element: el,
-                                  designerState: state,
-                                  canvasKey: _canvasKey,
-                                  cw: cw, ch: ch,
-                                  canvasPixelW: canvasPixelW,
-                                  canvasPixelH: canvasPixelH,
-                                  isRotateHandle: true,
-                                ),
-                              ));
-                              widgets.add(Positioned(
-                                left: rbrX - 12,
-                                top:  rbrY - 12,
-                                child: _DragHandle(
-                                  icon: Icons.crop_square,
-                                  element: el,
-                                  designerState: state,
-                                  canvasKey: _canvasKey,
-                                  cw: cw, ch: ch,
-                                  canvasPixelW: canvasPixelW,
-                                  canvasPixelH: canvasPixelH,
-                                  isRotateHandle: false,
-                                ),
-                              ));
-                            }
-
-                            return widgets;
-                          }),
-                          if (candidates.isNotEmpty)
-                            Positioned.fill(
-                              child: IgnorePointer(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.cyanAccent.withValues(alpha: 0.05),
-                                  ),
-                                ),
-                              ),
+                        widgets.add(Positioned(
+                          left: left, top: top, width: w, height: h,
+                          child: _MovableElement(
+                            element: el,
+                            isSelected: isSelected,
+                            isPlayMode: state.isPlayMode,
+                            designerState: state,
+                            canvasKey: _canvasKey,
+                            cw: cw, ch: ch,
+                            canvasPixelW: canvasPixelW,
+                            canvasPixelH: canvasPixelH,
+                            onTap: () => state.selectElement(
+                              isSelected ? null : el.id,
                             ),
-                        ],
+                            onSelect: () => state.selectElement(el.id),
+                            onMoved: (newX, newY) {
+                              el.x = newX;
+                              el.y = newY;
+                              state.notifyChanged();
+                            },
+                          ),
+                        ));
+
+                        if (isSelected && !state.isPlayMode) {
+                          final (rw, rh) = el.renderedGridSize;
+                          final rWpx = rw / cw * canvasPixelW;
+                          final rHpx = rh / ch * canvasPixelH;
+
+                          final cx = left + w / 2;
+                          final cy = top  + h / 2;
+
+                          final angle = el.rotation * math.pi / 180;
+                          final sinR  = math.sin(angle);
+                          final cosR  = math.cos(angle);
+
+                          final rtlX = cx + (-rWpx/2 * cosR - (-rHpx/2) * sinR);
+                          final rtlY = cy + (-rWpx/2 * sinR + (-rHpx/2) * cosR);
+                          final rbrX = cx + ( rWpx/2 * cosR -  rHpx/2  * sinR);
+                          final rbrY = cy + ( rWpx/2 * sinR +  rHpx/2  * cosR);
+
+                          widgets.add(Positioned(
+                            left: rtlX - 12,
+                            top:  rtlY - 12,
+                            child: _DragHandle(
+                              icon: Icons.rotate_right,
+                              element: el,
+                              designerState: state,
+                              canvasKey: _canvasKey,
+                              cw: cw, ch: ch,
+                              canvasPixelW: canvasPixelW,
+                              canvasPixelH: canvasPixelH,
+                              isRotateHandle: true,
+                            ),
+                          ));
+                          widgets.add(Positioned(
+                            left: rbrX - 12,
+                            top:  rbrY - 12,
+                            child: _DragHandle(
+                              icon: Icons.zoom_out_map,
+                              element: el,
+                              designerState: state,
+                              canvasKey: _canvasKey,
+                              cw: cw, ch: ch,
+                              canvasPixelW: canvasPixelW,
+                              canvasPixelH: canvasPixelH,
+                              isRotateHandle: false,
+                            ),
+                          ));
+                        }
+                      }
+
+                      // Drop-target highlight
+                      if (candidates.isNotEmpty) {
+                        widgets.add(const Positioned.fill(
+                          child: IgnorePointer(
+                            child: ColoredBox(
+                              color: Color(0x0D00FFFF),
+                            ),
+                          ),
+                        ));
+                      }
+
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: widgets,
                       );
                     },
                   ),
@@ -190,7 +184,8 @@ class _DesignerCanvasState extends State<DesignerCanvas> {
             ),
           ),
         ),
-      );
+      ),
+    );
   }
 }
 
@@ -423,6 +418,7 @@ class _DragHandleState extends State<_DragHandle> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onPanStart: _onPanStart,
       onPanUpdate: _onPanUpdate,
       onPanEnd: _onPanEnd,

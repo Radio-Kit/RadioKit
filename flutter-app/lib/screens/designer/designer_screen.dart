@@ -10,7 +10,6 @@ import 'package:radiokit_widgets/radiokit_widgets.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'utils/file_download.dart';
-import 'codegen/arduino_generator.dart';
 import 'widgets/designer_widget_dialog.dart';
 import 'widgets/designer_inspector.dart';
 
@@ -105,6 +104,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
               children: [
                 Expanded(
                   child: Stack(
+                    clipBehavior: Clip.none,
                     children: [
                       RKTheme(
                         tokens: switch (_state.activeSkin) {
@@ -118,39 +118,24 @@ class _DesignerScreenState extends State<DesignerScreen> {
                         Positioned(
                           left: 16,
                           bottom: 16,
-                          child: _DesignerFabMenu(
-                            state: _state,
-                            tokens: tokens,
-                            onAddWidget: () {
+                          child: FloatingActionButton(
+                            onPressed: () {
                               showDialog(
                                 context: context,
                                 builder: (context) => DesignerWidgetDialog(state: _state),
                               );
                             },
-                            onShare: () {
-                              _autoSaveToApp();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Design saved'),
-                                  duration: Duration(seconds: 2),
-                                ),
-                              );
-                            },
-                            onViewCode: () => _showSourceCode(context, tokens),
-                            onDownloadCode: _downloadCode,
+                            backgroundColor: tokens.primary,
+                            foregroundColor: Colors.black,
+                            child: const Icon(LucideIcons.plus),
                           ),
                         ),
-                      if (!_state.isPlayMode && !_state.isInspectorVisible)
+                      if (!_state.isPlayMode)
                         Positioned(
                           right: 16,
                           bottom: 16,
-                          child: FloatingActionButton(
-                            onPressed: () {
-                              _state.setInspectorVisible(true);
-                            },
-                            backgroundColor: tokens.primary,
-                            foregroundColor: Colors.black,
-                            child: const Icon(LucideIcons.settings),
+                          child: _DesignerRightFabMenu(
+                            onTap: () => _showSourceCode(context, tokens),
                           ),
                         ),
                     ],
@@ -214,6 +199,8 @@ class _DesignerScreenState extends State<DesignerScreen> {
           _buildPlayModeButton(tokens),
           const SizedBox(width: 12),
           _buildUndoRedoButtons(tokens),
+          const SizedBox(width: 12),
+          _buildInspectorToggleButton(tokens),
         ],
       ),
     );
@@ -284,6 +271,42 @@ class _DesignerScreenState extends State<DesignerScreen> {
     );
   }
 
+  Widget _buildInspectorToggleButton(RKTokens tokens) {
+    return ListenableBuilder(
+      listenable: _state,
+      builder: (context, _) {
+        if (_state.isInspectorVisible) return const SizedBox();
+        return ElevatedButton(
+          onPressed: () => _state.setInspectorVisible(true),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: tokens.primary,
+            foregroundColor: Colors.black,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _state.isPlayMode ? LucideIcons.settings : LucideIcons.chevronRight,
+                size: 16,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                _state.isPlayMode ? 'Inspector' : 'Show',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildPlayModeButton(RKTokens tokens) {
     return ListenableBuilder(
       listenable: _state,
@@ -325,7 +348,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
         );
       },
     );
-  }
+   }
 
   // ── Back navigation ───────────────────────────────────────────────────────
 
@@ -467,249 +490,318 @@ class _DesignerScreenState extends State<DesignerScreen> {
 
   // ── Code generation dialog ───────────────────────────────────────────────
 
-  void _downloadCode() {
-    final code = ArduinoGenerator.generate(_state);
-    downloadFile('RadioKit_UI.ino', code);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: SelectableText('RadioKit_UI.ino downloaded')),
-    );
-  }
-
   void _showSourceCode(BuildContext context, RKTokens tokens) {
-    final code = ArduinoGenerator.generate(_state);
+    final encoder = JsonEncoder.withIndent('  ');
+    final jsonString = encoder.convert(_state.toJson());
 
-    showDialog(
+    showGeneralDialog(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: const Color(0xFF111111),
-        insetPadding: const EdgeInsets.all(40),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              child: Row(
+      barrierDismissible: true,
+      barrierLabel: 'Close',
+      barrierColor: Colors.black,
+      transitionDuration: const Duration(milliseconds: 250),
+      pageBuilder: (ctx, animation, secondaryAnimation) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 1),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeInOut,
+          )),
+          child: Container(
+            color: const Color(0xFF0D0D0D),
+            child: SafeArea(
+              left: false,
+              right: false,
+              child: Column(
                 children: [
-                  Icon(LucideIcons.code, color: tokens.primary, size: 20),
-                  const SizedBox(width: 10),
-                  const Text(
-                    'ARDUINO SOURCE CODE',
-                    style: TextStyle(
-                      color: Color(0xFFE0E0E0),
-                      fontSize: 14,
-                      fontFamily: 'monospace',
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1,
+                  // ── Header bar ────────────────────────────────────────
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF111111),
+                      border: Border(bottom: BorderSide(color: Color(0xFF222222))),
                     ),
-                  ),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () {
-                      Clipboard.setData(ClipboardData(text: code));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: SelectableText('Code copied to clipboard')),
-                      );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: tokens.primary,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.copy, color: Colors.black, size: 14),
-                          SizedBox(width: 6),
-                          Text(
-                            'COPY',
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontSize: 11,
-                              fontFamily: 'monospace',
-                              fontWeight: FontWeight.bold,
+                    child: Row(
+                      children: [
+                        Icon(LucideIcons.code, color: tokens.primary, size: 20),
+                        const SizedBox(width: 10),
+                        const Text(
+                          'CODE VIEWER',
+                          style: TextStyle(
+                            color: Color(0xFFE0E0E0),
+                            fontSize: 14,
+                            fontFamily: 'monospace',
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        const Spacer(),
+                        // COPY
+                        GestureDetector(
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(text: jsonString));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: SelectableText('Config copied to clipboard')),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: tokens.primary,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.copy, color: Colors.black, size: 14),
+                                SizedBox(width: 6),
+                                Text(
+                                  'COPY',
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 11,
+                                    fontFamily: 'monospace',
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 8),
+                        // SHARE
+                        GestureDetector(
+                          onTap: () {
+                            _autoSaveToApp();
+                            Navigator.of(ctx).pop();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: SelectableText('Design saved')),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2A2A2A),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(LucideIcons.share2, color: Colors.white70, size: 14),
+                                SizedBox(width: 6),
+                                Text(
+                                  'SHARE',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 11,
+                                    fontFamily: 'monospace',
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // DOWNLOAD
+                        GestureDetector(
+                          onTap: () {
+                            final wrapped = '/*__RadioKit_UI_Designer_Config__\n$jsonString\nRadioKit_UI_Designer_Config__*/';
+                            downloadFile('RadioKit_UI.h', wrapped);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: SelectableText('RadioKit_UI.h downloaded')),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2A2A2A),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(LucideIcons.download, color: Colors.white70, size: 14),
+                                SizedBox(width: 6),
+                                Text(
+                                  'DOWNLOAD',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 11,
+                                    fontFamily: 'monospace',
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // CLOSE
+                        GestureDetector(
+                          onTap: () => Navigator.of(ctx).pop(),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF222222),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                            child: const Icon(Icons.close, color: Color(0xFF888888), size: 16),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () => Navigator.of(ctx).pop(),
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF222222),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                      child: const Icon(Icons.close, color: Color(0xFF888888), size: 16),
+                  // ── Dual-pane body ───────────────────────────────────
+                  Expanded(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // ── JSON pane ────────────────────────────────────
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Pane header
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF181818),
+                                  border: Border(bottom: BorderSide(color: Color(0xFF2A2A2A))),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(LucideIcons.fileJson, color: tokens.primary, size: 14),
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      'UI CONFIG (JSON)',
+                                      style: TextStyle(
+                                        color: Color(0xFFAAAAAA),
+                                        fontSize: 11,
+                                        fontFamily: 'monospace',
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // Code content
+                              Expanded(
+                                child: Container(
+                                  color: const Color(0xFF0A0A0A),
+                                  child: SingleChildScrollView(
+                                    padding: const EdgeInsets.all(24),
+                                    child: SelectableText(
+                                      jsonString,
+                                      style: const TextStyle(
+                                        color: Color(0xFFE0E0E0),
+                                        fontSize: 12,
+                                        fontFamily: 'monospace',
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // ── Vertical divider ──────────────────────────────
+                        Container(
+                          width: 1,
+                          color: const Color(0xFF222222),
+                        ),
+                        // ── Arduino pane (placeholder) ───────────────────
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Pane header
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF181818),
+                                  border: Border(bottom: BorderSide(color: Color(0xFF2A2A2A))),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(LucideIcons.microchip, color: const Color(0xFF888888), size: 14),
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      'ARDUINO CODE',
+                                      style: TextStyle(
+                                        color: Color(0xFF666666),
+                                        fontSize: 11,
+                                        fontFamily: 'monospace',
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // Placeholder content
+                              Expanded(
+                                child: Container(
+                                  color: const Color(0xFF0A0A0A),
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          LucideIcons.hammer,
+                                          color: const Color(0xFF333333),
+                                          size: 32,
+                                        ),
+                                        const SizedBox(height: 16),
+                                        const Text(
+                                          'Arduino code generation\ncoming soon',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            color: Color(0xFF444444),
+                                            fontSize: 13,
+                                            fontFamily: 'monospace',
+                                            height: 1.6,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-            const Divider(color: Color(0xFF222222), height: 1),
-            Expanded(
-              child: Container(
-                margin: const EdgeInsets.all(20),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0A0A0A),
-                  border: Border.all(color: const Color(0xFF222222)),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: SelectableText(
-                  code,
-                  style: const TextStyle(
-                    color: Color(0xFFE0E0E0),
-                    fontSize: 12,
-                    fontFamily: 'monospace',
-                    height: 1.5,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
 
-class _DesignerFabMenu extends StatefulWidget {
-  final DesignerState state;
-  final RKTokens tokens;
-  final VoidCallback onAddWidget;
-  final VoidCallback onShare;
-  final VoidCallback onViewCode;
-  final VoidCallback onDownloadCode;
+class _DesignerRightFabMenu extends StatelessWidget {
+  final VoidCallback onTap;
 
-  const _DesignerFabMenu({
-    required this.state,
-    required this.tokens,
-    required this.onAddWidget,
-    required this.onShare,
-    required this.onViewCode,
-    required this.onDownloadCode,
-  });
-
-  @override
-  State<_DesignerFabMenu> createState() => _DesignerFabMenuState();
-}
-
-class _DesignerFabMenuState extends State<_DesignerFabMenu>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _expandAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 250),
-    );
-    _expandAnimation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _toggle() {
-    if (_controller.isCompleted) {
-      _controller.reverse();
-    } else {
-      _controller.forward();
-    }
-  }
-
-  void _close() {
-    if (_controller.isCompleted || _controller.isAnimating) {
-      _controller.reverse();
-    }
-  }
+  const _DesignerRightFabMenu({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizeTransition(
-          sizeFactor: _expandAnimation,
-          alignment: Alignment.bottomCenter,
-          child: FadeTransition(
-            opacity: _expandAnimation,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildMenuItem(LucideIcons.plus, 'Add Widget', widget.onAddWidget),
-                const SizedBox(height: 8),
-                _buildMenuItem(LucideIcons.share2, 'Share', widget.onShare),
-                const SizedBox(height: 8),
-                _buildMenuItem(LucideIcons.code, 'View Code', widget.onViewCode),
-                const SizedBox(height: 8),
-                _buildMenuItem(LucideIcons.download, 'Download Code', widget.onDownloadCode),
-                const SizedBox(height: 12),
-              ],
-            ),
-          ),
-        ),
-        FloatingActionButton(
-          onPressed: _toggle,
-          backgroundColor: widget.tokens.primary,
-          foregroundColor: Colors.black,
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            child: Icon(
-              _controller.isCompleted ? Icons.close : LucideIcons.plus,
-              key: ValueKey(_controller.isCompleted),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMenuItem(IconData icon, String label, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: () {
-        _close();
-        onTap();
-      },
-      child: Container(
-        height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFF333333)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: widget.tokens.primary, size: 16),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Color(0xFFE0E0E0),
-                fontSize: 12,
-                fontFamily: 'monospace',
-              ),
-            ),
-          ],
-        ),
-      ),
+    return FloatingActionButton(
+      onPressed: onTap,
+      backgroundColor: const Color(0xFF2A2A2A),
+      foregroundColor: Colors.white70,
+      child: const Icon(LucideIcons.code),
     );
   }
 }
