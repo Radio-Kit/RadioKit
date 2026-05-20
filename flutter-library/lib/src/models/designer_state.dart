@@ -159,6 +159,18 @@ class DesignerState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void toggleElementLabelHidden(String id) {
+    final index = _elements.indexWhere((e) => e.id == id);
+    if (index == -1) return;
+    _pushUndo();
+    _elements = [
+      for (int i = 0; i < _elements.length; i++)
+        if (i == index) _elements[i].copyWith(labelHidden: !_elements[i].labelHidden)
+        else _elements[i],
+    ];
+    notifyListeners();
+  }
+
   void updateElementRotation(String id, int rotation) {
     final index = _elements.indexWhere((e) => e.id == id);
     if (index == -1) return;
@@ -174,7 +186,47 @@ class DesignerState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void resetSelectedTransform() {
+    if (_selectedElementId == null) return;
+    final index = _elements.indexWhere((e) => e.id == _selectedElementId);
+    if (index == -1) return;
+    final el = _elements[index];
+    final (defaultW, defaultH) = DesignerElement.defaultSize(el.type);
+    _pushUndo();
+    _elements = [
+      for (int i = 0; i < _elements.length; i++)
+        if (i == index)
+          el.copyWith(
+            width: defaultW,
+            height: defaultH,
+            rotation: 0,
+          )
+        else
+          _elements[i],
+    ];
+    notifyListeners();
+  }
+
   void toggleOrientation() {
+    final oldCw = _isLandscape ? 200 : 100;
+    final oldCh = _isLandscape ? 100 : 200;
+    final newCw = _isLandscape ? 100 : 200;
+    final newCh = _isLandscape ? 200 : 100;
+
+    final ratioX = newCw / oldCw;
+    final ratioY = newCh / oldCh;
+
+    _pushUndo();
+    _elements = _elements.map((e) {
+      final halfW = e.width ~/ 2;
+      final halfH = e.height ~/ 2;
+      return e.copyWith(
+        x: (e.x * ratioX).round().clamp(halfW, newCw - halfW),
+        y: (e.y * ratioY).round().clamp(halfH, newCh - halfH),
+
+      );
+    }).toList();
+
     _isLandscape = !_isLandscape;
     _screenSize = _isLandscape ? '200 x 100' : '100 x 200';
     notifyListeners();

@@ -120,9 +120,11 @@ class _DesignerScreenState extends State<DesignerScreen> {
                           bottom: 16,
                           child: FloatingActionButton(
                             onPressed: () {
-                              showDialog(
+                              showModalBottomSheet(
                                 context: context,
-                                builder: (context) => DesignerWidgetDialog(state: _state),
+                                backgroundColor: Colors.transparent,
+                                isScrollControlled: true,
+                                builder: (context) => DesignerWidgetSheet(state: _state),
                               );
                             },
                             backgroundColor: tokens.primary,
@@ -146,6 +148,8 @@ class _DesignerScreenState extends State<DesignerScreen> {
                     listenable: _state,
                     builder: (context, _) => DesignerInspector(state: _state),
                   ),
+                if (!_state.isPlayMode && !_state.isInspectorVisible)
+                  _buildEdgeTabBar(tokens),
               ],
             ),
           ),
@@ -199,8 +203,8 @@ class _DesignerScreenState extends State<DesignerScreen> {
           _buildPlayModeButton(tokens),
           const SizedBox(width: 12),
           _buildUndoRedoButtons(tokens),
-          const SizedBox(width: 12),
-          _buildInspectorToggleButton(tokens),
+          const SizedBox(width: 8),
+          _buildSaveButton(tokens),
         ],
       ),
     );
@@ -271,39 +275,72 @@ class _DesignerScreenState extends State<DesignerScreen> {
     );
   }
 
-  Widget _buildInspectorToggleButton(RKTokens tokens) {
-    return ListenableBuilder(
-      listenable: _state,
-      builder: (context, _) {
-        if (_state.isInspectorVisible) return const SizedBox();
-        return ElevatedButton(
-          onPressed: () => _state.setInspectorVisible(true),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: tokens.primary,
-            foregroundColor: Colors.black,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                _state.isPlayMode ? LucideIcons.settings : LucideIcons.chevronRight,
-                size: 16,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                _state.isPlayMode ? 'Inspector' : 'Show',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'monospace',
-                ),
-              ),
-            ],
-          ),
+  Widget _buildSaveButton(RKTokens tokens) {
+    return GestureDetector(
+      onTap: () {
+        _autoSaveToApp();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: SelectableText('Design saved')),
         );
       },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A1A),
+          border: Border.all(color: const Color(0xFF444444), width: 1),
+          borderRadius: BorderRadius.circular(2),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(LucideIcons.save, color: tokens.primary, size: 14),
+            const SizedBox(width: 6),
+            Text(
+              'SAVE',
+              style: TextStyle(
+                color: tokens.primary,
+                fontSize: 11,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEdgeTabBar(RKTokens tokens) {
+    return GestureDetector(
+      onTap: () => _state.setInspectorVisible(true),
+      child: Container(
+        width: 32,
+        decoration: const BoxDecoration(
+          color: Color(0xFF181818),
+          border: Border(
+            left: BorderSide(color: Color(0xFF222222), width: 1),
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(LucideIcons.chevronLeft, color: tokens.primary, size: 18),
+            const SizedBox(height: 4),
+            const RotatedBox(
+              quarterTurns: 3,
+              child: Text(
+                'INSPECTOR',
+                style: TextStyle(
+                  color: Color(0xFF888888),
+                  fontSize: 9,
+                  fontFamily: 'monospace',
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -486,6 +523,129 @@ class _DesignerScreenState extends State<DesignerScreen> {
         SnackBar(content: SelectableText('Save failed: $e')),
       );
     }
+  }
+
+  // ── JSON syntax highlighter ──────────────────────────────────────────
+
+  List<TextSpan> _jsonHighlightSpans(String json) {
+    const keyColor = Color(0xFF7EC8E3);
+    const stringColor = Color(0xFFA8D8A8);
+    const numberColor = Color(0xFFE5C07B);
+    const boolNullColor = Color(0xFFC678DD);
+    const braceColor = Color(0xFFAAAAAA);
+
+    const baseStyle = TextStyle(
+      fontSize: 12,
+      fontFamily: 'monospace',
+      height: 1.5,
+    );
+    final keyStyle = baseStyle.copyWith(color: keyColor);
+    final stringStyle = baseStyle.copyWith(color: stringColor);
+    final numberStyle = baseStyle.copyWith(color: numberColor);
+    final boolNullStyle = baseStyle.copyWith(color: boolNullColor);
+    final braceStyle = baseStyle.copyWith(color: braceColor);
+
+    final spans = <TextSpan>[];
+
+    final regex = RegExp(
+      r'("(?:[^"\\]|\\.)*")\s*:' // key
+      r'|("(?:[^"\\]|\\.)*")'    // string value
+      r'|(\btrue\b|\bfalse\b)'     // boolean
+      r'|(\bnull\b)'                // null
+      r'|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)', // number
+    );
+
+    int lastEnd = 0;
+    for (final match in regex.allMatches(json)) {
+      if (match.start > lastEnd) {
+        spans.add(TextSpan(
+          text: json.substring(lastEnd, match.start),
+          style: braceStyle,
+        ));
+      }
+
+      TextStyle style;
+      if (match.group(1) != null) {
+        style = keyStyle;
+      } else if (match.group(2) != null) {
+        style = stringStyle;
+      } else if (match.group(3) != null || match.group(4) != null) {
+        style = boolNullStyle;
+      } else {
+        style = numberStyle;
+      }
+
+      spans.add(TextSpan(
+        text: match.group(0),
+        style: style,
+      ));
+      lastEnd = match.end;
+    }
+
+    if (lastEnd < json.length) {
+      spans.add(TextSpan(
+        text: json.substring(lastEnd),
+        style: braceStyle,
+      ));
+    }
+
+    return spans;
+  }
+
+  // ── Code viewer with line numbers ──────────────────────────────────────
+
+  Widget _buildCodeView(String jsonString) {
+    final lines = jsonString.split('\n');
+    const lineHeight = 18.0; // 12px font * 1.5 height
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Line numbers gutter
+          SizedBox(
+            width: 36,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: List.generate(lines.length, (i) {
+                return SizedBox(
+                  height: lineHeight,
+                  child: Text(
+                    '${i + 1}',
+                    style: const TextStyle(
+                      color: Color(0xFF555555),
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                      height: 1.5,
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Divider
+          Container(
+            width: 1,
+            color: const Color(0xFF2A2A2A),
+          ),
+          const SizedBox(width: 16),
+          // JSON content
+          Expanded(
+            child: SelectableText.rich(
+              TextSpan(children: _jsonHighlightSpans(jsonString)),
+              style: const TextStyle(
+                color: Color(0xFFE0E0E0),
+                fontSize: 12,
+                fontFamily: 'monospace',
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // ── Code generation dialog ───────────────────────────────────────────────
@@ -689,22 +849,11 @@ class _DesignerScreenState extends State<DesignerScreen> {
                                   ],
                                 ),
                               ),
-                              // Code content
+                              // Code content with line numbers
                               Expanded(
                                 child: Container(
                                   color: const Color(0xFF0A0A0A),
-                                  child: SingleChildScrollView(
-                                    padding: const EdgeInsets.all(24),
-                                    child: SelectableText(
-                                      jsonString,
-                                      style: const TextStyle(
-                                        color: Color(0xFFE0E0E0),
-                                        fontSize: 12,
-                                        fontFamily: 'monospace',
-                                        height: 1.5,
-                                      ),
-                                    ),
-                                  ),
+                                  child: _buildCodeView(jsonString),
                                 ),
                               ),
                             ],

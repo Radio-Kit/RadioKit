@@ -3,6 +3,9 @@
 /// Import this file to access all public RadioKit widgets and themes.
 library radiokit_widgets;
 
+// Utils
+export 'src/utils/icon_registry.dart';
+
 // Theme
 export 'src/theme/rk_theme.dart';
 export 'src/theme/rk_tokens.dart';

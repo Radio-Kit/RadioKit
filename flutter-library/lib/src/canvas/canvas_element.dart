@@ -55,9 +55,13 @@ class CanvasElement extends StatelessWidget {
 
     // Rotate the entire widget together. Rotation is applied here so individual
     // widgets don't need to handle it, avoiding double-rotation.
+    // The pivot is Alignment.center to match the handle position calculation
+    // in designer_canvas.dart, which rotates debug-box corners around the
+    // element centre.
     if (rotationRad != 0) {
       child = Transform.rotate(
         angle: rotationRad,
+        alignment: Alignment.center,
         child: child,
       );
     }
@@ -82,8 +86,10 @@ class CanvasElement extends StatelessWidget {
               : RKButtonMode.push,
           onText: element.properties['onText'] ?? 'ON',
           offText: element.properties['offText'] ?? 'OFF',
+          onIcon: iconFromName(element.properties['onIcon'] as String?),
+          offIcon: iconFromName(element.properties['offIcon'] as String?),
           enableHapticFeedback: element.properties['enableHapticFeedback'] ?? true,
-          label: element.label.isNotEmpty ? element.label : null,
+          label: (!element.labelHidden && element.label.isNotEmpty) ? element.label : null,
           onChanged: isPlay
               ? (v) => designerState!.setRuntimeWidgetValue(id, v)
               : (_) {},
@@ -102,7 +108,7 @@ class CanvasElement extends StatelessWidget {
           onText: element.properties['onText'] ?? 'ON',
           offText: element.properties['offText'] ?? 'OFF',
           enableHapticFeedback: element.properties['enableHapticFeedback'] ?? true,
-          label: element.label.isNotEmpty ? element.label : null,
+          label: (!element.labelHidden && element.label.isNotEmpty) ? element.label : null,
           width: element.width.toDouble() * cs,
           height: element.height.toDouble() * cs,
           showDebug: showDebug,
@@ -116,8 +122,10 @@ class CanvasElement extends StatelessWidget {
           onChanged: isPlay
               ? (v) => designerState!.setRuntimeWidgetValue(id, v)
               : (_) {},
+          onIcon: iconFromName(element.properties['onIcon'] as String?),
+          offIcon: iconFromName(element.properties['offIcon'] as String?),
           enableHapticFeedback: element.properties['enableHapticFeedback'] ?? true,
-          label: element.label.isNotEmpty ? element.label : null,
+          label: (!element.labelHidden && element.label.isNotEmpty) ? element.label : null,
           width: element.width.toDouble() * cs,
           height: element.height.toDouble() * cs,
           showDebug: showDebug,
@@ -128,6 +136,7 @@ class CanvasElement extends StatelessWidget {
 
       case DesignerElementType.steeringWheel:
         return RKSteeringWheel(
+            centerIcon: iconFromName(element.properties['centerIcon'] as String?),
             value: isPlay
                 ? (designerState!.getRuntimeWidgetValue(id, 0.5) as double)
                 : 0.5,
@@ -145,13 +154,14 @@ class CanvasElement extends StatelessWidget {
               milliseconds: (element.properties['springDuration'] as num?)?.toInt() ?? 500,
             ),
             divisions: element.properties['divisions'] as int?,
-            label: element.label.isNotEmpty ? element.label : null,
+            label: (!element.labelHidden && element.label.isNotEmpty) ? element.label : null,
             size: math.min(element.width.toDouble(), element.height.toDouble()) * cs,
             showDebug: showDebug,
           );
 
       case DesignerElementType.knob:
         return RKKnob(
+          centerIcon: iconFromName(element.properties['centerIcon'] as String?),
           value: isPlay
               ? (designerState!.getRuntimeWidgetValue(id, 0.5) as double)
               : 0.5,
@@ -169,7 +179,7 @@ class CanvasElement extends StatelessWidget {
             milliseconds: (element.properties['springDuration'] as num?)?.toInt() ?? 500,
           ),
           divisions: element.properties['divisions'] as int?,
-          label: element.label.isNotEmpty ? element.label : null,
+          label: (!element.labelHidden && element.label.isNotEmpty) ? element.label : null,
           size: math.min(element.width.toDouble(), element.height.toDouble()) * cs,
           showDebug: showDebug,
         );
@@ -188,7 +198,7 @@ class CanvasElement extends StatelessWidget {
           springDuration: Duration(
             milliseconds: (element.properties['springDuration'] as num?)?.toInt() ?? 300,
           ),
-          label: element.label.isNotEmpty ? element.label : null,
+          label: (!element.labelHidden && element.label.isNotEmpty) ? element.label : null,
           size: math.min(element.width.toDouble(), element.height.toDouble()) * cs,
           showDebug: showDebug,
         );
@@ -213,7 +223,7 @@ class CanvasElement extends StatelessWidget {
               ? Color(element.properties['color'] as int)
               : null,
           timing: (element.properties['timing'] as num?)?.toInt() ?? 500,
-          label: element.label.isNotEmpty ? element.label : null,
+          label: (!element.labelHidden && element.label.isNotEmpty) ? element.label : null,
           size: math.min(element.width.toDouble(), element.height.toDouble()) * cs,
         );
 
@@ -222,7 +232,7 @@ class CanvasElement extends StatelessWidget {
           text: element.properties['text'] ?? 'Display',
           fontSize: (element.properties['fontSize'] as num?)?.toDouble() ?? 14,
           fontFamily: element.properties['fontFamily'] ?? 'monospace',
-          label: element.label.isNotEmpty ? element.label : null,
+          label: (!element.labelHidden && element.label.isNotEmpty) ? element.label : null,
           width: element.width.toDouble() * cs,
           height: element.height.toDouble() * cs,
           showDebug: showDebug,
@@ -233,7 +243,7 @@ class CanvasElement extends StatelessWidget {
           messages: const ['> Serial Monitor'],
           fontSize: (element.properties['fontSize'] as num?)?.toDouble() ?? 12,
           fontFamily: element.properties['fontFamily'] ?? 'monospace',
-          label: element.label.isNotEmpty ? element.label : null,
+          label: (!element.labelHidden && element.label.isNotEmpty) ? element.label : null,
           width: element.width.toDouble() * cs,
           height: element.height.toDouble() * cs,
           showDebug: showDebug,

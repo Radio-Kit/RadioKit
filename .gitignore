@@ -1,3 +1,6 @@
+# =============================================================================
+# Unified .gitignore for RadioKit
+# =============================================================================
 # IDE
 .idea/
 .vscode/
@@ -11,6 +14,8 @@
 references/
 tmp/
 *.iml
+*.ipr
+*.iws
 *.swp
 *.swo
 *~
@@ -53,6 +58,9 @@ captures/
 build/
 *.apk
 *.aab
+key.properties
+*.keystore
+*.jks
 
 # iOS
 Pods/
@@ -77,9 +85,6 @@ Runner.xcworkspace/
 *.dylib
 
 # Specific Flutter & Android additions
-key.properties
-*.keystore
-*.jks
 raw/
 xml/
 debug/lib*
@@ -102,3 +107,102 @@ walkthrough.md
 task.md
 implementation_plan.md
 GEMINI.md
+
+# -----------------------------------------------------------------------------
+# Patterns from flutter-library/example/.gitignore
+# -----------------------------------------------------------------------------
+# Miscellaneous
+*.class
+*.pyc
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+/build/
+/coverage/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio build artifacts
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# -----------------------------------------------------------------------------
+# iOS-specific patterns
+# -----------------------------------------------------------------------------
+**/dgph
+*.mode1v3
+*.mode2v3
+*.moved-aside
+*.pbxuser
+*.perspectivev3
+**/*sync/
+.sconsign.dblite
+.tags*
+**/.vagrant/
+**/DerivedData/
+Icon?
+xcuserdata
+**/.generated/
+**/Flutter/App.framework
+**/Flutter/Flutter.framework
+**/Flutter/Flutter.podspec
+**/Flutter/Generated.xcconfig
+**/Flutter/ephemeral/
+**/Flutter/app.flx
+**/Flutter/app.zip
+**/Flutter/flutter_assets/
+**/Flutter/flutter_export_environment.sh
+ServiceDefinitions.json
+Runner/GeneratedPluginRegistrant.*
+
+# Exceptions to above rules
+!default.mode1v3
+!default.mode2v3
+!default.pbxuser
+!default.perspectivev3
+
+# -----------------------------------------------------------------------------
+# Linux-specific patterns
+# -----------------------------------------------------------------------------
+flutter/ephemeral
+
+# -----------------------------------------------------------------------------
+# macOS-specific patterns
+# -----------------------------------------------------------------------------
+**/Flutter/ephemeral/
+**/Pods/
+**/dgph
+**/xcuserdata/
+
+# -----------------------------------------------------------------------------
+# Windows-specific patterns
+# -----------------------------------------------------------------------------
+flutter/ephemeral/
+
+# Visual Studio user-specific files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Visual Studio build-related files
+x64/
+x86/
+
+# Visual Studio cache files
+*.[Cc]ache
+# but keep track of directories ending in .cache
+!*.[Cc]ache/

@@ -29,31 +29,36 @@ class DesignerElement {
   int height;
   Map<String, dynamic> properties;
   String label;
+  bool labelHidden;
   int rotation;
 
-  /// Whether this widget type renders at a fixed 1:1 aspect ratio.
-  /// These widgets use `size = min(width, height)`, so the debug overlay
-  /// is always square and resize must maintain equal width/height.
-  bool get hasFixedAspectRatio {
+  /// The aspect ratio (width/height) that this widget type enforces, or `null`
+  /// if the widget has free-form sizing. When non-null the inspector shows
+  /// only a single dimension field and auto-computes the other.
+  double? get aspectRatio {
     switch (type) {
       case DesignerElementType.button:
       case DesignerElementType.knob:
       case DesignerElementType.steeringWheel:
       case DesignerElementType.joystick:
       case DesignerElementType.led:
-        return true;
+        return 1.0;
+      case DesignerElementType.multiButton:
+      case DesignerElementType.multiSelect:
+        final count = (properties['itemCount'] as num?)?.toInt() ?? 3;
+        return (count * 0.67).clamp(0.5, 10.0);
       default:
-        return false;
+        return null;
     }
   }
 
   /// The effective rendered size in grid units.
-  /// For fixed-aspect-ratio widgets this is `min(width, height)` × `min(width, height)`;
-  /// for free-aspect widgets it is `width` × `height`.
+  /// For fixed-aspect-ratio widgets the width is derived from the height
+  /// and the [aspectRatio]; for free-aspect widgets it is `width` × `height`.
   (int, int) get renderedGridSize {
-    if (hasFixedAspectRatio) {
-      final s = width < height ? width : height;
-      return (s, s);
+    final ar = aspectRatio;
+    if (ar != null) {
+      return ((height * ar).round().clamp(1, 999), height);
     }
     return (width, height);
   }
@@ -67,6 +72,7 @@ class DesignerElement {
     this.height = 20,
     Map<String, dynamic>? properties,
     this.label = '',
+    this.labelHidden = false,
     this.rotation = 0,
   }) : properties = properties ?? _defaultProperties(type);
 
@@ -77,6 +83,8 @@ class DesignerElement {
           'mode': 'push',
           'onText': 'ON',
           'offText': 'OFF',
+          'onIcon': null,
+          'offIcon': null,
           'enableHapticFeedback': true,
         };
       case DesignerElementType.slideSwitch:
@@ -87,6 +95,8 @@ class DesignerElement {
         };
       case DesignerElementType.rockerSwitch:
         return {
+          'onIcon': null,
+          'offIcon': null,
           'enableHapticFeedback': true,
         };
       case DesignerElementType.slider:
@@ -107,6 +117,7 @@ class DesignerElement {
           'maxAngle': 135,
           'autoCenter': false,
           'center': 0.5,
+          'centerIcon': null,
           'springBehavior': 'smooth',
           'springDuration': 500,
           'divisions': null,
@@ -119,6 +130,7 @@ class DesignerElement {
           'maxAngle': 135,
           'autoCenter': false,
           'center': 0.5,
+          'centerIcon': null,
           'springBehavior': 'smooth',
           'springDuration': 500,
           'divisions': null,
@@ -211,6 +223,7 @@ class DesignerElement {
     int? height,
     Map<String, dynamic>? properties,
     String? label,
+    bool? labelHidden,
     int? rotation,
   }) {
     return DesignerElement(
@@ -222,6 +235,7 @@ class DesignerElement {
       height: height ?? this.height,
       properties: properties ?? Map<String, dynamic>.from(this.properties),
       label: label ?? this.label,
+      labelHidden: labelHidden ?? this.labelHidden,
       rotation: rotation ?? this.rotation,
     );
   }
@@ -261,6 +275,7 @@ class DesignerElement {
       'height': height,
       'properties': props,
       'label': label,
+      'labelHidden': labelHidden,
       'rotation': rotation,
     };
   }
@@ -304,6 +319,7 @@ class DesignerElement {
       height: json['height'] as int,
       properties: props,
       label: json['label'] as String? ?? '',
+      labelHidden: json['labelHidden'] as bool? ?? false,
       rotation: json['rotation'] as int? ?? 0,
     );
   }

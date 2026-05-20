@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 
 class InspectorFieldBuilders {
@@ -321,7 +322,7 @@ class InspectorFieldBuilders {
     );
   }
 
-  static Widget buildRotationSlider(RKTokens tokens, double rotation, ValueChanged<double> onChanged) {
+  static Widget buildRotationSlider(RKTokens tokens, double rotation, ValueChanged<double> onChanged, {VoidCallback? onReset}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       child: Column(
@@ -338,6 +339,15 @@ class InspectorFieldBuilders {
                 ),
               ),
               const Spacer(),
+              if (onReset != null) ...[
+                GestureDetector(
+                  onTap: onReset,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Icon(LucideIcons.rotateCcw, size: 12, color: const Color(0xFF555555)),
+                  ),
+                ),
+              ],
               Text(
                 '${rotation.toInt()}°',
                 style: TextStyle(
@@ -734,6 +744,206 @@ class _DragToAdjustInputState extends State<DragToAdjustInput> with SingleTicker
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Icon picker infrastructure ────────────────────────────────────────────
+
+/// Builds a compact icon selector — shows current icon or "NONE", opens picker on tap.
+class IconFieldBuilder {
+  static Widget buildIconSelectorField(
+    BuildContext context,
+    String label,
+    String? currentIconName,
+    ValueChanged<String?> onChanged,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF888888),
+              fontSize: 11,
+              fontFamily: 'monospace',
+            ),
+          ),
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: () => _openIconPicker(context, currentIconName, onChanged),
+            child: Container(
+              height: 28,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1A1A),
+                border: Border.all(color: const Color(0xFF333333)),
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (currentIconName != null && kDesignerIcons.containsKey(currentIconName))
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: Icon(
+                        kDesignerIcons[currentIconName]!,
+                        color: const Color(0xFFFF8C00),
+                        size: 14,
+                      ),
+                    )
+                  else
+                    const Padding(
+                      padding: EdgeInsets.only(right: 6),
+                      child: Text(
+                        '—',
+                        style: TextStyle(color: Color(0xFF555555), fontSize: 11, fontFamily: 'monospace'),
+                      ),
+                    ),
+                  const Icon(LucideIcons.chevronDown, color: Color(0xFF666666), size: 12),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static void _openIconPicker(
+    BuildContext context,
+    String? currentIconName,
+    ValueChanged<String?> onChanged,
+  ) {
+    showDialog(
+      context: context,
+      builder: (_) => _DesignerIconPicker(
+        currentIconName: currentIconName,
+        onIconSelected: onChanged,
+      ),
+    );
+  }
+}
+
+class _DesignerIconPicker extends StatefulWidget {
+  final String? currentIconName;
+  final ValueChanged<String?> onIconSelected;
+
+  const _DesignerIconPicker({
+    required this.currentIconName,
+    required this.onIconSelected,
+  });
+
+  @override
+  State<_DesignerIconPicker> createState() => _DesignerIconPickerState();
+}
+
+class _DesignerIconPickerState extends State<_DesignerIconPicker> {
+  String _search = '';
+
+  List<String> get _filteredKeys {
+    if (_search.isEmpty) return kDesignerIcons.keys.toList();
+    return kDesignerIcons.keys
+        .where((k) => k.toLowerCase().contains(_search.toLowerCase()))
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final keys = _filteredKeys;
+
+    return AlertDialog(
+      backgroundColor: const Color(0xFF181818),
+      titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      title: TextField(
+        onChanged: (v) => setState(() => _search = v),
+        autofocus: true,
+        style: const TextStyle(color: Colors.white, fontSize: 14),
+        decoration: const InputDecoration(
+          hintText: 'Search icons...',
+          hintStyle: TextStyle(color: Color(0xFF666666)),
+          prefixIcon: Icon(LucideIcons.search, size: 16, color: Color(0xFF666666)),
+          border: InputBorder.none,
+          isDense: true,
+        ),
+      ),
+      content: SizedBox(
+        width: 420,
+        height: 400,
+        child: Column(
+          children: [
+            const Divider(color: Color(0xFF222222)),
+            const SizedBox(height: 8),
+            Expanded(
+              child: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 6,
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                ),
+                itemCount: keys.length + 1,
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    final isActive = widget.currentIconName == null;
+                    return GestureDetector(
+                      onTap: () {
+                        widget.onIconSelected(null);
+                        Navigator.pop(context);
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: isActive ? const Color(0xFF333333) : const Color(0xFF222222),
+                          borderRadius: BorderRadius.circular(6),
+                          border: isActive ? Border.all(color: const Color(0xFF888888), width: 1) : null,
+                        ),
+                        child: const Center(
+                          child: Text(
+                            '—',
+                            style: TextStyle(color: Color(0xFF888888), fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+                  final key = keys[index - 1];
+                  final icon = kDesignerIcons[key]!;
+                  final isActive = widget.currentIconName == key;
+                  return GestureDetector(
+                    onTap: () {
+                      widget.onIconSelected(key);
+                      Navigator.pop(context);
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isActive ? const Color(0xFF333333) : const Color(0xFF222222),
+                        borderRadius: BorderRadius.circular(6),
+                        border: isActive ? Border.all(color: const Color(0xFFFF8C00), width: 1) : null,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(icon, color: Colors.white, size: 18),
+                          const SizedBox(height: 2),
+                          Text(
+                            key,
+                            style: const TextStyle(color: Color(0xFF888888), fontSize: 7),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );

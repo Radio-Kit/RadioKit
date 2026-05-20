@@ -14,6 +14,7 @@ class DesignerCanvas extends StatefulWidget {
 
 class _DesignerCanvasState extends State<DesignerCanvas> {
   final GlobalKey _canvasKey = GlobalKey();
+  final GlobalKey _outerStackKey = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
@@ -23,168 +24,253 @@ class _DesignerCanvasState extends State<DesignerCanvas> {
     const canvasPixelW = 600.0;
     final canvasPixelH = 600.0 * ch / cw;
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => state.selectElement(null),
-      child: Container(
-        color: const Color(0xFF0D0D0D),
-        child: Center(
-          child: FittedBox(
-            fit: BoxFit.contain,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scaleX = constraints.maxWidth / canvasPixelW;
+        final scaleY = constraints.maxHeight / canvasPixelH;
+        final scale = math.min(scaleX, scaleY);
+        final displayW = canvasPixelW * scale;
+        final displayH = canvasPixelH * scale;
+        final canvasLeft = (constraints.maxWidth - displayW) / 2;
+        final canvasTop = (constraints.maxHeight - displayH) / 2;
+
+        return Stack(
+            key: _outerStackKey,
             clipBehavior: Clip.none,
-            child: DragTarget<WidgetDragPayload>(
-              onAcceptWithDetails: (details) {
-                final renderBox =
-                    _canvasKey.currentContext?.findRenderObject() as RenderBox?;
-                if (renderBox == null) return;
-                final localPos = renderBox.globalToLocal(details.offset);
-                final gx = (localPos.dx / canvasPixelW * cw).round();
-                final gy = (localPos.dy / canvasPixelH * ch).round();
-                state.addElement(details.data.type, gx, gy, properties: details.data.properties);
-              },
-               builder: (context, candidates, rejected) {
-                return Container(
-                  key: _canvasKey,
-                  width: canvasPixelW,
-                  height: canvasPixelH,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1A1A1A),
-                    border: Border.all(
-                      color: candidates.isNotEmpty
-                          ? Colors.cyanAccent
-                          : const Color(0xFF333333),
-                      width: 1,
-                    ),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: ListenableBuilder(
-                    listenable: state,
-                    builder: (context, _) {
-                      final widgets = <Widget>[];
-
-                      // Grid background
-                      widgets.add(Positioned(
-                        left: 0, top: 0, width: canvasPixelW, height: canvasPixelH,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(3),
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () => state.selectElement(null),
-                            child: CustomPaint(
-                              size: Size(canvasPixelW, canvasPixelH),
-                              painter: _GridPainter(
-                                cw: cw, ch: ch,
-                                style: state.gridStyle,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ));
-
-                      // Elements and their handles
-                      for (final el in state.elements) {
-                        final halfW = el.width / 2;
-                        final halfH = el.height / 2;
-                        final left = (el.x - halfW) / cw * canvasPixelW;
-                        final top  = (el.y - halfH) / ch * canvasPixelH;
-                        final w = el.width  / cw * canvasPixelW;
-                        final h = el.height / ch * canvasPixelH;
-                        final isSelected = el.id == state.selectedElementId;
-
-                        widgets.add(Positioned(
-                          left: left, top: top, width: w, height: h,
-                          child: _MovableElement(
-                            element: el,
-                            isSelected: isSelected,
-                            isPlayMode: state.isPlayMode,
-                            designerState: state,
-                            canvasKey: _canvasKey,
-                            cw: cw, ch: ch,
-                            canvasPixelW: canvasPixelW,
-                            canvasPixelH: canvasPixelH,
-                            onTap: () => state.selectElement(
-                              isSelected ? null : el.id,
-                            ),
-                            onSelect: () => state.selectElement(el.id),
-                            onMoved: (newX, newY) {
-                              el.x = newX;
-                              el.y = newY;
-                              state.notifyChanged();
-                            },
-                          ),
-                        ));
-
-                        if (isSelected && !state.isPlayMode) {
-                          final (rw, rh) = el.renderedGridSize;
-                          final rWpx = rw / cw * canvasPixelW;
-                          final rHpx = rh / ch * canvasPixelH;
-
-                          final cx = left + w / 2;
-                          final cy = top  + h / 2;
-
-                          final angle = el.rotation * math.pi / 180;
-                          final sinR  = math.sin(angle);
-                          final cosR  = math.cos(angle);
-
-                          final rtlX = cx + (-rWpx/2 * cosR - (-rHpx/2) * sinR);
-                          final rtlY = cy + (-rWpx/2 * sinR + (-rHpx/2) * cosR);
-                          final rbrX = cx + ( rWpx/2 * cosR -  rHpx/2  * sinR);
-                          final rbrY = cy + ( rWpx/2 * sinR +  rHpx/2  * cosR);
-
-                          widgets.add(Positioned(
-                            left: rtlX - 12,
-                            top:  rtlY - 12,
-                            child: _DragHandle(
-                              icon: Icons.rotate_right,
-                              element: el,
-                              designerState: state,
-                              canvasKey: _canvasKey,
-                              cw: cw, ch: ch,
-                              canvasPixelW: canvasPixelW,
-                              canvasPixelH: canvasPixelH,
-                              isRotateHandle: true,
-                            ),
-                          ));
-                          widgets.add(Positioned(
-                            left: rbrX - 12,
-                            top:  rbrY - 12,
-                            child: _DragHandle(
-                              icon: Icons.zoom_out_map,
-                              element: el,
-                              designerState: state,
-                              canvasKey: _canvasKey,
-                              cw: cw, ch: ch,
-                              canvasPixelW: canvasPixelW,
-                              canvasPixelH: canvasPixelH,
-                              isRotateHandle: false,
-                            ),
-                          ));
-                        }
-                      }
-
-                      // Drop-target highlight
-                      if (candidates.isNotEmpty) {
-                        widgets.add(const Positioned.fill(
-                          child: IgnorePointer(
-                            child: ColoredBox(
-                              color: Color(0x0D00FFFF),
-                            ),
-                          ),
-                        ));
-                      }
-
-                      return Stack(
+            children: [
+              // ── Background + canvas content (deselection + drop target) ──
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => state.selectElement(null),
+                child: SizedBox.expand(
+                  child: Container(
+                    color: const Color(0xFF0D0D0D),
+                    child: Center(
+                      child: FittedBox(
+                        fit: BoxFit.contain,
                         clipBehavior: Clip.none,
-                        children: widgets,
-                      );
-                    },
+                      child: DragTarget<WidgetDragPayload>(
+                        onAcceptWithDetails: (details) {
+                          final renderBox =
+                              _canvasKey.currentContext?.findRenderObject() as RenderBox?;
+                          if (renderBox == null) return;
+                          final localPos = renderBox.globalToLocal(details.offset);
+                          final gx = (localPos.dx / canvasPixelW * cw).round();
+                          final gy = (localPos.dy / canvasPixelH * ch).round();
+                          state.addElement(details.data.type, gx, gy, properties: details.data.properties);
+                        },
+                        builder: (context, candidates, rejected) {
+                          return Container(
+                            key: _canvasKey,
+                            width: canvasPixelW,
+                            height: canvasPixelH,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1A1A1A),
+                              border: Border.all(
+                                color: candidates.isNotEmpty
+                                    ? Colors.cyanAccent
+                                    : const Color(0xFF333333),
+                                width: 1,
+                              ),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: ListenableBuilder(
+                              listenable: state,
+                              builder: (context, _) {
+                                final widgets = <Widget>[];
+
+                                // Grid background
+                                widgets.add(Positioned(
+                                  left: 0, top: 0, width: canvasPixelW, height: canvasPixelH,
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(3),
+                                    child: GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onTap: () => state.selectElement(null),
+                                      child: CustomPaint(
+                                        size: Size(canvasPixelW, canvasPixelH),
+                                        painter: _GridPainter(
+                                          cw: cw, ch: ch,
+                                          style: state.gridStyle,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ));
+
+                                // Elements only (no handles — they're rendered in the outer Stack)
+                                for (final el in state.elements) {
+                                  final halfW = el.width / 2;
+                                  final halfH = el.height / 2;
+                                  final left = (el.x - halfW) / cw * canvasPixelW;
+                                  final top  = (el.y - halfH) / ch * canvasPixelH;
+                                  final w = el.width  / cw * canvasPixelW;
+                                  final h = el.height / ch * canvasPixelH;
+                                  final isSelected = el.id == state.selectedElementId;
+
+                                  widgets.add(Positioned(
+                                    left: left, top: top, width: w, height: h,
+                                    child: _MovableElement(
+                                      element: el,
+                                      isSelected: isSelected,
+                                      isPlayMode: state.isPlayMode,
+                                      designerState: state,
+                                      canvasKey: _canvasKey,
+                                      cw: cw, ch: ch,
+                                      canvasPixelW: canvasPixelW,
+                                      canvasPixelH: canvasPixelH,
+                                      onTap: () => state.selectElement(
+                                        isSelected ? null : el.id,
+                                      ),
+                                      onSelect: () => state.selectElement(el.id),
+                                      onMoved: (newX, newY) {
+                                        el.x = newX;
+                                        el.y = newY;
+                                        state.notifyChanged();
+                                      },
+                                    ),
+                                  ));
+                                }
+
+                                // Drop-target highlight
+                                if (candidates.isNotEmpty) {
+                                  widgets.add(const Positioned.fill(
+                                    child: IgnorePointer(
+                                      child: ColoredBox(
+                                        color: Color(0x0D00FFFF),
+                                      ),
+                                    ),
+                                  ));
+                                }
+
+                                return Stack(
+                                  clipBehavior: Clip.none,
+                                  children: widgets,
+                                );
+                              },
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                   ),
-                );
-              },
+                ),
+              ),
             ),
-          ),
-        ),
-      ),
+
+            // ── Resize / rotate handles (in outer Stack for proper hit testing) ──
+            // Uses LayoutBuilder so handles reposition on every layout pass
+            if (!state.isPlayMode)
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final handleWidgets = <Widget>[];
+
+                  for (final el in state.elements) {
+                    if (el.id != state.selectedElementId) continue;
+
+                    final halfW = el.width / 2;
+                    final halfH = el.height / 2;
+                    final left = (el.x - halfW) / cw * canvasPixelW;
+                    final top  = (el.y - halfH) / ch * canvasPixelH;
+                    final w = el.width  / cw * canvasPixelW;
+                    final h = el.height / ch * canvasPixelH;
+
+                    final (rw, rh) = el.renderedGridSize;
+                    final rWpx = rw / cw * canvasPixelW;
+                    final rHpx = rh / ch * canvasPixelH;
+
+                    final cx = left + w / 2;
+                    final cy = top  + h / 2;
+
+                    final angle = el.rotation * math.pi / 180;
+                    final sinR  = math.sin(angle);
+                    final cosR  = math.cos(angle);
+
+                    // Corner positions in canvas-pixel space
+                    final rtlX = cx + (-rWpx/2 * cosR - (-rHpx/2) * sinR);
+                    final rtlY = cy + (-rWpx/2 * sinR + (-rHpx/2) * cosR);
+                    final rbrX = cx + ( rWpx/2 * cosR -  rHpx/2  * sinR);
+                    final rbrY = cy + ( rWpx/2 * sinR +  rHpx/2  * cosR);
+
+                    // Convert to outer Stack coordinates using Flutter's
+                    // render-object coordinate transforms for pixel-perfect
+                    // alignment with the visual debug box corners.
+                    final canvasRenderBox =
+                        _canvasKey.currentContext?.findRenderObject() as RenderBox?;
+                    final outerRenderBox =
+                        _outerStackKey.currentContext?.findRenderObject() as RenderBox?;
+
+                    final Offset? rtlInStack;
+                    final Offset? rbrInStack;
+                    if (canvasRenderBox != null && outerRenderBox != null) {
+                      rtlInStack = outerRenderBox.globalToLocal(
+                        canvasRenderBox.localToGlobal(Offset(rtlX, rtlY)),
+                      );
+                      rbrInStack = outerRenderBox.globalToLocal(
+                        canvasRenderBox.localToGlobal(Offset(rbrX, rbrY)),
+                      );
+                    } else {
+                      // Fallback: compute from LayoutBuilder-derived values
+                      rtlInStack = Offset(
+                        canvasLeft + rtlX * scale,
+                        canvasTop + rtlY * scale,
+                      );
+                      rbrInStack = Offset(
+                        canvasLeft + rbrX * scale,
+                        canvasTop + rbrY * scale,
+                      );
+                    }
+
+                    // 12px offset centers the 24×24 handle icon over the corner
+                    const handleSize = 24.0;
+                    const hOff = handleSize / 2;
+                    final rtlSX = rtlInStack.dx - hOff;
+                    final rtlSY = rtlInStack.dy - hOff;
+                    final rbrSX = rbrInStack.dx - hOff;
+                    final rbrSY = rbrInStack.dy - hOff;
+
+                    handleWidgets.add(Positioned(
+                      left: rtlSX,
+                      top:  rtlSY,
+                      child: _DragHandle(
+                        icon: Icons.rotate_right,
+                        element: el,
+                        designerState: state,
+                        canvasKey: _canvasKey,
+                        cw: cw, ch: ch,
+                        canvasPixelW: canvasPixelW,
+                        canvasPixelH: canvasPixelH,
+                        isRotateHandle: true,
+                      ),
+                    ));
+                    handleWidgets.add(Positioned(
+                      left: rbrSX,
+                      top:  rbrSY,
+                      child: _DragHandle(
+                        icon: Icons.zoom_out_map,
+                        element: el,
+                        designerState: state,
+                        canvasKey: _canvasKey,
+                        cw: cw, ch: ch,
+                        canvasPixelW: canvasPixelW,
+                        canvasPixelH: canvasPixelH,
+                        isRotateHandle: false,
+                      ),
+                    ));
+                  }
+
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      const SizedBox.expand(),
+                      ...handleWidgets,
+                    ],
+                  );
+                },
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -363,16 +449,27 @@ class _DragHandleState extends State<_DragHandle> {
     final widthDelta  = (dx / widget.canvasPixelW * widget.cw).round();
     final heightDelta = (dy / widget.canvasPixelH * widget.ch).round();
 
-    if (widget.element.hasFixedAspectRatio) {
-      // Lock to 1:1 — use the larger delta so dragging in any direction grows
-      // the widget uniformly. The element stores equal width and height.
-      final delta = widthDelta.abs() > heightDelta.abs() ? widthDelta : heightDelta;
-      final size = (_startWidth! + delta).clamp(8, widget.cw - 8);
-      widget.designerState.updateElementSize(
-        widget.element.id,
-        width: size,
-        height: size,
-      );
+    final ar = widget.element.aspectRatio;
+    if (ar != null) {
+      if (ar == 1.0) {
+        // Square widget: use the dominant axis delta, keep equal width/height
+        final delta = widthDelta.abs() > heightDelta.abs() ? widthDelta : heightDelta;
+        final size = (_startWidth! + delta).clamp(8, widget.cw - 8);
+        widget.designerState.updateElementSize(
+          widget.element.id,
+          width: size,
+          height: size,
+        );
+      } else {
+        // Fixed-aspect-ratio widget (e.g. multi): resize primary dimension only
+        final newHeight = (_startHeight! + heightDelta).clamp(8, widget.ch - 8);
+        final autoW = (newHeight * ar).round().clamp(1, 999);
+        widget.designerState.updateElementSize(
+          widget.element.id,
+          width: autoW,
+          height: newHeight,
+        );
+      }
     } else {
       final newWidth  = (_startWidth!  + widthDelta ).clamp(8, widget.cw - 8);
       final newHeight = (_startHeight! + heightDelta).clamp(8, widget.ch - 8);
@@ -402,9 +499,6 @@ class _DragHandleState extends State<_DragHandle> {
     final startAngle = math.atan2(startDy, startDx);
     final currentAngle = math.atan2(currentDy, currentDx);
     final deltaRadians = currentAngle - startAngle;
-    // Always compute from the fixed start position, not frame-by-frame,
-    // to avoid cumulative rounding drift.
-    // Normalize to -180..180 instead of 0..360.
     var newRotation = (_startRotation! + (deltaRadians * 180 / math.pi).round()) % 360;
     if (newRotation > 180) newRotation -= 360;
     widget.designerState.updateElementRotation(widget.element.id, newRotation);

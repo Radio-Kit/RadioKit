@@ -17,6 +17,7 @@ dependencies:
     git:
       url: https://github.com/PiscesXD/simple_icons.git
       ref: master
+  lucide_icons_flutter: ^3.1.0
 
 dev_dependencies:
   flutter_test:

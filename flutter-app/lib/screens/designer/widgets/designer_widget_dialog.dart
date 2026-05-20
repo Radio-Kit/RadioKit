@@ -2,72 +2,101 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 
-class DesignerWidgetDialog extends StatelessWidget {
+/// Content widget for the "Add Widget" bottom sheet.
+/// Shows a searchable grid of available widget types.
+class DesignerWidgetSheet extends StatelessWidget {
   final DesignerState state;
-  const DesignerWidgetDialog({super.key, required this.state});
+  const DesignerWidgetSheet({super.key, required this.state});
 
   static const _controlVariants = [
-    _SidebarVariant('Push Button', LucideIcons.square, DesignerElementType.button, {'mode': 'push'}),
-    _SidebarVariant('Toggle Button', LucideIcons.toggleLeft, DesignerElementType.button, {'mode': 'toggle'}),
-    _SidebarVariant('Slide Switch', LucideIcons.toggleLeft, DesignerElementType.slideSwitch, <String, dynamic>{}),
-    _SidebarVariant('Rocker Switch', LucideIcons.arrowUpDown, DesignerElementType.rockerSwitch, <String, dynamic>{}),
-    _SidebarVariant('Multiple Button', LucideIcons.radio, DesignerElementType.multiButton, <String, dynamic>{}),
-    _SidebarVariant('Multiple Select', LucideIcons.badgeCheck, DesignerElementType.multiSelect, <String, dynamic>{}),
-    _SidebarVariant('Linear Slider', LucideIcons.slidersHorizontal, DesignerElementType.slider, <String, dynamic>{}),
-    _SidebarVariant('Gas Pedal', LucideIcons.gauge, DesignerElementType.gasPedal, <String, dynamic>{}),
-    _SidebarVariant('Rotary Knob', LucideIcons.cog, DesignerElementType.knob, <String, dynamic>{}),
-    _SidebarVariant('Steering Wheel', LucideIcons.rotateCw, DesignerElementType.steeringWheel, <String, dynamic>{}),
-    _SidebarVariant('Joystick', LucideIcons.gamepad2, DesignerElementType.joystick, <String, dynamic>{}),
+    _SheetVariant('Push Button', LucideIcons.square, DesignerElementType.button, {'mode': 'push'}),
+    _SheetVariant('Toggle Button', LucideIcons.toggleLeft, DesignerElementType.button, {'mode': 'toggle'}),
+    _SheetVariant('Slide Switch', LucideIcons.toggleLeft, DesignerElementType.slideSwitch, <String, dynamic>{}),
+    _SheetVariant('Rocker Switch', LucideIcons.arrowUpDown, DesignerElementType.rockerSwitch, <String, dynamic>{}),
+    _SheetVariant('Multiple Button', LucideIcons.radio, DesignerElementType.multiButton, <String, dynamic>{}),
+    _SheetVariant('Multiple Select', LucideIcons.badgeCheck, DesignerElementType.multiSelect, <String, dynamic>{}),
+    _SheetVariant('Linear Slider', LucideIcons.slidersHorizontal, DesignerElementType.slider, <String, dynamic>{}),
+    _SheetVariant('Gas Pedal', LucideIcons.gauge, DesignerElementType.gasPedal, <String, dynamic>{}),
+    _SheetVariant('Rotary Knob', LucideIcons.cog, DesignerElementType.knob, <String, dynamic>{}),
+    _SheetVariant('Steering Wheel', LucideIcons.rotateCw, DesignerElementType.steeringWheel, <String, dynamic>{}),
+    _SheetVariant('Joystick', LucideIcons.gamepad2, DesignerElementType.joystick, <String, dynamic>{}),
   ];
 
   static const _indicatorVariants = [
-    _SidebarVariant('Text Display', LucideIcons.monitor, DesignerElementType.text, <String, dynamic>{}),
-    _SidebarVariant('Serial Monitor', LucideIcons.terminal, DesignerElementType.serialMonitor, <String, dynamic>{}),
-    _SidebarVariant('LED', LucideIcons.circle, DesignerElementType.led, <String, dynamic>{}),
+    _SheetVariant('Text Display', LucideIcons.monitor, DesignerElementType.text, <String, dynamic>{}),
+    _SheetVariant('Serial Monitor', LucideIcons.terminal, DesignerElementType.serialMonitor, <String, dynamic>{}),
+    _SheetVariant('LED', LucideIcons.circle, DesignerElementType.led, <String, dynamic>{}),
   ];
 
   @override
   Widget build(BuildContext context) {
     final tokens = RKTheme.of(context);
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
-    return Dialog(
-      backgroundColor: const Color(0xFF181818),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: Container(
-        width: 600,
-        height: 700,
-        padding: const EdgeInsets.all(24),
+    return Container(
+      height: MediaQuery.of(context).size.height,
+      decoration: const BoxDecoration(
+        color: Color(0xFF181818),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(12),
+          topRight: Radius.circular(12),
+        ),
+      ),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(24, 8, 24, 16 + bottomInset),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Drag handle
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF444444),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            // Title row
             Row(
               children: [
-                Icon(LucideIcons.palette, color: tokens.primary, size: 24),
+                Icon(LucideIcons.palette, color: tokens.primary, size: 20),
                 const SizedBox(width: 10),
                 const Text(
                   'ADD WIDGET',
                   style: TextStyle(
                     color: Color(0xFFE0E0E0),
-                    fontSize: 16,
+                    fontSize: 15,
                     fontFamily: 'monospace',
                     fontWeight: FontWeight.w600,
                     letterSpacing: 1,
                   ),
                 ),
                 const Spacer(),
-                IconButton(
-                  icon: const Icon(LucideIcons.x, color: Color(0xFFE0E0E0)),
-                  onPressed: () => Navigator.pop(context),
-                )
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF222222),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    child: const Icon(LucideIcons.x, color: Color(0xFF888888), size: 16),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 16),
+            // Scrollable categories
             Expanded(
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
-                  _buildCategory('CONTROLS', _controlVariants, tokens, context),
-                  _buildCategory('INDICATORS', _indicatorVariants, tokens, context),
+                  _buildCategory('CONTROLS', _controlVariants, tokens),
+                  const SizedBox(height: 8),
+                  _buildCategory('INDICATORS', _indicatorVariants, tokens),
                 ],
               ),
             ),
@@ -77,65 +106,61 @@ class DesignerWidgetDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildCategory(String title, List<_SidebarVariant> items, RKTokens tokens, BuildContext context) {
+  Widget _buildCategory(String title, List<_SheetVariant> items, RKTokens tokens) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+          padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
           child: Text(
             title,
             style: TextStyle(
               color: tokens.primary,
-              fontSize: 11,
+              fontSize: 10,
               fontFamily: 'monospace',
               letterSpacing: 1,
               fontWeight: FontWeight.w600,
             ),
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 0),
-          child: GridView.count(
-            crossAxisCount: 4,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-            childAspectRatio: 1.0,
-            children: items.map((v) => _GridItem(variant: v, tokens: tokens, state: state)).toList(),
-          ),
+        GridView.count(
+          crossAxisCount: 4,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          childAspectRatio: 1.0,
+          children: items.map((v) => _SheetGridItem(variant: v, tokens: tokens, state: state)).toList(),
         ),
-        const SizedBox(height: 16),
       ],
     );
   }
 }
 
-class _SidebarVariant {
+class _SheetVariant {
   final String label;
   final IconData icon;
   final DesignerElementType type;
   final Map<String, dynamic> properties;
-  const _SidebarVariant(this.label, this.icon, this.type, this.properties);
+  const _SheetVariant(this.label, this.icon, this.type, this.properties);
 }
 
-class _GridItem extends StatelessWidget {
-  final _SidebarVariant variant;
+class _SheetGridItem extends StatelessWidget {
+  final _SheetVariant variant;
   final RKTokens tokens;
   final DesignerState state;
 
-  const _GridItem({required this.variant, required this.tokens, required this.state});
+  const _SheetGridItem({required this.variant, required this.tokens, required this.state});
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () {
-        // Place widget near the center
         state.addElement(
           variant.type,
-          100, // x
-          100, // y
+          100,
+          100,
           properties: variant.properties,
         );
         Navigator.pop(context);
@@ -157,7 +182,7 @@ class _GridItem extends StatelessWidget {
           Expanded(
             child: Center(
               child: Padding(
-                padding: const EdgeInsets.all(8.0),
+                padding: const EdgeInsets.all(6),
                 child: IgnorePointer(
                   child: _buildPreview(),
                 ),
@@ -165,7 +190,7 @@ class _GridItem extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.only(left: 4, right: 4, bottom: 8),
+            padding: const EdgeInsets.only(left: 4, right: 4, bottom: 6),
             child: Text(
               variant.label,
               style: const TextStyle(
@@ -184,6 +209,11 @@ class _GridItem extends StatelessWidget {
   }
 
   Widget _buildPreview() {
+    // Use defaultSize aspect ratios for preview proportions so widgets
+    // always render in their expected shape. Scale up for visibility.
+    final (defW, defH) = DesignerElement.defaultSize(variant.type);
+    final previewSize = 44.0;
+
     switch (variant.type) {
       case DesignerElementType.button:
         return RKButton(
@@ -192,93 +222,112 @@ class _GridItem extends StatelessWidget {
               : RKButtonMode.push,
           onText: variant.properties['onText'] ?? 'ON',
           offText: variant.properties['offText'] ?? 'OFF',
-          size: 40,
+          size: previewSize,
           onChanged: (_) {},
+          showDebug: false,
         );
       case DesignerElementType.slideSwitch:
+        final aspect = defW / defH.clamp(1, 999);
+        final w = previewSize * (aspect > 1 ? 1.0 : aspect);
+        final h = previewSize / (aspect > 1 ? aspect : 1.0);
         return RKSlideSwitch(
           value: false,
           onText: variant.properties['onText'] ?? 'ON',
           offText: variant.properties['offText'] ?? 'OFF',
-          width: 50,
-          height: 25,
+          width: w.clamp(20, 60),
+          height: h.clamp(12, 30),
           onChanged: (_) {},
+          showDebug: false,
         );
       case DesignerElementType.rockerSwitch:
+        final aspect = defW / defH.clamp(1, 999);
+        final h = previewSize;
+        final w = h * aspect;
         return RKRockerSwitch(
           value: false,
-          width: 25,
-          height: 44,
+          width: w.clamp(14, 30),
+          height: h.clamp(30, 50),
           onChanged: (_) {},
+          showDebug: false,
         );
       case DesignerElementType.slider:
         return RKSlider(
           value: 0.5,
           orientation: RKAxis.horizontal,
           thickness: 6,
-          length: 60,
+          length: 56,
           onChanged: (_) {},
+          showDebug: false,
         );
       case DesignerElementType.steeringWheel:
         return RKSteeringWheel(
           value: 0.5,
-          size: 44,
+          size: previewSize,
           onChanged: (_) {},
+          showDebug: false,
         );
       case DesignerElementType.knob:
         return RKKnob(
           value: 0.5,
-          size: 44,
+          size: previewSize,
           onChanged: (_) {},
+          showDebug: false,
         );
       case DesignerElementType.joystick:
         return RKJoystick(
-          size: 44,
+          size: previewSize,
           onChanged: (_) {},
+          showDebug: false,
         );
       case DesignerElementType.multiButton:
         return RKMultiButton(
           items: List.generate(3, (i) => RKToggleItem(onLabel: String.fromCharCode(65 + i))),
           selected: 0,
-          buttonSize: 15,
+          buttonSize: 14,
           orientation: RKAxis.horizontal,
           onChanged: (_) {},
+          showDebug: false,
         );
       case DesignerElementType.multiSelect:
         return RKMultiSelect(
           items: List.generate(3, (i) => RKToggleItem(onLabel: String.fromCharCode(65 + i))),
           bitmask: 0,
-          buttonSize: 15,
+          buttonSize: 14,
           orientation: RKAxis.horizontal,
           onChanged: (_) {},
+          showDebug: false,
         );
       case DesignerElementType.gasPedal:
         return RKGasPedal(
           value: 0.0,
           orientation: RKAxis.vertical,
           thickness: 5,
-          length: 44,
+          length: previewSize - 4,
           onChanged: (_) {},
+          showDebug: false,
         );
       case DesignerElementType.led:
         return const RKLed(
           state: RKLEDState.on,
           shape: RKLEDShape.circle,
           size: 24,
+          showDebug: false,
         );
       case DesignerElementType.text:
         return const RKDisplay(
           text: 'Display',
           fontSize: 9,
-          width: 60,
-          height: 22,
+          width: 56,
+          height: 20,
+          showDebug: false,
         );
       case DesignerElementType.serialMonitor:
         return const RKSerialMonitor(
           messages: ['> Serial'],
           fontSize: 7,
-          width: 60,
-          height: 32,
+          width: 56,
+          height: 30,
+          showDebug: false,
         );
     }
   }

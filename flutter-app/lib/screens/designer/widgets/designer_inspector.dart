@@ -1,8 +1,15 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 import 'inspector_field_builders.dart';
+
+/// Validates that [name] is a legal C++ identifier.
+/// A valid C++ identifier starts with a letter or underscore and contains
+/// only letters, digits, or underscores.
+bool isCppIdentifier(String name) {
+  if (name.isEmpty) return true; // empty is allowed (no label)
+  return RegExp(r'^[a-zA-Z_][a-zA-Z0-9_]*$').hasMatch(name);
+}
 
 class DesignerInspector extends StatefulWidget {
   final DesignerState state;
@@ -40,9 +47,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                       _buildGeneralProperties(tokens),
                     ] else ...[
                       InspectorFieldBuilders.buildSection(tokens, 'VALUES', [
-                        InspectorFieldBuilders.buildTextField(tokens, 'Label', el.label, (v) {
-                          widget.state.updateElementLabel(el.id, v);
-                        }),
+                        _buildLabelField(tokens, el),
                       ]),
                       InspectorFieldBuilders.buildSection(tokens, 'BEHAVIOR', _buildBehaviorFields(tokens, el)),
                       InspectorFieldBuilders.buildSection(tokens, 'TRANSFORM', [
@@ -51,7 +56,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                         const SizedBox(height: 8),
                         InspectorFieldBuilders.buildRotationSlider(tokens, el.rotation.toDouble(), (v) {
                           widget.state.updateElementRotation(el.id, v.round());
-                        }),
+                        }, onReset: () => widget.state.updateElementRotation(el.id, 0)),
                         const SizedBox(height: 12),
                         _buildDeleteButton(tokens),
                       ]),
@@ -120,6 +125,90 @@ class _DesignerInspectorState extends State<DesignerInspector> {
     );
   }
 
+  Widget _buildLabelField(RKTokens tokens, DesignerElement el) {
+    final isValid = el.label.isEmpty || isCppIdentifier(el.label);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              'Label',
+              style: TextStyle(
+                color: isValid ? const Color(0xFF888888) : const Color(0xFFFF5555),
+                fontSize: 11,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Container(
+              height: 28,
+              decoration: BoxDecoration(
+                color: const Color(0xFF0D0D0D),
+                border: Border.all(
+                  color: isValid ? const Color(0xFF333333) : const Color(0xFFFF5555),
+                ),
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: TextField(
+                controller: TextEditingController(text: el.label)
+                  ..selection = TextSelection.collapsed(offset: el.label.length),
+                style: const TextStyle(
+                  color: Color(0xFFE0E0E0),
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                ),
+                decoration: InputDecoration(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  border: InputBorder.none,
+                  isDense: true,
+                  suffixIcon: !isValid
+                      ? const Tooltip(
+                          message: 'Must be a valid C++ identifier\n(starts with letter or _, contains\nonly letters, digits, or _)',
+                          child: Padding(
+                            padding: EdgeInsets.all(4),
+                            child: Icon(
+                              LucideIcons.alertCircle,
+                              size: 14,
+                              color: Color(0xFFFF5555),
+                            ),
+                          ),
+                        )
+                      : null,
+                ),
+                onChanged: (v) => widget.state.updateElementLabel(el.id, v),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          GestureDetector(
+            onTap: () => widget.state.toggleElementLabelHidden(el.id),
+            child: Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: el.labelHidden ? const Color(0xFF0D0D0D) : const Color(0xFF1A1A1A),
+                border: Border.all(
+                  color: el.labelHidden ? const Color(0xFF555555) : tokens.primary,
+                ),
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: Icon(
+                el.labelHidden ? LucideIcons.eyeOff : LucideIcons.eye,
+                size: 14,
+                color: el.labelHidden ? const Color(0xFF666666) : tokens.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildGeneralProperties(RKTokens tokens) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -147,25 +236,106 @@ class _DesignerInspectorState extends State<DesignerInspector> {
           ),
         ]),
         InspectorFieldBuilders.buildSection(tokens, 'CANVAS', [
-          InspectorFieldBuilders.buildCenterPinnedSelector(
-            tokens, 'Orientation',
-            widget.state.isLandscape ? 'Landscape' : 'Portrait',
-            ['Landscape', 'Portrait'],
-            (v) {
-              if ((v == 'Landscape') != widget.state.isLandscape) {
-                widget.state.toggleOrientation();
-              }
-            },
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 80,
+                  child: Text(
+                    'Orientation',
+                    style: const TextStyle(
+                      color: Color(0xFF888888),
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _buildMiniToggle(
+                          tokens,
+                          label: 'LANDSCAPE',
+                          selected: widget.state.isLandscape,
+                          onTap: () {
+                            if (!widget.state.isLandscape) widget.state.toggleOrientation();
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: _buildMiniToggle(
+                          tokens,
+                          label: 'PORTRAIT',
+                          selected: !widget.state.isLandscape,
+                          onTap: () {
+                            if (widget.state.isLandscape) widget.state.toggleOrientation();
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
           InspectorFieldBuilders.buildReadOnlyField(
             tokens, 'Size',
             widget.state.isLandscape ? '200 x 100' : '100 x 200',
           ),
-          InspectorFieldBuilders.buildCenterPinnedSelector(
-            tokens, 'Grid',
-            widget.state.gridStyle.name,
-            ['lines', 'dots', 'none'],
-            (v) => widget.state.setGridStyle(GridStyle.values.byName(v)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 80,
+                  child: Text(
+                    'Grid',
+                    style: const TextStyle(
+                      color: Color(0xFF888888),
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _buildMiniToggle(
+                          tokens,
+                          label: 'LINES',
+                          selected: widget.state.gridStyle == GridStyle.lines,
+                          onTap: () => widget.state.setGridStyle(GridStyle.lines),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: _buildMiniToggle(
+                          tokens,
+                          label: 'DOTS',
+                          selected: widget.state.gridStyle == GridStyle.dots,
+                          onTap: () => widget.state.setGridStyle(GridStyle.dots),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: _buildMiniToggle(
+                          tokens,
+                          label: 'NONE',
+                          selected: widget.state.gridStyle == GridStyle.none,
+                          onTap: () => widget.state.setGridStyle(GridStyle.none),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
           InspectorFieldBuilders.buildCenterPinnedSelector(
             tokens, 'Skin',
@@ -216,27 +386,43 @@ class _DesignerInspectorState extends State<DesignerInspector> {
   }
 
   Widget _buildSizeRow(RKTokens tokens, DesignerElement el) {
-    final edge = math.max(el.width, el.height);
+    final ar = el.aspectRatio;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Size',
-            style: TextStyle(
-              color: Color(0xFF888888),
-              fontSize: 11,
-              fontFamily: 'monospace',
-            ),
+          Row(
+            children: [
+              const Text(
+                'Size',
+                style: TextStyle(
+                  color: Color(0xFF888888),
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () {
+                  final (dw, dh) = DesignerElement.defaultSize(el.type);
+                  widget.state.updateElementSize(el.id, width: dw, height: dh);
+                },
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Icon(LucideIcons.rotateCcw, size: 12, color: const Color(0xFF555555)),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 4),
           Row(
             children: [
-              if (el.hasFixedAspectRatio)
+              if (ar != null)
                 Expanded(
-                  child: InspectorFieldBuilders.buildCompactNumField(tokens, 'H', edge, (v) {
-                    widget.state.updateElementSize(el.id, width: v, height: v);
+                  child: InspectorFieldBuilders.buildCompactNumField(tokens, 'H', el.height, (v) {
+                    final autoW = (v * ar).round().clamp(1, 999);
+                    widget.state.updateElementSize(el.id, width: autoW, height: v);
                   }),
                 )
               else ...[
@@ -255,6 +441,38 @@ class _DesignerInspectorState extends State<DesignerInspector> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMiniToggle(
+    RKTokens tokens, {
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? tokens.primary : const Color(0xFF1A1A1A),
+          border: Border.all(
+            color: selected ? tokens.primary : const Color(0xFF444444),
+            width: 1,
+          ),
+          borderRadius: BorderRadius.circular(2),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: selected ? Colors.black : const Color(0xFF888888),
+            fontSize: 10,
+            fontFamily: 'monospace',
+            fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
       ),
     );
   }
@@ -297,8 +515,14 @@ class _DesignerInspectorState extends State<DesignerInspector> {
             (v) => widget.state.updateElementProperty(el.id, 'mode', v)));
         fields.add(InspectorFieldBuilders.buildTextField(tokens, 'On Text', el.properties['onText'] ?? 'ON',
             (v) => widget.state.updateElementProperty(el.id, 'onText', v)));
+        fields.add(IconFieldBuilder.buildIconSelectorField(context, 'On Icon',
+            el.properties['onIcon'] as String?,
+            (v) => widget.state.updateElementProperty(el.id, 'onIcon', v)));
         fields.add(InspectorFieldBuilders.buildTextField(tokens, 'Off Text', el.properties['offText'] ?? 'OFF',
             (v) => widget.state.updateElementProperty(el.id, 'offText', v)));
+        fields.add(IconFieldBuilder.buildIconSelectorField(context, 'Off Icon',
+            el.properties['offIcon'] as String?,
+            (v) => widget.state.updateElementProperty(el.id, 'offIcon', v)));
         fields.add(InspectorFieldBuilders.buildBoolToggle(tokens, 'Haptics', el.properties['enableHapticFeedback'] ?? true,
             (v) => widget.state.updateElementProperty(el.id, 'enableHapticFeedback', v)));
         break;
@@ -313,6 +537,12 @@ class _DesignerInspectorState extends State<DesignerInspector> {
         break;
 
       case DesignerElementType.rockerSwitch:
+        fields.add(IconFieldBuilder.buildIconSelectorField(context, 'On Icon',
+            el.properties['onIcon'] as String?,
+            (v) => widget.state.updateElementProperty(el.id, 'onIcon', v)));
+        fields.add(IconFieldBuilder.buildIconSelectorField(context, 'Off Icon',
+            el.properties['offIcon'] as String?,
+            (v) => widget.state.updateElementProperty(el.id, 'offIcon', v)));
         fields.add(InspectorFieldBuilders.buildBoolToggle(tokens, 'Haptics', el.properties['enableHapticFeedback'] ?? true,
             (v) => widget.state.updateElementProperty(el.id, 'enableHapticFeedback', v)));
         break;
@@ -378,6 +608,9 @@ class _DesignerInspectorState extends State<DesignerInspector> {
         break;
 
       case DesignerElementType.knob:
+        fields.add(IconFieldBuilder.buildIconSelectorField(context, 'Center Icon',
+            el.properties['centerIcon'] as String?,
+            (v) => widget.state.updateElementProperty(el.id, 'centerIcon', v)));
         final currentMin = (el.properties['min'] as num?)?.toInt() ?? 0;
         final currentType = currentMin == -100 ? 'bi' : 'uni';
         fields.add(InspectorFieldBuilders.buildOptionSelector(
@@ -442,6 +675,9 @@ class _DesignerInspectorState extends State<DesignerInspector> {
         break;
 
       case DesignerElementType.steeringWheel: // forceSwitch
+        fields.add(IconFieldBuilder.buildIconSelectorField(context, 'Center Icon',
+            el.properties['centerIcon'] as String?,
+            (v) => widget.state.updateElementProperty(el.id, 'centerIcon', v)));
         final currentMin = (el.properties['min'] as num?)?.toInt() ?? 0;
         final currentType = currentMin == -100 ? 'bi' : 'uni';
         fields.add(InspectorFieldBuilders.buildOptionSelector(
