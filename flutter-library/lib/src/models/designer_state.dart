@@ -71,6 +71,7 @@ class DesignerState extends ChangeNotifier {
     final (w, h) = DesignerElement.defaultSize(type);
     final halfW = w ~/ 2;
     final halfH = h ~/ 2;
+    final autoLabel = _generateAutoLabel(type);
     final element = DesignerElement(
       id: UniqueKey().toString(),
       type: type,
@@ -79,6 +80,7 @@ class DesignerState extends ChangeNotifier {
       width: w,
       height: h,
       properties: properties,
+      label: autoLabel,
     );
     _elements = [..._elements, element];
     _selectedElementId = element.id;
@@ -151,9 +153,10 @@ class DesignerState extends ChangeNotifier {
     final index = _elements.indexWhere((e) => e.id == id);
     if (index == -1) return;
     _pushUndo();
+    final uniqueLabel = _ensureUniqueLabel(label, excludeElementId: id);
     _elements = [
       for (int i = 0; i < _elements.length; i++)
-        if (i == index) _elements[i].copyWith(label: label)
+        if (i == index) _elements[i].copyWith(label: uniqueLabel)
         else _elements[i],
     ];
     notifyListeners();
@@ -387,21 +390,38 @@ class DesignerState extends ChangeNotifier {
       _elements.add(DesignerElement.fromJson(wJson as Map<String, dynamic>));
     }
 
-    // restore model name so the generated header block uses the right name
+    // restore model config so the generated header block uses the right values
     _modelName = (decoded['config']?['name'] as String?) ?? '';
     _modelDescription = (decoded['config']?['description'] as String?) ?? '';
+    _modelType = (decoded['config']?['type'] as String?) ?? 'Locomotive';
     _connectionType = ((decoded['config']?['transport'] as String?) ?? 'BLE').toLowerCase();
     _activeSkin = _arduinoToTheme((decoded['config']?['theme'] as String?) ?? 'RK_DEFAULT');
     _connectionPassword = (decoded['config']?['password'] as String?) ?? '';
 
-    final orientation =
-        (decoded['canvas']?['orientation'] as String?) ?? 'landscape';
-    _isLandscape = orientation == 'landscape' || orientation == 'auto';
-    final rawSize = decoded['canvas']?['screenSize'] as String?;
+    // canvas section: read 'size' (new) or fall back to 'screenSize' (old)
+    final rawSize = (decoded['canvas']?['size'] ?? decoded['canvas']?['screenSize']) as String?;
     if (rawSize == '200 x 100' || rawSize == '100 x 200') {
       _screenSize = rawSize!;
     } else {
-      _screenSize = _isLandscape ? '200 x 100' : '100 x 200';
+      // infer orientation from canvas dimensions if no valid size
+      _screenSize = '200 x 100'; // default to landscape
+    }
+    _isLandscape = _screenSize == '200 x 100';
+
+    // read grid style (string: 'lines', 'dots', 'none')
+    final gridStr = decoded['canvas']?['grid'] as String?;
+    if (gridStr != null) {
+      _gridStyle = switch (gridStr) {
+        'lines' => GridStyle.lines,
+        'dots' => GridStyle.dots,
+        _ => GridStyle.none,
+      };
+    }
+
+    // read skin from canvas (overrides config.theme if present)
+    final canvasSkin = decoded['canvas']?['skin'] as String?;
+    if (canvasSkin != null) {
+      _activeSkin = canvasSkin;
     }
 
     _selectedElementId = null;
@@ -439,6 +459,55 @@ class DesignerState extends ChangeNotifier {
     return originalContent.replaceRange(match.start, match.end, fullBlock);
   }
 
+  /// Returns a snake_case base label name for the given widget type.
+  String _baseLabelForType(DesignerElementType type) {
+    switch (type) {
+      case DesignerElementType.button: return 'button';
+      case DesignerElementType.slideSwitch: return 'slide_switch';
+      case DesignerElementType.rockerSwitch: return 'switch';
+      case DesignerElementType.slider: return 'slider';
+      case DesignerElementType.gasPedal: return 'gas_pedal';
+      case DesignerElementType.knob: return 'knob';
+      case DesignerElementType.steeringWheel: return 'steering_wheel';
+      case DesignerElementType.joystick: return 'joystick';
+      case DesignerElementType.multiButton: return 'multi_button';
+      case DesignerElementType.multiSelect: return 'multi_select';
+      case DesignerElementType.led: return 'led';
+      case DesignerElementType.text: return 'text';
+      case DesignerElementType.serialMonitor: return 'serial_monitor';
+    }
+  }
+
+  /// Generates an auto-label for the given [type] in the format `{base}_{N}`
+  /// (e.g., `button_1`, `button_2`), always starting the counter at 1 and
+  /// incrementing until a unique label is found.
+  String _generateAutoLabel(DesignerElementType type) {
+    final base = _baseLabelForType(type);
+    final existingLabels = _elements.map((e) => e.label).toSet();
+    int counter = 1;
+    while (existingLabels.contains('${base}_$counter')) {
+      counter++;
+    }
+    return '${base}_$counter';
+  }
+
+  /// Ensures [label] is unique among all elements, excluding the element
+  /// with [excludeElementId] (if provided). Appends `_N` suffix as needed.
+  String _ensureUniqueLabel(String label, {String? excludeElementId}) {
+    final existingLabels = _elements
+        .where((e) => e.id != excludeElementId)
+        .map((e) => e.label)
+        .toSet();
+
+    if (!existingLabels.contains(label)) return label;
+
+    int counter = 1;
+    while (existingLabels.contains('${label}_$counter')) {
+      counter++;
+    }
+    return '${label}_$counter';
+  }
+
   /// Build the serialisable map for saveToHeaderFile.
   String _themeToArduino(String skin) {
     switch (skin) {
@@ -469,13 +538,15 @@ class DesignerState extends ChangeNotifier {
         'config': {
           'name': _modelName,
           'description': _modelDescription,
+          'type': _modelType,
           'transport': _connectionType.toUpperCase(),
           'theme': _themeToArduino(_activeSkin),
           'password': _connectionPassword,
         },
         'canvas': {
-          'orientation': _isLandscape ? 'landscape' : 'portrait',
-          'screenSize': _screenSize,
+          'size': _screenSize,
+          'grid': _gridStyle.name,
+          'skin': _activeSkin,
         },
         'widgets': _elements.map((e) => e.toJson()).toList(),
       };

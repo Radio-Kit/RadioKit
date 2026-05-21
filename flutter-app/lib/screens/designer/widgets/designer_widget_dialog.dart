@@ -9,8 +9,8 @@ class DesignerWidgetSheet extends StatelessWidget {
   const DesignerWidgetSheet({super.key, required this.state});
 
   static const _controlVariants = [
-    _SheetVariant('Push Button', LucideIcons.square, DesignerElementType.button, {'mode': 'push'}),
-    _SheetVariant('Toggle Button', LucideIcons.toggleLeft, DesignerElementType.button, {'mode': 'toggle'}),
+    _SheetVariant('Push Button', LucideIcons.square, DesignerElementType.button, {'variant': 'push'}),
+    _SheetVariant('Toggle Button', LucideIcons.toggleLeft, DesignerElementType.button, {'variant': 'toggle'}),
     _SheetVariant('Slide Switch', LucideIcons.toggleLeft, DesignerElementType.slideSwitch, <String, dynamic>{}),
     _SheetVariant('Rocker Switch', LucideIcons.arrowUpDown, DesignerElementType.rockerSwitch, <String, dynamic>{}),
     _SheetVariant('Multiple Button', LucideIcons.radio, DesignerElementType.multiButton, <String, dynamic>{}),
@@ -217,7 +217,7 @@ class _SheetGridItem extends StatelessWidget {
     switch (variant.type) {
       case DesignerElementType.button:
         return RKButton(
-          mode: variant.properties['mode'] == 'toggle'
+          mode: variant.properties['variant'] == 'toggle'
               ? RKButtonMode.toggle
               : RKButtonMode.push,
           onText: variant.properties['onText'] ?? 'ON',

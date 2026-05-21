@@ -4,8 +4,12 @@ import '../models/designer_element.dart';
 import '../models/designer_state.dart';
 import 'canvas_element.dart';
 
+/// Interactive design surface for arranging RadioKit widgets.
 class DesignerCanvas extends StatefulWidget {
+  /// Mutable designer state containing elements, canvas orientation, and mode.
   final DesignerState state;
+
+  /// Creates a canvas bound to [state].
   const DesignerCanvas({super.key, required this.state});
 
   @override
@@ -26,8 +30,10 @@ class _DesignerCanvasState extends State<DesignerCanvas> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final scaleX = constraints.maxWidth / canvasPixelW;
-        final scaleY = constraints.maxHeight / canvasPixelH;
+        final availableW = constraints.maxWidth.clamp(1, double.infinity);
+        final availableH = constraints.maxHeight.clamp(1, double.infinity);
+        final scaleX = availableW / canvasPixelW;
+        final scaleY = availableH / canvasPixelH;
         final scale = math.min(scaleX, scaleY);
         final displayW = canvasPixelW * scale;
         final displayH = canvasPixelH * scale;
@@ -35,53 +41,73 @@ class _DesignerCanvasState extends State<DesignerCanvas> {
         final canvasTop = (constraints.maxHeight - displayH) / 2;
 
         return Stack(
-            key: _outerStackKey,
-            clipBehavior: Clip.none,
-            children: [
-              // ── Background + canvas content (deselection + drop target) ──
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => state.selectElement(null),
-                child: SizedBox.expand(
-                  child: Container(
-                    color: const Color(0xFF0D0D0D),
-                    child: Center(
-                      child: FittedBox(
-                        fit: BoxFit.contain,
-                        clipBehavior: Clip.none,
-                      child: DragTarget<WidgetDragPayload>(
-                        onAcceptWithDetails: (details) {
-                          final renderBox =
-                              _canvasKey.currentContext?.findRenderObject() as RenderBox?;
-                          if (renderBox == null) return;
-                          final localPos = renderBox.globalToLocal(details.offset);
-                          final gx = (localPos.dx / canvasPixelW * cw).round();
-                          final gy = (localPos.dy / canvasPixelH * ch).round();
-                          state.addElement(details.data.type, gx, gy, properties: details.data.properties);
-                        },
-                        builder: (context, candidates, rejected) {
-                          return Container(
-                            key: _canvasKey,
-                            width: canvasPixelW,
-                            height: canvasPixelH,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1A1A1A),
-                              border: Border.all(
-                                color: candidates.isNotEmpty
-                                    ? Colors.cyanAccent
-                                    : const Color(0xFF333333),
-                                width: 1,
-                              ),
-                              borderRadius: BorderRadius.circular(4),
+          key: _outerStackKey,
+          clipBehavior: Clip.none,
+          children: [
+            // ── Background (fills entire area for deselection) ──
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => state.selectElement(null),
+              child: Container(color: const Color(0xFF0D0D0D)),
+            ),
+            // ── Canvas content (scaled to fit available editor area) ──
+            Positioned(
+              left: canvasLeft,
+              top: canvasTop,
+              width: displayW,
+              height: displayH,
+              child: ClipRect(
+                clipBehavior: Clip.hardEdge,
+                child: FittedBox(
+                  fit: BoxFit.fill,
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: canvasPixelW,
+                    height: canvasPixelH,
+                    child: DragTarget<WidgetDragPayload>(
+                      onAcceptWithDetails: (details) {
+                        final renderBox = _canvasKey.currentContext
+                            ?.findRenderObject() as RenderBox?;
+                        if (renderBox == null) return;
+                        final localPos = renderBox.globalToLocal(
+                          details.offset,
+                        );
+                        final gx = (localPos.dx / canvasPixelW * cw).round();
+                        final gy = (localPos.dy / canvasPixelH * ch).round();
+                        state.addElement(
+                          details.data.type,
+                          gx,
+                          gy,
+                          properties: details.data.properties,
+                        );
+                      },
+                      builder: (context, candidates, rejected) {
+                        return Container(
+                          key: _canvasKey,
+                          width: canvasPixelW,
+                          height: canvasPixelH,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1A1A1A),
+                            border: Border.all(
+                              color: candidates.isNotEmpty
+                                  ? Colors.cyanAccent
+                                  : const Color(0xFF333333),
+                              width: 1,
                             ),
-                            child: ListenableBuilder(
-                              listenable: state,
-                              builder: (context, _) {
-                                final widgets = <Widget>[];
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: ListenableBuilder(
+                            listenable: state,
+                            builder: (context, _) {
+                              final widgets = <Widget>[];
 
-                                // Grid background
-                                widgets.add(Positioned(
-                                  left: 0, top: 0, width: canvasPixelW, height: canvasPixelH,
+                              // Grid background
+                              widgets.add(
+                                Positioned(
+                                  left: 0,
+                                  top: 0,
+                                  width: canvasPixelW,
+                                  height: canvasPixelH,
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(3),
                                     child: GestureDetector(
@@ -90,68 +116,79 @@ class _DesignerCanvasState extends State<DesignerCanvas> {
                                       child: CustomPaint(
                                         size: Size(canvasPixelW, canvasPixelH),
                                         painter: _GridPainter(
-                                          cw: cw, ch: ch,
+                                          cw: cw,
+                                          ch: ch,
                                           style: state.gridStyle,
                                         ),
                                       ),
                                     ),
                                   ),
-                                ));
+                                ),
+                              );
 
-                                // Elements only (no handles — they're rendered in the outer Stack)
-                                for (final el in state.elements) {
-                                  final halfW = el.width / 2;
-                                  final halfH = el.height / 2;
-                                  final left = (el.x - halfW) / cw * canvasPixelW;
-                                  final top  = (el.y - halfH) / ch * canvasPixelH;
-                                  final w = el.width  / cw * canvasPixelW;
-                                  final h = el.height / ch * canvasPixelH;
-                                  final isSelected = el.id == state.selectedElementId;
+                              // Elements only (no handles)
+                              for (final el in state.elements) {
+                                final halfW = el.width / 2;
+                                final halfH = el.height / 2;
+                                final left = (el.x - halfW) / cw * canvasPixelW;
+                                final top = (el.y - halfH) / ch * canvasPixelH;
+                                final w = el.width / cw * canvasPixelW;
+                                final h = el.height / ch * canvasPixelH;
+                                final isSelected =
+                                    el.id == state.selectedElementId;
 
-                                  widgets.add(Positioned(
-                                    left: left, top: top, width: w, height: h,
+                                widgets.add(
+                                  Positioned(
+                                    left: left,
+                                    top: top,
+                                    width: w,
+                                    height: h,
                                     child: _MovableElement(
                                       element: el,
                                       isSelected: isSelected,
                                       isPlayMode: state.isPlayMode,
                                       designerState: state,
                                       canvasKey: _canvasKey,
-                                      cw: cw, ch: ch,
+                                      cw: cw,
+                                      ch: ch,
                                       canvasPixelW: canvasPixelW,
                                       canvasPixelH: canvasPixelH,
                                       onTap: () => state.selectElement(
                                         isSelected ? null : el.id,
                                       ),
-                                      onSelect: () => state.selectElement(el.id),
+                                      onSelect: () =>
+                                          state.selectElement(el.id),
                                       onMoved: (newX, newY) {
                                         el.x = newX;
                                         el.y = newY;
                                         state.notifyChanged();
                                       },
                                     ),
-                                  ));
-                                }
+                                  ),
+                                );
+                              }
 
-                                // Drop-target highlight
-                                if (candidates.isNotEmpty) {
-                                  widgets.add(const Positioned.fill(
+                              // Drop-target highlight
+                              if (candidates.isNotEmpty) {
+                                widgets.add(
+                                  const Positioned.fill(
                                     child: IgnorePointer(
                                       child: ColoredBox(
                                         color: Color(0x0D00FFFF),
                                       ),
                                     ),
-                                  ));
-                                }
-
-                                return Stack(
-                                  clipBehavior: Clip.none,
-                                  children: widgets,
+                                  ),
                                 );
-                              },
-                            ),
-                          );
-                        },
-                      ),
+                              }
+
+                              return Stack(
+                                clipBehavior: Clip.none,
+                                children: widgets,
+                              );
+                            },
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -171,8 +208,8 @@ class _DesignerCanvasState extends State<DesignerCanvas> {
                     final halfW = el.width / 2;
                     final halfH = el.height / 2;
                     final left = (el.x - halfW) / cw * canvasPixelW;
-                    final top  = (el.y - halfH) / ch * canvasPixelH;
-                    final w = el.width  / cw * canvasPixelW;
+                    final top = (el.y - halfH) / ch * canvasPixelH;
+                    final w = el.width / cw * canvasPixelW;
                     final h = el.height / ch * canvasPixelH;
 
                     final (rw, rh) = el.renderedGridSize;
@@ -180,25 +217,25 @@ class _DesignerCanvasState extends State<DesignerCanvas> {
                     final rHpx = rh / ch * canvasPixelH;
 
                     final cx = left + w / 2;
-                    final cy = top  + h / 2;
+                    final cy = top + h / 2;
 
                     final angle = el.rotation * math.pi / 180;
-                    final sinR  = math.sin(angle);
-                    final cosR  = math.cos(angle);
+                    final sinR = math.sin(angle);
+                    final cosR = math.cos(angle);
 
                     // Corner positions in canvas-pixel space
-                    final rtlX = cx + (-rWpx/2 * cosR - (-rHpx/2) * sinR);
-                    final rtlY = cy + (-rWpx/2 * sinR + (-rHpx/2) * cosR);
-                    final rbrX = cx + ( rWpx/2 * cosR -  rHpx/2  * sinR);
-                    final rbrY = cy + ( rWpx/2 * sinR +  rHpx/2  * cosR);
+                    final rtlX = cx + (-rWpx / 2 * cosR - (-rHpx / 2) * sinR);
+                    final rtlY = cy + (-rWpx / 2 * sinR + (-rHpx / 2) * cosR);
+                    final rbrX = cx + (rWpx / 2 * cosR - rHpx / 2 * sinR);
+                    final rbrY = cy + (rWpx / 2 * sinR + rHpx / 2 * cosR);
 
                     // Convert to outer Stack coordinates using Flutter's
                     // render-object coordinate transforms for pixel-perfect
                     // alignment with the visual debug box corners.
-                    final canvasRenderBox =
-                        _canvasKey.currentContext?.findRenderObject() as RenderBox?;
-                    final outerRenderBox =
-                        _outerStackKey.currentContext?.findRenderObject() as RenderBox?;
+                    final canvasRenderBox = _canvasKey.currentContext
+                        ?.findRenderObject() as RenderBox?;
+                    final outerRenderBox = _outerStackKey.currentContext
+                        ?.findRenderObject() as RenderBox?;
 
                     final Offset? rtlInStack;
                     final Offset? rbrInStack;
@@ -229,42 +266,45 @@ class _DesignerCanvasState extends State<DesignerCanvas> {
                     final rbrSX = rbrInStack.dx - hOff;
                     final rbrSY = rbrInStack.dy - hOff;
 
-                    handleWidgets.add(Positioned(
-                      left: rtlSX,
-                      top:  rtlSY,
-                      child: _DragHandle(
-                        icon: Icons.rotate_right,
-                        element: el,
-                        designerState: state,
-                        canvasKey: _canvasKey,
-                        cw: cw, ch: ch,
-                        canvasPixelW: canvasPixelW,
-                        canvasPixelH: canvasPixelH,
-                        isRotateHandle: true,
+                    handleWidgets.add(
+                      Positioned(
+                        left: rtlSX,
+                        top: rtlSY,
+                        child: _DragHandle(
+                          icon: Icons.rotate_right,
+                          element: el,
+                          designerState: state,
+                          canvasKey: _canvasKey,
+                          cw: cw,
+                          ch: ch,
+                          canvasPixelW: canvasPixelW,
+                          canvasPixelH: canvasPixelH,
+                          isRotateHandle: true,
+                        ),
                       ),
-                    ));
-                    handleWidgets.add(Positioned(
-                      left: rbrSX,
-                      top:  rbrSY,
-                      child: _DragHandle(
-                        icon: Icons.zoom_out_map,
-                        element: el,
-                        designerState: state,
-                        canvasKey: _canvasKey,
-                        cw: cw, ch: ch,
-                        canvasPixelW: canvasPixelW,
-                        canvasPixelH: canvasPixelH,
-                        isRotateHandle: false,
+                    );
+                    handleWidgets.add(
+                      Positioned(
+                        left: rbrSX,
+                        top: rbrSY,
+                        child: _DragHandle(
+                          icon: Icons.zoom_out_map,
+                          element: el,
+                          designerState: state,
+                          canvasKey: _canvasKey,
+                          cw: cw,
+                          ch: ch,
+                          canvasPixelW: canvasPixelW,
+                          canvasPixelH: canvasPixelH,
+                          isRotateHandle: false,
+                        ),
                       ),
-                    ));
+                    );
                   }
 
                   return Stack(
                     clipBehavior: Clip.none,
-                    children: [
-                      const SizedBox.expand(),
-                      ...handleWidgets,
-                    ],
+                    children: [const SizedBox.expand(), ...handleWidgets],
                   );
                 },
               ),
@@ -336,10 +376,18 @@ class _MovableElementState extends State<_MovableElement> {
     final dx = canvasPos.dx - _dragStartCanvas!.dx;
     final dy = canvasPos.dy - _dragStartCanvas!.dy;
 
-    final newX = (_dragStartGridX! + (dx / widget.canvasPixelW * widget.cw).round())
-        .clamp(widget.element.width ~/ 2, widget.cw - widget.element.width ~/ 2);
-    final newY = (_dragStartGridY! + (dy / widget.canvasPixelH * widget.ch).round())
-        .clamp(widget.element.height ~/ 2, widget.ch - widget.element.height ~/ 2);
+    final newX =
+        (_dragStartGridX! + (dx / widget.canvasPixelW * widget.cw).round())
+            .clamp(
+      widget.element.width ~/ 2,
+      widget.cw - widget.element.width ~/ 2,
+    );
+    final newY =
+        (_dragStartGridY! + (dy / widget.canvasPixelH * widget.ch).round())
+            .clamp(
+      widget.element.height ~/ 2,
+      widget.ch - widget.element.height ~/ 2,
+    );
 
     widget.onMoved(newX, newY);
   }
@@ -422,7 +470,8 @@ class _DragHandleState extends State<_DragHandle> {
     _startHeight = widget.element.height;
     _startRotation = widget.element.rotation;
 
-    final renderBox = widget.canvasKey.currentContext?.findRenderObject() as RenderBox?;
+    final renderBox =
+        widget.canvasKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox != null) {
       _startCanvasPos = renderBox.globalToLocal(details.globalPosition);
     }
@@ -439,21 +488,23 @@ class _DragHandleState extends State<_DragHandle> {
   }
 
   void _handleResize(DragUpdateDetails details) {
-    final renderBox = widget.canvasKey.currentContext?.findRenderObject() as RenderBox?;
+    final renderBox =
+        widget.canvasKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null || _startCanvasPos == null) return;
 
     final pos = renderBox.globalToLocal(details.globalPosition);
     final dx = pos.dx - _startCanvasPos!.dx;
     final dy = pos.dy - _startCanvasPos!.dy;
 
-    final widthDelta  = (dx / widget.canvasPixelW * widget.cw).round();
+    final widthDelta = (dx / widget.canvasPixelW * widget.cw).round();
     final heightDelta = (dy / widget.canvasPixelH * widget.ch).round();
 
     final ar = widget.element.aspectRatio;
     if (ar != null) {
       if (ar == 1.0) {
         // Square widget: use the dominant axis delta, keep equal width/height
-        final delta = widthDelta.abs() > heightDelta.abs() ? widthDelta : heightDelta;
+        final delta =
+            widthDelta.abs() > heightDelta.abs() ? widthDelta : heightDelta;
         final size = (_startWidth! + delta).clamp(8, widget.cw - 8);
         widget.designerState.updateElementSize(
           widget.element.id,
@@ -471,7 +522,7 @@ class _DragHandleState extends State<_DragHandle> {
         );
       }
     } else {
-      final newWidth  = (_startWidth!  + widthDelta ).clamp(8, widget.cw - 8);
+      final newWidth = (_startWidth! + widthDelta).clamp(8, widget.cw - 8);
       final newHeight = (_startHeight! + heightDelta).clamp(8, widget.ch - 8);
       widget.designerState.updateElementSize(
         widget.element.id,
@@ -482,8 +533,13 @@ class _DragHandleState extends State<_DragHandle> {
   }
 
   void _handleRotate(DragUpdateDetails details) {
-    final renderBox = widget.canvasKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null || _startCanvasPos == null || _startRotation == null) return;
+    final renderBox =
+        widget.canvasKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null ||
+        _startCanvasPos == null ||
+        _startRotation == null) {
+      return;
+    }
 
     final el = widget.element;
     final elCenterX = (el.x / widget.cw * widget.canvasPixelW);
@@ -499,7 +555,8 @@ class _DragHandleState extends State<_DragHandle> {
     final startAngle = math.atan2(startDy, startDx);
     final currentAngle = math.atan2(currentDy, currentDx);
     final deltaRadians = currentAngle - startAngle;
-    var newRotation = (_startRotation! + (deltaRadians * 180 / math.pi).round()) % 360;
+    var newRotation =
+        (_startRotation! + (deltaRadians * 180 / math.pi).round()) % 360;
     if (newRotation > 180) newRotation -= 360;
     widget.designerState.updateElementRotation(widget.element.id, newRotation);
   }
@@ -544,7 +601,11 @@ class _GridPainter extends CustomPainter {
   final int ch;
   final GridStyle style;
 
-  _GridPainter({required this.cw, required this.ch, this.style = GridStyle.lines});
+  _GridPainter({
+    required this.cw,
+    required this.ch,
+    this.style = GridStyle.lines,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -603,5 +664,7 @@ class _GridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_GridPainter oldDelegate) =>
-      oldDelegate.cw != cw || oldDelegate.ch != ch || oldDelegate.style != style;
+      oldDelegate.cw != cw ||
+      oldDelegate.ch != ch ||
+      oldDelegate.style != style;
 }

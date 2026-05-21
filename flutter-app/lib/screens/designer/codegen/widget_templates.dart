@@ -9,7 +9,7 @@ String _comment(DesignerElement el) =>
 
 final Map<DesignerElementType, WidgetTemplate> templates = {
   DesignerElementType.button: (el, pin) {
-    final mode = el.properties['mode'] ?? 'push';
+    final mode = el.properties['variant'] ?? 'push';
     final widgetType = mode == 'toggle' ? 'RK_ToggleButton' : 'RK_PushButton';
     final onText = el.properties['onText'] ?? 'ON';
     final offText = el.properties['offText'] ?? 'OFF';

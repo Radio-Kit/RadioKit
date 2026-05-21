@@ -81,14 +81,14 @@ class CanvasElement extends StatelessWidget {
     switch (element.type) {
       case DesignerElementType.button:
         return RKButton(
-          mode: element.properties['mode'] == 'toggle'
+          mode: element.properties['variant'] == 'toggle'
               ? RKButtonMode.toggle
               : RKButtonMode.push,
           onText: element.properties['onText'] ?? 'ON',
           offText: element.properties['offText'] ?? 'OFF',
           onIcon: iconFromName(element.properties['onIcon'] as String?),
           offIcon: iconFromName(element.properties['offIcon'] as String?),
-          enableHapticFeedback: element.properties['enableHapticFeedback'] ?? true,
+          enableHapticFeedback: element.properties['haptic'] ?? true,
           label: (!element.labelHidden && element.label.isNotEmpty) ? element.label : null,
           onChanged: isPlay
               ? (v) => designerState!.setRuntimeWidgetValue(id, v)
@@ -107,7 +107,7 @@ class CanvasElement extends StatelessWidget {
               : (_) {},
           onText: element.properties['onText'] ?? 'ON',
           offText: element.properties['offText'] ?? 'OFF',
-          enableHapticFeedback: element.properties['enableHapticFeedback'] ?? true,
+          enableHapticFeedback: element.properties['haptic'] ?? true,
           label: (!element.labelHidden && element.label.isNotEmpty) ? element.label : null,
           width: element.width.toDouble() * cs,
           height: element.height.toDouble() * cs,
@@ -124,7 +124,7 @@ class CanvasElement extends StatelessWidget {
               : (_) {},
           onIcon: iconFromName(element.properties['onIcon'] as String?),
           offIcon: iconFromName(element.properties['offIcon'] as String?),
-          enableHapticFeedback: element.properties['enableHapticFeedback'] ?? true,
+          enableHapticFeedback: element.properties['haptic'] ?? true,
           label: (!element.labelHidden && element.label.isNotEmpty) ? element.label : null,
           width: element.width.toDouble() * cs,
           height: element.height.toDouble() * cs,
@@ -295,7 +295,7 @@ class CanvasElement extends StatelessWidget {
       selected: isPlay ? (designerState!.getRuntimeWidgetValue(id, 0) as int?) ?? 0 : 0,
       onChanged: isPlay ? (v) => designerState!.setRuntimeWidgetValue(id, v) : (_) {},
       buttonSize: buttonSize,
-      enableHapticFeedback: element.properties['enableHapticFeedback'] ?? true,
+      enableHapticFeedback: element.properties['haptic'] ?? true,
       orientation: horizontal ? RKAxis.horizontal : RKAxis.vertical,
       label: element.label.isNotEmpty ? element.label : null,
       showDebug: showDebug,
@@ -318,7 +318,7 @@ class CanvasElement extends StatelessWidget {
       bitmask: isPlay ? (designerState!.getRuntimeWidgetValue(id, 0) as int?) ?? 0 : 0,
       onChanged: isPlay ? (v) => designerState!.setRuntimeWidgetValue(id, v) : (_) {},
       buttonSize: buttonSize,
-      enableHapticFeedback: element.properties['enableHapticFeedback'] ?? true,
+      enableHapticFeedback: element.properties['haptic'] ?? true,
       orientation: horizontal ? RKAxis.horizontal : RKAxis.vertical,
       label: element.label.isNotEmpty ? element.label : null,
       showDebug: showDebug,

@@ -605,7 +605,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
         children: [
           // Line numbers gutter
           SizedBox(
-            width: 36,
+            width: 40,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: List.generate(lines.length, (i) {
@@ -613,6 +613,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                   height: lineHeight,
                   child: Text(
                     '${i + 1}',
+                    overflow: TextOverflow.clip,
                     style: const TextStyle(
                       color: Color(0xFF555555),
                       fontSize: 12,
@@ -648,11 +649,36 @@ class _DesignerScreenState extends State<DesignerScreen> {
     );
   }
 
+  /// Transforms JSON for code viewer display:
+  /// - Renames `label` → `id` to show the C++ identifier name
+  /// - Replaces `labelHidden` → `label` with values `show`/`hide`
+  String _transformJsonForDisplay(String rawJson) {
+    final data = jsonDecode(rawJson);
+    if (data is! Map<String, dynamic>) return rawJson;
+
+    final widgets = data['widgets'];
+    if (widgets is List) {
+      for (final w in widgets) {
+        if (w is! Map<String, dynamic>) continue;
+        // Rename 'label' to 'id'
+        if (w.containsKey('label')) {
+          w['id'] = w.remove('label');
+        }
+        // Replace 'labelHidden' with 'label': 'show'/'hide'
+        final hidden = w.remove('labelHidden') as bool? ?? false;
+        w['label'] = hidden ? 'hide' : 'show';
+      }
+    }
+
+    return const JsonEncoder.withIndent('  ').convert(data);
+  }
+
   // ── Code generation dialog ───────────────────────────────────────────────
 
   void _showSourceCode(BuildContext context, RKTokens tokens) {
     final encoder = JsonEncoder.withIndent('  ');
     final jsonString = encoder.convert(_state.toJson());
+    final displayJsonString = _transformJsonForDisplay(jsonString);
 
     showGeneralDialog(
       context: context,
@@ -669,7 +695,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
             parent: animation,
             curve: Curves.easeInOut,
           )),
-          child: Container(
+          child: Material(
             color: const Color(0xFF0D0D0D),
             child: SafeArea(
               left: false,
@@ -853,7 +879,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                               Expanded(
                                 child: Container(
                                   color: const Color(0xFF0A0A0A),
-                                  child: _buildCodeView(jsonString),
+                                  child: _buildCodeView(displayJsonString),
                                 ),
                               ),
                             ],

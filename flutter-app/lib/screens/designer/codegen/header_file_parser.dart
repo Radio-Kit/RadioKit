@@ -62,6 +62,7 @@ class HeaderFileConfig {
 class HeaderAppConfig {
   final String name;
   final String description;
+  final String type;
   final String transport;
   final String theme;
   final String password;
@@ -69,6 +70,7 @@ class HeaderAppConfig {
   const HeaderAppConfig({
     this.name = '',
     this.description = '',
+    this.type = 'Locomotive',
     this.transport = 'BLE',
     this.theme = 'RK_DEFAULT',
     this.password = '',
@@ -77,6 +79,7 @@ class HeaderAppConfig {
   factory HeaderAppConfig.fromJson(Map<String, dynamic> json) => HeaderAppConfig(
         name: json['name'] as String? ?? '',
         description: json['description'] as String? ?? '',
+        type: json['type'] as String? ?? 'Locomotive',
         transport: json['transport'] as String? ?? 'BLE',
         theme: json['theme'] as String? ?? 'RK_DEFAULT',
         password: json['password'] as String? ?? '',
@@ -85,6 +88,7 @@ class HeaderAppConfig {
   Map<String, dynamic> toJson() => {
         'name': name,
         'description': description,
+        'type': type,
         'transport': transport,
         'theme': theme,
         'password': password,
@@ -92,13 +96,29 @@ class HeaderAppConfig {
 }
 
 class HeaderCanvasConfig {
-  final String orientation;
+  final String size;
+  final String grid;
+  final String skin;
 
-  const HeaderCanvasConfig({this.orientation = 'landscape'});
+  const HeaderCanvasConfig({
+    this.size = '200 x 100',
+    this.grid = 'none',
+    this.skin = 'dragon',
+  });
 
-  factory HeaderCanvasConfig.fromJson(Map<String, dynamic> json) => HeaderCanvasConfig(
-        orientation: json['orientation'] as String? ?? 'landscape',
-      );
+  factory HeaderCanvasConfig.fromJson(Map<String, dynamic> json) {
+    // read 'size' (new) or fall back to 'screenSize' / 'orientation' (old)
+    final rawSize = (json['size'] ?? json['screenSize']) as String? ?? '200 x 100';
+    return HeaderCanvasConfig(
+      size: rawSize,
+      grid: json['grid'] as String? ?? 'none',
+      skin: json['skin'] as String? ?? 'dragon',
+    );
+  }
 
-  Map<String, dynamic> toJson() => {'orientation': orientation};
+  Map<String, dynamic> toJson() => {
+        'size': size,
+        'grid': grid,
+        'skin': skin,
+      };
 }

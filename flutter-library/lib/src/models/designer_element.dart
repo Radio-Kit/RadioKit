@@ -80,24 +80,24 @@ class DesignerElement {
     switch (type) {
       case DesignerElementType.button:
         return {
-          'mode': 'push',
+          'variant': 'push',
           'onText': 'ON',
           'offText': 'OFF',
           'onIcon': null,
           'offIcon': null,
-          'enableHapticFeedback': true,
+          'haptic': true,
         };
       case DesignerElementType.slideSwitch:
         return {
           'onText': 'ON',
           'offText': 'OFF',
-          'enableHapticFeedback': true,
+          'haptic': true,
         };
       case DesignerElementType.rockerSwitch:
         return {
           'onIcon': null,
           'offIcon': null,
-          'enableHapticFeedback': true,
+          'haptic': true,
         };
       case DesignerElementType.slider:
         return {
@@ -145,12 +145,12 @@ class DesignerElement {
         };
       case DesignerElementType.multiButton:
         return {
-          'enableHapticFeedback': true,
+          'haptic': true,
           'itemCount': 3,
         };
       case DesignerElementType.multiSelect:
         return {
-          'enableHapticFeedback': true,
+          'haptic': true,
           'itemCount': 3,
         };
       case DesignerElementType.gasPedal:
@@ -259,30 +259,72 @@ class DesignerElement {
   }
 
   Map<String, dynamic> toJson() {
-    final props = Map<String, dynamic>.from(properties);
-    if (type == DesignerElementType.gasPedal) props['variant'] = 'gasPedal';
-    if (type == DesignerElementType.steeringWheel) props['variant'] = 'steeringWheel';
-    if (type == DesignerElementType.multiSelect) props['variant'] = 'multiSelect';
-    if (type == DesignerElementType.multiButton) props['variant'] = 'multiButton';
-    if (type == DesignerElementType.rockerSwitch) props['variant'] = 'rockerSwitch';
-
-    return {
+    final result = <String, dynamic>{
       'id': id,
       'type': jsonTypeStr,
       'x': x,
       'y': y,
       'width': width,
       'height': height,
-      'properties': props,
+      'rotation': rotation,
       'label': label,
       'labelHidden': labelHidden,
-      'rotation': rotation,
     };
+
+    // Behavior-related values are nested under a 'behavior' key
+    const behaviorKeys = {
+      'autoCenter', 'center', 'centerX', 'centerY',
+      'springBehavior', 'springDuration',
+    };
+    final behavior = <String, dynamic>{};
+
+    // Split properties: behavior keys go into nested map, rest stay flat
+    for (final entry in properties.entries) {
+      if (behaviorKeys.contains(entry.key)) {
+        behavior[entry.key] = entry.value;
+      } else {
+        result[entry.key] = entry.value;
+      }
+    }
+
+    if (behavior.isNotEmpty) {
+      result['behavior'] = behavior;
+    }
+
+    // Add variant markers for special widget types
+    if (type == DesignerElementType.gasPedal) result['variant'] = 'gasPedal';
+    if (type == DesignerElementType.steeringWheel) result['variant'] = 'steeringWheel';
+    if (type == DesignerElementType.multiSelect) result['variant'] = 'multiSelect';
+    if (type == DesignerElementType.multiButton) result['variant'] = 'multiButton';
+    if (type == DesignerElementType.rockerSwitch) result['variant'] = 'rockerSwitch';
+
+    return result;
   }
 
   factory DesignerElement.fromJson(Map<String, dynamic> json) {
     String typeStr = json['type'] as String;
-    Map<String, dynamic> props = Map<String, dynamic>.from(json['properties'] as Map? ?? {});
+
+    // Read properties — from nested 'properties' key (old format) or
+    // from unknown top-level keys (new flattened format)
+    Map<String, dynamic> props;
+    if (json.containsKey('properties')) {
+      props = Map<String, dynamic>.from(json['properties'] as Map? ?? {});
+    } else {
+      props = {};
+      const knownKeys = {
+        'id', 'type', 'x', 'y', 'width', 'height',
+        'rotation', 'label', 'labelHidden', 'properties', 'behavior',
+      };
+      for (final key in json.keys) {
+        if (key == 'behavior' && json[key] is Map) {
+          // Un-nest behavior values back into flat properties
+          final behavior = json[key] as Map<String, dynamic>;
+          props.addAll(Map<String, dynamic>.from(behavior));
+        } else if (!knownKeys.contains(key)) {
+          props[key] = json[key];
+        }
+      }
+    }
     DesignerElementType parsedType;
 
     switch (typeStr) {
@@ -310,6 +352,18 @@ class DesignerElement {
         }
     }
 
+    // Backward compat: map old keys to new names
+    if (props.containsKey('mode') && !props.containsKey('variant')) {
+      props['variant'] = props.remove('mode');
+    }
+    if (props.containsKey('enableHapticFeedback') && !props.containsKey('haptic')) {
+      props['haptic'] = props.remove('enableHapticFeedback');
+    }
+
+    // Seed with all default property keys so missing values are filled in
+    final seeded = _defaultProperties(parsedType);
+    seeded.addAll(props);
+
     return DesignerElement(
       id: json['id'] as String,
       type: parsedType,
@@ -317,7 +371,7 @@ class DesignerElement {
       y: json['y'] as int,
       width: json['width'] as int,
       height: json['height'] as int,
-      properties: props,
+      properties: seeded,
       label: json['label'] as String? ?? '',
       labelHidden: json['labelHidden'] as bool? ?? false,
       rotation: json['rotation'] as int? ?? 0,

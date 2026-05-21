@@ -4,11 +4,16 @@
   "config": {
     "name": "ServoControl",
     "description": "SliderServo — RadioKit widget configuration + transport init.",
+    "type": "Locomotive",
     "transport": "BLE",
     "theme": "RK_DEFAULT",
     "password": ""
   },
-  "canvas": { "orientation": "landscape" },
+  "canvas": {
+    "size": "200 x 100",
+    "grid": "none",
+    "skin": "dragon"
+  },
   "widgets": [
     {
       "type": "slider", "id": "servoSlider",
@@ -16,11 +21,9 @@
       "width": 80, "height": 12,
       "rotation": 0,
       "label": "Angle",
-      "properties": {
-        "centering": "none",
-        "detents": 0,
-        "value": 0
-      }
+      "centering": "none",
+      "detents": 0,
+      "value": 0
     },
     {
       "type": "led", "id": "zoneLED",
@@ -28,12 +31,10 @@
       "width": 0, "height": 14,
       "rotation": 0,
       "label": "Zone",
-      "properties": {
-        "state": "on",
-        "shape": "circle",
-        "color": 65280,
-        "timing": 500
-      }
+      "state": "on",
+      "shape": "circle",
+      "color": 65280,
+      "timing": 500
     },
     {
       "type": "text", "id": "angleText",
@@ -41,9 +42,7 @@
       "width": 0, "height": 10,
       "rotation": 0,
       "label": "Deg",
-      "properties": {
-        "content": ""
-      }
+      "content": ""
     }
   ]
 }

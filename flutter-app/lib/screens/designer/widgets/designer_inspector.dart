@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 import 'inspector_field_builders.dart';
@@ -180,6 +181,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                         )
                       : null,
                 ),
+                inputFormatters: [CppIdentifierFormatter()],
                 onChanged: (v) => widget.state.updateElementLabel(el.id, v),
               ),
             ),
@@ -510,9 +512,9 @@ class _DesignerInspectorState extends State<DesignerInspector> {
     switch (el.type) {
       case DesignerElementType.button:
         fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(tokens, 'Mode',
-            el.properties['mode'] ?? 'push',
+            el.properties['variant'] ?? 'push',
             ['push', 'toggle'],
-            (v) => widget.state.updateElementProperty(el.id, 'mode', v)));
+            (v) => widget.state.updateElementProperty(el.id, 'variant', v)));
         fields.add(InspectorFieldBuilders.buildTextField(tokens, 'On Text', el.properties['onText'] ?? 'ON',
             (v) => widget.state.updateElementProperty(el.id, 'onText', v)));
         fields.add(IconFieldBuilder.buildIconSelectorField(context, 'On Icon',
@@ -523,8 +525,8 @@ class _DesignerInspectorState extends State<DesignerInspector> {
         fields.add(IconFieldBuilder.buildIconSelectorField(context, 'Off Icon',
             el.properties['offIcon'] as String?,
             (v) => widget.state.updateElementProperty(el.id, 'offIcon', v)));
-        fields.add(InspectorFieldBuilders.buildBoolToggle(tokens, 'Haptics', el.properties['enableHapticFeedback'] ?? true,
-            (v) => widget.state.updateElementProperty(el.id, 'enableHapticFeedback', v)));
+        fields.add(InspectorFieldBuilders.buildBoolToggle(tokens, 'Haptics', el.properties['haptic'] ?? true,
+            (v) => widget.state.updateElementProperty(el.id, 'haptic', v)));
         break;
 
       case DesignerElementType.slideSwitch:
@@ -532,8 +534,8 @@ class _DesignerInspectorState extends State<DesignerInspector> {
             (v) => widget.state.updateElementProperty(el.id, 'onText', v)));
         fields.add(InspectorFieldBuilders.buildTextField(tokens, 'Off Text', el.properties['offText'] ?? 'OFF',
             (v) => widget.state.updateElementProperty(el.id, 'offText', v)));
-        fields.add(InspectorFieldBuilders.buildBoolToggle(tokens, 'Haptics', el.properties['enableHapticFeedback'] ?? true,
-            (v) => widget.state.updateElementProperty(el.id, 'enableHapticFeedback', v)));
+        fields.add(InspectorFieldBuilders.buildBoolToggle(tokens, 'Haptics', el.properties['haptic'] ?? true,
+            (v) => widget.state.updateElementProperty(el.id, 'haptic', v)));
         break;
 
       case DesignerElementType.rockerSwitch:
@@ -543,8 +545,8 @@ class _DesignerInspectorState extends State<DesignerInspector> {
         fields.add(IconFieldBuilder.buildIconSelectorField(context, 'Off Icon',
             el.properties['offIcon'] as String?,
             (v) => widget.state.updateElementProperty(el.id, 'offIcon', v)));
-        fields.add(InspectorFieldBuilders.buildBoolToggle(tokens, 'Haptics', el.properties['enableHapticFeedback'] ?? true,
-            (v) => widget.state.updateElementProperty(el.id, 'enableHapticFeedback', v)));
+        fields.add(InspectorFieldBuilders.buildBoolToggle(tokens, 'Haptics', el.properties['haptic'] ?? true,
+            (v) => widget.state.updateElementProperty(el.id, 'haptic', v)));
         break;
 
       case DesignerElementType.slider:
@@ -786,15 +788,15 @@ class _DesignerInspectorState extends State<DesignerInspector> {
         break;
 
       case DesignerElementType.multiButton:
-        fields.add(InspectorFieldBuilders.buildBoolToggle(tokens, 'Haptics', el.properties['enableHapticFeedback'] ?? true,
-            (v) => widget.state.updateElementProperty(el.id, 'enableHapticFeedback', v)));
+        fields.add(InspectorFieldBuilders.buildBoolToggle(tokens, 'Haptics', el.properties['haptic'] ?? true,
+            (v) => widget.state.updateElementProperty(el.id, 'haptic', v)));
         fields.add(InspectorFieldBuilders.buildNumField(tokens, 'Items', (el.properties['itemCount'] as num?)?.toInt() ?? 3,
             (v) => widget.state.updateElementProperty(el.id, 'itemCount', v)));
         break;
 
       case DesignerElementType.multiSelect:
-        fields.add(InspectorFieldBuilders.buildBoolToggle(tokens, 'Haptics', el.properties['enableHapticFeedback'] ?? true,
-            (v) => widget.state.updateElementProperty(el.id, 'enableHapticFeedback', v)));
+        fields.add(InspectorFieldBuilders.buildBoolToggle(tokens, 'Haptics', el.properties['haptic'] ?? true,
+            (v) => widget.state.updateElementProperty(el.id, 'haptic', v)));
         fields.add(InspectorFieldBuilders.buildNumField(tokens, 'Items', (el.properties['itemCount'] as num?)?.toInt() ?? 3,
             (v) => widget.state.updateElementProperty(el.id, 'itemCount', v)));
         break;
@@ -896,3 +898,22 @@ class _DesignerInspectorState extends State<DesignerInspector> {
     return fields;
   }
 }
+
+/// Replaces any character that isn't a valid C++ identifier character
+/// (letters, digits, underscore) with an underscore.
+class CppIdentifierFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    final sanitized = newValue.text.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
+    if (sanitized == newValue.text) return newValue;
+
+    final cursorPos = newValue.selection.baseOffset;
+    final adjustedPos = cursorPos.clamp(0, sanitized.length);
+
+    return TextEditingValue(
+      text: sanitized,
+      selection: TextSelection.collapsed(offset: adjustedPos),
+    );
+  }
+}
+
