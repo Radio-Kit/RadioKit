@@ -25,6 +25,9 @@ class RKKnob extends StatefulWidget {
     this.showDebug = true,
   });
 
+  /// The fixed aspect ratio (width/height) for this widget.
+  static const double? aspectRatio = 1.0;
+
   final IconData? centerIcon;
   final double rotation;
   final String? label;

@@ -128,12 +128,17 @@ class _DesignerCanvasState extends State<DesignerCanvas> {
 
                               // Elements only (no handles)
                               for (final el in state.elements) {
-                                final halfW = el.width / 2;
-                                final halfH = el.height / 2;
+                                // Use renderedGridSize so the Positioned
+                                // container matches the SizedBox inside
+                                // CanvasElement exactly — keeps FittedBox
+                                // scale at 1 and handle corners pixel-perfect.
+                                final (rw, rh) = el.renderedGridSize;
+                                final halfW = rw / 2;
+                                final halfH = rh / 2;
                                 final left = (el.x - halfW) / cw * canvasPixelW;
                                 final top = (el.y - halfH) / ch * canvasPixelH;
-                                final w = el.width / cw * canvasPixelW;
-                                final h = el.height / ch * canvasPixelH;
+                                final w = rw / cw * canvasPixelW;
+                                final h = rh / ch * canvasPixelH;
                                 final isSelected =
                                     el.id == state.selectedElementId;
 
@@ -205,16 +210,16 @@ class _DesignerCanvasState extends State<DesignerCanvas> {
                   for (final el in state.elements) {
                     if (el.id != state.selectedElementId) continue;
 
-                    final halfW = el.width / 2;
-                    final halfH = el.height / 2;
+                    // Use renderedGridSize consistently so the handle bounding
+                    // box matches the debug box exactly (especially for widgets
+                    // with a fixed aspect ratio like multiButton/multiSelect).
+                    final (rw, rh) = el.renderedGridSize;
+                    final halfW = rw / 2;
+                    final halfH = rh / 2;
                     final left = (el.x - halfW) / cw * canvasPixelW;
                     final top = (el.y - halfH) / ch * canvasPixelH;
-                    final w = el.width / cw * canvasPixelW;
-                    final h = el.height / ch * canvasPixelH;
-
-                    final (rw, rh) = el.renderedGridSize;
-                    final rWpx = rw / cw * canvasPixelW;
-                    final rHpx = rh / ch * canvasPixelH;
+                    final w = rw / cw * canvasPixelW;
+                    final h = rh / ch * canvasPixelH;
 
                     final cx = left + w / 2;
                     final cy = top + h / 2;
@@ -224,10 +229,10 @@ class _DesignerCanvasState extends State<DesignerCanvas> {
                     final cosR = math.cos(angle);
 
                     // Corner positions in canvas-pixel space
-                    final rtlX = cx + (-rWpx / 2 * cosR - (-rHpx / 2) * sinR);
-                    final rtlY = cy + (-rWpx / 2 * sinR + (-rHpx / 2) * cosR);
-                    final rbrX = cx + (rWpx / 2 * cosR - rHpx / 2 * sinR);
-                    final rbrY = cy + (rWpx / 2 * sinR + rHpx / 2 * cosR);
+                    final rtlX = cx + (-w / 2 * cosR - (-h / 2) * sinR);
+                    final rtlY = cy + (-w / 2 * sinR + (-h / 2) * cosR);
+                    final rbrX = cx + (w / 2 * cosR - h / 2 * sinR);
+                    final rbrY = cy + (w / 2 * sinR + h / 2 * cosR);
 
                     // Convert to outer Stack coordinates using Flutter's
                     // render-object coordinate transforms for pixel-perfect
@@ -376,17 +381,18 @@ class _MovableElementState extends State<_MovableElement> {
     final dx = canvasPos.dx - _dragStartCanvas!.dx;
     final dy = canvasPos.dy - _dragStartCanvas!.dy;
 
+    final (rw, rh) = widget.element.renderedGridSize;
     final newX =
         (_dragStartGridX! + (dx / widget.canvasPixelW * widget.cw).round())
             .clamp(
-      widget.element.width ~/ 2,
-      widget.cw - widget.element.width ~/ 2,
+      rw ~/ 2,
+      widget.cw - rw ~/ 2,
     );
     final newY =
         (_dragStartGridY! + (dy / widget.canvasPixelH * widget.ch).round())
             .clamp(
-      widget.element.height ~/ 2,
-      widget.ch - widget.element.height ~/ 2,
+      rh ~/ 2,
+      widget.ch - rh ~/ 2,
     );
 
     widget.onMoved(newX, newY);
@@ -499,13 +505,16 @@ class _DragHandleState extends State<_DragHandle> {
     final widthDelta = (dx / widget.canvasPixelW * widget.cw).round();
     final heightDelta = (dy / widget.canvasPixelH * widget.ch).round();
 
+    final (minW, minH) = DesignerElement.minSize(widget.element.type,
+        currentWidth: widget.element.width, currentHeight: widget.element.height);
     final ar = widget.element.aspectRatio;
     if (ar != null) {
       if (ar == 1.0) {
         // Square widget: use the dominant axis delta, keep equal width/height
         final delta =
             widthDelta.abs() > heightDelta.abs() ? widthDelta : heightDelta;
-        final size = (_startWidth! + delta).clamp(8, widget.cw - 8);
+        final minSize = minW > minH ? minW : minH;
+        final size = (_startWidth! + delta).clamp(minSize, widget.cw - minSize);
         widget.designerState.updateElementSize(
           widget.element.id,
           width: size,
@@ -513,7 +522,7 @@ class _DragHandleState extends State<_DragHandle> {
         );
       } else if (ar < 0) {
         // Vertical fixed-AR (multi): width is primary, derive height
-        final newWidth = (_startWidth! + widthDelta).clamp(8, widget.cw - 8);
+        final newWidth = (_startWidth! + widthDelta).clamp(minW, widget.cw - minW);
         final autoH = (newWidth * -ar).round().clamp(1, 999);
         widget.designerState.updateElementSize(
           widget.element.id,
@@ -522,7 +531,7 @@ class _DragHandleState extends State<_DragHandle> {
         );
       } else {
         // Horizontal fixed-AR: height is primary, derive width
-        final newHeight = (_startHeight! + heightDelta).clamp(8, widget.ch - 8);
+        final newHeight = (_startHeight! + heightDelta).clamp(minH, widget.ch - minH);
         final autoW = (newHeight * ar).round().clamp(1, 999);
         widget.designerState.updateElementSize(
           widget.element.id,
@@ -531,8 +540,8 @@ class _DragHandleState extends State<_DragHandle> {
         );
       }
     } else {
-      final newWidth = (_startWidth! + widthDelta).clamp(8, widget.cw - 8);
-      final newHeight = (_startHeight! + heightDelta).clamp(8, widget.ch - 8);
+      final newWidth = (_startWidth! + widthDelta).clamp(minW, widget.cw - minW);
+      final newHeight = (_startHeight! + heightDelta).clamp(minH, widget.ch - minH);
       widget.designerState.updateElementSize(
         widget.element.id,
         width: newWidth,

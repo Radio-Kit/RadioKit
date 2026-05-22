@@ -24,6 +24,9 @@ class RKButton extends StatefulWidget {
     this.showDebug = true,
   });
 
+  /// The fixed aspect ratio (width/height) for this widget.
+  static const double? aspectRatio = 1.0;
+
   final ValueChanged<bool> onChanged;
   final RKButtonMode mode;
   final String? onText;
@@ -98,7 +101,7 @@ class _RKButtonState extends State<RKButton> with SingleTickerProviderStateMixin
                       offset: const Offset(0, 10),
                     ),
                     BoxShadow(
-                      color: activeColor.withValues(alpha: 0.15 + (0.35 * t)),
+                      color: activeColor.withValues(alpha: 0.5 * t),
                       blurRadius: 10 + (12 * t),
                       spreadRadius: 1 + (2 * t),
                     ),
@@ -140,7 +143,7 @@ class _RKButtonState extends State<RKButton> with SingleTickerProviderStateMixin
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: activeColor.withValues(alpha: 0.1 + (0.4 * t)),
+                            color: activeColor.withValues(alpha: 0.5 * t),
                             blurRadius: 6 + (10 * t),
                             spreadRadius: 0 + (2 * t),
                           ),

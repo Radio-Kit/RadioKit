@@ -44,6 +44,7 @@ class _DemoScreenState extends State<DemoScreen> {
   String _widgetLabel = '';
 
   double _rotation = 0.0;
+  RKTokens _customTokens = RKTokens.dragon.copyWith();
 
   // ─── Slider live state ───
   bool _sliderAutoCenter = true;
@@ -115,6 +116,8 @@ class _DemoScreenState extends State<DemoScreen> {
 
   Timer? _serialTimer;
 
+  bool _showTokensPanel = false;
+
   @override
   void initState() {
     super.initState();
@@ -130,7 +133,9 @@ class _DemoScreenState extends State<DemoScreen> {
   @override
   void didUpdateWidget(DemoScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Reset logic here if needed
+    if (oldWidget.selectedIndex != widget.selectedIndex) {
+      _showTokensPanel = false;
+    }
   }
 
   @override
@@ -228,145 +233,153 @@ class _DemoScreenState extends State<DemoScreen> {
                         _debugEnabled.value = RKDebugOverlay.enabled;
                       });
                     },
+                    onOpenColors: () => setState(() => _showTokensPanel = !_showTokensPanel),
                   ),
                 ),
 
                 // Aesthetic core tabs
-                _AestheticCoreBar(),
+                _AestheticCoreBar(
+                  onSelectSkin: (skin) {
+                    themeNotifier.value = skin;
+                    setState(() {});
+                  },
+                  onSelectCustom: () {
+                    themeNotifier.value = _customTokens;
+                    setState(() {});
+                  },
+                ),
 
                 // Scrollable card grid
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(24),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1000),
-                      child: Column(
-                        children: _buildDemoCards(context),
-                      ),
-                    ),
-                  ),
+                          padding: const EdgeInsets.all(24),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 1000),
+                            child: Column(
+                              children: _buildDemoCards(context),
+                            ),
+                          ),
+                        ),
                 ),
               ],
             ),
           ),
 
+          // ─── Tokens side panel ───
+          if (_showTokensPanel) _buildTokensPanel(context),
+
           // ─── Right inspector ───
-          InspectorPanel(
-            selectedIndex: widget.selectedIndex,
-            // Centering behavior (shared props)
-            selfCentering: widget.selectedIndex == 5 
-              ? _joySelfCentering 
-              : widget.selectedIndex == 4
-                ? _knobAutoCenter
-                : _sliderAutoCenter,
-            centerPosition: widget.selectedIndex == 5 
-              ? _joyCenterPosition 
-              : widget.selectedIndex == 4
-                ? _knobCenterPos
-                : _sliderCenterPos,
-            
-            // Values
-            amplitude: _joyAmplitude,
-            resolution: widget.selectedIndex == 5 
-              ? _joyResolution 
-              : widget.selectedIndex == 4
-                ? _knobResolution
-                : _sliderResolution,
-            minAngle: _knobMinAngle,
-            maxAngle: _knobMaxAngle,
-            minValue: widget.selectedIndex == 4 ? _knobMin : _sliderMin,
-            maxValue: widget.selectedIndex == 4 ? _knobMax : _sliderMax,
-            
-            onSelfCenteringChanged: (v) => setState(() {
-              if (widget.selectedIndex == 5) _joySelfCentering = v;
-              else if (widget.selectedIndex == 4) _knobAutoCenter = v;
-              else _sliderAutoCenter = v;
-            }),
-            onCenterPositionChanged: (v) => setState(() {
-              if (widget.selectedIndex == 5) _joyCenterPosition = v;
-              else if (widget.selectedIndex == 4) _knobCenterPos = v;
-              else _sliderCenterPos = v;
-            }),
-            onAmplitudeChanged: (v) => setState(() => _joyAmplitude = v),
-            onResolutionChanged: (v) => setState(() {
-              if (widget.selectedIndex == 5) _joyResolution = v;
-              else if (widget.selectedIndex == 4) _knobResolution = v;
-              else _sliderResolution = v;
-            }),
-            onMinAngleChanged: (v) => setState(() => _knobMinAngle = v),
-            onMaxAngleChanged: (v) => setState(() => _knobMaxAngle = v),
-            onMinValueChanged: (v) => setState(() {
-              if (widget.selectedIndex == 4) _knobMin = v;
-              else _sliderMin = v;
-            }),
-            onMaxValueChanged: (v) => setState(() {
-              if (widget.selectedIndex == 4) _knobMax = v;
-              else _sliderMax = v;
-            }),
-            springBehavior: widget.selectedIndex == 5 ? _joySpringBehavior : widget.selectedIndex == 4 ? _knobSpringBehavior : _sliderSpringBehavior,
-            springDuration: widget.selectedIndex == 5 ? _joySpringDuration : widget.selectedIndex == 4 ? _knobSpringDuration : _sliderSpringDuration,
-            onSpringBehaviorChanged: (v) => setState(() {
-              if (widget.selectedIndex == 5) _joySpringBehavior = v;
-              else if (widget.selectedIndex == 4) _knobSpringBehavior = v;
-              else _sliderSpringBehavior = v;
-            }),
-            onSpringDurationChanged: (v) => setState(() {
-              if (widget.selectedIndex == 5) _joySpringDuration = v;
-              else if (widget.selectedIndex == 4) _knobSpringDuration = v;
-              else _sliderSpringDuration = v;
-            }),
+          if (!_showTokensPanel) InspectorPanel(
+              selectedIndex: widget.selectedIndex,
+              selfCentering: widget.selectedIndex == 5 
+                ? _joySelfCentering 
+                : widget.selectedIndex == 4
+                  ? _knobAutoCenter
+                  : _sliderAutoCenter,
+              centerPosition: widget.selectedIndex == 5 
+                ? _joyCenterPosition 
+                : widget.selectedIndex == 4
+                  ? _knobCenterPos
+                  : _sliderCenterPos,
+              
+              amplitude: _joyAmplitude,
+              resolution: widget.selectedIndex == 5 
+                ? _joyResolution 
+                : widget.selectedIndex == 4
+                  ? _knobResolution
+                  : _sliderResolution,
+              minAngle: _knobMinAngle,
+              maxAngle: _knobMaxAngle,
+              minValue: widget.selectedIndex == 4 ? _knobMin : _sliderMin,
+              maxValue: widget.selectedIndex == 4 ? _knobMax : _sliderMax,
+              
+              onSelfCenteringChanged: (v) => setState(() {
+                if (widget.selectedIndex == 5) _joySelfCentering = v;
+                else if (widget.selectedIndex == 4) _knobAutoCenter = v;
+                else _sliderAutoCenter = v;
+              }),
+              onCenterPositionChanged: (v) => setState(() {
+                if (widget.selectedIndex == 5) _joyCenterPosition = v;
+                else if (widget.selectedIndex == 4) _knobCenterPos = v;
+                else _sliderCenterPos = v;
+              }),
+              onAmplitudeChanged: (v) => setState(() => _joyAmplitude = v),
+              onResolutionChanged: (v) => setState(() {
+                if (widget.selectedIndex == 5) _joyResolution = v;
+                else if (widget.selectedIndex == 4) _knobResolution = v;
+                else _sliderResolution = v;
+              }),
+              onMinAngleChanged: (v) => setState(() => _knobMinAngle = v),
+              onMaxAngleChanged: (v) => setState(() => _knobMaxAngle = v),
+              onMinValueChanged: (v) => setState(() {
+                if (widget.selectedIndex == 4) _knobMin = v;
+                else _sliderMin = v;
+              }),
+              onMaxValueChanged: (v) => setState(() {
+                if (widget.selectedIndex == 4) _knobMax = v;
+                else _sliderMax = v;
+              }),
+              springBehavior: widget.selectedIndex == 5 ? _joySpringBehavior : widget.selectedIndex == 4 ? _knobSpringBehavior : _sliderSpringBehavior,
+              springDuration: widget.selectedIndex == 5 ? _joySpringDuration : widget.selectedIndex == 4 ? _knobSpringDuration : _sliderSpringDuration,
+              onSpringBehaviorChanged: (v) => setState(() {
+                if (widget.selectedIndex == 5) _joySpringBehavior = v;
+                else if (widget.selectedIndex == 4) _knobSpringBehavior = v;
+                else _sliderSpringBehavior = v;
+              }),
+              onSpringDurationChanged: (v) => setState(() {
+                if (widget.selectedIndex == 5) _joySpringDuration = v;
+                else if (widget.selectedIndex == 4) _knobSpringDuration = v;
+                else _sliderSpringDuration = v;
+              }),
 
-            orientation: widget.selectedIndex == 3 ? _sliderOrientation :
-                        widget.selectedIndex == 1 ? _multiOrientation : null,
-            onOrientationChanged: (v) => setState(() {
-              if (widget.selectedIndex == 3) _sliderOrientation = v;
-              else if (widget.selectedIndex == 1) _multiOrientation = v;
-            }),
+              orientation: widget.selectedIndex == 3 ? _sliderOrientation :
+                          widget.selectedIndex == 1 ? _multiOrientation : null,
+              onOrientationChanged: (v) => setState(() {
+                if (widget.selectedIndex == 3) _sliderOrientation = v;
+                else if (widget.selectedIndex == 1) _multiOrientation = v;
+              }),
 
-            // Switch Content
-            textOn: _switchOnText,
-            textOff: _switchOffText,
-            iconOn: _switchOnIcon,
-            iconOff: _switchOffIcon,
-            onTextOnChanged: (v) => setState(() => _switchOnText = v),
-            onTextOffChanged: (v) => setState(() => _switchOffText = v),
-            onIconOnChanged: (v) => setState(() => _switchOnIcon = v),
-            onIconOffChanged: (v) => setState(() => _switchOffIcon = v),
-            hapticsEnabled: _hapticsEnabled,
-            onHapticsChanged: (v) => setState(() => _hapticsEnabled = v),
-            fontFamily: _displayFont,
-            onFontFamilyChanged: (v) => setState(() => _displayFont = v),
+              textOn: _switchOnText,
+              textOff: _switchOffText,
+              iconOn: _switchOnIcon,
+              iconOff: _switchOffIcon,
+              onTextOnChanged: (v) => setState(() => _switchOnText = v),
+              onTextOffChanged: (v) => setState(() => _switchOffText = v),
+              onIconOnChanged: (v) => setState(() => _switchOnIcon = v),
+              onIconOffChanged: (v) => setState(() => _switchOffIcon = v),
+              hapticsEnabled: _hapticsEnabled,
+              onHapticsChanged: (v) => setState(() => _hapticsEnabled = v),
+              fontFamily: _displayFont,
+              onFontFamilyChanged: (v) => setState(() => _displayFont = v),
 
-            
-            // Multiple config
-            multiItemCount: _multiItems.length,
-            onMultiItemCountChanged: (count) => setState(() {
-              if (count > _multiItems.length) {
-                _multiItems.addAll(List.generate(count - _multiItems.length, (i) => const RKToggleItem(onLabel: 'NEW', onIcon: Icons.add_rounded)));
-              } else if (count < _multiItems.length) {
-                _multiItems.removeRange(count, _multiItems.length);
-              }
-            }),
-            multiItems: _multiItems,
-            onMultiItemChanged: (index, item) => setState(() {
-              _multiItems[index] = item;
-            }),
+              
+              multiItemCount: _multiItems.length,
+              onMultiItemCountChanged: (count) => setState(() {
+                if (count > _multiItems.length) {
+                  _multiItems.addAll(List.generate(count - _multiItems.length, (i) => const RKToggleItem(onLabel: 'NEW', onIcon: Icons.add_rounded)));
+                } else if (count < _multiItems.length) {
+                  _multiItems.removeRange(count, _multiItems.length);
+                }
+              }),
+              multiItems: _multiItems,
+              onMultiItemChanged: (index, item) => setState(() {
+                _multiItems[index] = item;
+              }),
 
-            // LED Config
-            ledState: _ledOpState,
-            onLEDStateChanged: (v) => setState(() => _ledOpState = v),
-            ledShape: _ledShape,
-            onLEDShapeChanged: (v) => setState(() => _ledShape = v),
-            ledTiming: _ledTiming,
-            onLEDTimingChanged: (v) => setState(() => _ledTiming = v),
-            ledColor: _ledColor,
-            onLEDColorChanged: (v) => setState(() => _ledColor = v),
-            rotation: _rotation,
-            onRotationChanged: (v) => setState(() => _rotation = v),
-            onRotationReset: () => setState(() => _rotation = 0),
-            label: _widgetLabel,
-            onLabelChanged: (v) => setState(() => _widgetLabel = v),
-          ),
+              ledState: _ledOpState,
+              onLEDStateChanged: (v) => setState(() => _ledOpState = v),
+              ledShape: _ledShape,
+              onLEDShapeChanged: (v) => setState(() => _ledShape = v),
+              ledTiming: _ledTiming,
+              onLEDTimingChanged: (v) => setState(() => _ledTiming = v),
+              ledColor: _ledColor,
+              onLEDColorChanged: (v) => setState(() => _ledColor = v),
+              rotation: _rotation,
+              onRotationChanged: (v) => setState(() => _rotation = v),
+              onRotationReset: () => setState(() => _rotation = 0),
+              label: _widgetLabel,
+              onLabelChanged: (v) => setState(() => _widgetLabel = v),
+            ),
         ],
       ),
     );
@@ -1209,6 +1222,387 @@ class _DemoScreenState extends State<DemoScreen> {
     );
   }
 
+  String _getSkinName(RKTokens tokens) {
+    if (tokens == _customTokens) return 'CUSTOM';
+    if (identical(tokens, RKTokens.dragon)) return 'DRAGON';
+    if (identical(tokens, RKTokens.neon)) return 'NEON';
+    if (identical(tokens, RKTokens.minimal)) return 'MINIMAL';
+    return 'SKIN';
+  }
+
+  Widget _buildTokensPanel(BuildContext panelContext) {
+    final currentTokens = themeNotifier.value;
+    final isCustom = currentTokens == _customTokens;
+
+    return Container(
+      width: 280,
+      color: const Color(0xFF151515),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Color(0xFF222222))),
+            ),
+            child: Row(
+              children: [
+                const Text(
+                  'TOKENS',
+                  style: TextStyle(
+                    color: Color(0xFFB0B0B0),
+                    fontSize: 12,
+                    fontFamily: 'monospace',
+                    letterSpacing: 1,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () => setState(() => _showTokensPanel = false),
+                  child: const Icon(Icons.close, color: Color(0xFF888888), size: 18),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: _buildTokenColumn(
+                _getSkinName(currentTokens),
+                currentTokens,
+                isCustom,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTokenColumn(String name, RKTokens tokens, bool editable) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: editable ? tokens.primary.withValues(alpha: 0.3) : const Color(0xFF2A2A2A),
+          width: editable ? 1.5 : 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: tokens.primary,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(7),
+                topRight: Radius.circular(7),
+              ),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  name,
+                  style: TextStyle(
+                    color: tokens.onPrimary,
+                    fontSize: 14,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
+                ),
+                if (editable) ...[
+                  const Spacer(),
+                  Icon(Icons.edit, color: tokens.onPrimary.withValues(alpha: 0.7), size: 14),
+                ],
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _colorRow('Primary', tokens.primary, editable,
+                    editable ? (c) => _updateCustom((t) => t.copyWith(primary: c)) : null),
+                const SizedBox(height: 8),
+                _colorRow('OnPrimary', tokens.onPrimary, false, null),
+                const SizedBox(height: 8),
+                _colorRow('Surface', tokens.surface, false, null),
+                const SizedBox(height: 8),
+                _colorRow('OnSurface', tokens.onSurface, false, null),
+                const SizedBox(height: 8),
+                _colorRow('Track', tokens.trackColor, false, null),
+                const SizedBox(height: 8),
+                _colorRow('Glow', tokens.glowColor, false, null),
+                const SizedBox(height: 4),
+                const Divider(color: Color(0xFF2A2A2A), height: 16),
+                if (editable)
+                  _sliderRow('Radius', tokens.borderRadius, 0, 24, (v) {
+                    _updateCustom((t) => t.copyWith(borderRadius: v));
+                  })
+                else
+                  _valueRow('Radius', tokens.borderRadius.toStringAsFixed(0)),
+                if (editable)
+                  _sliderRow('Elevation', tokens.elevation, 0, 12, (v) {
+                    _updateCustom((t) => t.copyWith(elevation: v));
+                  })
+                else
+                  _valueRow('Elevation', tokens.elevation.toStringAsFixed(0)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _updateCustom(RKTokens Function(RKTokens) update) {
+    setState(() {
+      final wasCustom = themeNotifier.value == _customTokens;
+      _customTokens = update(_customTokens);
+      if (wasCustom) {
+        themeNotifier.value = _customTokens;
+      }
+    });
+  }
+
+  Widget _colorRow(String label, Color color, bool editable, void Function(Color)? onChanged) {
+    final hex = '#${color.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
+    return GestureDetector(
+      onTap: editable && onChanged != null
+          ? () => _showColorPicker(context, color, onChanged)
+          : null,
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: editable ? Colors.white24 : const Color(0xFF444444), width: editable ? 2 : 1),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.4),
+                  blurRadius: 6,
+                  spreadRadius: 0,
+                ),
+              ],
+            ),
+            child: editable
+                ? Center(
+                    child: Icon(Icons.touch_app, color: color.computeLuminance() > 0.5 ? Colors.black38 : Colors.white38, size: 16),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Color(0xFF888888),
+                    fontSize: 9,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  hex,
+                  style: TextStyle(
+                    color: editable ? const Color(0xFFDDDDDD) : const Color(0xFFB0B0B0),
+                    fontSize: 12,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.bold,
+                    decoration: editable ? TextDecoration.underline : null,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (editable)
+            Icon(Icons.chevron_right, color: const Color(0xFF666666), size: 16),
+        ],
+      ),
+    );
+  }
+
+  Widget _valueRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 60,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF888888),
+                fontSize: 9,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Color(0xFFB0B0B0),
+              fontSize: 12,
+              fontFamily: 'monospace',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sliderRow(String label, double value, double min, double max, ValueChanged<double> onChanged) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              SizedBox(
+                width: 60,
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: Color(0xFF888888),
+                    fontSize: 9,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              Text(
+                value.toStringAsFixed(0),
+                style: const TextStyle(
+                  color: Color(0xFFDDDDDD),
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          Slider(
+            value: value.clamp(min, max),
+            min: min,
+            max: max,
+            divisions: ((max - min) * 2).toInt(),
+            activeColor: _customTokens.primary,
+            inactiveColor: const Color(0xFF333333),
+            onChanged: onChanged,
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showColorPicker(BuildContext context, Color current, ValueChanged<Color> onPicked) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        String hexInput = '#${current.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
+        return StatefulBuilder(
+          builder: (ctx, setState) {
+            final presets = [
+              Colors.red.shade400,
+              Colors.orange.shade400,
+              Colors.amber.shade400,
+              Colors.yellow.shade400,
+              Colors.lime.shade400,
+              Colors.green.shade400,
+              Colors.teal.shade400,
+              Colors.cyan.shade400,
+              Colors.blue.shade400,
+              Colors.indigo.shade400,
+              Colors.purple.shade400,
+              Colors.pink.shade400,
+              Colors.white,
+              const Color(0xFFB0B0B0),
+              const Color(0xFF666666),
+              Colors.black,
+            ];
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1A1A1A),
+              title: const Text('PICK COLOR', style: TextStyle(color: Color(0xFFB0B0B0), fontSize: 12, fontFamily: 'monospace')),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: presets.map((c) {
+                      return GestureDetector(
+                        onTap: () {
+                          onPicked(c);
+                          Navigator.of(ctx).pop();
+                        },
+                        child: Container(
+                          width: 28, height: 28,
+                          decoration: BoxDecoration(
+                            color: c,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFF444444), width: 1),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: TextEditingController(text: hexInput),
+                          style: const TextStyle(color: Color(0xFFB0B0B0), fontSize: 12, fontFamily: 'monospace'),
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                            border: OutlineInputBorder(),
+                          ),
+                          onSubmitted: (v) {
+                            var h = v.trim();
+                            if (!h.startsWith('#')) h = '#$h';
+                            if (h.length == 7 || h.length == 9) {
+                              final parsed = Color(int.parse(h.substring(1), radix: 16) + (h.length == 7 ? 0xFF000000 : 0));
+                              onPicked(parsed);
+                              Navigator.of(ctx).pop();
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('CANCEL', style: TextStyle(color: Color(0xFF888888), fontFamily: 'monospace')),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 
 }
 
@@ -1378,17 +1772,22 @@ class InputSlider extends StatelessWidget {
       ],
     );
   }
-}
 
+}
 
 // ─── Top system bar ───
 class _TopBar extends StatelessWidget {
   final String title;
-
-
-  const _TopBar({required this.title, required this.debugEnabled, required this.onDebugToggle});
   final bool debugEnabled;
   final VoidCallback onDebugToggle;
+  final VoidCallback onOpenColors;
+
+  const _TopBar({
+    required this.title,
+    required this.debugEnabled,
+    required this.onDebugToggle,
+    required this.onOpenColors,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1421,6 +1820,11 @@ class _TopBar extends StatelessWidget {
               tooltip: 'Toggle Debug Overlay',
               onPressed: onDebugToggle,
             ),
+            IconButton(
+              icon: const Icon(Icons.palette_outlined, color: Color(0xFF888888)),
+              tooltip: 'View Colors',
+              onPressed: onOpenColors,
+            ),
           ],
         ),
     );
@@ -1429,13 +1833,25 @@ class _TopBar extends StatelessWidget {
 
 // ─── Aesthetic core bar ───
 class _AestheticCoreBar extends StatelessWidget {
+  final ValueChanged<RKTokens> onSelectSkin;
+  final VoidCallback onSelectCustom;
+
+  const _AestheticCoreBar({
+    required this.onSelectSkin,
+    required this.onSelectCustom,
+  });
+
   @override
   Widget build(BuildContext context) {
-    final styles = {
+    final skins = {
       'DRAGON': RKTokens.dragon,
       'NEON': RKTokens.neon,
       'MINIMAL': RKTokens.minimal,
     };
+    bool isCustom(Object tokens) =>
+        tokens != RKTokens.dragon &&
+        tokens != RKTokens.neon &&
+        tokens != RKTokens.minimal;
 
     return ValueListenableBuilder<RKTokens>(
       valueListenable: themeNotifier,
@@ -1452,7 +1868,7 @@ class _AestheticCoreBar extends StatelessWidget {
           child: Row(
             children: [
               const Text(
-                'STYLE:',
+                'SKINS:',
                 style: TextStyle(
                   color: Color(0xFFB0B0B0),
                   fontSize: 12,
@@ -1461,12 +1877,12 @@ class _AestheticCoreBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              ...styles.entries.map((entry) {
+              ...skins.entries.map((entry) {
                 final isSelected = currentTokens == entry.value;
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: GestureDetector(
-                    onTap: () => themeNotifier.value = entry.value,
+                    onTap: () => onSelectSkin(entry.value),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                       decoration: BoxDecoration(
@@ -1491,6 +1907,33 @@ class _AestheticCoreBar extends StatelessWidget {
                   ),
                 );
               }).toList(),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: onSelectCustom,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isCustom(currentTokens) ? const Color(0xFF888888) : const Color(0xFF1A1A1A),
+                      border: Border.all(
+                        color: isCustom(currentTokens) ? const Color(0xFF888888) : const Color(0xFF444444),
+                        width: 1,
+                      ),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    child: const Text(
+                      'CUSTOM',
+                      style: TextStyle(
+                        color: Color(0xFFB0B0B0),
+                        fontSize: 11,
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         );
@@ -1498,3 +1941,5 @@ class _AestheticCoreBar extends StatelessWidget {
     );
   }
 }
+
+

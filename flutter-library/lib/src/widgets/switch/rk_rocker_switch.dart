@@ -21,6 +21,9 @@ class RKRockerSwitch extends StatefulWidget {
     this.showDebug = true,
   });
 
+  /// The fixed aspect ratio (width/height) for this widget.
+  static const double? aspectRatio = 0.5;
+
   final bool value;
   final ValueChanged<bool> onChanged;
   final ValueChanged<bool>? onInteractionChanged;
@@ -142,10 +145,10 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
   Widget build(BuildContext context) {
     final tokens = RKTheme.of(context);
     final activeColor = widget.activeColor ?? tokens.primary;
-    
-    // The widget actually renders with some extra padding/shadow space.
-    final totalWidth = widget.width + 22;
-    final totalHeight = widget.height + 22;
+
+    // Use the real widget dimensions — shadows overflow via Clip.none.
+    final totalWidth = widget.width;
+    final totalHeight = widget.height;
 
     return RKRotatedWrapper(
       rotation: widget.rotation,
@@ -181,6 +184,7 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
               height: totalHeight,
               child: Stack(
                 alignment: Alignment.center,
+                clipBehavior: Clip.none,
                 children: [
                   _buildBezel(tokens, widget.width, widget.height),
                   Transform(
@@ -188,7 +192,8 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
                     transform: Matrix4.identity()
                       ..setEntry(3, 2, 0.0022)
                       ..multiply(Matrix4.rotationX(tilt)),
-                    child: _buildRocker(tokens, activeColor, shadowOffset, widget.width, widget.height),
+                    child: _buildRocker(tokens, activeColor, shadowOffset,
+                        widget.width, widget.height),
                   ),
                 ],
               ),
@@ -200,12 +205,17 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
   }
 
   Widget _buildBezel(RKTokens tokens, double actualWidth, double actualHeight) {
+    final double bezelPadding = (actualWidth * 0.07).clamp(2.0, 12.0);
+    final double outerBorderWidth = (actualWidth * 0.028).clamp(1.0, 4.0);
+    final double innerBorderWidth = (actualWidth * 0.011).clamp(0.5, 2.0);
+
     return Container(
       width: actualWidth,
       height: actualHeight,
       decoration: BoxDecoration(
         color: const Color(0xFF131313),
-        borderRadius: BorderRadius.circular(tokens.borderRadius * 1.35),
+        borderRadius:
+            BorderRadius.circular((tokens.borderRadius * 1.35).clamp(4, 24)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.65),
@@ -221,17 +231,18 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
         ],
         border: Border.all(
           color: const Color(0xFF050505),
-          width: 2,
+          width: outerBorderWidth,
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(5),
+        padding: EdgeInsets.all(bezelPadding),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(tokens.borderRadius * 1.1),
+            borderRadius:
+                BorderRadius.circular((tokens.borderRadius * 1.1).clamp(2, 20)),
             border: Border.all(
               color: Colors.white.withValues(alpha: 0.03),
-              width: 0.8,
+              width: innerBorderWidth,
             ),
           ),
         ),
@@ -239,7 +250,8 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
     );
   }
 
-  Widget _buildRocker(RKTokens tokens, Color activeColor, double shadowOffset, double actualWidth, double actualHeight) {
+  Widget _buildRocker(RKTokens tokens, Color activeColor, double shadowOffset,
+      double actualWidth, double actualHeight) {
     final glowIntensity = _rockProgress.value;
     final isTopPressed = shadowOffset < 0;
     final rockerW = actualWidth * 0.88;
@@ -316,6 +328,7 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
                       painter: _DiagonalGridPainter(
                         glowColor: activeColor,
                         glowIntensity: glowIntensity,
+                        spacing: rockerH * 0.109,
                       ),
                     ),
                   ),
@@ -399,7 +412,7 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
                     ),
                   ),
                   Positioned(
-                    top: rockerH * 0.16,
+                    top: rockerH * 0.15,
                     left: 0,
                     right: 0,
                     child: Center(
@@ -407,12 +420,13 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
                         opacity: (0.35 + 0.65 * glowIntensity).clamp(0.0, 1.0),
                         child: widget.onIcon != null
                             ? _surfaceGlowIcon(
-                                child: Icon(widget.onIcon, size: rockerH * 0.18, color: activeColor),
+                                child: Icon(widget.onIcon,
+                                    size: rockerH * 0.26, color: activeColor),
                                 color: activeColor,
                                 intensity: glowIntensity,
                               )
                             : _surfaceGlowIcon(
-                                child: _defaultOnIcon(),
+                                child: _defaultOnIcon(rockerH),
                                 color: activeColor,
                                 intensity: glowIntensity,
                               ),
@@ -427,8 +441,10 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
                       child: Opacity(
                         opacity: (1.0 - 0.72 * glowIntensity).clamp(0.0, 1.0),
                         child: widget.offIcon != null
-                            ? Icon(widget.offIcon, size: rockerH * 0.15, color: Colors.white.withValues(alpha: 0.5))
-                            : _defaultOffIcon(),
+                            ? Icon(widget.offIcon,
+                                size: rockerH * 0.26,
+                                color: Colors.white.withValues(alpha: 0.5))
+                            : _defaultOffIcon(rockerH),
                       ),
                     ),
                   ),
@@ -462,10 +478,10 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
     );
   }
 
-  Widget _defaultOnIcon() {
+  Widget _defaultOnIcon(double rockerH) {
     return Container(
-      width: 4,
-      height: 20,
+      width: rockerH * 0.04,
+      height: rockerH * 0.198,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(99),
@@ -473,15 +489,16 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
     );
   }
 
-  Widget _defaultOffIcon() {
+  Widget _defaultOffIcon(double rockerH) {
+    final size = rockerH * 0.198;
     return Container(
-      width: 20,
-      height: 20,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.78),
-          width: 3,
+          width: size * 0.15,
         ),
       ),
     );
@@ -492,10 +509,12 @@ class _DiagonalGridPainter extends CustomPainter {
   const _DiagonalGridPainter({
     required this.glowColor,
     required this.glowIntensity,
+    required this.spacing,
   });
 
   final Color glowColor;
   final double glowIntensity;
+  final double spacing;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -515,7 +534,7 @@ class _DiagonalGridPainter extends CustomPainter {
       ..strokeWidth = 0.8
       ..style = PaintingStyle.stroke;
 
-    const spacing = 11.0;
+    final spacing = this.spacing;
 
     canvas.save();
     canvas.clipRect(clipRect);
@@ -533,7 +552,9 @@ class _DiagonalGridPainter extends CustomPainter {
       );
     }
 
-    for (double x = size.width + size.height; x > -size.height; x -= spacing * 2.2) {
+    for (double x = size.width + size.height;
+        x > -size.height;
+        x -= spacing * 2.2) {
       canvas.drawLine(
         Offset(x, 0),
         Offset(x - size.height, size.height),

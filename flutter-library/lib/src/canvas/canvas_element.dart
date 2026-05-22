@@ -110,6 +110,18 @@ class CanvasElement extends StatelessWidget {
               : (_) {},
           onText: element.properties['onText'] ?? 'ON',
           offText: element.properties['offText'] ?? 'OFF',
+          icon: () {
+            final onIcon =
+                iconFromName(element.properties['onIcon'] as String?);
+            final offIcon =
+                iconFromName(element.properties['offIcon'] as String?);
+            if (onIcon == null && offIcon == null) return null;
+            final curVal = isPlay
+                ? (designerState!.getRuntimeWidgetValue(id, false) as bool)
+                : false;
+            final iconData = curVal ? (onIcon ?? offIcon) : (offIcon ?? onIcon);
+            return Icon(iconData!);
+          }(),
           enableHapticFeedback: element.properties['haptic'] ?? true,
           label: (!element.labelHidden && element.label.isNotEmpty)
               ? element.label
@@ -141,91 +153,88 @@ class CanvasElement extends StatelessWidget {
       case DesignerElementType.slider:
         return _buildSlider(id, isPlay, cs, showDebug);
 
-      case DesignerElementType.steeringWheel:
-        return RKSteeringWheel(
-          centerIcon: iconFromName(element.properties['centerIcon'] as String?),
-          value: isPlay
-              ? (designerState!.getRuntimeWidgetValue(id, 0.5) as double)
-              : 0.5,
-          onChanged: isPlay
-              ? (v) => designerState!.setRuntimeWidgetValue(id, v)
-              : (_) {},
-          min: (element.properties['min'] as num?)?.toDouble() ?? 0,
-          max: (element.properties['max'] as num?)?.toDouble() ?? 100,
-          minAngle:
-              (element.properties['minAngle'] as num?)?.toDouble() ?? -135,
-          maxAngle: (element.properties['maxAngle'] as num?)?.toDouble() ?? 135,
-          autoCenter: element.properties['autoCenter'] ?? false,
-          center: (element.properties['center'] as num?)?.toDouble() ?? 0.5,
-          springCurve:
-              _getCurve(element.properties['springBehavior'] as String?),
-          springDuration: Duration(
-            milliseconds:
-                (element.properties['springDuration'] as num?)?.toInt() ?? 500,
-          ),
-          divisions: element.properties['divisions'] as int?,
-          label: (!element.labelHidden && element.label.isNotEmpty)
-              ? element.label
-              : null,
-          size: math.min(element.width.toDouble(), element.height.toDouble()) *
-              cs,
-          showDebug: showDebug,
-        );
+        case DesignerElementType.steeringWheel:
+          return RKSteeringWheel(
+            centerIcon: iconFromName(element.properties['centerIcon'] as String?),
+            value: isPlay
+                ? (designerState!.getRuntimeWidgetValue(id, 0.5) as double)
+                : 0.5,
+            onChanged: isPlay
+                ? (v) => designerState!.setRuntimeWidgetValue(id, v)
+                : (_) {},
+            min: (element.properties['min'] as num?)?.toDouble() ?? 0,
+            max: (element.properties['max'] as num?)?.toDouble() ?? 100,
+            minAngle:
+                (element.properties['minAngle'] as num?)?.toDouble() ?? -135,
+            maxAngle: (element.properties['maxAngle'] as num?)?.toDouble() ?? 135,
+            autoCenter: _acEnabled(element.properties['autoCenter'] as List?),
+            center: _acPosition(element.properties['autoCenter'] as List?),
+            springCurve: _acCurve(element.properties['autoCenter'] as List?),
+            springDuration: Duration(
+              milliseconds:
+                  _acDuration(element.properties['autoCenter'] as List?, 500),
+            ),
+            divisions: element.properties['divisions'] as int?,
+            label: (!element.labelHidden && element.label.isNotEmpty)
+                ? element.label
+                : null,
+            size: math.min(element.width.toDouble(), element.height.toDouble()) *
+                cs,
+            showDebug: showDebug,
+          );
 
-      case DesignerElementType.knob:
-        return RKKnob(
-          centerIcon: iconFromName(element.properties['centerIcon'] as String?),
-          value: isPlay
-              ? (designerState!.getRuntimeWidgetValue(id, 0.5) as double)
-              : 0.5,
-          onChanged: isPlay
-              ? (v) => designerState!.setRuntimeWidgetValue(id, v)
-              : (_) {},
-          min: (element.properties['min'] as num?)?.toDouble() ?? 0,
-          max: (element.properties['max'] as num?)?.toDouble() ?? 100,
-          minAngle:
-              (element.properties['minAngle'] as num?)?.toDouble() ?? -135,
-          maxAngle: (element.properties['maxAngle'] as num?)?.toDouble() ?? 135,
-          autoCenter: element.properties['autoCenter'] ?? false,
-          center: (element.properties['center'] as num?)?.toDouble() ?? 0.5,
-          springCurve:
-              _getCurve(element.properties['springBehavior'] as String?),
-          springDuration: Duration(
-            milliseconds:
-                (element.properties['springDuration'] as num?)?.toInt() ?? 500,
-          ),
-          divisions: element.properties['divisions'] as int?,
-          label: (!element.labelHidden && element.label.isNotEmpty)
-              ? element.label
-              : null,
-          size: math.min(element.width.toDouble(), element.height.toDouble()) *
-              cs,
-          showDebug: showDebug,
-        );
+        case DesignerElementType.knob:
+          return RKKnob(
+            centerIcon: iconFromName(element.properties['centerIcon'] as String?),
+            value: isPlay
+                ? (designerState!.getRuntimeWidgetValue(id, 0.5) as double)
+                : 0.5,
+            onChanged: isPlay
+                ? (v) => designerState!.setRuntimeWidgetValue(id, v)
+                : (_) {},
+            min: (element.properties['min'] as num?)?.toDouble() ?? 0,
+            max: (element.properties['max'] as num?)?.toDouble() ?? 100,
+            minAngle:
+                (element.properties['minAngle'] as num?)?.toDouble() ?? -135,
+            maxAngle: (element.properties['maxAngle'] as num?)?.toDouble() ?? 135,
+            autoCenter: _acEnabled(element.properties['autoCenter'] as List?),
+            center: _acPosition(element.properties['autoCenter'] as List?),
+            springCurve: _acCurve(element.properties['autoCenter'] as List?),
+            springDuration: Duration(
+              milliseconds:
+                  _acDuration(element.properties['autoCenter'] as List?, 500),
+            ),
+            divisions: element.properties['divisions'] as int?,
+            label: (!element.labelHidden && element.label.isNotEmpty)
+                ? element.label
+                : null,
+            size: math.min(element.width.toDouble(), element.height.toDouble()) *
+                cs,
+            showDebug: showDebug,
+          );
 
-      case DesignerElementType.joystick:
-        return RKJoystick(
-          onChanged: isPlay
-              ? (v) => designerState!.setRuntimeWidgetValue(id, v)
-              : (_) {},
-          autoCenter: element.properties['autoCenter'] ?? true,
-          center: RKJoystickValue(
-            x: (element.properties['centerX'] as num?)?.toDouble() ?? 0,
-            y: (element.properties['centerY'] as num?)?.toDouble() ?? 0,
-          ),
-          springCurve:
-              _getCurve(element.properties['springBehavior'] as String?),
-          springDuration: Duration(
-            milliseconds:
-                (element.properties['springDuration'] as num?)?.toInt() ?? 300,
-          ),
-          label: (!element.labelHidden && element.label.isNotEmpty)
-              ? element.label
-              : null,
-          size: math.min(element.width.toDouble(), element.height.toDouble()) *
-              cs,
-          showDebug: showDebug,
-        );
+       case DesignerElementType.joystick:
+         return RKJoystick(
+           onChanged: isPlay
+               ? (v) => designerState!.setRuntimeWidgetValue(id, v)
+               : (_) {},
+            autoCenter: _acEnabled(element.properties['autoCenter'] as List?),
+            center: RKJoystickValue(
+              x: (element.properties['centerX'] as num?)?.toDouble() ?? 0,
+              y: (element.properties['centerY'] as num?)?.toDouble() ?? 0,
+            ),
+            springCurve: _acCurve(element.properties['autoCenter'] as List?),
+            springDuration: Duration(
+              milliseconds:
+                  _acDuration(element.properties['autoCenter'] as List?, 300),
+            ),
+           label: (!element.labelHidden && element.label.isNotEmpty)
+               ? element.label
+               : null,
+           size: math.min(element.width.toDouble(), element.height.toDouble()) *
+               cs,
+           showDebug: showDebug,
+         );
 
       case DesignerElementType.multiButton:
         final mbCount = (element.properties['itemCount'] as num?)?.toInt() ?? 3;
@@ -297,15 +306,17 @@ class CanvasElement extends StatelessWidget {
       orientation: horizontal ? RKAxis.horizontal : RKAxis.vertical,
       thickness: horizontal ? pixelH / 8 : pixelW / 8,
       length: horizontal ? pixelW : pixelH,
-      autoCenter: element.properties['autoCenter'] ?? false,
-      center: (element.properties['center'] as num?)?.toDouble() ?? 0.5,
-      springCurve: _getCurve(element.properties['springBehavior'] as String?),
+      autoCenter: _acEnabled(element.properties['autoCenter'] as List?),
+      center: _acPosition(element.properties['autoCenter'] as List?),
+      springCurve: _acCurve(element.properties['autoCenter'] as List?),
       springDuration: Duration(
         milliseconds:
-            (element.properties['springDuration'] as num?)?.toInt() ?? 300,
+            _acDuration(element.properties['autoCenter'] as List?, 300),
       ),
       divisions: element.properties['divisions'] as int?,
-      label: element.label.isNotEmpty ? element.label : null,
+      label: (!element.labelHidden && element.label.isNotEmpty)
+          ? element.label
+          : null,
       showDebug: showDebug,
     );
   }
@@ -328,9 +339,12 @@ class CanvasElement extends StatelessWidget {
           ? rawItems[i] as Map?
           : null;
       return RKToggleItem(
-        onLabel: raw?['onLabel'] as String? ?? String.fromCharCode(65 + i),
+        onLabel: (raw?['onLabel'] == null)
+            ? null
+            : (raw?['onLabel'] as String? ?? String.fromCharCode(65 + i)),
         onIcon: iconFromName(raw?['onIcon'] as String?),
-        offLabel: raw?['offLabel'] as String?,
+        offLabel:
+            (raw?['offLabel'] == null) ? null : (raw?['offLabel'] as String?),
         offIcon: iconFromName(raw?['offIcon'] as String?),
       );
     });
@@ -344,7 +358,9 @@ class CanvasElement extends StatelessWidget {
       buttonSize: buttonSize,
       enableHapticFeedback: element.properties['haptic'] ?? true,
       orientation: horizontal ? RKAxis.horizontal : RKAxis.vertical,
-      label: element.label.isNotEmpty ? element.label : null,
+      label: (!element.labelHidden && element.label.isNotEmpty)
+          ? element.label
+          : null,
       showDebug: showDebug,
     );
   }
@@ -367,9 +383,12 @@ class CanvasElement extends StatelessWidget {
           ? rawItems[i] as Map?
           : null;
       return RKToggleItem(
-        onLabel: raw?['onLabel'] as String? ?? String.fromCharCode(65 + i),
+        onLabel: (raw?['onLabel'] == null)
+            ? null
+            : (raw?['onLabel'] as String? ?? String.fromCharCode(65 + i)),
         onIcon: iconFromName(raw?['onIcon'] as String?),
-        offLabel: raw?['offLabel'] as String?,
+        offLabel:
+            (raw?['offLabel'] == null) ? null : (raw?['offLabel'] as String?),
         offIcon: iconFromName(raw?['offIcon'] as String?),
       );
     });
@@ -383,7 +402,9 @@ class CanvasElement extends StatelessWidget {
       buttonSize: buttonSize,
       enableHapticFeedback: element.properties['haptic'] ?? true,
       orientation: horizontal ? RKAxis.horizontal : RKAxis.vertical,
-      label: element.label.isNotEmpty ? element.label : null,
+      label: (!element.labelHidden && element.label.isNotEmpty)
+          ? element.label
+          : null,
       showDebug: showDebug,
     );
   }
@@ -403,21 +424,24 @@ class CanvasElement extends StatelessWidget {
       orientation: vertical ? RKAxis.vertical : RKAxis.horizontal,
       thickness: vertical ? pixelW / 8 : pixelH / 8,
       length: vertical ? pixelH : pixelW,
-      autoCenter: element.properties['autoCenter'] ?? false,
-      center: (element.properties['center'] as num?)?.toDouble() ?? 0.5,
-      springCurve: _getCurve(element.properties['springBehavior'] as String?),
+      autoCenter: _acEnabled(element.properties['autoCenter'] as List?),
+      center: _acPosition(element.properties['autoCenter'] as List?),
+      springCurve: _acCurve(element.properties['autoCenter'] as List?),
       springDuration: Duration(
         milliseconds:
-            (element.properties['springDuration'] as num?)?.toInt() ?? 300,
+            _acDuration(element.properties['autoCenter'] as List?, 300),
       ),
       divisions: element.properties['divisions'] as int?,
-      label: element.label.isNotEmpty ? element.label : null,
+      label: (!element.labelHidden && element.label.isNotEmpty)
+          ? element.label
+          : null,
       showDebug: showDebug,
     );
   }
 
-  Curve _getCurve(String? behavior) {
-    switch (behavior) {
+  Curve _acCurve(List<dynamic>? ac) {
+    final type = ac?[1] as String? ?? 'smooth';
+    switch (type) {
       case 'linear':
         return Curves.linear;
       case 'elastic':
@@ -426,6 +450,25 @@ class CanvasElement extends StatelessWidget {
         return Curves.easeOutCubic;
     }
   }
+
+  double _acPosition(List<dynamic>? ac) {
+    final pos = ac?[0] as String?;
+    switch (pos) {
+      case 'min':
+        return 0.0;
+      case 'max':
+        return 1.0;
+      case 'center':
+      default:
+        return 0.5;
+    }
+  }
+
+  bool _acEnabled(List<dynamic>? ac) =>
+      (ac?[0] as String?) != null;
+
+  int _acDuration(List<dynamic>? ac, int fallback) =>
+      (ac?[2] as num?)?.toInt() ?? fallback;
 
   RKLEDState _getLEDState(String? state) {
     switch (state) {

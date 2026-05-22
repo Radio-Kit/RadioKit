@@ -22,6 +22,9 @@ class RKSlideSwitch extends StatefulWidget {
     this.showDebug = true,
   });
 
+  /// The fixed aspect ratio (width/height) for this widget.
+  static const double? aspectRatio = 2.0;
+
   final bool value;
   final ValueChanged<bool> onChanged;
   final ValueChanged<bool>? onInteractionChanged;
@@ -87,13 +90,13 @@ class _RKSlideSwitchState extends State<RKSlideSwitch> with SingleTickerProvider
   Widget build(BuildContext context) {
     final outerWidth = widget.width;
     final outerHeight = widget.height;
-    
-    const double trackPadding = 8.0;
+
+    final double trackPadding = (outerWidth * 0.04).clamp(3.0, 16.0);
     final trackWidth = outerWidth - (trackPadding * 2);
     final trackHeight = outerHeight - (trackPadding * 2);
-    
-    const double thumbPadding = 4.0;
-    final thumbWidth = (64.0 / 190.0) * outerWidth;
+
+    final double thumbPadding = trackPadding * 0.5;
+    final thumbWidth = (80.0 / 190.0) * outerWidth;
     final thumbHeight = trackHeight - (thumbPadding * 2);
 
     final tokens = RKTheme.of(context);
@@ -118,7 +121,7 @@ class _RKSlideSwitchState extends State<RKSlideSwitch> with SingleTickerProvider
               child: widget.icon!,
             ),
           )
-        : _ThumbGripTexture(isActive: widget.value);
+        : _ThumbGripTexture(isActive: widget.value, thumbHeight: thumbHeight);
 
     return RKRotatedWrapper(
       rotation: widget.rotation,
@@ -211,12 +214,12 @@ class _RKSlideSwitchState extends State<RKSlideSwitch> with SingleTickerProvider
                 alignment: Alignment.center,
                 children: [
                   Padding(
-                    padding: EdgeInsets.symmetric(horizontal: trackWidth * 0.15),
+                    padding: EdgeInsets.symmetric(horizontal: trackWidth * 0.02),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _buildLabel(widget.offText, false, baseActiveColor),
-                        _buildLabel(widget.onText, true, baseActiveColor),
+                        Flexible(child: _buildLabel(widget.offText, false, baseActiveColor, outerHeight)),
+                        Flexible(child: _buildLabel(widget.onText, true, baseActiveColor, outerHeight)),
                       ],
                     ),
                   ),
@@ -272,28 +275,35 @@ class _RKSlideSwitchState extends State<RKSlideSwitch> with SingleTickerProvider
     );
   }
 
-  Widget _buildLabel(String text, bool isOnSide, Color activeColor) {
+  Widget _buildLabel(String text, bool isOnSide, Color activeColor, double outerHeight) {
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
         final isLit = isOnSide ? _controller.value >= 0.5 : _controller.value < 0.5;
-        return AnimatedDefaultTextStyle(
-          duration: const Duration(milliseconds: 300),
-          style: TextStyle(
-            fontFamily: 'sans-serif',
-            fontSize: 16.0,
-            fontWeight: FontWeight.w800,
-            color: isLit ? activeColor : RKTheme.of(context).onSurface.withValues(alpha: 0.3),
-            shadows: isLit
-                ? [
-                    Shadow(
-                      color: activeColor.withValues(alpha: 0.38),
-                      blurRadius: 8.0,
-                    ),
-                  ]
-                : [],
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: outerHeight * 0.1),
+            child: Text(
+              text,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              style: TextStyle(
+                fontFamily: 'sans-serif',
+                fontSize: outerHeight * 0.4,
+                fontWeight: FontWeight.w800,
+                color: isLit ? activeColor : RKTheme.of(context).onSurface.withValues(alpha: 0.3),
+                shadows: isLit
+                    ? [
+                        Shadow(
+                          color: activeColor.withValues(alpha: 0.38),
+                          blurRadius: 8.0,
+                        ),
+                      ]
+                    : [],
+              ),
+            ),
           ),
-          child: Text(text),
         );
       },
     );
@@ -302,7 +312,8 @@ class _RKSlideSwitchState extends State<RKSlideSwitch> with SingleTickerProvider
 
 class _ThumbGripTexture extends StatelessWidget {
   final bool isActive;
-  const _ThumbGripTexture({required this.isActive});
+  final double thumbHeight;
+  const _ThumbGripTexture({required this.isActive, required this.thumbHeight});
 
   @override
   Widget build(BuildContext context) {
@@ -320,8 +331,8 @@ class _ThumbGripTexture extends StatelessWidget {
       children: List.generate(3, (index) {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 300),
-          width: 4.0,
-          margin: const EdgeInsets.symmetric(vertical: 16.0),
+          width: thumbHeight * 0.07,
+          margin: EdgeInsets.symmetric(vertical: thumbHeight * 0.275),
           decoration: BoxDecoration(
             color: isActive ? darkGrip : mutedGrip,
             borderRadius: BorderRadius.circular(2.0),

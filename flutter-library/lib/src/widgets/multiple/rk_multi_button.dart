@@ -3,14 +3,12 @@ import 'package:flutter/services.dart';
 import '../../theme/rk_theme.dart';
 import '../rk_rotated_wrapper.dart';
 
-
 /// Data model for a single toggle item in [RKMultiButton] or [RKMultiSelect].
 class RKToggleItem {
   final String? onLabel;
   final String? offLabel;
   final IconData? onIcon;
   final IconData? offIcon;
-
 
   const RKToggleItem({
     this.onLabel,
@@ -19,11 +17,10 @@ class RKToggleItem {
     this.offIcon,
   });
 
-
-  String labelFor(bool selected) => (selected ? onLabel : offLabel) ?? '';
-  IconData? iconFor(bool selected) => (selected ? onIcon : offIcon);
+  String labelFor(bool selected) =>
+      (selected ? onLabel : offLabel) ?? onLabel ?? '';
+  IconData? iconFor(bool selected) => (selected ? onIcon : offIcon) ?? onIcon;
 }
-
 
 /// Radio-style multi-button group for RadioKit.
 ///
@@ -46,7 +43,6 @@ class RKMultiButton extends StatelessWidget {
     this.showDebug = true,
   });
 
-
   final List<RKToggleItem> items;
   final int selected;
   final ValueChanged<int> onChanged;
@@ -59,13 +55,11 @@ class RKMultiButton extends StatelessWidget {
   final String? label;
   final bool showDebug;
 
-
   @override
   Widget build(BuildContext context) {
     final tokens = RKTheme.of(context);
     final int count = items.length;
     final bool isHorizontal = orientation == RKAxis.horizontal;
-
 
     final double shellPadding = (buttonSize * 0.08).clamp(2.0, 10.0);
     final double cw = isHorizontal
@@ -74,7 +68,6 @@ class RKMultiButton extends StatelessWidget {
     final double ch = isHorizontal
         ? buttonSize + shellPadding * 2
         : buttonSize * count + gap * (count - 1) + shellPadding * 2;
-
 
     return RKRotatedWrapper(
       rotation: rotation,
@@ -91,7 +84,8 @@ class RKMultiButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: tokens.surface,
           border: Border.all(color: tokens.trackColor, width: 1),
-          borderRadius: BorderRadius.circular((buttonSize * 0.2).clamp(4.0, 24.0)),
+          borderRadius:
+              BorderRadius.circular((buttonSize * 0.2).clamp(4.0, 24.0)),
           boxShadow: tokens.shadows.isNotEmpty
               ? tokens.shadows
               : const [
@@ -112,14 +106,12 @@ class RKMultiButton extends StatelessWidget {
     );
   }
 
-
   Widget _buildAxis(int count, RKTokens tokens, bool isHorizontal) {
     final children = <Widget>[];
     for (int i = 0; i < count; i++) {
       if (i > 0) {
-        children.add(isHorizontal
-            ? SizedBox(width: gap)
-            : SizedBox(height: gap));
+        children
+            .add(isHorizontal ? SizedBox(width: gap) : SizedBox(height: gap));
       }
       children.add(Expanded(
         child: _ToggleButton(
@@ -150,7 +142,6 @@ class RKMultiButton extends StatelessWidget {
   }
 }
 
-
 /// Bitmask multi-select group for RadioKit.
 ///
 /// ### Defined aspect ratio
@@ -172,7 +163,6 @@ class RKMultiSelect extends StatelessWidget {
     this.showDebug = true,
   });
 
-
   final List<RKToggleItem> items;
   final int bitmask;
   final ValueChanged<int> onChanged;
@@ -185,13 +175,11 @@ class RKMultiSelect extends StatelessWidget {
   final String? label;
   final bool showDebug;
 
-
   @override
   Widget build(BuildContext context) {
     final tokens = RKTheme.of(context);
     final int count = items.length;
     final bool isHorizontal = orientation == RKAxis.horizontal;
-
 
     final double shellPadding = (buttonSize * 0.08).clamp(2.0, 10.0);
     final double cw = isHorizontal
@@ -200,7 +188,6 @@ class RKMultiSelect extends StatelessWidget {
     final double ch = isHorizontal
         ? buttonSize + shellPadding * 2
         : buttonSize * count + gap * (count - 1) + shellPadding * 2;
-
 
     return RKRotatedWrapper(
       rotation: rotation,
@@ -217,7 +204,8 @@ class RKMultiSelect extends StatelessWidget {
         decoration: BoxDecoration(
           color: tokens.surface,
           border: Border.all(color: tokens.trackColor, width: 1),
-          borderRadius: BorderRadius.circular((buttonSize * 0.2).clamp(4.0, 24.0)),
+          borderRadius:
+              BorderRadius.circular((buttonSize * 0.2).clamp(4.0, 24.0)),
           boxShadow: tokens.shadows.isNotEmpty
               ? tokens.shadows
               : const [
@@ -238,14 +226,12 @@ class RKMultiSelect extends StatelessWidget {
     );
   }
 
-
   Widget _buildAxis(int count, RKTokens tokens, bool isHorizontal) {
     final children = <Widget>[];
     for (int i = 0; i < count; i++) {
       if (i > 0) {
-        children.add(isHorizontal
-            ? SizedBox(width: gap)
-            : SizedBox(height: gap));
+        children
+            .add(isHorizontal ? SizedBox(width: gap) : SizedBox(height: gap));
       }
       final isSelected = ((bitmask >> i) & 1) == 1;
       children.add(Expanded(
@@ -277,14 +263,12 @@ class RKMultiSelect extends StatelessWidget {
   }
 }
 
-
 class _ToggleButton extends StatelessWidget {
   final RKToggleItem item;
   final bool selected;
   final double buttonSize;
   final VoidCallback onTap;
   final RKTokens tokens;
-
 
   const _ToggleButton({
     required this.item,
@@ -294,17 +278,14 @@ class _ToggleButton extends StatelessWidget {
     required this.tokens,
   });
 
-
   @override
   Widget build(BuildContext context) {
     final activeAccent = tokens.primary;
-
 
     // Create buttonDark and buttonDark2 dynamically based on tokens.surface
     // to preserve dark/light theme options and look incredibly good.
     final double lightness = HSLColor.fromColor(tokens.surface).lightness;
     final isDark = lightness < 0.5;
-
 
     final Color buttonDark = isDark
         ? HSLColor.fromColor(tokens.surface)
@@ -314,7 +295,6 @@ class _ToggleButton extends StatelessWidget {
             .withLightness((lightness - 0.03).clamp(0.0, 1.0))
             .toColor();
 
-
     final Color buttonDark2 = isDark
         ? HSLColor.fromColor(tokens.surface)
             .withLightness((lightness - 0.03).clamp(0.0, 1.0))
@@ -323,21 +303,27 @@ class _ToggleButton extends StatelessWidget {
             .withLightness((lightness + 0.03).clamp(0.0, 1.0))
             .toColor();
 
-
     final borderColor = tokens.trackColor;
     final dullGrey = tokens.onSurface.withValues(alpha: 0.4);
-
 
     final double radius = (buttonSize * 0.25).clamp(4.0, 32.0);
     final double scale = buttonSize / 120.0;
 
+    final iconData = item.iconFor(selected);
+    final labelText = item.labelFor(selected);
+    final bool hasIcon = iconData != null;
+    final bool hasText = labelText.isNotEmpty;
+
+    final double currentIconSize =
+        hasText ? buttonSize * 0.55 : buttonSize * 0.65;
+    final double currentFontSize =
+        hasIcon ? buttonSize * 0.16 : buttonSize * 0.5;
 
     Widget? iconWidget;
-    final iconData = item.iconFor(selected);
-    if (iconData != null) {
+    if (hasIcon) {
       iconWidget = Icon(
         iconData,
-        size: buttonSize * 0.6,
+        size: currentIconSize,
         color: selected ? activeAccent : dullGrey,
         shadows: selected
             ? [
@@ -350,28 +336,27 @@ class _ToggleButton extends StatelessWidget {
       );
     }
 
-
     Widget? textWidget;
-    final labelText = item.labelFor(selected);
-    if (labelText.isNotEmpty) {
-      textWidget = FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Text(
-          labelText.toUpperCase(),
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          style: TextStyle(
-            color: selected ? activeAccent : dullGrey,
-            // Reduced text size here (was 0.16 multiplier and 26.0 upper clamp)
-            fontSize: (buttonSize * 0.14).clamp(8.0, 24.0),
-            height: 1.1,
-            letterSpacing: 1.2,
-            fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
+    if (hasText) {
+      textWidget = Padding(
+        padding: EdgeInsets.symmetric(horizontal: buttonSize * 0.08),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            labelText.toUpperCase(),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            style: TextStyle(
+              color: selected ? activeAccent : dullGrey,
+              fontSize: currentFontSize,
+              height: 1.1,
+              letterSpacing: 1.2,
+              fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
+            ),
           ),
         ),
       );
     }
-
 
     Widget innerContent;
     if (iconWidget != null && textWidget != null) {
@@ -398,11 +383,11 @@ class _ToggleButton extends StatelessWidget {
       innerContent = const SizedBox.shrink();
     }
 
-
     // Border width: scale dynamically and made thinner
-    final double selectedBorderWidth = (buttonSize * 0.005).clamp(0.1, 1.0); // reduced from 0.04
-    final double unselectedBorderWidth = (buttonSize * 0.025).clamp(0.1, 1.0); // reduced from 0.033
-
+    final double selectedBorderWidth =
+        (buttonSize * 0.005).clamp(0.1, 1.0); // reduced from 0.04
+    final double unselectedBorderWidth =
+        (buttonSize * 0.025).clamp(0.1, 1.0); // reduced from 0.033
 
     return Material(
       color: Colors.transparent,

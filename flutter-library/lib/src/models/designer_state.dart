@@ -138,11 +138,13 @@ class DesignerState extends ChangeNotifier {
     if (index == -1) return;
     _pushUndo();
     final el = _elements[index];
+    final (minW, minH) = DesignerElement.minSize(el.type,
+        currentWidth: el.width, currentHeight: el.height);
     _elements = [
       for (int i = 0; i < _elements.length; i++)
         if (i == index) el.copyWith(
-          width: (width ?? el.width).clamp(5, canvasWidth),
-          height: (height ?? el.height).clamp(5, canvasHeight),
+          width: (width ?? el.width).clamp(minW, canvasWidth),
+          height: (height ?? el.height).clamp(minH, canvasHeight),
         )
         else _elements[i],
     ];
@@ -312,11 +314,18 @@ class DesignerState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setScreenSize(String value) {
-    _screenSize = value;
-    final newLandscape = (value == '200 x 100');
-    if (newLandscape != _isLandscape) {
-      _isLandscape = newLandscape;
+  void setScreenSize(dynamic value) {
+    if (value is List && value.length >= 2) {
+      final w = (value[0] as num?)?.toInt() ?? 200;
+      final h = (value[1] as num?)?.toInt() ?? 100;
+      _isLandscape = w >= h;
+      _screenSize = '${w} x ${h}';
+    } else if (value is String) {
+      final parts = value.split(' x ');
+      final w = int.tryParse(parts[0]) ?? 200;
+      final h = int.tryParse(parts[1]) ?? 100;
+      _isLandscape = w >= h;
+      _screenSize = '${w} x ${h}';
     }
     notifyListeners();
   }
@@ -368,6 +377,16 @@ class DesignerState extends ChangeNotifier {
     loadFromHeaderContent(content);
   }
 
+  /// Load designer state from a plain `.json` file (no header markers).
+  Future<void> loadJsonFromPath(String filePath) async {
+    if (kIsWeb || !(Platform.isLinux || Platform.isMacOS || Platform.isWindows)) {
+      throw UnsupportedError('JSON file I/O requires a desktop platform');
+    }
+    final content = await File(filePath).readAsString();
+    final decoded = json.decode(content) as Map<String, dynamic>;
+    loadFromJson(decoded);
+  }
+
   /// Load designer state from raw header string content.
   void loadFromHeaderContent(String content, {String? path}) {
     _originalHeaderContent = content;
@@ -398,15 +417,24 @@ class DesignerState extends ChangeNotifier {
     _activeSkin = _arduinoToTheme((decoded['config']?['theme'] as String?) ?? 'RK_DEFAULT');
     _connectionPassword = (decoded['config']?['password'] as String?) ?? '';
 
-    // canvas section: read 'size' (new) or fall back to 'screenSize' (old)
-    final rawSize = (decoded['canvas']?['size'] ?? decoded['canvas']?['screenSize']) as String?;
-    if (rawSize == '200 x 100' || rawSize == '100 x 200') {
-      _screenSize = rawSize!;
-    } else {
-      // infer orientation from canvas dimensions if no valid size
-      _screenSize = '200 x 100'; // default to landscape
+    // canvas section: read 'size' (array [w, h] or legacy string "W x H")
+    final rawSize = decoded['canvas']?['size'] ?? decoded['canvas']?['screenSize'];
+    if (rawSize is List && rawSize.length >= 2) {
+      final w = (rawSize[0] as num?)?.toInt() ?? 200;
+      final h = (rawSize[1] as num?)?.toInt() ?? 100;
+      _isLandscape = w >= h;
+      _screenSize = '${w} x ${h}';
+    } else if (rawSize is String) {
+      final parts = rawSize.split(' x ');
+      final w = int.tryParse(parts[0]) ?? 200;
+      final h = int.tryParse(parts[1]) ?? 100;
+      _isLandscape = w >= h;
+      _screenSize = '${w} x ${h}';
+    } else if (rawSize == null) {
+      // default to landscape
+      _isLandscape = true;
+      _screenSize = '200 x 100';
     }
-    _isLandscape = _screenSize == '200 x 100';
 
     // read grid style (string: 'lines', 'dots', 'none')
     final gridStr = decoded['canvas']?['grid'] as String?;
@@ -544,7 +572,7 @@ class DesignerState extends ChangeNotifier {
           'password': _connectionPassword,
         },
         'canvas': {
-          'size': _screenSize,
+          'size': [canvasWidth, canvasHeight],
           'grid': _gridStyle.name,
           'skin': _activeSkin,
         },

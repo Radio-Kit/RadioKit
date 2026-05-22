@@ -71,6 +71,8 @@ class RKGasPedal extends StatelessWidget {
   Widget _buildGasPedal(BuildContext context, RKTokens tokens, double normalized) {
     final isHorizontal = orientation == RKAxis.horizontal;
     const double maxTilt = 0.45;
+    final double containerW = isHorizontal ? length : thickness * 8;
+    final double containerH = isHorizontal ? thickness * 8 : length;
 
     return Center(
       child: Transform(
@@ -82,11 +84,11 @@ class RKGasPedal extends StatelessWidget {
           ..rotateY(isHorizontal ? normalized * maxTilt : 0),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 100),
-          width: isHorizontal ? length : thickness * 8,
-          height: isHorizontal ? thickness * 8 : length,
+          width: containerW,
+          height: containerH,
           padding: EdgeInsets.symmetric(
-            vertical: isHorizontal ? 10 : 20,
-            horizontal: isHorizontal ? 15 : 10,
+            vertical: isHorizontal ? containerH * 0.12 : containerH * 0.07,
+            horizontal: isHorizontal ? containerW * 0.05 : containerW * 0.12,
           ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(tokens.borderRadius * 1.5),
@@ -124,6 +126,8 @@ class RKGasPedal extends StatelessWidget {
                       isHorizontal: isHorizontal,
                       normalized: normalized,
                       tokens: tokens,
+                      containerWidth: containerW,
+                      containerHeight: containerH,
                     ),
                   ),
                 )
@@ -135,6 +139,8 @@ class RKGasPedal extends StatelessWidget {
                       isHorizontal: isHorizontal,
                       normalized: normalized,
                       tokens: tokens,
+                      containerWidth: containerW,
+                      containerHeight: containerH,
                     ),
                   ),
                 ),
@@ -148,20 +154,33 @@ class _PedalGrip extends StatelessWidget {
   final bool isHorizontal;
   final double normalized;
   final RKTokens tokens;
+  final double containerWidth;
+  final double containerHeight;
 
   const _PedalGrip({
     required this.isHorizontal,
     required this.normalized,
     required this.tokens,
+    required this.containerWidth,
+    required this.containerHeight,
   });
 
   @override
   Widget build(BuildContext context) {
+    final double gripW = isHorizontal
+        ? containerWidth * 0.04
+        : containerWidth * 0.55;
+    final double gripH = isHorizontal
+        ? containerHeight * 0.55
+        : containerHeight * 0.04;
+    final double radius = (gripW < gripH ? gripW : gripH) * 0.12;
+    final double blur = (gripW < gripH ? gripW : gripH) * 0.08;
+
     return Container(
-      width: isHorizontal ? 10 : 50,
-      height: isHorizontal ? 50 : 10,
+      width: gripW,
+      height: gripH,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(radius.clamp(2, 12)),
         gradient: LinearGradient(
           colors: [
             Colors.black.withValues(alpha: 0.9),
@@ -174,7 +193,7 @@ class _PedalGrip extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.9),
-            blurRadius: 4,
+            blurRadius: blur.clamp(1, 8),
             offset: isHorizontal ? const Offset(3, 0) : const Offset(0, 3),
           ),
           BoxShadow(

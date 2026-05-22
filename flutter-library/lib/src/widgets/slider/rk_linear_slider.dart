@@ -1,12 +1,9 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../theme/rk_theme.dart';
+import '../rk_debug_overlay.dart';
 import '../rk_rotated_wrapper.dart';
 
-/// A premium linear slider widget for RadioKit with a clean aesthetic,
-/// self-centering, and fill-from-zero support.
-///
-/// The optional [builder] parameter allows alternative visual treatments
-/// (e.g. gas pedal) to reuse the same interaction logic.
 class RKSlider extends StatefulWidget {
   const RKSlider({
     super.key,
@@ -30,6 +27,8 @@ class RKSlider extends StatefulWidget {
     this.builder,
     this.invertGesture = false,
     this.showDebug = true,
+    this.showPillBackground = true,
+    this.pillPadding = 8.0,
   });
 
   final double value;
@@ -52,6 +51,8 @@ class RKSlider extends StatefulWidget {
   final Widget Function(BuildContext, RKTokens, double normalized)? builder;
   final bool invertGesture;
   final bool showDebug;
+  final bool showPillBackground;
+  final double pillPadding;
 
   @override
   State<RKSlider> createState() => _RKSliderState();
@@ -59,15 +60,66 @@ class RKSlider extends StatefulWidget {
 
 class _RKSliderState extends State<RKSlider>
     with SingleTickerProviderStateMixin {
-  late AnimationController _centerController;
-  late Animation<double> _centerAnimation;
+  late final AnimationController _centerController;
+  Animation<double>? _centerAnimation;
+
   double? _lastEmittedValue;
   final List<double> _echoBuffer = [];
   bool _isInteracting = false;
 
+  double get _range => widget.max - widget.min;
+  bool get _hasValidRange => _range.abs() > 0.000001;
+  double get _thumbWidth => widget.orientation == RKAxis.horizontal
+      ? widget.thickness * 4.5
+      : widget.thickness * 6.0;
+
+  double get _thumbHeight => widget.orientation == RKAxis.horizontal
+      ? widget.thickness * 6.0
+      : widget.thickness * 4.5;
+
+  double get _travelInset => math.max(2, widget.thickness * 0.9);
+
   void _addToHistory(double val) {
     _echoBuffer.add(val);
-    if (_echoBuffer.length > 20) _echoBuffer.removeAt(0);
+    if (_echoBuffer.length > 20) {
+      _echoBuffer.removeAt(0);
+    }
+  }
+
+  double _clampValue(double value) {
+    final minV = math.min(widget.min, widget.max);
+    final maxV = math.max(widget.min, widget.max);
+    return value.clamp(minV, maxV);
+  }
+
+  double _normalizedFromValue(double value) {
+    if (!_hasValidRange) return 0.0;
+    return ((value - widget.min) / _range).clamp(0.0, 1.0);
+  }
+
+  double _snapToDivisions(double value) {
+    final divisions = widget.divisions;
+    if (divisions == null || divisions <= 0 || !_hasValidRange) {
+      return _clampValue(value);
+    }
+    final step = _range / divisions;
+    if (step.abs() <= 0.000001) {
+      return _clampValue(value);
+    }
+    final snapped =
+        ((value - widget.min) / step).round() * step + widget.min;
+    return _clampValue(snapped);
+  }
+
+  void _emitValue(double value) {
+    final newValue = _snapToDivisions(_clampValue(value));
+    if (_lastEmittedValue != null &&
+        (newValue - _lastEmittedValue!).abs() < 0.000001) {
+      return;
+    }
+    _lastEmittedValue = newValue;
+    _addToHistory(newValue);
+    widget.onChanged(newValue);
   }
 
   @override
@@ -76,47 +128,45 @@ class _RKSliderState extends State<RKSlider>
     _centerController = AnimationController(
       vsync: this,
       duration: widget.springDuration,
-    );
-    _centerAnimation = CurvedAnimation(
-      parent: _centerController,
-      curve: widget.springCurve,
-    );
+    )..addListener(_handleCenterTick);
+  }
 
-    _centerController.addListener(() {
-      final val = _centerAnimation.value;
-      if (val != _lastEmittedValue) {
-        _lastEmittedValue = val;
-        _addToHistory(val);
-        Future.microtask(() => widget.onChanged(val));
-      }
-    });
+  void _handleCenterTick() {
+    final animation = _centerAnimation;
+    if (animation == null) return;
+    _emitValue(animation.value);
   }
 
   @override
-  void didUpdateWidget(RKSlider oldWidget) {
+  void didUpdateWidget(covariant RKSlider oldWidget) {
     super.didUpdateWidget(oldWidget);
+
     if (widget.springDuration != oldWidget.springDuration) {
       _centerController.duration = widget.springDuration;
     }
 
-    // MASTER-SLAVE Logic: If the user is actively interacting with the slider,
-    // we ignore all external value updates.
     if (_isInteracting) return;
 
     if (widget.value != oldWidget.value) {
-      final range = (widget.max - widget.min).abs();
-
-      // ECHO FILTER: Ignore updates that match our recent emission history.
-      final isEcho =
-          _echoBuffer.any((v) => (v - widget.value).abs() < range * 0.03);
-      if (isEcho) return;
-
-      // Since we have the echo buffer, we can use a tighter threshold for real
-      // external updates.
-      final diff = (widget.value - (_lastEmittedValue ?? -999)).abs();
-      if (diff > range * 0.05) {
+      if (_hasValidRange) {
+        final rangeAbs = _range.abs();
+        final isEcho = _echoBuffer.any(
+          (v) => (v - widget.value).abs() < rangeAbs * 0.03,
+        );
+        if (!isEcho) {
+          final diff = (widget.value - (_lastEmittedValue ?? widget.value)).abs();
+          if (diff > rangeAbs * 0.05) {
+            _lastEmittedValue = widget.value;
+            if (_centerController.isAnimating) {
+              _centerController.stop();
+            }
+          }
+        }
+      } else {
         _lastEmittedValue = widget.value;
-        if (_centerController.isAnimating) _centerController.stop();
+        if (_centerController.isAnimating) {
+          _centerController.stop();
+        }
       }
     }
 
@@ -129,109 +179,122 @@ class _RKSliderState extends State<RKSlider>
 
   @override
   void dispose() {
-    _centerController.dispose();
+    _centerController
+      ..removeListener(_handleCenterTick)
+      ..dispose();
     super.dispose();
   }
 
   void _triggerCenter() {
-    if (!widget.autoCenter) return;
-    final targetValue =
-        widget.min + widget.center * (widget.max - widget.min);
+    if (!widget.autoCenter || !_hasValidRange) return;
+
+    final targetNormalized = widget.center.clamp(0.0, 1.0);
+    final targetValue = widget.min + targetNormalized * _range;
+
     _centerController.stop();
     _centerAnimation = Tween<double>(
-      begin: widget.value,
-      end: targetValue,
-    ).animate(CurvedAnimation(
-      parent: _centerController,
-      curve: widget.springCurve,
-    ));
-    _centerController.forward(from: 0);
+      begin: _clampValue(widget.value),
+      end: _clampValue(targetValue),
+    ).animate(
+      CurvedAnimation(
+        parent: _centerController,
+        curve: widget.springCurve,
+      ),
+    );
+    _centerController.forward(from: 0.0);
   }
 
   void _handleUpdate(Offset localPos, Size size) {
-    if (_centerController.isAnimating) _centerController.stop();
+    if (!_hasValidRange) return;
+    if (_centerController.isAnimating) {
+      _centerController.stop();
+    }
+
+    final thumbMainSize =
+        widget.orientation == RKAxis.horizontal ? _thumbWidth : _thumbHeight;
+    final endpointInset = _travelInset + thumbMainSize / 2;
 
     double progress;
-    const double inset = 16.0;
 
     if (widget.orientation == RKAxis.horizontal) {
-      final availableWidth = size.width - (inset * 2);
-      progress =
-          ((localPos.dx - inset) / availableWidth).clamp(0.0, 1.0);
+      final start = endpointInset;
+      final end = math.max(start + 1.0, size.width - endpointInset);
+      progress = ((localPos.dx - start) / (end - start)).clamp(0.0, 1.0);
     } else {
-      final availableHeight = size.height - (inset * 2);
-      progress =
-          (1.0 - ((localPos.dy - inset) / availableHeight)).clamp(0.0, 1.0);
+      final start = endpointInset;
+      final end = math.max(start + 1.0, size.height - endpointInset);
+      progress = (1.0 - ((localPos.dy - start) / (end - start))).clamp(0.0, 1.0);
     }
 
-    if (widget.invertGesture) progress = 1.0 - progress;
-
-    double newVal = widget.min + progress * (widget.max - widget.min);
-
-    if (widget.divisions != null && widget.divisions! > 0) {
-      final step = (widget.max - widget.min) / widget.divisions!;
-      newVal = ((newVal - widget.min) / step).round() * step + widget.min;
+    if (widget.invertGesture) {
+      progress = 1.0 - progress;
     }
 
-    if (newVal != _lastEmittedValue) {
-      _lastEmittedValue = newVal;
-      _addToHistory(newVal);
-      Future.microtask(() => widget.onChanged(newVal));
-    }
+    final newVal = widget.min + progress * _range;
+    _emitValue(newVal);
   }
 
   @override
   Widget build(BuildContext context) {
     final tokens = RKTheme.of(context);
-    final normalized =
-        ((widget.value - widget.min) / (widget.max - widget.min))
-            .clamp(0.0, 1.0);
-    final zeroPos =
-        ((0.0 - widget.min) / (widget.max - widget.min)).clamp(0.0, 1.0);
+    final normalized = _normalizedFromValue(_clampValue(widget.value));
+    final zeroPos = _normalizedFromValue(0.0);
 
-    final double contentW = widget.orientation == RKAxis.horizontal
-        ? widget.length
-        : widget.thickness * 8;
-    final double contentH = widget.orientation == RKAxis.vertical
-        ? widget.length
-        : widget.thickness * 8;
+    final double contentW =
+        widget.orientation == RKAxis.horizontal ? widget.length : widget.thickness * 8.8;
+    final double contentH =
+        widget.orientation == RKAxis.vertical ? widget.length : widget.thickness * 6.8;
 
     return RKRotatedWrapper(
       rotation: widget.rotation,
       label: widget.label,
-      showDebug: widget.showDebug,
+      showDebug: false,
       contentWidth: contentW,
       contentHeight: contentH,
       labelColor: tokens.trackColor.withValues(alpha: 0.8),
       fitContent: true,
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onPanStart: (details) {
           setState(() => _isInteracting = true);
           widget.onInteractionChanged?.call(true);
           _handleUpdate(details.localPosition, Size(contentW, contentH));
         },
-        onPanUpdate: (details) =>
-            _handleUpdate(details.localPosition, Size(contentW, contentH)),
+        onPanUpdate: (details) {
+          _handleUpdate(details.localPosition, Size(contentW, contentH));
+        },
+        onPanCancel: () {
+          setState(() => _isInteracting = false);
+          widget.onInteractionChanged?.call(false);
+          if (widget.autoCenter) {
+            _triggerCenter();
+          }
+        },
         onPanEnd: (_) {
           setState(() => _isInteracting = false);
           widget.onInteractionChanged?.call(false);
-          if (widget.autoCenter) _triggerCenter();
+          if (widget.autoCenter) {
+            _triggerCenter();
+          }
         },
-        child: Container(
+        child: SizedBox(
           width: contentW,
           height: contentH,
-          color: Colors.transparent,
           child: widget.builder != null
               ? widget.builder!(context, tokens, normalized)
-              : CustomPaint(
-                  painter: _LinearSliderPainter(
-                    normalized: normalized,
-                    zeroPos: zeroPos,
-                    tokens: tokens,
-                    orientation: widget.orientation,
-                    thickness: widget.thickness,
-                    showTicks: widget.showTicks,
-                    tickCount: widget.tickCount,
+              : ClipRect(
+                  child: CustomPaint(
+                    painter: _LinearSliderPainter(
+                      normalized: normalized,
+                      zeroPos: zeroPos,
+                      tokens: tokens,
+                      orientation: widget.orientation,
+                      thickness: widget.thickness,
+                      showTicks: widget.showTicks,
+                      tickCount: widget.tickCount,
+                      showPillBackground: widget.showPillBackground,
+                      showDebug: widget.showDebug,
+                    ),
                   ),
                 ),
         ),
@@ -249,6 +312,8 @@ class _LinearSliderPainter extends CustomPainter {
     required this.thickness,
     required this.showTicks,
     required this.tickCount,
+    required this.showPillBackground,
+    required this.showDebug,
   });
 
   final double normalized;
@@ -258,223 +323,324 @@ class _LinearSliderPainter extends CustomPainter {
   final double thickness;
   final bool showTicks;
   final int tickCount;
+  final bool showPillBackground;
+  final bool showDebug;
+
+  double get _pillRadius => thickness * 0.8;
+  double get _trackRadius => thickness * 0.5;
+  double get _travelInset => math.max(2, thickness * 0.9);
 
   @override
   void paint(Canvas canvas, Size size) {
     final isHorizontal = orientation == RKAxis.horizontal;
-    const double horizontalInset = 16.0;
-    const double thumbSize = 32.0;
-
     final centerY = size.height / 2;
     final centerX = size.width / 2;
+    canvas.save();
 
-    // 1. Draw Track
-    final trackPaint = Paint()
-      ..color = tokens.trackColor
-      ..style = PaintingStyle.fill;
+    final thumbWidth = isHorizontal
+        ? math.min(thickness * 4.5, size.width)
+        : math.min(thickness * 6.0, size.width);
 
+    final thumbHeight = isHorizontal
+        ? math.min(thickness * 6.0, size.height)
+        : math.min(thickness * 4.5, size.height);
+
+    final thumbMainAxisSize = isHorizontal ? thumbWidth : thumbHeight;
+    final thumbHalfMainAxis = thumbMainAxisSize / 2;
+    final endpointInset = _travelInset + thumbHalfMainAxis;
+
+    final travelStart = endpointInset;
+    final travelEnd =
+        (isHorizontal ? size.width : size.height) - endpointInset;
+    final travelLength = math.max(0.0, travelEnd - travelStart);
+
+    final trackThickness = thickness;
     final trackRect = isHorizontal
         ? Rect.fromLTWH(
-            horizontalInset,
-            centerY - thickness / 2,
-            size.width - (horizontalInset * 2),
-            thickness,
+            travelStart,
+            centerY - trackThickness / 2,
+            travelLength,
+            trackThickness,
           )
         : Rect.fromLTWH(
-            centerX - thickness / 2,
-            horizontalInset,
-            thickness,
-            size.height - (horizontalInset * 2),
+            centerX - trackThickness / 2,
+            travelStart,
+            trackThickness,
+            travelLength,
           );
 
-    final RRect trackRRect =
-        RRect.fromRectAndRadius(trackRect, Radius.circular(thickness / 10));
-    canvas.drawRRect(trackRRect, trackPaint);
+    if (showPillBackground) {
+      final pillRect = Offset.zero & size;
 
-    // 2. Draw Active Fill
-    final activePaint = Paint()
-      ..color = tokens.primary.withValues(alpha: 0.5)
-      ..style = PaintingStyle.fill;
+      if (size.width > 0 && size.height > 0) {
+        final pillRRect = RRect.fromRectAndRadius(
+          pillRect,
+          Radius.circular(_pillRadius),
+        );
 
-    Rect activeRect;
-    if (isHorizontal) {
-      final startX = trackRect.left + zeroPos * trackRect.width;
-      final endX = trackRect.left + normalized * trackRect.width;
-      activeRect = Rect.fromLTRB(
-        startX < endX ? startX : endX,
-        trackRect.top,
-        startX < endX ? endX : startX,
-        trackRect.bottom,
+        final shadowPaint = Paint()
+          ..color = Colors.black.withValues(alpha: 0.30)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, _pillRadius * 0.55);
+        canvas.drawRRect(
+          pillRRect.shift(const Offset(0, 2)),
+          shadowPaint,
+        );
+
+        final fillPaint = Paint()
+          ..color = const Color(0xFF232323)
+          ..style = PaintingStyle.fill;
+        canvas.drawRRect(pillRRect, fillPaint);
+      }
+    }
+
+    if (showDebug && RKDebugOverlay.enabled) {
+      final debugPaint = Paint()
+        ..color = const Color(0x55AAFFFF)
+        ..strokeWidth = 1.5
+        ..style = PaintingStyle.stroke;
+
+      final debugRect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(
+          0.75,
+          0.75,
+          size.width - 1.5,
+          size.height - 1.5,
+        ),
+        Radius.circular(_pillRadius),
       );
-    } else {
-      final startY = trackRect.top + (1.0 - zeroPos) * trackRect.height;
-      final endY = trackRect.top + (1.0 - normalized) * trackRect.height;
-      activeRect = Rect.fromLTRB(
-        trackRect.left,
-        startY < endY ? startY : endY,
-        trackRect.right,
-        startY < endY ? endY : startY,
+
+      final path = Path()..addRRect(debugRect);
+      final metrics = path.computeMetrics();
+      const double dashLength = 4.0;
+      const double gapLength = 3.0;
+      for (final metric in metrics) {
+        double distance = 0;
+        while (distance < metric.length) {
+          final end = (distance + dashLength).clamp(0.0, metric.length) as double;
+          final segment = metric.extractPath(distance, end);
+          canvas.drawPath(segment, debugPaint);
+          distance += dashLength + gapLength;
+        }
+      }
+    }
+
+    if (trackRect.width <= 0 || trackRect.height <= 0) {
+      canvas.restore();
+      return;
+    }
+
+    final trackRRect =
+        RRect.fromRectAndRadius(trackRect, Radius.circular(_trackRadius));
+
+    final trackBgPaint = Paint()
+      ..color = const Color(0xFF101010)
+      ..style = PaintingStyle.fill;
+    canvas.drawRRect(trackRRect, trackBgPaint);
+
+    final trackBorderPaint = Paint()
+      ..color = const Color(0xFF2C2C2C)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(1.0, thickness * 0.08);
+    canvas.drawRRect(trackRRect, trackBorderPaint);
+
+    final innerDeflate = math.min(thickness * 0.16, thickness / 2 - 0.1);
+    final innerTrackRect = trackRect.deflate(innerDeflate);
+    if (innerTrackRect.width > 0 && innerTrackRect.height > 0) {
+      final innerPaint = Paint()
+        ..color = Colors.white.withValues(alpha: 0.035);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          innerTrackRect,
+          Radius.circular(math.max(0.0, _trackRadius - innerDeflate)),
+        ),
+        innerPaint,
       );
     }
 
-    final RRect activeRRect =
-        RRect.fromRectAndRadius(activeRect, Radius.circular(thickness / 2));
-    canvas.drawRRect(activeRRect, activePaint);
+    final thumbCenter = isHorizontal
+        ? Offset(travelStart + normalized * travelLength, centerY)
+        : Offset(centerX, travelEnd - normalized * travelLength);
 
-    // 3. Draw Ticks (over the track)
+    final zeroCenter = isHorizontal
+        ? Offset(travelStart + zeroPos * travelLength, centerY)
+        : Offset(centerX, travelEnd - zeroPos * travelLength);
+
+    final activeHeight = thickness * 0.48;
+    final activeFillPaint = Paint()
+      ..color = tokens.trackColor.withValues(alpha: 0.92)
+      ..style = PaintingStyle.fill;
+
+    final activeRect = isHorizontal
+        ? Rect.fromLTRB(
+            math.min(zeroCenter.dx, thumbCenter.dx),
+            centerY - activeHeight / 2,
+            math.max(zeroCenter.dx, thumbCenter.dx),
+            centerY + activeHeight / 2,
+          )
+        : Rect.fromLTRB(
+            centerX - activeHeight / 2,
+            math.min(zeroCenter.dy, thumbCenter.dy),
+            centerX + activeHeight / 2,
+            math.max(zeroCenter.dy, thumbCenter.dy),
+          );
+
+    if (activeRect.width > 0 && activeRect.height > 0) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          activeRect,
+          Radius.circular(activeHeight / 2),
+        ),
+        activeFillPaint,
+      );
+    }
+
     if (showTicks && tickCount > 0) {
       final minorPaint = Paint()
-        ..color = tokens.onSurface.withValues(alpha: 0.15)
-        ..strokeWidth = 0.6
+        ..color = const Color(0xFF4D4D4D)
+        ..strokeWidth = math.max(1.0, thickness * 0.09)
         ..strokeCap = StrokeCap.round;
 
       final majorPaint = Paint()
-        ..color = tokens.onSurface.withValues(alpha: 0.35)
-        ..strokeWidth = 1.2
+        ..color = const Color(0xFF6A6A6A)
+        ..strokeWidth = math.max(1.0, thickness * 0.13)
         ..strokeCap = StrokeCap.round;
 
-      if (isHorizontal) {
-        const startX = horizontalInset;
-        final endX = size.width - horizontalInset;
+      final majorEvery = tickCount > 10 ? 5 : 2;
+      final tickOffset = thickness * 0.82;
 
+      if (isHorizontal) {
+        final startX = travelStart;
+        final endX = travelEnd;
         for (int i = 0; i <= tickCount; i++) {
           final t = i / tickCount;
           final x = startX + (endX - startX) * t;
-          final isMajor = i % 5 == 0;
-
-          final tickHeight = isMajor ? thumbSize * 0.6 : thumbSize * 0.5;
-          final top = centerY - tickHeight / 2;
-          final bottom = centerY + tickHeight / 2;
+          final isMajor = i % majorEvery == 0;
+          final paint = isMajor ? majorPaint : minorPaint;
+          final h = isMajor ? thickness * 1.05 : thickness * 0.62;
 
           canvas.drawLine(
-            Offset(x, top),
-            Offset(x, bottom),
-            isMajor ? majorPaint : minorPaint,
+            Offset(x, centerY - tickOffset),
+            Offset(x, centerY - tickOffset - h),
+            paint,
+          );
+          canvas.drawLine(
+            Offset(x, centerY + tickOffset),
+            Offset(x, centerY + tickOffset + h),
+            paint,
           );
         }
       } else {
-        const startY = horizontalInset;
-        final endY = size.height - horizontalInset;
-
+        final startY = travelEnd;
+        final endY = travelStart;
         for (int i = 0; i <= tickCount; i++) {
           final t = i / tickCount;
-          final y = endY - (endY - startY) * t;
-          final isMajor = i % 5 == 0;
-
-          final tickWidth = isMajor ? thumbSize * 0.6 : thumbSize * 0.5;
-          final left = centerX - tickWidth / 2;
-          final right = centerX + tickWidth / 2;
+          final y = startY + (endY - startY) * t;
+          final isMajor = i % majorEvery == 0;
+          final paint = isMajor ? majorPaint : minorPaint;
+          final h = isMajor ? thickness * 1.05 : thickness * 0.62;
 
           canvas.drawLine(
-            Offset(left, y),
-            Offset(right, y),
-            isMajor ? majorPaint : minorPaint,
+            Offset(centerX - tickOffset, y),
+            Offset(centerX - tickOffset - h, y),
+            paint,
+          );
+          canvas.drawLine(
+            Offset(centerX + tickOffset, y),
+            Offset(centerX + tickOffset + h, y),
+            paint,
           );
         }
       }
     }
 
-    // 4. Draw Thumb
-    final thumbCenter = isHorizontal
-        ? Offset(trackRect.left + normalized * trackRect.width, centerY)
-        : Offset(centerX,
-            trackRect.top + (1.0 - normalized) * trackRect.height);
-
-    _drawThumb(canvas, thumbCenter);
+    _drawThumb(canvas, thumbCenter, thumbWidth, thumbHeight);
+    canvas.restore();
   }
 
-  void _drawThumb(Canvas canvas, Offset center) {
-    const double thumbSize = 31.0;
-    final glowRect =
-        Rect.fromCenter(center: center, width: thumbSize + 8, height: thumbSize + 8);
-    final outerRect =
-        Rect.fromCenter(center: center, width: thumbSize, height: thumbSize);
-    final innerRect =
-        Rect.fromCenter(center: center, width: thumbSize - 6, height: thumbSize - 6);
+  void _drawThumb(Canvas canvas, Offset center, double thumbWidth, double thumbHeight) {
+    final outerRect = Rect.fromCenter(
+      center: center,
+      width: thumbWidth,
+      height: thumbHeight,
+    );
+    final outerRadius = math.min(thumbWidth, thumbHeight) * 0.10;
+    final outerRRect = RRect.fromRectAndRadius(
+      outerRect,
+      Radius.circular(outerRadius),
+    );
+
+    final dropShadowPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.42)
+      ..maskFilter = MaskFilter.blur(
+        BlurStyle.normal,
+        math.min(thumbWidth, thumbHeight) * 0.08,
+      );
+    canvas.drawRRect(
+      outerRRect.shift(Offset(thumbWidth * 0.02, thumbHeight * 0.04)),
+      dropShadowPaint,
+    );
 
     final glowPaint = Paint()
-      ..color = tokens.primary.withValues(alpha: 0.05)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
-
-    final outerPaint = Paint()
-      ..color = tokens.primary
-      ..style = PaintingStyle.fill;
-
-    final innerPaint = Paint()
-      ..color = tokens.surface.withValues(alpha: 0.2)
-      ..style = PaintingStyle.fill;
-
-    final rimPaint = Paint()
-      ..color = tokens.primary.withValues(alpha: 0.3)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-
-    final gripShadowPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.3)
-      ..strokeWidth = 2.4
-      ..strokeCap = StrokeCap.round;
-
-    final gripPaint = Paint()
-      ..color = tokens.surface.withValues(alpha: 0.8)
-      ..strokeWidth = 1.8
-      ..strokeCap = StrokeCap.round;
-
+      ..color = tokens.primary.withValues(alpha: 0.20)
+      ..maskFilter = MaskFilter.blur(
+        BlurStyle.normal,
+        math.min(thumbWidth, thumbHeight) * 0.10,
+      );
     canvas.drawRRect(
-      RRect.fromRectAndRadius(glowRect, const Radius.circular(10)),
+      RRect.fromRectAndRadius(
+        outerRect.inflate(math.min(thumbWidth, thumbHeight) * 0.03),
+        Radius.circular(outerRadius + 2),
+      ),
       glowPaint,
     );
 
+    final fillPaint = Paint()
+      ..color = tokens.primary
+      ..style = PaintingStyle.fill;
+    canvas.drawRRect(outerRRect, fillPaint);
+
+    final borderPaint = Paint()
+      ..color = const Color(0xFFB84D00).withValues(alpha: 0.85)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(1.0, thickness * 0.14);
     canvas.drawRRect(
-      RRect.fromRectAndRadius(outerRect, const Radius.circular(8)),
-      outerPaint,
+      outerRRect.deflate(thickness * 0.03),
+      borderPaint,
     );
 
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(innerRect, const Radius.circular(6)),
-      innerPaint,
-    );
+    final gripColor = tokens.surface.withValues(alpha: 0.58);
+    final gripLength = thumbWidth * 0.42;
+    final gripThickness = math.max(1.2, thickness * 0.18);
+    final gripSpacing = gripThickness * 1.8;
+    final gripCount = 4;
+    final totalGripSpan =
+        gripThickness * gripCount + gripSpacing * (gripCount - 1);
+    final startY = center.dy - totalGripSpan / 2 + gripThickness / 2;
 
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        outerRect.deflate(0.5),
-        const Radius.circular(8),
-      ),
-      rimPaint,
-    );
-
-    for (int i = -1; i <= 1; i++) {
-      final offset = i * 4.2;
-
-      if (orientation == RKAxis.horizontal) {
-        canvas.drawLine(
-          Offset(center.dx + offset, center.dy - 6.0),
-          Offset(center.dx + offset, center.dy + 6.0),
-          gripShadowPaint,
-        );
-        canvas.drawLine(
-          Offset(center.dx + offset, center.dy - 5.5),
-          Offset(center.dx + offset, center.dy + 5.5),
-          gripPaint,
-        );
-      } else {
-        canvas.drawLine(
-          Offset(center.dx - 6.0, center.dy + offset),
-          Offset(center.dx + 6.0, center.dy + offset),
-          gripShadowPaint,
-        );
-        canvas.drawLine(
-          Offset(center.dx - 5.5, center.dy + offset),
-          Offset(center.dx + 5.5, center.dy + offset),
-          gripPaint,
-        );
-      }
+    for (int i = 0; i < gripCount; i++) {
+      final cy = startY + i * (gripThickness + gripSpacing);
+      final rRect = RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(center.dx, cy),
+          width: gripLength,
+          height: gripThickness,
+        ),
+        Radius.circular(gripThickness / 2),
+      );
+      canvas.drawRRect(rRect, Paint()..color = gripColor);
     }
   }
 
   @override
-  bool shouldRepaint(covariant _LinearSliderPainter oldDelegate) =>
-      oldDelegate.normalized != normalized ||
-      oldDelegate.zeroPos != zeroPos ||
-      oldDelegate.showTicks != showTicks ||
-      oldDelegate.tickCount != tickCount;
+  bool shouldRepaint(covariant _LinearSliderPainter oldDelegate) {
+    return oldDelegate.normalized != normalized ||
+        oldDelegate.zeroPos != zeroPos ||
+        oldDelegate.tokens != tokens ||
+        oldDelegate.orientation != orientation ||
+        oldDelegate.thickness != thickness ||
+        oldDelegate.showTicks != showTicks ||
+        oldDelegate.tickCount != tickCount ||
+        oldDelegate.showPillBackground != showPillBackground ||
+        oldDelegate.showDebug != showDebug;
+  }
 }

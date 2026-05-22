@@ -48,6 +48,9 @@ class RKJoystick extends StatefulWidget {
     this.showDebug = true,
   });
 
+  /// The fixed aspect ratio (width/height) for this widget.
+  static const double? aspectRatio = 1.0;
+
   final ValueChanged<RKJoystickValue> onChanged;
   final RKJoystickValue? value;
   final RKJoystickValue center;
