@@ -6,14 +6,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import 'utils/file_download.dart';
 import 'widgets/designer_widget_dialog.dart';
 import 'widgets/designer_inspector.dart';
 
 import '../../providers/designs_provider.dart';
-import 'codegen/widget_templates.dart';
+import 'codegen/json_arduino_generator.dart';
 
 class DesignerScreen extends StatefulWidget {
   final String? designId;
@@ -141,8 +139,11 @@ class _DesignerScreenState extends State<DesignerScreen> {
                         Positioned(
                           right: 16,
                           bottom: 16,
-                          child: _DesignerRightFabMenu(
-                            onTap: () => _showSourceCode(context, tokens),
+                          child: FloatingActionButton(
+                            onPressed: () => _showSourceCode(context, tokens),
+                            backgroundColor: const Color(0xFF2A2A2A),
+                            foregroundColor: Colors.white70,
+                            child: const Icon(LucideIcons.code),
                           ),
                         ),
                     ],
@@ -410,9 +411,14 @@ class _DesignerScreenState extends State<DesignerScreen> {
   // ── Back navigation ───────────────────────────────────────────────────────
 
   Future<void> _handleBack(BuildContext context) async {
+    // Capture navigator references before any async gaps for safe use later.
+    final router = GoRouter.of(context);
+    final navigator = Navigator.of(context);
+    final canPop = context.canPop();
+
     // Navigate immediately when there is nothing unsaved.
     if (!_hasUnsavedChanges) {
-      if (context.canPop()) {
+      if (canPop) {
         context.pop();
       } else {
         context.go('/designs');
@@ -468,92 +474,15 @@ class _DesignerScreenState extends State<DesignerScreen> {
 
     if (result == 'save') {
       await _autoSaveToApp();
+      if (!mounted) return;
     }
     // Both 'save' and 'discard' navigate back; null (dismissed) stays.
     if (result != null) {
-      if (context.canPop()) {
-        context.pop();
+      if (canPop) {
+        navigator.pop();
       } else {
-        context.go('/designs');
+        router.go('/designs');
       }
-    }
-  }
-
-  // ── .h file I/O ──────────────────────────────────────────────────────────
-
-  void _openHeaderFile() async {
-    try {
-      FilePickerResult? result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['h'],
-        withData: true,
-      );
-
-      if (result != null && result.files.isNotEmpty) {
-        final bytes = result.files.first.bytes;
-        if (bytes != null) {
-          final content = utf8.decode(bytes);
-          _state.loadFromHeaderContent(content, path: result.files.first.name);
-        } else {
-          // Fallback if bytes is null (e.g., some desktop platforms if withData fails)
-          final path = result.files.first.path;
-          if (path != null) {
-            await _state.loadFromHeaderFile(path);
-          } else {
-            throw Exception('Could not read file data');
-          }
-        }
-
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: SelectableText('RadioKit_UI.h loaded')),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: SelectableText('Load failed: $e')),
-      );
-    }
-  }
-
-  void _saveHeaderFile() async {
-    try {
-      if (kIsWeb) {
-        final newContent =
-            _state.generateHeaderContent(_state.originalHeaderContent ?? '');
-        final filename = _state.originalHeaderPath ?? 'RadioKit_UI.h';
-        downloadFile(filename, newContent);
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: SelectableText('RadioKit_UI.h downloaded')),
-        );
-        return;
-      }
-
-      FilePickerResult? result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['h'],
-        dialogTitle: 'Select an existing RadioKit_UI.h to update',
-      );
-      if (result != null && result.files.isNotEmpty) {
-        final path = result.files.first.path;
-        if (path != null) {
-          await _state.saveToHeaderFile(path);
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: SelectableText('RadioKit_UI.h saved')),
-          );
-        } else {
-          throw Exception(
-              'File path is null. Saving to an existing file requires Desktop.');
-        }
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: SelectableText('Save failed: $e')),
-      );
     }
   }
 
@@ -741,10 +670,36 @@ class _DesignerScreenState extends State<DesignerScreen> {
     );
   }
 
+  /// Collapses simple scalar arrays (no nested objects/arrays) from multi-line
+  /// to single-line. E.g.
+  /// ```
+  ///   "position": [
+  ///     93,
+  ///     12,
+  ///     0
+  ///   ]
+  /// ```
+  /// becomes:
+  /// ```
+  ///   "position": [93, 12, 0]
+  /// ```
+  static String _inlineSimpleArrays(String json) {
+    return json.replaceAllMapped(
+      RegExp(r'\[\s*\n((?:\s*[^\[\]\{\}]+,\s*\n)+)\s*\]'),
+      (m) {
+        final inner = m.group(1)!;
+        final parts = inner
+            .split(RegExp(r',\s*\n\s*'))
+            .map((s) => s.trim())
+            .join(', ');
+        return '[$parts]';
+      },
+    );
+  }
+
   /// Transforms JSON for code viewer display:
-  /// - Renames top-level `id` → `id` (kept for reference); renames `label` → `name`
-  ///   to show the C++ identifier name alongside the original `label` field
-  /// - Replaces top-level `labelHidden` → `label` with values `show`/`hide`
+  /// - Keeps `name` as-is to show the C++ identifier name
+  /// - Replaces `label` object {text, show} with a compact `show`/`hide` string
   String _transformJsonForDisplay(String rawJson) {
     final data = jsonDecode(rawJson);
     if (data is! Map<String, dynamic>) return rawJson;
@@ -753,112 +708,27 @@ class _DesignerScreenState extends State<DesignerScreen> {
     if (widgets is List) {
       for (final w in widgets) {
         if (w is! Map<String, dynamic>) continue;
-        // Rename top-level 'label' to 'name' to show the C++ identifier name
-        if (w.containsKey('label')) {
-          w['name'] = w.remove('label');
+        // Replace 'label': { text, show } object with just the show/hide string
+        final labelObj = w['label'];
+        if (labelObj is Map) {
+          final show = (labelObj['show'] as bool?) ?? true;
+          w['label'] = show ? 'show' : 'hide';
         }
-        // Replace top-level 'labelHidden' with 'label': 'show'/'hide'
-        final hidden = w.remove('labelHidden') as bool? ?? false;
-        w['label'] = hidden ? 'hide' : 'show';
       }
     }
 
-    return const JsonEncoder.withIndent('  ').convert(data);
+    final json = const JsonEncoder.withIndent('  ').convert(data);
+    return _inlineSimpleArrays(json);
   }
 
   // ── Arduino .h file generator ──────────────────────────────────────────
 
-  /// Generates the complete `RadioKit_UI.h` file content including the JSON
-  /// config block and the generated C++ widget declarations + config init.
+  /// Generates the complete `RadioKit_UI.h` file content from the designer
+  /// JSON config — the C++ code is always derived from the JSON schema.
   String _generateArduinoHeader() {
-    final buf = StringBuffer();
-    buf.writeln('//__RadioKit_Generated_Code__');
-    buf.writeln('//__Might_Be_Overwritten_');
-    buf.writeln();
-
-    final elements = _state.elements;
-    if (elements.isEmpty) {
-      buf.writeln('#ifndef RADIOKIT_UI_H');
-      buf.writeln('#define RADIOKIT_UI_H');
-      buf.writeln();
-      buf.writeln('#include <RadioKit.h>');
-      buf.writeln();
-      buf.writeln('static inline void initRadioKit() {');
-      _writeConfigInit(buf, '  ');
-      buf.writeln('}');
-      buf.writeln();
-      buf.writeln('#endif // RADIOKIT_UI_H');
-      buf.writeln();
-      return buf.toString();
-    }
-
-    buf.writeln('#ifndef RADIOKIT_UI_H');
-    buf.writeln('#define RADIOKIT_UI_H');
-    buf.writeln();
-    buf.writeln('#include <RadioKit.h>');
-    buf.writeln();
-    buf.writeln('// ─── Widget Declarations ───');
-    for (final el in elements) {
-      final template = templates[el.type];
-      if (template != null) {
-        buf.writeln(template(el, 0));
-        buf.writeln();
-      }
-    }
-
-    buf.writeln('// ─── Config Init ───');
-    buf.writeln('static inline void initRadioKit() {');
-    _writeConfigInit(buf, '  ');
-    buf.writeln('');
-    buf.writeln('  RadioKit.begin();');
-    final transport = _state.connectionType.toLowerCase();
-    if (transport == 'ble') {
-      buf.writeln('  RadioKit.startBLE(RadioKit.config.name);');
-    }
-    buf.writeln('}');
-    buf.writeln();
-    buf.writeln('#endif // RADIOKIT_UI_H');
-    buf.writeln();
-
-    return buf.toString();
+    final json = _state.toJson();
+    return JsonArduinoGenerator.generate(json);
   }
-
-  void _writeConfigInit(StringBuffer buf, String indent) {
-    final state = _state;
-    if (state.modelName.isNotEmpty) {
-      buf.writeln(
-          '${indent}RadioKit.config.name        = "${_escapeC(state.modelName)}";');
-    }
-    if (state.modelDescription.isNotEmpty) {
-      buf.writeln(
-          '${indent}RadioKit.config.description = "${_escapeC(state.modelDescription)}";');
-    }
-    if (state.modelType.isNotEmpty) {
-      buf.writeln(
-          '${indent}RadioKit.config.type        = "${_escapeC(state.modelType)}";');
-    }
-    // theme
-    switch (state.activeSkin) {
-      case 'neon':
-        buf.writeln('${indent}RadioKit.config.theme       = RK_NEON;');
-        break;
-      case 'minimal':
-        buf.writeln('${indent}RadioKit.config.theme       = RK_MINIMAL;');
-        break;
-      default:
-        buf.writeln('${indent}RadioKit.config.theme       = RK_DEFAULT;');
-        break;
-    }
-    if (state.connectionPassword.isNotEmpty) {
-      buf.writeln(
-          '${indent}RadioKit.config.password    = "${_escapeC(state.connectionPassword)}";');
-    }
-    if (state.connectionType.toLowerCase() != 'ble') {
-      buf.writeln('${indent}RadioKit.config.transport   = SerialTransport;');
-    }
-  }
-
-  String _escapeC(String s) => s.replaceAll('"', '\\"').replaceAll('\n', '\\n');
 
   // ── C syntax highlighter for Arduino code ─────────────────────────────
 
@@ -931,8 +801,8 @@ class _DesignerScreenState extends State<DesignerScreen> {
   // ── Code generation dialog ───────────────────────────────────────────────
 
   void _showSourceCode(BuildContext context, RKTokens tokens) {
-    final encoder = JsonEncoder.withIndent('  ');
-    final jsonString = encoder.convert(_state.toJson());
+    const encoder = JsonEncoder.withIndent('  ');
+    final jsonString = _inlineSimpleArrays(encoder.convert(_state.toJson()));
     final displayJsonString = _transformJsonForDisplay(jsonString);
 
     showGeneralDialog(
@@ -1054,7 +924,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        // DOWNLOAD
+                        // DOWNLOAD .h
                         GestureDetector(
                           onTap: () {
                             final wrapped =
@@ -1080,7 +950,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                                     color: Colors.white70, size: 14),
                                 SizedBox(width: 6),
                                 Text(
-                                  'DOWNLOAD',
+                                  '.h',
                                   style: TextStyle(
                                     color: Colors.white70,
                                     fontSize: 11,
@@ -1120,33 +990,28 @@ class _DesignerScreenState extends State<DesignerScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               // Pane header
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 20, vertical: 10),
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF181818),
-                                  border: Border(
-                                      bottom:
-                                          BorderSide(color: Color(0xFF2A2A2A))),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(LucideIcons.fileJson,
-                                        color: tokens.primary, size: 14),
-                                    const SizedBox(width: 8),
-                                    const Text(
-                                      'UI CONFIG (JSON)',
-                                      style: TextStyle(
-                                        color: Color(0xFFAAAAAA),
-                                        fontSize: 11,
-                                        fontFamily: 'monospace',
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                              _buildPaneHeader(
+                                icon: LucideIcons.fileJson,
+                                label: 'UI CONFIG (JSON)',
+                                tokens: tokens,
+                                onCopy: () {
+                                  Clipboard.setData(
+                                      ClipboardData(text: jsonString));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: SelectableText(
+                                            'JSON config copied to clipboard')),
+                                  );
+                                },
+                                onDownload: () {
+                                  downloadFile(
+                                      'RadioKit_UI.json', jsonString);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: SelectableText(
+                                            'RadioKit_UI.json downloaded')),
+                                  );
+                                },
                               ),
                               // Code content with line numbers
                               Expanded(
@@ -1169,33 +1034,21 @@ class _DesignerScreenState extends State<DesignerScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               // Pane header
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 20, vertical: 10),
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF181818),
-                                  border: Border(
-                                      bottom:
-                                          BorderSide(color: Color(0xFF2A2A2A))),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(LucideIcons.microchip,
-                                        color: tokens.primary, size: 14),
-                                    const SizedBox(width: 8),
-                                    const Text(
-                                      'ARDUINO CODE (RadioKit_UI.h)',
-                                      style: TextStyle(
-                                        color: Color(0xFFAAAAAA),
-                                        fontSize: 11,
-                                        fontFamily: 'monospace',
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                              _buildPaneHeader(
+                                icon: LucideIcons.microchip,
+                                label: 'ARDUINO CODE',
+                                tokens: tokens,
+                                onCopy: () {
+                                  final arduinoCode =
+                                      _generateArduinoHeader();
+                                  Clipboard.setData(
+                                      ClipboardData(text: arduinoCode));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: SelectableText(
+                                            'Arduino code copied to clipboard')),
+                                  );
+                                },
                               ),
                               // Generated code
                               Expanded(
@@ -1220,21 +1073,63 @@ class _DesignerScreenState extends State<DesignerScreen> {
   }
 }
 
-class _DesignerRightFabMenu extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _DesignerRightFabMenu({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return FloatingActionButton(
-      onPressed: onTap,
-      backgroundColor: const Color(0xFF2A2A2A),
-      foregroundColor: Colors.white70,
-      child: const Icon(LucideIcons.code),
+  /// Shared pane header builder with copy icon button and optional download.
+  Widget _buildPaneHeader({
+    required IconData icon,
+    required String label,
+    required RKTokens tokens,
+    required VoidCallback onCopy,
+    VoidCallback? onDownload,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: const BoxDecoration(
+        color: Color(0xFF181818),
+        border: Border(bottom: BorderSide(color: Color(0xFF2A2A2A))),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: tokens.primary, size: 14),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFFAAAAAA),
+              fontSize: 11,
+              fontFamily: 'monospace',
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const Spacer(),
+          GestureDetector(
+            onTap: onCopy,
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF222222),
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: Icon(Icons.copy, color: tokens.primary, size: 13),
+            ),
+          ),
+          if (onDownload != null) ...[const SizedBox(width: 6),
+          GestureDetector(
+            onTap: onDownload,
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF222222),
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: Icon(LucideIcons.download, color: tokens.primary, size: 13),
+            ),
+          )],
+        ],
+      ),
     );
   }
-}
 
 class _IconButton extends StatelessWidget {
   final IconData icon;

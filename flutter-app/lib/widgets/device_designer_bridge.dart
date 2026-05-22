@@ -71,23 +71,20 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
       final type = _mapWidgetType(config);
       if (type == null) continue; // Unknown
 
-      final props = <String, dynamic>{};
+      // Seed with type defaults so widget-specific properties (min, max, etc.)
+      // are always present. Bridge-specific values override where needed.
+      final props = DesignerElement.defaultPropertiesFor(type);
       
       // Transfer generic properties
       if (config.onText.isNotEmpty) props['onText'] = config.onText;
       if (config.offText.isNotEmpty) props['offText'] = config.offText;
       props['minAngle'] = config.minAngle.toDouble();
       props['maxAngle'] = config.maxAngle.toDouble();
-      props['autoCenter'] = variantCentering(config.variant) != kCenterNone;
-      
-      int centerMode = variantCentering(config.variant);
-      if (centerMode == kCenterMin) {
-        props['center'] = 0.0;
-      } else if (centerMode == kCenterMax) {
-        props['center'] = 1.0;
-      } else {
-        props['center'] = 0.5;
-      }
+      // Map variant centering mode to autoCenter list [position, type, duration]
+      // position: null=disabled, "min"/"center"/"max"=enabled
+      // type: spring curve name
+      // duration: spring duration in ms
+      props['autoCenter'] = _acListForCentering(variantCentering(config.variant));
 
       props['divisions'] = variantDetents(config.variant);
       if (props['divisions'] == 1) props.remove('divisions');
@@ -248,6 +245,22 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
         return config.variant == 1 ? DesignerElementType.multiSelect : DesignerElementType.multiButton;
       default:
         return null;
+    }
+  }
+
+  /// Maps a protocol centering mode to the designer autoCenter list format.
+  /// Returns [position, type, duration] where position is null (disabled) or
+  /// "min" | "center" | "max" (enabled).
+  List<dynamic> _acListForCentering(int centerMode) {
+    switch (centerMode) {
+      case kCenterMin:
+        return ['min', 'smooth', 300];
+      case kCenterMid:
+        return ['center', 'smooth', 300];
+      case kCenterMax:
+        return ['max', 'smooth', 300];
+      default:
+        return [null, 'smooth', 300];
     }
   }
 

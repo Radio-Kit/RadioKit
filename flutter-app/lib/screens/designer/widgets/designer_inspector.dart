@@ -12,6 +12,57 @@ bool isCppIdentifier(String name) {
   return RegExp(r'^[a-zA-Z_][a-zA-Z0-9_]*$').hasMatch(name);
 }
 
+// ─── autoCenter helpers ───────────────────────────────────────────────────────
+// stored as a 3-element List:
+//   [position, springType, springDuration]
+// where position is null (disabled) or "min" | "center" | "max" (enabled).
+
+/// Returns true when auto-center is enabled (position is not null).
+bool _acEnabled(List<dynamic>? ac) =>
+    (ac?[0] as String?) != null;
+
+/// Converts the position label to its numeric value for widget constructors.
+double _acPosition(List<dynamic>? ac) {
+  final pos = ac?[0] as String?;
+  switch (pos) {
+    case 'min':
+      return 0.0;
+    case 'max':
+      return 1.0;
+    case 'center':
+    default:
+      return 0.5;
+  }
+}
+
+/// Converts a numeric value back to a position label for the inspector UI.
+String _acPositionLabel(double value) {
+  if (value <= 0.0) return 'min';
+  if (value >= 1.0) return 'max';
+  return 'center';
+}
+
+/// Returns the spring type string from position [1].
+String _acType(List<dynamic>? ac) =>
+    (ac?[1] as String?) ?? 'smooth';
+
+/// Returns the spring duration (ms) from position [2].
+int _acDuration(List<dynamic>? ac, int fallback) =>
+    (ac?[2] as num?)?.toInt() ?? fallback;
+
+/// Writes a single value back into the autoCenter list and commits via state.
+void _updateACArrayProp(
+  DesignerState state,
+  String elementId,
+  List<dynamic>? ac,
+  int index,
+  dynamic value,
+) {
+  final newAC = List<dynamic>.from(ac ?? [null, 'smooth', 300]);
+  newAC[index] = value;
+  state.updateElementProperty(elementId, 'autoCenter', newAC);
+}
+
 class DesignerInspector extends StatefulWidget {
   final DesignerState state;
   const DesignerInspector({super.key, required this.state});
@@ -608,29 +659,22 @@ class _DesignerInspectorState extends State<DesignerInspector> {
         break;
 
       case DesignerElementType.slideSwitch:
+      case DesignerElementType.rockerSwitch:
         fields.add(InspectorFieldBuilders.buildTextField(
             tokens,
             'On Text',
             el.properties['onText'] ?? 'ON',
             (v) => widget.state.updateElementProperty(el.id, 'onText', v)));
-        fields.add(InspectorFieldBuilders.buildTextField(
-            tokens,
-            'Off Text',
-            el.properties['offText'] ?? 'OFF',
-            (v) => widget.state.updateElementProperty(el.id, 'offText', v)));
-        fields.add(InspectorFieldBuilders.buildBoolToggle(
-            tokens,
-            'Haptics',
-            el.properties['haptic'] ?? true,
-            (v) => widget.state.updateElementProperty(el.id, 'haptic', v)));
-        break;
-
-      case DesignerElementType.rockerSwitch:
         fields.add(IconFieldBuilder.buildIconSelectorField(
             context,
             'On Icon',
             el.properties['onIcon'] as String?,
             (v) => widget.state.updateElementProperty(el.id, 'onIcon', v)));
+        fields.add(InspectorFieldBuilders.buildTextField(
+            tokens,
+            'Off Text',
+            el.properties['offText'] ?? 'OFF',
+            (v) => widget.state.updateElementProperty(el.id, 'offText', v)));
         fields.add(IconFieldBuilder.buildIconSelectorField(
             context,
             'Off Icon',
@@ -672,45 +716,47 @@ class _DesignerInspectorState extends State<DesignerInspector> {
         fields.add(InspectorFieldBuilders.buildBoolToggle(
             tokens,
             'AutoCenter',
-            el.properties['autoCenter'] ?? false,
-            (v) => widget.state.updateElementProperty(el.id, 'autoCenter', v)));
-        final autoCenterSlider = el.properties['autoCenter'] ?? false;
+            _acEnabled(el.properties['autoCenter'] as List?),
+            (v) {
+              final pos = v ? 'center' : null;
+              _updateACArrayProp(widget.state, el.id,
+                  el.properties['autoCenter'] as List?, 0, pos);
+            }));
+        final autoCenterSlider = _acEnabled(el.properties['autoCenter'] as List?);
         if (autoCenterSlider) {
-          final double centerVal =
-              (el.properties['center'] as num?)?.toDouble() ?? 0.5;
-          String positionString = 'center';
-          if (centerVal == 0.0) {
-            positionString = 'min';
-          } else if (centerVal == 1.0) {
-            positionString = 'max';
-          } else {
-            positionString = 'center';
-          }
+          final double centerVal = _acPosition(el.properties['autoCenter'] as List?);
+          String positionString = _acPositionLabel(centerVal);
           fields.add(InspectorFieldBuilders.buildOptionSelector(
             tokens,
             'Position',
             positionString,
             ['min', 'center', 'max'],
             (v) {
-              double targetVal = 0.5;
-              if (v == 'min') targetVal = 0.0;
-              if (v == 'max') targetVal = 1.0;
-              widget.state.updateElementProperty(el.id, 'center', targetVal);
+              _updateACArrayProp(widget.state, el.id,
+                  el.properties['autoCenter'] as List?, 0, v);
             },
           ));
           fields.add(InspectorFieldBuilders.buildOptionSelector(
               tokens,
               'Spring',
-              el.properties['springBehavior'] ?? 'smooth',
+              _acType(el.properties['autoCenter'] as List?),
               ['smooth', 'elastic', 'linear'],
-              (v) => widget.state
-                  .updateElementProperty(el.id, 'springBehavior', v)));
+              (v) => _updateACArrayProp(
+                  widget.state,
+                  el.id,
+                  el.properties['autoCenter'] as List?,
+                  1,
+                  v)));
           fields.add(InspectorFieldBuilders.buildNumField(
               tokens,
               'Dur. (ms)',
-              (el.properties['springDuration'] as num?)?.toInt() ?? 300,
-              (v) => widget.state
-                  .updateElementProperty(el.id, 'springDuration', v)));
+              _acDuration(el.properties['autoCenter'] as List?, 300),
+              (v) => _updateACArrayProp(
+                  widget.state,
+                  el.id,
+                  el.properties['autoCenter'] as List?,
+                  2,
+                  v)));
         }
         break;
 
@@ -762,45 +808,48 @@ class _DesignerInspectorState extends State<DesignerInspector> {
         fields.add(InspectorFieldBuilders.buildBoolToggle(
             tokens,
             'AutoCenter',
-            el.properties['autoCenter'] ?? false,
-            (v) => widget.state.updateElementProperty(el.id, 'autoCenter', v)));
-        final autoCenterKnob = el.properties['autoCenter'] ?? false;
+            _acEnabled(el.properties['autoCenter'] as List?),
+            (v) {
+              final pos = v ? 'center' : null;
+              _updateACArrayProp(widget.state, el.id,
+                  el.properties['autoCenter'] as List?, 0, pos);
+            }));
+        final autoCenterKnob = _acEnabled(el.properties['autoCenter'] as List?);
         if (autoCenterKnob) {
           final double centerVal =
-              (el.properties['center'] as num?)?.toDouble() ?? 0.5;
-          String positionString = 'center';
-          if (centerVal == 0.0) {
-            positionString = 'min';
-          } else if (centerVal == 1.0) {
-            positionString = 'max';
-          } else {
-            positionString = 'center';
-          }
+              _acPosition(el.properties['autoCenter'] as List?);
+          String positionString = _acPositionLabel(centerVal);
           fields.add(InspectorFieldBuilders.buildOptionSelector(
             tokens,
             'Position',
             positionString,
             ['min', 'center', 'max'],
             (v) {
-              double targetVal = 0.5;
-              if (v == 'min') targetVal = 0.0;
-              if (v == 'max') targetVal = 1.0;
-              widget.state.updateElementProperty(el.id, 'center', targetVal);
+              _updateACArrayProp(widget.state, el.id,
+                  el.properties['autoCenter'] as List?, 0, v);
             },
           ));
           fields.add(InspectorFieldBuilders.buildOptionSelector(
               tokens,
               'Spring',
-              el.properties['springBehavior'] ?? 'smooth',
+              _acType(el.properties['autoCenter'] as List?),
               ['smooth', 'elastic', 'linear'],
-              (v) => widget.state
-                  .updateElementProperty(el.id, 'springBehavior', v)));
+              (v) => _updateACArrayProp(
+                  widget.state,
+                  el.id,
+                  el.properties['autoCenter'] as List?,
+                  1,
+                  v)));
           fields.add(InspectorFieldBuilders.buildNumField(
               tokens,
               'Dur. (ms)',
-              (el.properties['springDuration'] as num?)?.toInt() ?? 500,
-              (v) => widget.state
-                  .updateElementProperty(el.id, 'springDuration', v)));
+              _acDuration(el.properties['autoCenter'] as List?, 500),
+              (v) => _updateACArrayProp(
+                  widget.state,
+                  el.id,
+                  el.properties['autoCenter'] as List?,
+                  2,
+                  v)));
         }
         break;
 
@@ -852,45 +901,48 @@ class _DesignerInspectorState extends State<DesignerInspector> {
         fields.add(InspectorFieldBuilders.buildBoolToggle(
             tokens,
             'AutoCenter',
-            el.properties['autoCenter'] ?? false,
-            (v) => widget.state.updateElementProperty(el.id, 'autoCenter', v)));
-        final autoCenterSteering = el.properties['autoCenter'] ?? false;
+            _acEnabled(el.properties['autoCenter'] as List?),
+            (v) {
+              final pos = v ? 'center' : null;
+              _updateACArrayProp(widget.state, el.id,
+                  el.properties['autoCenter'] as List?, 0, pos);
+            }));
+        final autoCenterSteering = _acEnabled(el.properties['autoCenter'] as List?);
         if (autoCenterSteering) {
           final double centerVal =
-              (el.properties['center'] as num?)?.toDouble() ?? 0.5;
-          String positionString = 'center';
-          if (centerVal == 0.0) {
-            positionString = 'min';
-          } else if (centerVal == 1.0) {
-            positionString = 'max';
-          } else {
-            positionString = 'center';
-          }
+              _acPosition(el.properties['autoCenter'] as List?);
+          String positionString = _acPositionLabel(centerVal);
           fields.add(InspectorFieldBuilders.buildOptionSelector(
             tokens,
             'Position',
             positionString,
             ['min', 'center', 'max'],
             (v) {
-              double targetVal = 0.5;
-              if (v == 'min') targetVal = 0.0;
-              if (v == 'max') targetVal = 1.0;
-              widget.state.updateElementProperty(el.id, 'center', targetVal);
+              _updateACArrayProp(widget.state, el.id,
+                  el.properties['autoCenter'] as List?, 0, v);
             },
           ));
           fields.add(InspectorFieldBuilders.buildOptionSelector(
               tokens,
               'Spring',
-              el.properties['springBehavior'] ?? 'smooth',
+              _acType(el.properties['autoCenter'] as List?),
               ['smooth', 'elastic', 'linear'],
-              (v) => widget.state
-                  .updateElementProperty(el.id, 'springBehavior', v)));
+              (v) => _updateACArrayProp(
+                  widget.state,
+                  el.id,
+                  el.properties['autoCenter'] as List?,
+                  1,
+                  v)));
           fields.add(InspectorFieldBuilders.buildNumField(
               tokens,
               'Dur. (ms)',
-              (el.properties['springDuration'] as num?)?.toInt() ?? 500,
-              (v) => widget.state
-                  .updateElementProperty(el.id, 'springDuration', v)));
+              _acDuration(el.properties['autoCenter'] as List?, 500),
+              (v) => _updateACArrayProp(
+                  widget.state,
+                  el.id,
+                  el.properties['autoCenter'] as List?,
+                  2,
+                  v)));
         }
         break;
 
@@ -898,9 +950,13 @@ class _DesignerInspectorState extends State<DesignerInspector> {
         fields.add(InspectorFieldBuilders.buildBoolToggle(
             tokens,
             'AutoCenter',
-            el.properties['autoCenter'] ?? true,
-            (v) => widget.state.updateElementProperty(el.id, 'autoCenter', v)));
-        final autoCenterJoystick = el.properties['autoCenter'] ?? true;
+            _acEnabled(el.properties['autoCenter'] as List?),
+            (v) {
+              final pos = v ? 'center' : null;
+              _updateACArrayProp(widget.state, el.id,
+                  el.properties['autoCenter'] as List?, 0, pos);
+            }));
+        final autoCenterJoystick = _acEnabled(el.properties['autoCenter'] as List?);
         if (autoCenterJoystick) {
           final double cx =
               (el.properties['centerX'] as num?)?.toDouble() ?? 0.0;
@@ -937,16 +993,24 @@ class _DesignerInspectorState extends State<DesignerInspector> {
           fields.add(InspectorFieldBuilders.buildOptionSelector(
               tokens,
               'Spring',
-              el.properties['springBehavior'] ?? 'smooth',
+              _acType(el.properties['autoCenter'] as List?),
               ['smooth', 'elastic', 'linear'],
-              (v) => widget.state
-                  .updateElementProperty(el.id, 'springBehavior', v)));
+              (v) => _updateACArrayProp(
+                  widget.state,
+                  el.id,
+                  el.properties['autoCenter'] as List?,
+                  1,
+                  v)));
           fields.add(InspectorFieldBuilders.buildNumField(
               tokens,
               'Dur. (ms)',
-              (el.properties['springDuration'] as num?)?.toInt() ?? 300,
-              (v) => widget.state
-                  .updateElementProperty(el.id, 'springDuration', v)));
+              _acDuration(el.properties['autoCenter'] as List?, 300),
+              (v) => _updateACArrayProp(
+                  widget.state,
+                  el.id,
+                  el.properties['autoCenter'] as List?,
+                  2,
+                  v)));
         }
         break;
 
@@ -1013,45 +1077,48 @@ class _DesignerInspectorState extends State<DesignerInspector> {
         fields.add(InspectorFieldBuilders.buildBoolToggle(
             tokens,
             'AutoCenter',
-            el.properties['autoCenter'] ?? false,
-            (v) => widget.state.updateElementProperty(el.id, 'autoCenter', v)));
-        final autoCenterPedal = el.properties['autoCenter'] ?? false;
+            _acEnabled(el.properties['autoCenter'] as List?),
+            (v) {
+              final pos = v ? 'center' : null;
+              _updateACArrayProp(widget.state, el.id,
+                  el.properties['autoCenter'] as List?, 0, pos);
+            }));
+        final autoCenterPedal = _acEnabled(el.properties['autoCenter'] as List?);
         if (autoCenterPedal) {
           final double centerVal =
-              (el.properties['center'] as num?)?.toDouble() ?? 0.5;
-          String positionString = 'center';
-          if (centerVal == 0.0) {
-            positionString = 'min';
-          } else if (centerVal == 1.0) {
-            positionString = 'max';
-          } else {
-            positionString = 'center';
-          }
+              _acPosition(el.properties['autoCenter'] as List?);
+          String positionString = _acPositionLabel(centerVal);
           fields.add(InspectorFieldBuilders.buildOptionSelector(
             tokens,
             'Position',
             positionString,
             ['min', 'center', 'max'],
             (v) {
-              double targetVal = 0.5;
-              if (v == 'min') targetVal = 0.0;
-              if (v == 'max') targetVal = 1.0;
-              widget.state.updateElementProperty(el.id, 'center', targetVal);
+              _updateACArrayProp(widget.state, el.id,
+                  el.properties['autoCenter'] as List?, 0, v);
             },
           ));
           fields.add(InspectorFieldBuilders.buildOptionSelector(
               tokens,
               'Spring',
-              el.properties['springBehavior'] ?? 'smooth',
+              _acType(el.properties['autoCenter'] as List?),
               ['smooth', 'elastic', 'linear'],
-              (v) => widget.state
-                  .updateElementProperty(el.id, 'springBehavior', v)));
+              (v) => _updateACArrayProp(
+                  widget.state,
+                  el.id,
+                  el.properties['autoCenter'] as List?,
+                  1,
+                  v)));
           fields.add(InspectorFieldBuilders.buildNumField(
               tokens,
               'Dur. (ms)',
-              (el.properties['springDuration'] as num?)?.toInt() ?? 300,
-              (v) => widget.state
-                  .updateElementProperty(el.id, 'springDuration', v)));
+              _acDuration(el.properties['autoCenter'] as List?, 300),
+              (v) => _updateACArrayProp(
+                  widget.state,
+                  el.id,
+                  el.properties['autoCenter'] as List?,
+                  2,
+                  v)));
         }
         break;
 
@@ -1118,13 +1185,15 @@ class _DesignerInspectorState extends State<DesignerInspector> {
     final count = (el.properties['itemCount'] as num?)?.toInt() ?? 3;
     final raw = el.properties['items'] as List?;
     return List.generate(count, (i) {
-      if (raw != null && i < raw.length) {
+    if (raw != null && i < raw.length) {
         final entry = raw[i];
         return Map<String, dynamic>.from(entry is Map ? entry : {});
       }
       return <String, dynamic>{
         'onLabel': String.fromCharCode(65 + i),
         'onIcon': null,
+        'offLabel': null,
+        'offIcon': null,
       };
     });
   }
@@ -1136,22 +1205,26 @@ class _DesignerInspectorState extends State<DesignerInspector> {
   ///   → vertical:   keep height, recalculate width  = height / (count × 0.67)
   Widget _buildMultiOrientationField(RKTokens tokens, DesignerElement el) {
     final current = el.width >= el.height ? 'horizontal' : 'vertical';
-    final count = (el.properties['itemCount'] as num?)?.toInt() ?? 3;
-    const double ratio = 0.67;
-    return InspectorFieldBuilders.buildCenterPinnedSelector(
+    return InspectorFieldBuilders.buildButtonGroup(
       tokens,
       'Direction',
       current,
       ['horizontal', 'vertical'],
       (v) {
         if (v == 'vertical') {
-          final newW = (el.height / (count * ratio)).round().clamp(5, 999);
-          widget.state.updateElementSize(el.id, width: newW, height: el.height);
+          // Switch to vertical: Keep height, assign it to height, and width to height / (count * ratio)
+          // Wait, requirement: "When switching from horizontal to vertical, preserve the height as width and vice versa"
+          // So new height = old width, new width = old height
+          widget.state
+              .updateElementSize(el.id, width: el.height, height: el.width);
         } else {
-          final newH = (el.width / (count * ratio)).round().clamp(5, 999);
-          widget.state.updateElementSize(el.id, width: el.width, height: newH);
+          // Switch to horizontal:
+          // new width = old height, new height = old width
+          widget.state
+              .updateElementSize(el.id, width: el.height, height: el.width);
         }
       },
+      labels: ['H', 'V'],
     );
   }
 
@@ -1175,6 +1248,8 @@ class _DesignerInspectorState extends State<DesignerInspector> {
               (i) => <String, dynamic>{
                 'onLabel': String.fromCharCode(65 + current.length + i),
                 'onIcon': null,
+                'offLabel': null,
+                'offIcon': null,
               },
             ),
           ];
@@ -1230,41 +1305,31 @@ class _DesignerMultiItemEditor extends StatefulWidget {
 }
 
 class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
-  int _editingIndex = 0;
-
   List<Map<String, dynamic>> get _items => widget.items;
 
-  void _updateItem(Map<String, dynamic> updated) {
+  void _updateItemIndex(int index, Map<String, dynamic> updated) {
     final newList = List<Map<String, dynamic>>.from(
       _items.map((m) => Map<String, dynamic>.from(m)),
     );
-    newList[_editingIndex] = updated;
+    newList[index] = updated;
     widget.state.updateElementProperty(widget.elementId, 'items', newList);
   }
 
   @override
   Widget build(BuildContext context) {
     if (_items.isEmpty) return const SizedBox.shrink();
-    if (_editingIndex >= _items.length) _editingIndex = 0;
-
-    final item = _items[_editingIndex];
-    final onLabel = item['onLabel'] as String? ?? '';
-    final onIconName = item['onIcon'] as String?;
-    final offLabel = item['offLabel'] as String? ?? '';
-    final offIconName = item['offIcon'] as String?;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Item index selector ────────────────────────────────────
           Row(
             children: [
-              Icon(LucideIcons.pencil, color: widget.tokens.primary, size: 12),
+              Icon(LucideIcons.list, color: widget.tokens.primary, size: 12),
               const SizedBox(width: 6),
               const Text(
-                'EDIT ITEM',
+                'ITEMS',
                 style: TextStyle(
                   color: Color(0xFF888888),
                   fontSize: 10,
@@ -1275,88 +1340,74 @@ class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
             ],
           ),
           const SizedBox(height: 10),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: List.generate(_items.length, (i) {
-                final active = _editingIndex == i;
-                return GestureDetector(
-                  onTap: () => setState(() => _editingIndex = i),
-                  child: Container(
-                    margin: const EdgeInsets.only(right: 6),
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: active
-                          ? widget.tokens.primary
-                          : const Color(0xFF1A1A1A),
-                      border: Border.all(
-                        color: active
-                            ? widget.tokens.primary
-                            : const Color(0xFF333333),
-                      ),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Center(
-                      child: Text(
-                        '${i + 1}',
-                        style: TextStyle(
-                          color: active ? Colors.black : Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+          ...List.generate(_items.length, (i) {
+            final item = _items[i];
+            final onLabel = item['onLabel'] as String?;
+            final onIconName = item['onIcon'] as String?;
+            final offLabel = item['offLabel'] as String?;
+            final offIconName = item['offIcon'] as String?;
+
+            final showOn = onLabel != null || onIconName != null;
+            final showOff = widget.showOffState;
+
+            if (!showOn && !showOff) return const SizedBox.shrink();
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'ITEM ${i + 1}',
+                    style: const TextStyle(
+                      color: Color(0xFFE0E0E0),
+                      fontSize: 10,
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                );
-              }),
-            ),
-          ),
-          const SizedBox(height: 14),
-
-          // ── ON state row ───────────────────────────────────────────
-          _buildStateLabel('ON'),
-          const SizedBox(height: 6),
-          _buildTextIconRow(
-            context,
-            textValue: onLabel,
-            iconName: onIconName,
-            onTextChanged: (v) => _updateItem({...item, 'onLabel': v}),
-            onIconChanged: (v) => _updateItem({...item, 'onIcon': v}),
-          ),
-
-          if (widget.showOffState) ...[
-            const SizedBox(height: 12),
-            _buildStateLabel('OFF'),
-            const SizedBox(height: 6),
-            _buildTextIconRow(
-              context,
-              textValue: offLabel,
-              iconName: offIconName,
-              onTextChanged: (v) => _updateItem({...item, 'offLabel': v}),
-              onIconChanged: (v) => _updateItem({...item, 'offIcon': v}),
-            ),
-          ],
+                  if (showOn) ...[
+                    const SizedBox(height: 6),
+                    _buildCompactStateRow(
+                      context,
+                      label: 'ON',
+                      textValue: onLabel ?? '',
+                      iconName: onIconName,
+                      onTextChanged: (v) => _updateItemIndex(
+                          i, {...item, 'onLabel': v.isEmpty ? null : v}),
+                      onIconChanged: (v) => _updateItemIndex(i, {
+                        ...item,
+                        'onIcon': (v == null || v.isEmpty) ? null : v
+                      }),
+                    ),
+                  ],
+                  if (showOff) ...[
+                    const SizedBox(height: 6),
+                    _buildCompactStateRow(
+                      context,
+                      label: 'OFF',
+                      textValue: offLabel ?? '',
+                      iconName: offIconName,
+                      onTextChanged: (v) => _updateItemIndex(
+                          i, {...item, 'offLabel': v.isEmpty ? null : v}),
+                      onIconChanged: (v) => _updateItemIndex(i, {
+                        ...item,
+                        'offIcon': (v == null || v.isEmpty) ? null : v
+                      }),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          }),
         ],
       ),
     );
   }
 
-  Widget _buildStateLabel(String label) {
-    return Text(
-      label,
-      style: const TextStyle(
-        color: Color(0xFF666666),
-        fontSize: 9,
-        fontFamily: 'monospace',
-        fontWeight: FontWeight.bold,
-        letterSpacing: 1,
-      ),
-    );
-  }
-
-  Widget _buildTextIconRow(
+  Widget _buildCompactStateRow(
     BuildContext context, {
+    required String label,
     required String textValue,
     required String? iconName,
     required ValueChanged<String> onTextChanged,
@@ -1364,6 +1415,19 @@ class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
   }) {
     return Row(
       children: [
+        SizedBox(
+          width: 24,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF666666),
+              fontSize: 9,
+              fontFamily: 'monospace',
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1,
+            ),
+          ),
+        ),
         // Text field
         Expanded(
           child: Container(

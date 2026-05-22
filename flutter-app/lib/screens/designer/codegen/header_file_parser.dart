@@ -107,10 +107,20 @@ class HeaderCanvasConfig {
   });
 
   factory HeaderCanvasConfig.fromJson(Map<String, dynamic> json) {
-    // read 'size' (new) or fall back to 'screenSize' / 'orientation' (old)
-    final rawSize = (json['size'] ?? json['screenSize']) as String? ?? '200 x 100';
+    // read 'size' (array [w, h] or legacy string "W x H")
+    final rawSize = json['size'] ?? json['screenSize'];
+    String resolvedSize;
+    if (rawSize is List && rawSize.length >= 2) {
+      final w = (rawSize[0] as num?)?.toInt() ?? 200;
+      final h = (rawSize[1] as num?)?.toInt() ?? 100;
+      resolvedSize = '${w} x ${h}';
+    } else if (rawSize is String) {
+      resolvedSize = rawSize;
+    } else {
+      resolvedSize = '200 x 100';
+    }
     return HeaderCanvasConfig(
-      size: rawSize,
+      size: resolvedSize,
       grid: json['grid'] as String? ?? 'none',
       skin: json['skin'] as String? ?? 'dragon',
     );

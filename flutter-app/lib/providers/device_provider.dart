@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import '../models/device_info.dart';
 import '../models/widget_config.dart';
 import '../models/protocol.dart';
@@ -186,74 +187,199 @@ class DeviceProvider extends ChangeNotifier {
     setTransport(DemoTransport());
     await _transport.connect(_connectedDevice!.id);
 
-    _configName = demoId;
-    _description = 'Interactive Demo Mode';
-    
-    // Setup dummy widgets for demo
-    if (demoId == 'WIDGETS_DEMO') {
-      _widgets = [
-        const WidgetConfig(typeId: kWidgetButton,      widgetId: 1, x: 25, y: 75, height: 10, label: 'PUSH', icon: 'zap', onText: 'ACTIVE', offText: 'IDLE', strMask: kStrMaskLabel | kStrMaskIcon | kStrMaskOnText | kStrMaskOffText),
-        const WidgetConfig(typeId: kWidgetButton,      widgetId: 2, x: 25, y: 50, height: 10, variant: 1, label: 'TOGGLE', icon: 'power', onText: 'ON', offText: 'OFF', strMask: kStrMaskLabel | kStrMaskIcon | kStrMaskOnText | kStrMaskOffText),
-        const WidgetConfig(typeId: kWidgetSlideSwitch, widgetId: 3, x: 25, y: 25,  rotation: 10,height: 10, label: 'SLIDE', icon: 'sliders', onText: 'ON', offText: 'OFF', strMask: kStrMaskLabel | kStrMaskIcon | kStrMaskOnText | kStrMaskOffText),
-        
-        const WidgetConfig(typeId: kWidgetText,        widgetId: 4, x: 100, y: 92, width: 14, height: 10, label: 'WIDGETS_TEST', strMask: kStrMaskLabel),
-        const WidgetConfig(typeId: kWidgetSlider,      widgetId: 5, x: 100, y: 70, rotation: 10, width: 60, height: 10,  label: 'SLIDER', strMask: kStrMaskLabel),
-        const WidgetConfig(typeId: kWidgetMultiple,    widgetId: 11, x: 100, y: 50,  height: 10, variant: 1,  label: 'MULTI', content: 'WiFi:wifi|BT:bluetooth|GPS:map-pin', strMask: kStrMaskLabel | kStrMaskContent),
-        const WidgetConfig(typeId: kWidgetMultiple,    widgetId: 8, x: 100,  y: 25,  height: 10, variant: 0, label: 'MODES', content: 'Auto:cpu|Man:mouse|Night:moon|Eco:leaf', strMask: kStrMaskLabel | kStrMaskContent),
-        
-        const WidgetConfig(typeId: kWidgetKnob,        widgetId: 7, x: 170, y: 80, height: 10, label: 'PAN', icon: 'rotate-cw', strMask: kStrMaskLabel | kStrMaskIcon),
-        const WidgetConfig(typeId: kWidgetJoystick,    widgetId: 10,x: 170, y: 50, height: 10, variant: kCenterMid, label: 'STICK', strMask: kStrMaskLabel),
-        const WidgetConfig(typeId: kWidgetLed,         widgetId: 9, x: 170, y: 25, height: 5, label: 'ALIVE', strMask: kStrMaskLabel),
-      ];
-      _orientation = kOrientationLandscape;
-    } 
-    else if (demoId == 'RC_CONTROLLER') {
-      _widgets = [
-        const WidgetConfig(typeId: kWidgetSlider,      widgetId: 1, x: 25,  y: 60,  width: 8, height: 50, variant: 129, label: 'GAS', strMask: kStrMaskLabel), // 128 (AltShape) + 1 (Min)
-        const WidgetConfig(typeId: kWidgetKnob,        widgetId: 2, x: 160, y: 60,  height: 30, variant: 130, label: 'STEERING', strMask: kStrMaskLabel), // 128 (AltShape) + 2 (CenterMid)
-        const WidgetConfig(typeId: kWidgetMultiple,    widgetId: 3, x: 100, y: 55,  height: 12, variant: 1, label: 'LIGHTS', content: 'Head:lightbulb|Fog:cloud|Hazard:warning|Cabin:home', strMask: kStrMaskLabel | kStrMaskContent),
-        const WidgetConfig(typeId: kWidgetText,        widgetId: 5, x: 100, y: 80,  width: 50, height: 12, label: 'TELEMETRY', strMask: kStrMaskLabel),
-      ];
-      _orientation = kOrientationLandscape;
-    }
-    else if (demoId == 'IOT_DASHBOARD') {
-      _widgets = [
-        const WidgetConfig(typeId: kWidgetKnob,        widgetId: 1, x: 30,  y: 170, height: 15, label: 'TEMP', icon: 'thermometer', strMask: kStrMaskLabel | kStrMaskIcon),
-        const WidgetConfig(typeId: kWidgetKnob,        widgetId: 2, x: 70,  y: 170, height: 15, label: 'HUMID', icon: 'droplet', strMask: kStrMaskLabel | kStrMaskIcon),
-        const WidgetConfig(typeId: kWidgetMultiple,    widgetId: 3, x: 50,  y: 130, height: 15, variant: 1, label: 'HVAC', content: 'Eco:leaf|Turbo:wind|Off:power', strMask: kStrMaskLabel | kStrMaskContent),
-        const WidgetConfig(typeId: kWidgetLed,         widgetId: 4, x: 20,  y: 100, height: 10, label: 'AC', strMask: kStrMaskLabel),
-        const WidgetConfig(typeId: kWidgetLed,         widgetId: 5, x: 50,  y: 100, height: 10, label: 'NET', strMask: kStrMaskLabel),
-        const WidgetConfig(typeId: kWidgetLed,         widgetId: 6, x: 80,  y: 100, height: 10, label: 'SEC', strMask: kStrMaskLabel),
-        const WidgetConfig(typeId: kWidgetSlider,      widgetId: 7, x: 50,  y: 65,  width: 45, height: 10, label: 'BRIGHTNESS', strMask: kStrMaskLabel),
-        const WidgetConfig(typeId: kWidgetText,        widgetId: 8, x: 50,  y: 25,  width: 60, height: 15, label: 'SYSTEM_LOAD', strMask: kStrMaskLabel),
-      ];
-      _orientation = kOrientationPortrait;
-    }
-    else {
+    // Load config from designer-format JSON asset
+    final assetPath = 'assets/demos/${demoId.toLowerCase()}.json';
+    try {
+      final jsonStr = await rootBundle.loadString(assetPath);
+      final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+
+      final config = data['config'] as Map<String, dynamic>? ?? {};
+      final canvas = data['canvas'] as Map<String, dynamic>? ?? {};
+
+      _configName = config['name'] as String? ?? demoId;
+      _description = config['description'] as String? ?? 'Interactive Demo Mode';
+
+      // Infer orientation from canvas size (array [w, h] or legacy string)
+      final rawSize = canvas['size'];
+      int cw, ch;
+      if (rawSize is List && rawSize.length >= 2) {
+        cw = (rawSize[0] as num?)?.toInt() ?? 200;
+        ch = (rawSize[1] as num?)?.toInt() ?? 100;
+      } else if (rawSize is String) {
+        final parts = rawSize.split(' x ');
+        cw = int.tryParse(parts[0]) ?? 200;
+        ch = int.tryParse(parts[1]) ?? 100;
+      } else {
+        cw = 200;
+        ch = 100;
+      }
+      _orientation = cw >= ch
+          ? kOrientationLandscape
+          : kOrientationPortrait;
+
+      // Parse widgets and build name→widgetId lookup
+      final widgetsJson = data['widgets'] as List<dynamic>? ?? [];
+      final nameToId = <String, int>{};
+      _widgets = [];
+      for (final w in widgetsJson) {
+        final parsed = _widgetConfigFromDesignerJson(w as Map<String, dynamic>);
+        _widgets.add(parsed);
+        final widgetName = w['name'] as String?;
+        if (widgetName != null && widgetName.isNotEmpty) {
+          nameToId[widgetName] = parsed.widgetId;
+        }
+      }
+
+      _widgetState = RadioWidgetState.initial(_widgets);
+
+      // Apply initial output values (keyed by widget name, top-level in new format)
+      final initialOutputs = (data['initialOutputs'] ?? config['initialOutputs']) as Map<String, dynamic>?;
+      if (initialOutputs != null) {
+        for (final entry in initialOutputs.entries) {
+          final wid = nameToId[entry.key];
+          if (wid == null) continue;
+          final value = entry.value;
+          if (value is List) {
+            _widgetState =
+                _widgetState?.copyWithOutput(wid, value.cast<int>());
+          } else if (value is String) {
+            _widgetState = _widgetState?.copyWithOutput(wid, value);
+          }
+        }
+      }
+
+      // Apply initial input values (keyed by widget name, top-level in new format)
+      final initialInputs = (data['initialInputs'] ?? config['initialInputs']) as Map<String, dynamic>?;
+      if (initialInputs != null) {
+        for (final entry in initialInputs.entries) {
+          final wid = nameToId[entry.key];
+          if (wid == null) continue;
+          final value = entry.value;
+          if (value is List) {
+            _widgetState =
+                _widgetState?.copyWithInput(wid, value.cast<int>());
+          }
+        }
+      }
+
+      _connectionState = DeviceConnectionState.connected;
+      _log('CONFIG LOADED: "$_configName" with ${_widgets.length} widgets',
+          level: ConsoleLogLevel.success);
+    } catch (e) {
+      _log('FAILED TO LOAD DEMO "$demoId": $e', level: ConsoleLogLevel.error);
       _widgets = [];
       _orientation = kOrientationPortrait;
-    }
-    
-    _widgetState = RadioWidgetState.initial(_widgets);
-    
-    // Initial values for specific demos
-    if (demoId == 'WIDGETS_DEMO') {
-      _widgetState = _widgetState?.copyWithOutput(9, [1, 57, 255, 20, 255]); // Neon Green
-      _widgetState = _widgetState?.copyWithOutput(4, 'LINK_READY_v1.7');
-    } else if (demoId == 'RC_CONTROLLER') {
-      _widgetState = _widgetState?.copyWithInput(1, [-100]); // Gas pedal idles at -100
-      _widgetState = _widgetState?.copyWithOutput(4, [1, 255, 120, 0, 255]); // Amber LED
-      _widgetState = _widgetState?.copyWithOutput(5, '912MHz / -84dBm');
-    } else if (demoId == 'IOT_DASHBOARD') {
-      _widgetState = _widgetState?.copyWithOutput(4, [1, 0, 255, 255, 255]); // Cyan
-      _widgetState = _widgetState?.copyWithOutput(5, [1, 255, 255, 0, 255]); // Yellow
-      _widgetState = _widgetState?.copyWithOutput(6, [0, 255, 0, 0, 0]);      // Dim red
+      _connectionState = DeviceConnectionState.error;
+      _errorMessage = 'Failed to load demo config: $e';
     }
 
-    _connectionState = DeviceConnectionState.connected;
-    
     _startPolling();
     notifyListeners();
+  }
+
+  /// Parses a [WidgetConfig] from the designer-format JSON used by the
+  /// designer UI and stored in `assets/demos/*.json`.
+  WidgetConfig _widgetConfigFromDesignerJson(Map<String, dynamic> w) {
+    final typeStr = w['type'] as String? ?? '';
+    final typeId = _typeNameToId(typeStr);
+    final name = w['name'] as String? ?? '';
+    final labelObj = w['label'] as Map<String, dynamic>?;
+    final labelText = (labelObj?['text'] as String?) ?? name;
+
+    final pos = w['position'] as List? ?? [0, 0, 0];
+    final size = w['size'] as List? ?? [10, 10];
+    final props = w['properties'] as Map<String, dynamic>? ?? {};
+
+    final widgetId = (props['widgetId'] as num?)?.toInt() ?? 0;
+    final x = ((pos[0] as num?)?.toDouble() ?? 0);
+    final y = ((pos[1] as num?)?.toDouble() ?? 0);
+    final rotation = (pos[2] as num?)?.toInt() ?? 0;
+    final width = (size[0] as num?)?.toInt() ?? 10;
+    final height = (size[1] as num?)?.toInt() ?? 10;
+
+    // ── variant ──────────────────────────────────────────────────
+    final variantStr =
+        (w['variant'] as String?) ?? (props['variant'] as String?);
+    int variant = 0;
+    switch (variantStr) {
+      case 'toggle':
+        variant = 1;
+      case 'multiSelect':
+        variant = 1;
+      case 'gasPedal':
+        variant = 0x80;
+      case 'steeringWheel':
+        variant = 0x80;
+    }
+
+    // ── string fields ─────────────────────────────────────────────
+    final onText = props['onText'] as String? ?? '';
+    final offText = props['offText'] as String? ?? '';
+    final icon = props['onIcon'] as String? ?? '';
+
+    // For Multiple widgets, build pipe-delimited content from items
+    String content = '';
+    if (typeId == kWidgetMultiple) {
+      final items = props['items'] as List? ?? [];
+      content = items
+          .map((item) {
+            final m = item as Map;
+            final onLabel = m['onLabel'] as String? ?? '';
+            final onIcon = m['onIcon'] as String? ?? '';
+            if (onIcon.isNotEmpty) return '$onLabel:$onIcon';
+            return onLabel;
+          })
+          .join('|');
+    }
+
+    // ── strMask ───────────────────────────────────────────────────
+    int strMask = 0;
+    if (labelText.isNotEmpty) strMask |= kStrMaskLabel;
+    if (icon.isNotEmpty) strMask |= kStrMaskIcon;
+    if (onText.isNotEmpty) strMask |= kStrMaskOnText;
+    if (offText.isNotEmpty) strMask |= kStrMaskOffText;
+    if (content.isNotEmpty) strMask |= kStrMaskContent;
+
+    return WidgetConfig(
+      typeId: typeId,
+      widgetId: widgetId,
+      x: x,
+      y: y,
+      width: width,
+      height: height,
+      variant: variant,
+      strMask: strMask,
+      label: labelText,
+      icon: icon,
+      onText: onText,
+      offText: offText,
+      content: content,
+      rotation: rotation,
+    );
+  }
+
+  /// Maps a designer-format type string to the wire-format typeId.
+  int _typeNameToId(String name) {
+    switch (name) {
+      case 'button':
+        return kWidgetButton;
+      case 'slideSwitch':
+        return kWidgetSlideSwitch;
+      case 'slider':
+        return kWidgetSlider;
+      case 'knob':
+        return kWidgetKnob;
+      case 'joystick':
+        return kWidgetJoystick;
+      case 'led':
+        return kWidgetLed;
+      case 'text':
+        return kWidgetText;
+      case 'multiple':
+        return kWidgetMultiple;
+      default:
+        return 0;
+    }
   }
 
   Future<void> _requestConfig() async {

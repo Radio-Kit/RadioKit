@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "config": {
+    "name": "RC_CONTROLLER",
+    "description": "Interactive Demo Mode",
+    "type": "RC Controller",
+    "transport": "BLE",
+    "theme": "RK_DEFAULT",
+    "password": ""
+  },
+  "initialInputs": {
+    "gas": [-100]
+  },
+  "initialOutputs": {
+    "lights": [1, 255, 120, 0, 255],
+    "telemetry": "912MHz / -84dBm"
+  },
+  "canvas": {
+    "size": [200, 100],
+    "grid": "none",
+    "skin": "dragon"
+  },
+  "widgets": [
+    {
+      "type": "slider",
+      "name": "gas",
+      "label": { "text": "GAS", "show": true },
+      "position": [25, 60, 0],
+      "size": [8, 50],
+      "variant": "gasPedal",
+      "haptic": true,
+      "properties": {
+        "widgetId": 1,
+        "min": 0,
+        "max": 100,
+        "autoCenter": ["min", "smooth", 300]
+      }
+    },
+    {
+      "type": "knob",
+      "name": "steering",
+      "label": { "text": "STEERING", "show": true },
+      "position": [160, 60, 0],
+      "size": [10, 30],
+      "variant": "steeringWheel",
+      "haptic": true,
+      "properties": {
+        "widgetId": 2,
+        "min": -100,
+        "max": 100,
+        "minAngle": -135,
+        "maxAngle": 135,
+        "autoCenter": ["center", "smooth", 500],
+        "centerIcon": null,
+        "divisions": null
+      }
+    },
+    {
+      "type": "multiple",
+      "name": "lights",
+      "label": { "text": "LIGHTS", "show": true },
+      "position": [100, 55, 0],
+      "size": [10, 12],
+      "variant": "multiSelect",
+      "haptic": true,
+      "properties": {
+        "widgetId": 3,
+        "itemCount": 4,
+        "items": [
+          { "onLabel": "Head", "onIcon": "lightbulb" },
+          { "onLabel": "Fog", "onIcon": "cloud" },
+          { "onLabel": "Hazard", "onIcon": "warning" },
+          { "onLabel": "Cabin", "onIcon": "home" }
+        ]
+      }
+    },
+    {
+      "type": "text",
+      "name": "telemetry",
+      "label": { "text": "TELEMETRY", "show": true },
+      "position": [100, 80, 0],
+      "size": [50, 12],
+      "haptic": true,
+      "properties": {
+        "widgetId": 5,
+        "text": "Display"
+      }
+    }
+  ]
+}

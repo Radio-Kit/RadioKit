@@ -58,6 +58,7 @@ flutter:
   uses-material-design: true
   assets:
     - resources/icon/app_icon.png
+    - assets/demos/
 
 flutter_gen:
   output: lib/gen/

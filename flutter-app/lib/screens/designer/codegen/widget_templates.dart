@@ -7,6 +7,29 @@ String _escape(String s) => s.replaceAll('"', '\\"');
 String _comment(DesignerElement el) =>
     '  // ${el.type.name}: pos=(${el.x},${el.y}) size=${el.width}x${el.height}${el.label.isNotEmpty ? ' label="${el.label}"' : ''}';
 
+/// Returns (cppWidth, cppHeight) — sets the derived dimension to 0 for fixed-AR
+/// widgets so the C++ struct's defaultAspect() computes it.
+(int, int) _cppSize(DesignerElement el) {
+  final ar = el.aspectRatio;
+  if (ar == null) return (el.width, el.height); // free-form
+  if (ar >= 0) return (0, el.height);            // height is primary
+  return (el.width, 0);                           // width is primary
+}
+
+String _sizeLine(DesignerElement el) {
+  final (w, h) = _cppSize(el);
+  return '.width = $w, .height = $h';
+}
+
+/// Returns true when auto-center is enabled (position in array[0] is not null).
+bool _acEnabled(List? ac) => ac != null && ac.isNotEmpty && ac[0] is String;
+
+/// Returns the spring type string from array[1] (defaults to 'smooth').
+String _acType(List? ac) {
+  if (ac is List && ac.length >= 2 && ac[1] is String) return ac[1] as String;
+  return 'smooth';
+}
+
 final Map<DesignerElementType, WidgetTemplate> templates = {
   DesignerElementType.button: (el, pin) {
     final mode = el.properties['variant'] ?? 'push';
@@ -16,7 +39,7 @@ final Map<DesignerElementType, WidgetTemplate> templates = {
     return '''
 $widgetType ${_widgetName(el)} {
     .x = ${el.x}, .y = ${el.y},
-    .width = ${el.width}, .height = ${el.height},
+    ${_sizeLine(el)},
     .rotation = ${el.rotation}
 };${_comment(el)}
   ${_widgetName(el)}.setOnText("${_escape(onText)}");
@@ -29,7 +52,7 @@ $widgetType ${_widgetName(el)} {
     return '''
 RK_SlideSwitch ${_widgetName(el)} {
     .x = ${el.x}, .y = ${el.y},
-    .width = ${el.width}, .height = ${el.height},
+    ${_sizeLine(el)},
     .rotation = ${el.rotation}
 };${_comment(el)}
   ${_widgetName(el)}.setOnText("${_escape(onText)}");
@@ -39,48 +62,82 @@ RK_SlideSwitch ${_widgetName(el)} {
   DesignerElementType.rockerSwitch: (el, pin) => '''
 RK_RockerSwitch ${_widgetName(el)} {
     .x = ${el.x}, .y = ${el.y},
-    .width = ${el.width}, .height = ${el.height},
+    ${_sizeLine(el)},
     .rotation = ${el.rotation}
 };${_comment(el)}''',
 
   DesignerElementType.slider: (el, pin) {
-    final autoCenter = el.properties['autoCenter'] == true;
-    final springBehavior = el.properties['springBehavior'] ?? 'smooth';
+    final ac = el.properties['autoCenter'] as List?;
     return '''
 RK_Slider ${_widgetName(el)} {
     .x = ${el.x}, .y = ${el.y},
-    .width = ${el.width}, .height = ${el.height},
+    ${_sizeLine(el)},
     .rotation = ${el.rotation}
 };${_comment(el)}
-  ${_widgetName(el)}.props.centering = ${_centeringEnum(autoCenter, springBehavior)};''';
+  ${_widgetName(el)}.props.centering = ${_centeringFromAC(ac)};''';
+  },
+
+  DesignerElementType.gasPedal: (el, pin) {
+    final ac = el.properties['autoCenter'] as List?;
+    return '''
+RK_GasPedal ${_widgetName(el)} {
+    .x = ${el.x}, .y = ${el.y},
+    ${_sizeLine(el)},
+    .rotation = ${el.rotation}
+};${_comment(el)}
+  ${_widgetName(el)}.props.centering = ${_centeringFromAC(ac)};''';
   },
 
   DesignerElementType.knob: (el, pin) {
-    final autoCenter = el.properties['autoCenter'] == true;
-    final springBehavior = el.properties['springBehavior'] ?? 'smooth';
+    final ac = el.properties['autoCenter'] as List?;
     final minAngle = el.properties['minAngle'] ?? -135;
     final maxAngle = el.properties['maxAngle'] ?? 135;
     return '''
 RK_Knob ${_widgetName(el)} {
     .x = ${el.x}, .y = ${el.y},
-    .width = ${el.width}, .height = ${el.height},
+    ${_sizeLine(el)},
     .rotation = ${el.rotation}
 };${_comment(el)}
-  ${_widgetName(el)}.props.centering = ${_centeringEnum(autoCenter, springBehavior)};
+  ${_widgetName(el)}.props.centering = ${_centeringFromAC(ac)};
+  ${_widgetName(el)}.props.startAngle = $minAngle;
+  ${_widgetName(el)}.props.endAngle = $maxAngle;''';
+  },
+
+  DesignerElementType.steeringWheel: (el, pin) {
+    final ac = el.properties['autoCenter'] as List?;
+    final minAngle = el.properties['minAngle'] ?? -135;
+    final maxAngle = el.properties['maxAngle'] ?? 135;
+    return '''
+RK_Knob ${_widgetName(el)} {
+    .x = ${el.x}, .y = ${el.y},
+    ${_sizeLine(el)},
+    .rotation = ${el.rotation}
+};${_comment(el)}
+  ${_widgetName(el)}.props.variant = 1;     // steeringWheel
+  ${_widgetName(el)}.props.centering = ${_centeringFromAC(ac)};
   ${_widgetName(el)}.props.startAngle = $minAngle;
   ${_widgetName(el)}.props.endAngle = $maxAngle;''';
   },
 
   DesignerElementType.joystick: (el, pin) {
-    final autoCenter = el.properties['autoCenter'] != false;
-    final springBehavior = el.properties['springBehavior'] ?? 'smooth';
+    final ac = el.properties['autoCenter'] as List?;
     return '''
 RK_Joystick ${_widgetName(el)} {
     .x = ${el.x}, .y = ${el.y},
-    .width = ${el.width}, .height = ${el.height},
+    ${_sizeLine(el)},
     .rotation = ${el.rotation}
 };${_comment(el)}
-  ${_widgetName(el)}.props.centering = ${_centeringEnum(autoCenter, springBehavior)};''';
+  ${_widgetName(el)}.props.centering = ${_centeringFromAC(ac)};''';
+  },
+
+  DesignerElementType.multiButton: (el, pin) {
+    final items = _multiItems(el);
+    return _buildMultiple('RK_MultipleButton', el, items);
+  },
+
+  DesignerElementType.multiSelect: (el, pin) {
+    final items = _multiItems(el);
+    return _buildMultiple('RK_MultipleSelect', el, items);
   },
 
   DesignerElementType.led: (el, pin) {
@@ -88,7 +145,7 @@ RK_Joystick ${_widgetName(el)} {
     return '''
 RK_LED ${_widgetName(el)} {
     .x = ${el.x}, .y = ${el.y},
-    .width = ${el.width}, .height = ${el.height},
+    ${_sizeLine(el)},
     .rotation = ${el.rotation}
 };${_comment(el)}
   ${_widgetName(el)}.setColor(0x${color.toInt().toRadixString(16).padLeft(6, '0')});''';
@@ -99,7 +156,7 @@ RK_LED ${_widgetName(el)} {
     return '''
 RK_Text ${_widgetName(el)} {
     .x = ${el.x}, .y = ${el.y},
-    .width = ${el.width}, .height = ${el.height},
+    ${_sizeLine(el)},
     .rotation = ${el.rotation}
 };${_comment(el)}
   ${_widgetName(el)}.set("${_escape(text)}");''';
@@ -108,7 +165,7 @@ RK_Text ${_widgetName(el)} {
   DesignerElementType.serialMonitor: (el, pin) => '''
 RK_SerialMonitor ${_widgetName(el)} {
     .x = ${el.x}, .y = ${el.y},
-    .width = ${el.width}, .height = ${el.height},
+    ${_sizeLine(el)},
     .rotation = ${el.rotation}
 };${_comment(el)}''',
 };
@@ -118,9 +175,15 @@ String _widgetName(DesignerElement el) {
   return '${base[0].toLowerCase()}${base.substring(1)}_${el.id.hashCode.abs() % 10000}';
 }
 
-String _centeringEnum(bool autoCenter, String springBehavior) {
-  if (!autoCenter) return 'RK_SPRING_NONE';
-  switch (springBehavior) {
+/// Converts the autoCenter array [position, type, duration] to an RK centering enum.
+///
+///   - position == null → RK_SPRING_NONE
+///   - type == 'elastic' → RK_SPRING_ELASTIC
+///   - type == 'linear' → RK_SPRING_LINEAR
+///   - otherwise → RK_SPRING_CENTER (smooth)
+String _centeringFromAC(List? ac) {
+  if (!_acEnabled(ac)) return 'RK_SPRING_NONE';
+  switch (_acType(ac)) {
     case 'elastic':
       return 'RK_SPRING_ELASTIC';
     case 'linear':
@@ -128,4 +191,34 @@ String _centeringEnum(bool autoCenter, String springBehavior) {
     default:
       return 'RK_SPRING_CENTER';
   }
+}
+
+/// Extracts multi-item config from element properties.
+List<Map<String, dynamic>> _multiItems(DesignerElement el) {
+  final raw = el.properties['items'] as List?;
+  if (raw == null) return [];
+  return raw.map((e) => Map<String, dynamic>.from(e is Map ? e : {})).toList();
+}
+
+/// Builds an RK_MultipleButton or RK_MultipleSelect declaration with items.
+String _buildMultiple(String widgetType, DesignerElement el, List<Map<String, dynamic>> items) {
+  final buf = StringBuffer();
+  buf.writeln('$widgetType ${_widgetName(el)} {');
+  buf.writeln('    .x = ${el.x}, .y = ${el.y},');
+  buf.writeln('    ${_sizeLine(el)},');
+  buf.writeln('    .rotation = ${el.rotation}');
+  buf.writeln('};${_comment(el)}');
+
+  for (int i = 0; i < items.length; i++) {
+    final item = items[i];
+    final label = item['onLabel'] as String? ?? String.fromCharCode(65 + i);
+    final icon = item['onIcon'] as String?;
+    if (icon != null && icon.isNotEmpty) {
+      buf.writeln('  ${_widgetName(el)}.add({"$label", "$icon"});');
+    } else {
+      buf.writeln('  ${_widgetName(el)}.add({"$label"});');
+    }
+  }
+
+  return buf.toString();
 }

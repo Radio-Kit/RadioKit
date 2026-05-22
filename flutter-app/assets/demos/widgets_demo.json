@@ -1,0 +1,179 @@
+{
+  "version": 1,
+  "config": {
+    "name": "WIDGETS_DEMO",
+    "description": "Interactive Demo Mode",
+    "type": "Locomotive",
+    "transport": "BLE",
+    "theme": "RK_DEFAULT",
+    "password": ""
+  },
+  "initialOutputs": {
+    "alive": [1, 57, 255, 20, 255],
+    "widgets_test": "LINK_READY_v1.7"
+  },
+  "canvas": {
+    "size": [200, 100],
+    "grid": "none",
+    "skin": "dragon"
+  },
+  "widgets": [
+    {
+      "type": "button",
+      "name": "push",
+      "label": { "text": "PUSH", "show": true },
+      "position": [25, 75, 0],
+      "size": [10, 10],
+      "haptic": true,
+      "properties": {
+        "widgetId": 1,
+        "variant": "push",
+        "onText": "ACTIVE",
+        "offText": "IDLE",
+        "onIcon": "zap",
+        "offIcon": null
+      }
+    },
+    {
+      "type": "button",
+      "name": "toggle",
+      "label": { "text": "TOGGLE", "show": true },
+      "position": [25, 50, 0],
+      "size": [10, 10],
+      "haptic": true,
+      "properties": {
+        "widgetId": 2,
+        "variant": "toggle",
+        "onText": "ON",
+        "offText": "OFF",
+        "onIcon": "power",
+        "offIcon": null
+      }
+    },
+    {
+      "type": "slideSwitch",
+      "name": "slide",
+      "label": { "text": "SLIDE", "show": true },
+      "position": [25, 25, 10],
+      "size": [10, 10],
+      "haptic": true,
+      "properties": {
+        "widgetId": 3,
+        "onText": "ON",
+        "offText": "OFF",
+        "onIcon": "sliders"
+      }
+    },
+    {
+      "type": "text",
+      "name": "widgets_test",
+      "label": { "text": "WIDGETS_TEST", "show": true },
+      "position": [100, 92, 0],
+      "size": [14, 10],
+      "haptic": true,
+      "properties": {
+        "widgetId": 4,
+        "text": "Display"
+      }
+    },
+    {
+      "type": "slider",
+      "name": "slider",
+      "label": { "text": "SLIDER", "show": true },
+      "position": [100, 70, 10],
+      "size": [60, 10],
+      "haptic": true,
+      "properties": {
+        "widgetId": 5,
+        "min": -100,
+        "max": 100,
+        "autoCenter": [null, "smooth", 300],
+        "divisions": null
+      }
+    },
+    {
+      "type": "multiple",
+      "name": "multi",
+      "label": { "text": "MULTI", "show": true },
+      "position": [100, 50, 0],
+      "size": [10, 10],
+      "variant": "multiSelect",
+      "haptic": true,
+      "properties": {
+        "widgetId": 11,
+        "itemCount": 3,
+        "items": [
+          { "onLabel": "WiFi", "onIcon": "wifi" },
+          { "onLabel": "BT", "onIcon": "bluetooth" },
+          { "onLabel": "GPS", "onIcon": "map-pin" }
+        ]
+      }
+    },
+    {
+      "type": "multiple",
+      "name": "modes",
+      "label": { "text": "MODES", "show": true },
+      "position": [100, 25, 0],
+      "size": [10, 10],
+      "variant": "multiButton",
+      "haptic": true,
+      "properties": {
+        "widgetId": 8,
+        "itemCount": 4,
+        "items": [
+          { "onLabel": "Auto", "onIcon": "cpu" },
+          { "onLabel": "Man", "onIcon": "mouse" },
+          { "onLabel": "Night", "onIcon": "moon" },
+          { "onLabel": "Eco", "onIcon": "leaf" }
+        ]
+      }
+    },
+    {
+      "type": "knob",
+      "name": "pan",
+      "label": { "text": "PAN", "show": true },
+      "position": [170, 80, 0],
+      "size": [10, 10],
+      "haptic": true,
+      "properties": {
+        "widgetId": 7,
+        "min": 0,
+        "max": 100,
+        "minAngle": -135,
+        "maxAngle": 135,
+        "autoCenter": [null, "smooth", 500],
+        "centerIcon": "rotate-cw",
+        "divisions": null
+      }
+    },
+    {
+      "type": "joystick",
+      "name": "stick",
+      "label": { "text": "STICK", "show": true },
+      "position": [170, 50, 0],
+      "size": [10, 10],
+      "haptic": true,
+      "properties": {
+        "widgetId": 10,
+        "autoCenter": ["center", "smooth", 300],
+        "centerX": 0.0,
+        "centerY": 0.0
+      }
+    },
+    {
+      "type": "led",
+      "name": "alive",
+      "label": { "text": "ALIVE", "show": true },
+      "position": [170, 25, 0],
+      "size": [5, 5],
+      "haptic": true,
+      "properties": {
+        "widgetId": 9,
+        "state": "off",
+        "shape": "circle",
+        "color": 65280,
+        "timing": 500
+      }
+    }
+  ]
+}

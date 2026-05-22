@@ -413,6 +413,108 @@ class InspectorFieldBuilders {
     );
   }
 
+  /// A segmented button group for two-option toggles (e.g. H / V).
+  /// Renders the options as joined pill-buttons with a shared inner border.
+  static Widget buildButtonGroup(
+    RKTokens tokens,
+    String label,
+    String value,
+    List<String> options,
+    ValueChanged<String> onChanged, {
+    List<String>? labels,
+  }) {
+    assert(options.length >= 2);
+    final displayLabels =
+        labels ?? options.map((o) => o.toUpperCase()).toList();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF888888),
+                fontSize: 11,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Row(
+              children: List.generate(options.length, (i) {
+                final opt = options[i];
+                final lbl = displayLabels[i];
+                final isSelected = opt == value;
+                final isFirst = i == 0;
+                final isLast = i == options.length - 1;
+                return Expanded(
+                  child: GestureDetector(
+                    onTap: () => onChanged(opt),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 120),
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? tokens.primary.withValues(alpha: 0.15)
+                            : const Color(0xFF0D0D0D),
+                        border: Border(
+                          top: BorderSide(
+                            color: isSelected
+                                ? tokens.primary
+                                : const Color(0xFF333333),
+                          ),
+                          bottom: BorderSide(
+                            color: isSelected
+                                ? tokens.primary
+                                : const Color(0xFF333333),
+                          ),
+                          left: BorderSide(
+                            color: isFirst
+                                ? (isSelected
+                                    ? tokens.primary
+                                    : const Color(0xFF333333))
+                                : Colors.transparent,
+                          ),
+                          right: BorderSide(
+                            color: isSelected
+                                ? tokens.primary
+                                : const Color(0xFF333333),
+                          ),
+                        ),
+                        borderRadius: BorderRadius.horizontal(
+                          left:
+                              isFirst ? const Radius.circular(2) : Radius.zero,
+                          right:
+                              isLast ? const Radius.circular(2) : Radius.zero,
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        lbl,
+                        style: TextStyle(
+                          color: isSelected
+                              ? tokens.primary
+                              : const Color(0xFF888888),
+                          fontSize: 11,
+                          fontFamily: 'monospace',
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   static Widget buildCenterPinnedSelector(
     RKTokens tokens,
     String label,
