@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 import '../theme/app_theme.dart';
 
@@ -191,20 +193,62 @@ class _DemoScreenState extends State<DemoScreen> {
 
   Widget _buildBooleanInput(bool value, ValueChanged<bool> onChanged) {
     final tokens = RKTheme.of(context);
-    return SegmentedButton<bool>(
-      segments: const [
-        ButtonSegment(value: false, label: Text('0')),
-        ButtonSegment(value: true, label: Text('1')),
+    return Row(
+      children: [
+        Expanded(
+          child: GestureDetector(
+            onTap: () => onChanged(false),
+            child: Container(
+              height: 32,
+              decoration: BoxDecoration(
+                color: !value ? tokens.primary : const Color(0xFF222222),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(4),
+                  bottomLeft: Radius.circular(4),
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  '0',
+                  style: TextStyle(
+                    color: !value ? Colors.black : Colors.white54,
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 1),
+        Expanded(
+          child: GestureDetector(
+            onTap: () => onChanged(true),
+            child: Container(
+              height: 32,
+              decoration: BoxDecoration(
+                color: value ? tokens.primary : const Color(0xFF222222),
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(4),
+                  bottomRight: Radius.circular(4),
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  '1',
+                  style: TextStyle(
+                    color: value ? Colors.black : Colors.white54,
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ],
-      selected: {value},
-      showSelectedIcon: false,
-      onSelectionChanged: (newSelection) {
-        onChanged(newSelection.first);
-      },
-      style: SegmentedButton.styleFrom(
-        selectedBackgroundColor: tokens.primary,
-        selectedForegroundColor: Colors.black,
-      ),
     );
   }
 
@@ -1235,38 +1279,44 @@ class _DemoScreenState extends State<DemoScreen> {
     final isCustom = currentTokens == _customTokens;
 
     return Container(
-      width: 280,
-      color: const Color(0xFF151515),
+      width: 320,
+      decoration: const BoxDecoration(
+        color: Color(0xFF181818),
+        border: Border(
+          left: BorderSide(color: Color(0xFF222222), width: 1),
+        ),
+      ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: Color(0xFF222222))),
-            ),
+            padding: const EdgeInsets.all(20),
             child: Row(
               children: [
+                Icon(LucideIcons.palette, color: currentTokens.primary, size: 20),
+                const SizedBox(width: 10),
                 const Text(
                   'TOKENS',
                   style: TextStyle(
-                    color: Color(0xFFB0B0B0),
-                    fontSize: 12,
+                    color: Color(0xFFE0E0E0),
+                    fontSize: 14,
                     fontFamily: 'monospace',
+                    fontWeight: FontWeight.w600,
                     letterSpacing: 1,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 const Spacer(),
                 GestureDetector(
                   onTap: () => setState(() => _showTokensPanel = false),
-                  child: const Icon(Icons.close, color: Color(0xFF888888), size: 18),
+                  child: const Icon(Icons.close, color: Color(0xFF666666), size: 18),
                 ),
               ],
             ),
           ),
+          const Divider(color: Color(0xFF222222), height: 1),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
               child: _buildTokenColumn(
                 _getSkinName(currentTokens),
                 currentTokens,
@@ -1280,83 +1330,62 @@ class _DemoScreenState extends State<DemoScreen> {
   }
 
   Widget _buildTokenColumn(String name, RKTokens tokens, bool editable) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: editable ? tokens.primary.withValues(alpha: 0.3) : const Color(0xFF2A2A2A),
-          width: editable ? 1.5 : 1,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          name,
+          style: TextStyle(
+            color: tokens.primary,
+            fontSize: 12,
+            fontFamily: 'monospace',
+            letterSpacing: 1,
+          ),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: tokens.primary,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(7),
-                topRight: Radius.circular(7),
-              ),
-            ),
-            child: Row(
-              children: [
-                Text(
-                  name,
-                  style: TextStyle(
-                    color: tokens.onPrimary,
-                    fontSize: 14,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                  ),
-                ),
-                if (editable) ...[
-                  const Spacer(),
-                  Icon(Icons.edit, color: tokens.onPrimary.withValues(alpha: 0.7), size: 14),
-                ],
-              ],
-            ),
+        const SizedBox(height: 12),
+        _colorRow('Primary', tokens.primary, editable,
+            editable ? (c) => _updateCustom((t) => t.copyWith(primary: c)) : null),
+        const SizedBox(height: 2),
+        _colorRow('OnPrimary', tokens.onPrimary, editable,
+            editable ? (c) => _updateCustom((t) => t.copyWith(onPrimary: c)) : null),
+        const SizedBox(height: 2),
+        _colorRow('Surface', tokens.surface, editable,
+            editable ? (c) => _updateCustom((t) => t.copyWith(surface: c)) : null),
+        const SizedBox(height: 2),
+        _colorRow('OnSurface', tokens.onSurface, editable,
+            editable ? (c) => _updateCustom((t) => t.copyWith(onSurface: c)) : null),
+        const SizedBox(height: 2),
+        _colorRow('Track', tokens.trackColor, editable,
+            editable ? (c) => _updateCustom((t) => t.copyWith(trackColor: c)) : null),
+        const SizedBox(height: 2),
+        _colorRow('Glow', tokens.glowColor, editable,
+            editable ? (c) => _updateCustom((t) => t.copyWith(glowColor: c)) : null),
+        const SizedBox(height: 8),
+        const Divider(color: Color(0xFF222222), height: 1),
+        const SizedBox(height: 8),
+        Text(
+          'NUMBERS',
+          style: TextStyle(
+            color: tokens.primary,
+            fontSize: 12,
+            fontFamily: 'monospace',
+            letterSpacing: 1,
           ),
-          Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _colorRow('Primary', tokens.primary, editable,
-                    editable ? (c) => _updateCustom((t) => t.copyWith(primary: c)) : null),
-                const SizedBox(height: 8),
-                _colorRow('OnPrimary', tokens.onPrimary, false, null),
-                const SizedBox(height: 8),
-                _colorRow('Surface', tokens.surface, false, null),
-                const SizedBox(height: 8),
-                _colorRow('OnSurface', tokens.onSurface, false, null),
-                const SizedBox(height: 8),
-                _colorRow('Track', tokens.trackColor, false, null),
-                const SizedBox(height: 8),
-                _colorRow('Glow', tokens.glowColor, false, null),
-                const SizedBox(height: 4),
-                const Divider(color: Color(0xFF2A2A2A), height: 16),
-                if (editable)
-                  _sliderRow('Radius', tokens.borderRadius, 0, 24, (v) {
-                    _updateCustom((t) => t.copyWith(borderRadius: v));
-                  })
-                else
-                  _valueRow('Radius', tokens.borderRadius.toStringAsFixed(0)),
-                if (editable)
-                  _sliderRow('Elevation', tokens.elevation, 0, 12, (v) {
-                    _updateCustom((t) => t.copyWith(elevation: v));
-                  })
-                else
-                  _valueRow('Elevation', tokens.elevation.toStringAsFixed(0)),
-              ],
-            ),
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 8),
+        if (editable)
+          _sliderRow('Radius', tokens.borderRadius, 0, 24, (v) {
+            _updateCustom((t) => t.copyWith(borderRadius: v));
+          })
+        else
+          _valueRow('Radius', tokens.borderRadius.toStringAsFixed(0)),
+        if (editable)
+          _sliderRow('Elevation', tokens.elevation, 0, 12, (v) {
+            _updateCustom((t) => t.copyWith(elevation: v));
+          })
+        else
+          _valueRow('Elevation', tokens.elevation.toStringAsFixed(0)),
+      ],
     );
   }
 
@@ -1513,95 +1542,48 @@ class _DemoScreenState extends State<DemoScreen> {
     );
   }
 
-  void _showColorPicker(BuildContext context, Color current, ValueChanged<Color> onPicked) {
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        String hexInput = '#${current.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
-        return StatefulBuilder(
-          builder: (ctx, setState) {
-            final presets = [
-              Colors.red.shade400,
-              Colors.orange.shade400,
-              Colors.amber.shade400,
-              Colors.yellow.shade400,
-              Colors.lime.shade400,
-              Colors.green.shade400,
-              Colors.teal.shade400,
-              Colors.cyan.shade400,
-              Colors.blue.shade400,
-              Colors.indigo.shade400,
-              Colors.purple.shade400,
-              Colors.pink.shade400,
-              Colors.white,
-              const Color(0xFFB0B0B0),
-              const Color(0xFF666666),
-              Colors.black,
-            ];
-            return AlertDialog(
-              backgroundColor: const Color(0xFF1A1A1A),
-              title: const Text('PICK COLOR', style: TextStyle(color: Color(0xFFB0B0B0), fontSize: 12, fontFamily: 'monospace')),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: presets.map((c) {
-                      return GestureDetector(
-                        onTap: () {
-                          onPicked(c);
-                          Navigator.of(ctx).pop();
-                        },
-                        child: Container(
-                          width: 28, height: 28,
-                          decoration: BoxDecoration(
-                            color: c,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: const Color(0xFF444444), width: 1),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: TextEditingController(text: hexInput),
-                          style: const TextStyle(color: Color(0xFFB0B0B0), fontSize: 12, fontFamily: 'monospace'),
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                            border: OutlineInputBorder(),
-                          ),
-                          onSubmitted: (v) {
-                            var h = v.trim();
-                            if (!h.startsWith('#')) h = '#$h';
-                            if (h.length == 7 || h.length == 9) {
-                              final parsed = Color(int.parse(h.substring(1), radix: 16) + (h.length == 7 ? 0xFF000000 : 0));
-                              onPicked(parsed);
-                              Navigator.of(ctx).pop();
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('CANCEL', style: TextStyle(color: Color(0xFF888888), fontFamily: 'monospace')),
-                ),
-              ],
-            );
-          },
-        );
+  Future<void> _showColorPicker(BuildContext context, Color current, ValueChanged<Color> onPicked) async {
+    final newColor = await showColorPickerDialog(
+      context,
+      current,
+      title: const Text(
+        'PICK COLOR',
+        style: TextStyle(
+          color: Color(0xFFB0B0B0),
+          fontSize: 12,
+          fontFamily: 'monospace',
+          letterSpacing: 1,
+        ),
+      ),
+      width: 40,
+      height: 40,
+      spacing: 5,
+      runSpacing: 5,
+      borderRadius: 6,
+      wheelDiameter: 180,
+      showColorCode: true,
+      colorCodeHasColor: true,
+      pickersEnabled: const <ColorPickerType, bool>{
+        ColorPickerType.wheel: true,
+        ColorPickerType.primary: true,
+        ColorPickerType.accent: true,
+        ColorPickerType.bw: false,
+        ColorPickerType.custom: false,
       },
+      actionButtons: const ColorPickerActionButtons(
+        okButton: true,
+        closeButton: true,
+        dialogActionButtons: false,
+      ),
+      constraints: const BoxConstraints(
+        minHeight: 460,
+        minWidth: 320,
+        maxWidth: 340,
+      ),
     );
+    if (newColor != current) {
+      onPicked(newColor);
+    }
   }
 
 }

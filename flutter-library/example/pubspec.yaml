@@ -18,6 +18,7 @@ dependencies:
     git:
       url: https://github.com/PiscesXD/simple_icons.git
       ref: master
+  flex_color_picker: ^3.8.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

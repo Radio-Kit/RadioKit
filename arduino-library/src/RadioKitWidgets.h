@@ -15,7 +15,6 @@
 #include "widgets/Knob.h"
 #include "widgets/LED.h"
 #include "widgets/Text.h"
-#include "widgets/Serial.h"
 #include "widgets/Multiple.h"
 
 #endif // RADIOKIT_WIDGETS_H

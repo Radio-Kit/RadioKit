@@ -56,6 +56,12 @@
 #define RK_MINIMAL "minimal"
 
 // ─────────────────────────────────────────────
+//  Transport types
+// ─────────────────────────────────────────────
+#define RK_TRANSPORT_BLE    0
+#define RK_TRANSPORT_SERIAL 1
+
+// ─────────────────────────────────────────────
 //  Widget Styles
 // ─────────────────────────────────────────────
 #define RK_PRIMARY 0

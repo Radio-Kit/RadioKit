@@ -179,7 +179,98 @@ Pass `showDebug: showDebug` to widgets (true only for the selected element in de
 - Widget names use `snake_case` identifiers (e.g., `button_1`, `slider_2`).
 - Demo JSON files live in `flutter-app/assets/demos/` and use the same schema.
 
-## 8. No need for Backward Compatibility
+## 8. Demo Screen Conventions
+
+### 8.1 Layout Structure
+
+The demo screen (`demo_screen.dart`) has a horizontal layout with three columns:
+
+```
+[LeftSidebar] [Main area (Expanded)] [Tokens panel | InspectorPanel]
+```
+
+- **LeftSidebar**: Category navigation with Inputs/Outputs subheadings, scrollable.
+- **Main area**: Top bar + Skins bar (`_AestheticCoreBar`) + scrollable card grid.
+- **Right panels**: Tokens panel and InspectorPanel are **mutually exclusive** — only one is shown at a time. The Tokens panel auto-closes when switching widgets.
+
+### 8.2 Skin System
+
+Four skins are available: `DRAGON`, `NEON`, `MINIMAL`, `CUSTOM`.
+
+- Built-in skins (`RKTokens.dragon`, `RKTokens.neon`, `RKTokens.minimal`) are `static const` singletons.
+- CUSTOM skin (`_customTokens`) must be initialized as a **distinct instance** — use `RKTokens.dragon.copyWith()` (not `RKTokens.dragon`) to avoid identity collisions with the const singleton.
+- The `_AestheticCoreBar` detects CUSTOM via an `isCustom` check: `tokens != RKTokens.dragon && tokens != RKTokens.neon && tokens != RKTokens.minimal`. This uses Dart's default `==` (identity for const objects), so CUSTOM must be a different instance.
+
+### 8.3 Token Editing
+
+- Only CUSTOM skin is editable. Built-in skins show read-only values.
+- All six color fields (Primary, OnPrimary, Surface, OnSurface, Track, Glow) are editable in CUSTOM mode.
+- Radius and Elevation sliders are also editable for CUSTOM.
+- Use `_updateCustom(RKTokens Function(RKTokens) update)` for all token edits. This helper:
+  1. Captures `wasCustom = themeNotifier.value == _customTokens` **before** reassignment
+  2. Applies the update via `_customTokens = update(_customTokens)`
+  3. If CUSTOM was active, re-assigns `themeNotifier.value = _customTokens` to notify `ValueListenableBuilder` listeners
+
+### 8.4 Tokens Panel
+
+- Shown/hidden via `_showTokensPanel` bool toggled by the COLORS button.
+- Styled identically to `InspectorPanel`: `width: 320`, `Color(0xFF181818)` background, left `BorderSide(color: Color(0xFF222222))`.
+- Header uses `LucideIcons.palette` + "TOKENS" title + close button (same padding/typography as config panel).
+- Content is inline (no card sub-container). Uses section headers (skin name, "NUMBERS") styled in `tokens.primary` color (12px monospace, letter-spacing: 1).
+- Color rows show a 36×36 swatch + label + hex value. Editable rows have underlined hex, chevron hint, and tap-to-edit via `showColorPickerDialog`.
+- Slider rows show label + value + `Slider` widget with `activeColor: _customTokens.primary`.
+
+### 8.5 Color Picker
+
+Use `flex_color_picker` package (`showColorPickerDialog` function):
+
+```dart
+final newColor = await showColorPickerDialog(
+  context,
+  current,
+  width: 40,
+  height: 40,
+  borderRadius: 6,
+  wheelDiameter: 180,
+  showColorCode: true,
+  colorCodeHasColor: true,
+  pickersEnabled: const <ColorPickerType, bool>{
+    ColorPickerType.wheel: true,
+    ColorPickerType.primary: true,
+    ColorPickerType.accent: true,
+    ColorPickerType.bw: false,
+    ColorPickerType.custom: false,
+  },
+  actionButtons: ColorPickerActionButtons(
+    okButton: true,
+    closeButton: true,
+    dialogActionButtons: false,
+  ),
+  constraints: BoxConstraints(minHeight: 460, minWidth: 320, maxWidth: 340),
+);
+if (newColor != current) {
+  onPicked(newColor);
+}
+```
+
+- Keep `enableOpacity` off (avoids web asset loading issue with `opacity.png`).
+- Don't forget to add `flex_color_picker: ^3.8.0` to `pubspec.yaml` when using this in a new project.
+
+### 8.6 Color Row Widget
+
+The `_colorRow` method renders each token color as a row with:
+- 36×36 swatch with rounded corners (6px), subtle glow shadow, and border (white24 for editable, #444444 for read-only).
+- Editable swatches show a `touch_app` icon overlay.
+- Hex value displayed as `#RRGGBB` in 12px bold monospace.
+- Editable rows have underlined hex and a `chevron_right` icon.
+
+### 8.7 Inspector Panel
+
+- `InspectorPanel` uses sections via `InspectorFieldBuilders.buildSection(tokens, title, children)`.
+- Fields use `InspectorFieldBuilders` static methods with 20px horizontal padding and `vertical: 6`.
+- The panel header uses `padding: const EdgeInsets.all(20)` with icon + title + optional close button pattern.
+
+## 9. No need for Backward Compatibility
 
 - **Rule**: Only work on the current request, it's okay if it breaks backward compatibility. We can break the API whenever needed.
 - **Rule**: We don't need to support old versions of the library. We can drop support for old versions whenever needed.

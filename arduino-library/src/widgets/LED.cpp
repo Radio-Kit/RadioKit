@@ -26,10 +26,6 @@ void RK_LED::serializeOutput(uint8_t* buf) const {
     buf[2] = (props.color >> 8)  & 0xFF;
     buf[3] =  props.color        & 0xFF;
     buf[4] = 255;
-    buf[5] = props.shape;
-    buf[6] = props.ledState;
-    buf[7] = (props.timing >> 8) & 0xFF;
-    buf[8] =  props.timing       & 0xFF;
 }
 
 void RK_LED::serializeInput(uint8_t* buf) const {

@@ -46,4 +46,9 @@ public:
     size_t write(const uint8_t *buffer, size_t size) override;
 };
 
+class RK_SerialMonitor : public RK_Serial {
+public:
+    using RK_Serial::RK_Serial;
+};
+
 #endif // RADIOKIT_WIDGET_TEXT_H

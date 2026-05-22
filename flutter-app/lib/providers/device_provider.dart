@@ -304,12 +304,16 @@ class DeviceProvider extends ChangeNotifier {
     switch (variantStr) {
       case 'toggle':
         variant = 1;
+        break;
       case 'multiSelect':
         variant = 1;
+        break;
       case 'gasPedal':
         variant = 0x80;
+        break;
       case 'steeringWheel':
         variant = 0x80;
+        break;
     }
 
     // ── string fields ─────────────────────────────────────────────

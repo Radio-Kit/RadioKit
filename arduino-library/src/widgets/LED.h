@@ -36,7 +36,7 @@ public:
     RK_LED(RK_LedProps p);
 
     uint8_t inputSize()  const override { return 0; }
-    uint8_t outputSize() const override { return 9; }
+    uint8_t outputSize() const override { return 5; }
     void serializeInput(uint8_t*)           const override;
     void serializeOutput(uint8_t* buf)         const override;
     void deserializeInput(const uint8_t*)            override {}
