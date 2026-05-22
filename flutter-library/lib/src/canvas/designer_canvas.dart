@@ -511,8 +511,17 @@ class _DragHandleState extends State<_DragHandle> {
           width: size,
           height: size,
         );
+      } else if (ar < 0) {
+        // Vertical fixed-AR (multi): width is primary, derive height
+        final newWidth = (_startWidth! + widthDelta).clamp(8, widget.cw - 8);
+        final autoH = (newWidth * -ar).round().clamp(1, 999);
+        widget.designerState.updateElementSize(
+          widget.element.id,
+          width: newWidth,
+          height: autoH,
+        );
       } else {
-        // Fixed-aspect-ratio widget (e.g. multi): resize primary dimension only
+        // Horizontal fixed-AR: height is primary, derive width
         final newHeight = (_startHeight! + heightDelta).clamp(8, widget.ch - 8);
         final autoW = (newHeight * ar).round().clamp(1, 999);
         widget.designerState.updateElementSize(

@@ -16,33 +16,56 @@
   },
   "widgets": [
     {
-      "type": "slider", "id": "servoSlider",
-      "x": 100, "y": 50,
-      "width": 80, "height": 12,
-      "rotation": 0,
-      "label": "Angle",
-      "centering": "none",
-      "detents": 0,
-      "value": 0
+      "id": "placeholder_slider",
+      "type": "slider",
+      "x": 100,
+      "y": 50,
+      "width": 80,
+      "height": 12,
+      "properties": {
+        "rotation": 0,
+        "label": "Angle",
+        "labelHidden": false,
+        "min": 0,
+        "max": 100,
+        "autoCenter": false,
+        "center": 0.5,
+        "springBehavior": "smooth",
+        "springDuration": 300,
+        "divisions": null
+      }
     },
     {
-      "type": "led", "id": "zoneLED",
-      "x": 20, "y": 20,
-      "width": 0, "height": 14,
-      "rotation": 0,
-      "label": "Zone",
-      "state": "on",
-      "shape": "circle",
-      "color": 65280,
-      "timing": 500
+      "id": "placeholder_led",
+      "type": "led",
+      "x": 20,
+      "y": 20,
+      "height": 14,
+      "properties": {
+        "rotation": 0,
+        "label": "Zone",
+        "labelHidden": false,
+        "state": "on",
+        "shape": "circle",
+        "color": 65280,
+        "timing": 500
+      }
     },
     {
-      "type": "text", "id": "angleText",
-      "x": 20, "y": 80,
-      "width": 0, "height": 10,
-      "rotation": 0,
-      "label": "Deg",
-      "content": ""
+      "id": "placeholder_text",
+      "type": "text",
+      "x": 20,
+      "y": 80,
+      "width": 60,
+      "height": 10,
+      "properties": {
+        "rotation": 0,
+        "label": "Deg",
+        "labelHidden": false,
+        "text": "",
+        "fontSize": 14,
+        "fontFamily": "monospace"
+      }
     }
   ]
 }
@@ -70,59 +93,3 @@ static inline void initRadioKit()
 }
 
 #endif // RADIOKIT_UI_H
-
-// ─────────────────────────────────────────────────────────────
-//  WIDGET FACTORY FUNCTIONS
-// ─────────────────────────────────────────────────────────────
-
-// slider: id=servoSlider  pos=(100,50) size=80x12  label="Angle"
-static inline RK_Slider mkServoSlider()
-{
-    RK_SliderProps p;
-    p.x         = 100;
-    p.y         = 50;
-    p.height    = 12;
-    p.width     = 80;
-    p.rotation  = 0;
-    p.label     = "Angle";
-    p.centering = RK_SPRING_NONE;
-    p.detents   = 0;
-    p.value     = 0;
-    return RK_Slider(p);
-}
-RK_Slider  servoSlider = mkServoSlider();
-
-// led: id=zoneLED  pos=(20,20) size=0x14  label="Zone"
-static inline RK_LED mkZoneLED()
-{
-    RK_LedProps p;
-    p.x        = 20;
-    p.y        = 20;
-    p.height   = 14;
-    p.width    = 0;
-    p.rotation = 0;
-    p.label    = "Zone";
-    p.color    = 65280;
-    p.state    = true;
-    p.shape    = RK_LED_SHAPE_CIRCLE;
-    p.ledState = RK_LED_STATE_ON;
-    p.timing   = 500;
-    return RK_LED(p);
-}
-RK_LED     zoneLED     = mkZoneLED();
-
-// text: id=angleText  pos=(20,80) size=0xA  label="Deg"
-static inline RK_Text mkAngleText()
-{
-    RK_TextProps p;
-    p.x        = 20;
-    p.y        = 80;
-    p.height   = 10;
-    p.width    = 0;
-    p.label    = "Deg";
-    p.content  = "";
-    return RK_Text(p);
-}
-RK_Text    angleText   = mkAngleText();
-
-

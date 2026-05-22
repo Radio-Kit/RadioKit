@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:go_router/go_router.dart';
@@ -14,6 +13,7 @@ import 'widgets/designer_widget_dialog.dart';
 import 'widgets/designer_inspector.dart';
 
 import '../../providers/designs_provider.dart';
+import 'codegen/widget_templates.dart';
 
 class DesignerScreen extends StatefulWidget {
   final String? designId;
@@ -26,7 +26,8 @@ class DesignerScreen extends StatefulWidget {
 class _DesignerScreenState extends State<DesignerScreen> {
   final DesignerState _state = DesignerState();
   String? _currentDesignId;
-  Timer? _saveTimer;
+  bool _hasUnsavedChanges = false;
+  bool _isInitializing = false;
 
   @override
   void initState() {
@@ -34,17 +35,19 @@ class _DesignerScreenState extends State<DesignerScreen> {
     _currentDesignId = widget.designId;
     _state.addListener(_onStateChanged);
     RKDebugOverlay.enabled = !_state.isPlayMode;
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadInitialDesign();
     });
   }
 
   void _loadInitialDesign() {
+    _isInitializing = true;
     if (widget.designId != null) {
       final provider = context.read<DesignsProvider>();
       final designs = provider.designs;
-      final existing = designs.where((d) => d.id == widget.designId).firstOrNull;
+      final existing =
+          designs.where((d) => d.id == widget.designId).firstOrNull;
       if (existing != null) {
         try {
           final json = jsonDecode(existing.jsonContent);
@@ -58,11 +61,12 @@ class _DesignerScreenState extends State<DesignerScreen> {
     } else {
       _state.setModelName('Project-${math.Random().nextInt(10000)}');
     }
+    _isInitializing = false;
+    _hasUnsavedChanges = false;
   }
 
   @override
   void dispose() {
-    _saveTimer?.cancel();
     _state.removeListener(_onStateChanged);
     _state.dispose();
     RKDebugOverlay.enabled = false;
@@ -71,23 +75,23 @@ class _DesignerScreenState extends State<DesignerScreen> {
 
   void _onStateChanged() {
     RKDebugOverlay.enabled = !_state.isPlayMode;
+    if (!_isInitializing && !_state.isPlayMode) {
+      _hasUnsavedChanges = true;
+    }
     setState(() {});
-    
-    _saveTimer?.cancel();
-    _saveTimer = Timer(const Duration(milliseconds: 1000), () {
-      _autoSaveToApp();
-    });
   }
 
-  void _autoSaveToApp() async {
+  Future<void> _autoSaveToApp() async {
     if (!mounted) return;
     final provider = context.read<DesignsProvider>();
     final jsonContent = jsonEncode(_state.toJson());
-    final name = _state.modelName.isNotEmpty ? _state.modelName : 'Untitled Design';
-    
+    final name =
+        _state.modelName.isNotEmpty ? _state.modelName : 'Untitled Design';
+
     _currentDesignId ??= DateTime.now().millisecondsSinceEpoch.toString();
-    
+
     await provider.saveDesign(_currentDesignId!, name, jsonContent);
+    if (mounted) setState(() => _hasUnsavedChanges = false);
   }
 
   @override
@@ -124,7 +128,8 @@ class _DesignerScreenState extends State<DesignerScreen> {
                                 context: context,
                                 backgroundColor: Colors.transparent,
                                 isScrollControlled: true,
-                                builder: (context) => DesignerWidgetSheet(state: _state),
+                                builder: (context) =>
+                                    DesignerWidgetSheet(state: _state),
                               );
                             },
                             backgroundColor: tokens.primary,
@@ -181,7 +186,9 @@ class _DesignerScreenState extends State<DesignerScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  _state.modelName.isNotEmpty ? _state.modelName : 'Untitled Project',
+                  _state.modelName.isNotEmpty
+                      ? _state.modelName
+                      : 'Untitled Project',
                   style: TextStyle(
                     color: tokens.primary,
                     fontSize: 18,
@@ -192,7 +199,8 @@ class _DesignerScreenState extends State<DesignerScreen> {
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  icon: Icon(LucideIcons.pencil, size: 16, color: tokens.primary),
+                  icon:
+                      Icon(LucideIcons.pencil, size: 16, color: tokens.primary),
                   onPressed: () => _editProjectName(context),
                   tooltip: 'Edit Project Name',
                 ),
@@ -227,18 +235,26 @@ class _DesignerScreenState extends State<DesignerScreen> {
           decoration: const InputDecoration(
             hintText: 'Project Name',
             hintStyle: TextStyle(color: Color(0xFF888888)),
-            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF333333))),
-            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF90CAF9))),
+            enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: Color(0xFF333333))),
+            focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: Color(0xFF90CAF9))),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('CANCEL', style: TextStyle(color: Color(0xFFAAAAAA), fontFamily: 'monospace')),
+            child: const Text('CANCEL',
+                style: TextStyle(
+                    color: Color(0xFFAAAAAA), fontFamily: 'monospace')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, controller.text),
-            child: const Text('SAVE', style: TextStyle(color: Color(0xFF90CAF9), fontFamily: 'monospace', fontWeight: FontWeight.bold)),
+            child: const Text('SAVE',
+                style: TextStyle(
+                    color: Color(0xFF90CAF9),
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -276,9 +292,11 @@ class _DesignerScreenState extends State<DesignerScreen> {
   }
 
   Widget _buildSaveButton(RKTokens tokens) {
+    if (!_hasUnsavedChanges) return const SizedBox.shrink();
     return GestureDetector(
-      onTap: () {
-        _autoSaveToApp();
+      onTap: () async {
+        await _autoSaveToApp();
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: SelectableText('Design saved')),
         );
@@ -287,7 +305,8 @@ class _DesignerScreenState extends State<DesignerScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: const Color(0xFF1A1A1A),
-          border: Border.all(color: const Color(0xFF444444), width: 1),
+          border: Border.all(
+              color: tokens.primary.withValues(alpha: 0.5), width: 1),
           borderRadius: BorderRadius.circular(2),
         ),
         child: Row(
@@ -356,7 +375,8 @@ class _DesignerScreenState extends State<DesignerScreen> {
             decoration: BoxDecoration(
               color: isPlay ? const Color(0xFF1B5E20) : const Color(0xFF1A1A1A),
               border: Border.all(
-                color: isPlay ? const Color(0xFF2E7D32) : const Color(0xFF444444),
+                color:
+                    isPlay ? const Color(0xFF2E7D32) : const Color(0xFF444444),
                 width: 1,
               ),
               borderRadius: BorderRadius.circular(2),
@@ -385,11 +405,21 @@ class _DesignerScreenState extends State<DesignerScreen> {
         );
       },
     );
-   }
+  }
 
   // ── Back navigation ───────────────────────────────────────────────────────
 
   Future<void> _handleBack(BuildContext context) async {
+    // Navigate immediately when there is nothing unsaved.
+    if (!_hasUnsavedChanges) {
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/designs');
+      }
+      return;
+    }
+
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -437,9 +467,9 @@ class _DesignerScreenState extends State<DesignerScreen> {
     if (!mounted) return;
 
     if (result == 'save') {
-      _autoSaveToApp();
+      await _autoSaveToApp();
     }
-    // Both 'save' and 'discard' navigate back; null means dialog was dismissed
+    // Both 'save' and 'discard' navigate back; null (dismissed) stays.
     if (result != null) {
       if (context.canPop()) {
         context.pop();
@@ -473,7 +503,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
             throw Exception('Could not read file data');
           }
         }
-        
+
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: SelectableText('RadioKit_UI.h loaded')),
@@ -490,7 +520,8 @@ class _DesignerScreenState extends State<DesignerScreen> {
   void _saveHeaderFile() async {
     try {
       if (kIsWeb) {
-        final newContent = _state.generateHeaderContent(_state.originalHeaderContent ?? '');
+        final newContent =
+            _state.generateHeaderContent(_state.originalHeaderContent ?? '');
         final filename = _state.originalHeaderPath ?? 'RadioKit_UI.h';
         downloadFile(filename, newContent);
         if (!mounted) return;
@@ -514,7 +545,8 @@ class _DesignerScreenState extends State<DesignerScreen> {
             const SnackBar(content: SelectableText('RadioKit_UI.h saved')),
           );
         } else {
-          throw Exception('File path is null. Saving to an existing file requires Desktop.');
+          throw Exception(
+              'File path is null. Saving to an existing file requires Desktop.');
         }
       }
     } catch (e) {
@@ -549,9 +581,9 @@ class _DesignerScreenState extends State<DesignerScreen> {
 
     final regex = RegExp(
       r'("(?:[^"\\]|\\.)*")\s*:' // key
-      r'|("(?:[^"\\]|\\.)*")'    // string value
-      r'|(\btrue\b|\bfalse\b)'     // boolean
-      r'|(\bnull\b)'                // null
+      r'|("(?:[^"\\]|\\.)*")' // string value
+      r'|(\btrue\b|\bfalse\b)' // boolean
+      r'|(\bnull\b)' // null
       r'|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)', // number
     );
 
@@ -649,9 +681,70 @@ class _DesignerScreenState extends State<DesignerScreen> {
     );
   }
 
+  // ── C code viewer ───────────────────────────────────────────────────────
+
+  Widget _buildCView(String code) {
+    final lines = code.split('\n');
+    const lineHeight = 18.0;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Line numbers gutter
+          SizedBox(
+            width: 40,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: List.generate(lines.length, (i) {
+                return SizedBox(
+                  height: lineHeight,
+                  child: Text(
+                    '${i + 1}',
+                    overflow: TextOverflow.clip,
+                    style: const TextStyle(
+                      color: Color(0xFF555555),
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                      height: 1.5,
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Divider
+          Container(
+            width: 1,
+            color: const Color(0xFF2A2A2A),
+          ),
+          const SizedBox(width: 16),
+          // C code content
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SelectableText.rich(
+                TextSpan(children: _cHighlightSpans(code)),
+                style: const TextStyle(
+                  color: Color(0xFFABB2BF),
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                  height: 1.5,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Transforms JSON for code viewer display:
-  /// - Renames `label` → `id` to show the C++ identifier name
-  /// - Replaces `labelHidden` → `label` with values `show`/`hide`
+  /// - Renames top-level `id` → `id` (kept for reference); renames `label` → `name`
+  ///   to show the C++ identifier name alongside the original `label` field
+  /// - Replaces top-level `labelHidden` → `label` with values `show`/`hide`
   String _transformJsonForDisplay(String rawJson) {
     final data = jsonDecode(rawJson);
     if (data is! Map<String, dynamic>) return rawJson;
@@ -660,17 +753,179 @@ class _DesignerScreenState extends State<DesignerScreen> {
     if (widgets is List) {
       for (final w in widgets) {
         if (w is! Map<String, dynamic>) continue;
-        // Rename 'label' to 'id'
+        // Rename top-level 'label' to 'name' to show the C++ identifier name
         if (w.containsKey('label')) {
-          w['id'] = w.remove('label');
+          w['name'] = w.remove('label');
         }
-        // Replace 'labelHidden' with 'label': 'show'/'hide'
+        // Replace top-level 'labelHidden' with 'label': 'show'/'hide'
         final hidden = w.remove('labelHidden') as bool? ?? false;
         w['label'] = hidden ? 'hide' : 'show';
       }
     }
 
     return const JsonEncoder.withIndent('  ').convert(data);
+  }
+
+  // ── Arduino .h file generator ──────────────────────────────────────────
+
+  /// Generates the complete `RadioKit_UI.h` file content including the JSON
+  /// config block and the generated C++ widget declarations + config init.
+  String _generateArduinoHeader() {
+    final buf = StringBuffer();
+    buf.writeln('//__RadioKit_Generated_Code__');
+    buf.writeln('//__Might_Be_Overwritten_');
+    buf.writeln();
+
+    final elements = _state.elements;
+    if (elements.isEmpty) {
+      buf.writeln('#ifndef RADIOKIT_UI_H');
+      buf.writeln('#define RADIOKIT_UI_H');
+      buf.writeln();
+      buf.writeln('#include <RadioKit.h>');
+      buf.writeln();
+      buf.writeln('static inline void initRadioKit() {');
+      _writeConfigInit(buf, '  ');
+      buf.writeln('}');
+      buf.writeln();
+      buf.writeln('#endif // RADIOKIT_UI_H');
+      buf.writeln();
+      return buf.toString();
+    }
+
+    buf.writeln('#ifndef RADIOKIT_UI_H');
+    buf.writeln('#define RADIOKIT_UI_H');
+    buf.writeln();
+    buf.writeln('#include <RadioKit.h>');
+    buf.writeln();
+    buf.writeln('// ─── Widget Declarations ───');
+    for (final el in elements) {
+      final template = templates[el.type];
+      if (template != null) {
+        buf.writeln(template(el, 0));
+        buf.writeln();
+      }
+    }
+
+    buf.writeln('// ─── Config Init ───');
+    buf.writeln('static inline void initRadioKit() {');
+    _writeConfigInit(buf, '  ');
+    buf.writeln('');
+    buf.writeln('  RadioKit.begin();');
+    final transport = _state.connectionType.toLowerCase();
+    if (transport == 'ble') {
+      buf.writeln('  RadioKit.startBLE(RadioKit.config.name);');
+    }
+    buf.writeln('}');
+    buf.writeln();
+    buf.writeln('#endif // RADIOKIT_UI_H');
+    buf.writeln();
+
+    return buf.toString();
+  }
+
+  void _writeConfigInit(StringBuffer buf, String indent) {
+    final state = _state;
+    if (state.modelName.isNotEmpty) {
+      buf.writeln(
+          '${indent}RadioKit.config.name        = "${_escapeC(state.modelName)}";');
+    }
+    if (state.modelDescription.isNotEmpty) {
+      buf.writeln(
+          '${indent}RadioKit.config.description = "${_escapeC(state.modelDescription)}";');
+    }
+    if (state.modelType.isNotEmpty) {
+      buf.writeln(
+          '${indent}RadioKit.config.type        = "${_escapeC(state.modelType)}";');
+    }
+    // theme
+    switch (state.activeSkin) {
+      case 'neon':
+        buf.writeln('${indent}RadioKit.config.theme       = RK_NEON;');
+        break;
+      case 'minimal':
+        buf.writeln('${indent}RadioKit.config.theme       = RK_MINIMAL;');
+        break;
+      default:
+        buf.writeln('${indent}RadioKit.config.theme       = RK_DEFAULT;');
+        break;
+    }
+    if (state.connectionPassword.isNotEmpty) {
+      buf.writeln(
+          '${indent}RadioKit.config.password    = "${_escapeC(state.connectionPassword)}";');
+    }
+    if (state.connectionType.toLowerCase() != 'ble') {
+      buf.writeln('${indent}RadioKit.config.transport   = SerialTransport;');
+    }
+  }
+
+  String _escapeC(String s) => s.replaceAll('"', '\\"').replaceAll('\n', '\\n');
+
+  // ── C syntax highlighter for Arduino code ─────────────────────────────
+
+  List<TextSpan> _cHighlightSpans(String code) {
+    const keywordColor = Color(0xFFC678DD); // purple
+    const typeColor = Color(0xFFE5C07B); // yellow
+    const stringColor = Color(0xFFA8D8A8); // green
+    const commentColor = Color(0xFF5C6370); // grey
+    const preprocColor = Color(0xFF56B6C2); // cyan
+    const numberColor = Color(0xFFD19A66); // orange
+    const macroColor = Color(0xFF7EC8E3); // blue
+    const defaultColor = Color(0xFFABB2BF); // light grey
+
+    const baseStyle =
+        TextStyle(fontSize: 12, fontFamily: 'monospace', height: 1.5);
+    final defaultStyle = baseStyle.copyWith(color: defaultColor);
+
+    final spans = <TextSpan>[];
+
+    final regex = RegExp(
+      r'(//[^\n]*)' // line comment
+      r'|(/\*[\s\S]*?\*/)' // block comment
+      r'|(#\w+)' // preprocessor directive
+      r'|("(?:[^"\\]|\\.)*")' // string literal
+      r'|(\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b)' // number
+      r'|\b(RK_[A-Z_]+)\b' // RK_ macros/constants
+      r'|\b(RK_(?:Push|Toggle)Button|RK_SlideSwitch|RK_RockerSwitch|RK_Slider|RK_Knob|RK_Joystick|RK_LED|RK_Text|RK_SerialMonitor|RK_SteeringWheel|RK_GasPedal|RK_MultiButton|RK_MultiSelect)\b' // widget types
+      r'|\b(if|else|for|while|do|switch|case|break|continue|return|void|static|inline|const|struct|typedef|enum|class)\b', // keywords
+    );
+
+    int lastEnd = 0;
+    for (final match in regex.allMatches(code)) {
+      if (match.start > lastEnd) {
+        spans.add(TextSpan(
+          text: code.substring(lastEnd, match.start),
+          style: defaultStyle,
+        ));
+      }
+
+      TextStyle style;
+      if (match.group(1) != null || match.group(2) != null) {
+        style = baseStyle.copyWith(color: commentColor);
+      } else if (match.group(3) != null) {
+        style = baseStyle.copyWith(color: preprocColor);
+      } else if (match.group(4) != null) {
+        style = baseStyle.copyWith(color: stringColor);
+      } else if (match.group(5) != null) {
+        style = baseStyle.copyWith(color: numberColor);
+      } else if (match.group(6) != null) {
+        style = baseStyle.copyWith(color: macroColor);
+      } else if (match.group(7) != null) {
+        style = baseStyle.copyWith(color: typeColor);
+      } else if (match.group(8) != null) {
+        style = baseStyle.copyWith(color: keywordColor);
+      } else {
+        style = defaultStyle;
+      }
+
+      spans.add(TextSpan(text: match.group(0), style: style));
+      lastEnd = match.end;
+    }
+
+    if (lastEnd < code.length) {
+      spans.add(TextSpan(text: code.substring(lastEnd), style: defaultStyle));
+    }
+
+    return spans;
   }
 
   // ── Code generation dialog ───────────────────────────────────────────────
@@ -704,10 +959,12 @@ class _DesignerScreenState extends State<DesignerScreen> {
                 children: [
                   // ── Header bar ────────────────────────────────────────
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 16),
                     decoration: const BoxDecoration(
                       color: Color(0xFF111111),
-                      border: Border(bottom: BorderSide(color: Color(0xFF222222))),
+                      border:
+                          Border(bottom: BorderSide(color: Color(0xFF222222))),
                     ),
                     child: Row(
                       children: [
@@ -729,11 +986,14 @@ class _DesignerScreenState extends State<DesignerScreen> {
                           onTap: () {
                             Clipboard.setData(ClipboardData(text: jsonString));
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: SelectableText('Config copied to clipboard')),
+                              const SnackBar(
+                                  content: SelectableText(
+                                      'Config copied to clipboard')),
                             );
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
                               color: tokens.primary,
                               borderRadius: BorderRadius.circular(2),
@@ -763,11 +1023,13 @@ class _DesignerScreenState extends State<DesignerScreen> {
                             _autoSaveToApp();
                             Navigator.of(ctx).pop();
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: SelectableText('Design saved')),
+                              const SnackBar(
+                                  content: SelectableText('Design saved')),
                             );
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
                               color: const Color(0xFF2A2A2A),
                               borderRadius: BorderRadius.circular(2),
@@ -775,7 +1037,8 @@ class _DesignerScreenState extends State<DesignerScreen> {
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(LucideIcons.share2, color: Colors.white70, size: 14),
+                                Icon(LucideIcons.share2,
+                                    color: Colors.white70, size: 14),
                                 SizedBox(width: 6),
                                 Text(
                                   'SHARE',
@@ -794,14 +1057,18 @@ class _DesignerScreenState extends State<DesignerScreen> {
                         // DOWNLOAD
                         GestureDetector(
                           onTap: () {
-                            final wrapped = '/*__RadioKit_UI_Designer_Config__\n$jsonString\nRadioKit_UI_Designer_Config__*/';
+                            final wrapped =
+                                '/*__RadioKit_UI_Designer_Config__\n$jsonString\nRadioKit_UI_Designer_Config__*/';
                             downloadFile('RadioKit_UI.h', wrapped);
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: SelectableText('RadioKit_UI.h downloaded')),
+                              const SnackBar(
+                                  content: SelectableText(
+                                      'RadioKit_UI.h downloaded')),
                             );
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
                               color: const Color(0xFF2A2A2A),
                               borderRadius: BorderRadius.circular(2),
@@ -809,7 +1076,8 @@ class _DesignerScreenState extends State<DesignerScreen> {
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(LucideIcons.download, color: Colors.white70, size: 14),
+                                Icon(LucideIcons.download,
+                                    color: Colors.white70, size: 14),
                                 SizedBox(width: 6),
                                 Text(
                                   'DOWNLOAD',
@@ -834,7 +1102,8 @@ class _DesignerScreenState extends State<DesignerScreen> {
                               color: const Color(0xFF222222),
                               borderRadius: BorderRadius.circular(2),
                             ),
-                            child: const Icon(Icons.close, color: Color(0xFF888888), size: 16),
+                            child: const Icon(Icons.close,
+                                color: Color(0xFF888888), size: 16),
                           ),
                         ),
                       ],
@@ -853,14 +1122,18 @@ class _DesignerScreenState extends State<DesignerScreen> {
                               // Pane header
                               Container(
                                 width: double.infinity,
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 20, vertical: 10),
                                 decoration: const BoxDecoration(
                                   color: Color(0xFF181818),
-                                  border: Border(bottom: BorderSide(color: Color(0xFF2A2A2A))),
+                                  border: Border(
+                                      bottom:
+                                          BorderSide(color: Color(0xFF2A2A2A))),
                                 ),
                                 child: Row(
                                   children: [
-                                    Icon(LucideIcons.fileJson, color: tokens.primary, size: 14),
+                                    Icon(LucideIcons.fileJson,
+                                        color: tokens.primary, size: 14),
                                     const SizedBox(width: 8),
                                     const Text(
                                       'UI CONFIG (JSON)',
@@ -890,7 +1163,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                           width: 1,
                           color: const Color(0xFF222222),
                         ),
-                        // ── Arduino pane (placeholder) ───────────────────
+                        // ── Arduino pane ────────────────────────────────
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -898,19 +1171,23 @@ class _DesignerScreenState extends State<DesignerScreen> {
                               // Pane header
                               Container(
                                 width: double.infinity,
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 20, vertical: 10),
                                 decoration: const BoxDecoration(
                                   color: Color(0xFF181818),
-                                  border: Border(bottom: BorderSide(color: Color(0xFF2A2A2A))),
+                                  border: Border(
+                                      bottom:
+                                          BorderSide(color: Color(0xFF2A2A2A))),
                                 ),
                                 child: Row(
                                   children: [
-                                    Icon(LucideIcons.microchip, color: const Color(0xFF888888), size: 14),
+                                    Icon(LucideIcons.microchip,
+                                        color: tokens.primary, size: 14),
                                     const SizedBox(width: 8),
                                     const Text(
-                                      'ARDUINO CODE',
+                                      'ARDUINO CODE (RadioKit_UI.h)',
                                       style: TextStyle(
-                                        color: Color(0xFF666666),
+                                        color: Color(0xFFAAAAAA),
                                         fontSize: 11,
                                         fontFamily: 'monospace',
                                         fontWeight: FontWeight.w600,
@@ -920,33 +1197,11 @@ class _DesignerScreenState extends State<DesignerScreen> {
                                   ],
                                 ),
                               ),
-                              // Placeholder content
+                              // Generated code
                               Expanded(
                                 child: Container(
                                   color: const Color(0xFF0A0A0A),
-                                  child: Center(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          LucideIcons.hammer,
-                                          color: const Color(0xFF333333),
-                                          size: 32,
-                                        ),
-                                        const SizedBox(height: 16),
-                                        const Text(
-                                          'Arduino code generation\ncoming soon',
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                            color: Color(0xFF444444),
-                                            fontSize: 13,
-                                            fontFamily: 'monospace',
-                                            height: 1.6,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                                  child: _buildCView(_generateArduinoHeader()),
                                 ),
                               ),
                             ],
@@ -1002,7 +1257,8 @@ class _IconButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: isDisabled ? const Color(0xFF111111) : const Color(0xFF1A1A1A),
           border: Border.all(
-            color: isDisabled ? const Color(0xFF222222) : const Color(0xFF444444),
+            color:
+                isDisabled ? const Color(0xFF222222) : const Color(0xFF444444),
             width: 1,
           ),
           borderRadius: BorderRadius.circular(2),

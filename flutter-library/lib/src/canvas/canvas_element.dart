@@ -89,11 +89,14 @@ class CanvasElement extends StatelessWidget {
           onIcon: iconFromName(element.properties['onIcon'] as String?),
           offIcon: iconFromName(element.properties['offIcon'] as String?),
           enableHapticFeedback: element.properties['haptic'] ?? true,
-          label: (!element.labelHidden && element.label.isNotEmpty) ? element.label : null,
+          label: (!element.labelHidden && element.label.isNotEmpty)
+              ? element.label
+              : null,
           onChanged: isPlay
               ? (v) => designerState!.setRuntimeWidgetValue(id, v)
               : (_) {},
-          size: math.min(element.width.toDouble(), element.height.toDouble()) * cs,
+          size: math.min(element.width.toDouble(), element.height.toDouble()) *
+              cs,
           showDebug: showDebug,
         );
 
@@ -108,7 +111,9 @@ class CanvasElement extends StatelessWidget {
           onText: element.properties['onText'] ?? 'ON',
           offText: element.properties['offText'] ?? 'OFF',
           enableHapticFeedback: element.properties['haptic'] ?? true,
-          label: (!element.labelHidden && element.label.isNotEmpty) ? element.label : null,
+          label: (!element.labelHidden && element.label.isNotEmpty)
+              ? element.label
+              : null,
           width: element.width.toDouble() * cs,
           height: element.height.toDouble() * cs,
           showDebug: showDebug,
@@ -125,7 +130,9 @@ class CanvasElement extends StatelessWidget {
           onIcon: iconFromName(element.properties['onIcon'] as String?),
           offIcon: iconFromName(element.properties['offIcon'] as String?),
           enableHapticFeedback: element.properties['haptic'] ?? true,
-          label: (!element.labelHidden && element.label.isNotEmpty) ? element.label : null,
+          label: (!element.labelHidden && element.label.isNotEmpty)
+              ? element.label
+              : null,
           width: element.width.toDouble() * cs,
           height: element.height.toDouble() * cs,
           showDebug: showDebug,
@@ -136,28 +143,34 @@ class CanvasElement extends StatelessWidget {
 
       case DesignerElementType.steeringWheel:
         return RKSteeringWheel(
-            centerIcon: iconFromName(element.properties['centerIcon'] as String?),
-            value: isPlay
-                ? (designerState!.getRuntimeWidgetValue(id, 0.5) as double)
-                : 0.5,
-            onChanged: isPlay
-                ? (v) => designerState!.setRuntimeWidgetValue(id, v)
-                : (_) {},
-            min: (element.properties['min'] as num?)?.toDouble() ?? 0,
-            max: (element.properties['max'] as num?)?.toDouble() ?? 100,
-            minAngle: (element.properties['minAngle'] as num?)?.toDouble() ?? -135,
-            maxAngle: (element.properties['maxAngle'] as num?)?.toDouble() ?? 135,
-            autoCenter: element.properties['autoCenter'] ?? false,
-            center: (element.properties['center'] as num?)?.toDouble() ?? 0.5,
-            springCurve: _getCurve(element.properties['springBehavior'] as String?),
-            springDuration: Duration(
-              milliseconds: (element.properties['springDuration'] as num?)?.toInt() ?? 500,
-            ),
-            divisions: element.properties['divisions'] as int?,
-            label: (!element.labelHidden && element.label.isNotEmpty) ? element.label : null,
-            size: math.min(element.width.toDouble(), element.height.toDouble()) * cs,
-            showDebug: showDebug,
-          );
+          centerIcon: iconFromName(element.properties['centerIcon'] as String?),
+          value: isPlay
+              ? (designerState!.getRuntimeWidgetValue(id, 0.5) as double)
+              : 0.5,
+          onChanged: isPlay
+              ? (v) => designerState!.setRuntimeWidgetValue(id, v)
+              : (_) {},
+          min: (element.properties['min'] as num?)?.toDouble() ?? 0,
+          max: (element.properties['max'] as num?)?.toDouble() ?? 100,
+          minAngle:
+              (element.properties['minAngle'] as num?)?.toDouble() ?? -135,
+          maxAngle: (element.properties['maxAngle'] as num?)?.toDouble() ?? 135,
+          autoCenter: element.properties['autoCenter'] ?? false,
+          center: (element.properties['center'] as num?)?.toDouble() ?? 0.5,
+          springCurve:
+              _getCurve(element.properties['springBehavior'] as String?),
+          springDuration: Duration(
+            milliseconds:
+                (element.properties['springDuration'] as num?)?.toInt() ?? 500,
+          ),
+          divisions: element.properties['divisions'] as int?,
+          label: (!element.labelHidden && element.label.isNotEmpty)
+              ? element.label
+              : null,
+          size: math.min(element.width.toDouble(), element.height.toDouble()) *
+              cs,
+          showDebug: showDebug,
+        );
 
       case DesignerElementType.knob:
         return RKKnob(
@@ -170,17 +183,23 @@ class CanvasElement extends StatelessWidget {
               : (_) {},
           min: (element.properties['min'] as num?)?.toDouble() ?? 0,
           max: (element.properties['max'] as num?)?.toDouble() ?? 100,
-          minAngle: (element.properties['minAngle'] as num?)?.toDouble() ?? -135,
+          minAngle:
+              (element.properties['minAngle'] as num?)?.toDouble() ?? -135,
           maxAngle: (element.properties['maxAngle'] as num?)?.toDouble() ?? 135,
           autoCenter: element.properties['autoCenter'] ?? false,
           center: (element.properties['center'] as num?)?.toDouble() ?? 0.5,
-          springCurve: _getCurve(element.properties['springBehavior'] as String?),
+          springCurve:
+              _getCurve(element.properties['springBehavior'] as String?),
           springDuration: Duration(
-            milliseconds: (element.properties['springDuration'] as num?)?.toInt() ?? 500,
+            milliseconds:
+                (element.properties['springDuration'] as num?)?.toInt() ?? 500,
           ),
           divisions: element.properties['divisions'] as int?,
-          label: (!element.labelHidden && element.label.isNotEmpty) ? element.label : null,
-          size: math.min(element.width.toDouble(), element.height.toDouble()) * cs,
+          label: (!element.labelHidden && element.label.isNotEmpty)
+              ? element.label
+              : null,
+          size: math.min(element.width.toDouble(), element.height.toDouble()) *
+              cs,
           showDebug: showDebug,
         );
 
@@ -194,12 +213,17 @@ class CanvasElement extends StatelessWidget {
             x: (element.properties['centerX'] as num?)?.toDouble() ?? 0,
             y: (element.properties['centerY'] as num?)?.toDouble() ?? 0,
           ),
-          springCurve: _getCurve(element.properties['springBehavior'] as String?),
+          springCurve:
+              _getCurve(element.properties['springBehavior'] as String?),
           springDuration: Duration(
-            milliseconds: (element.properties['springDuration'] as num?)?.toInt() ?? 300,
+            milliseconds:
+                (element.properties['springDuration'] as num?)?.toInt() ?? 300,
           ),
-          label: (!element.labelHidden && element.label.isNotEmpty) ? element.label : null,
-          size: math.min(element.width.toDouble(), element.height.toDouble()) * cs,
+          label: (!element.labelHidden && element.label.isNotEmpty)
+              ? element.label
+              : null,
+          size: math.min(element.width.toDouble(), element.height.toDouble()) *
+              cs,
           showDebug: showDebug,
         );
 
@@ -223,8 +247,11 @@ class CanvasElement extends StatelessWidget {
               ? Color(element.properties['color'] as int)
               : null,
           timing: (element.properties['timing'] as num?)?.toInt() ?? 500,
-          label: (!element.labelHidden && element.label.isNotEmpty) ? element.label : null,
-          size: math.min(element.width.toDouble(), element.height.toDouble()) * cs,
+          label: (!element.labelHidden && element.label.isNotEmpty)
+              ? element.label
+              : null,
+          size: math.min(element.width.toDouble(), element.height.toDouble()) *
+              cs,
         );
 
       case DesignerElementType.text:
@@ -232,7 +259,9 @@ class CanvasElement extends StatelessWidget {
           text: element.properties['text'] ?? 'Display',
           fontSize: (element.properties['fontSize'] as num?)?.toDouble() ?? 14,
           fontFamily: element.properties['fontFamily'] ?? 'monospace',
-          label: (!element.labelHidden && element.label.isNotEmpty) ? element.label : null,
+          label: (!element.labelHidden && element.label.isNotEmpty)
+              ? element.label
+              : null,
           width: element.width.toDouble() * cs,
           height: element.height.toDouble() * cs,
           showDebug: showDebug,
@@ -243,7 +272,9 @@ class CanvasElement extends StatelessWidget {
           messages: const ['> Serial Monitor'],
           fontSize: (element.properties['fontSize'] as num?)?.toDouble() ?? 12,
           fontFamily: element.properties['fontFamily'] ?? 'monospace',
-          label: (!element.labelHidden && element.label.isNotEmpty) ? element.label : null,
+          label: (!element.labelHidden && element.label.isNotEmpty)
+              ? element.label
+              : null,
           width: element.width.toDouble() * cs,
           height: element.height.toDouble() * cs,
           showDebug: showDebug,
@@ -259,9 +290,8 @@ class CanvasElement extends StatelessWidget {
       value: isPlay
           ? (designerState!.getRuntimeWidgetValue(id, 0.5) as double)
           : 0.5,
-      onChanged: isPlay
-          ? (v) => designerState!.setRuntimeWidgetValue(id, v)
-          : (_) {},
+      onChanged:
+          isPlay ? (v) => designerState!.setRuntimeWidgetValue(id, v) : (_) {},
       min: (element.properties['min'] as num?)?.toDouble() ?? 0,
       max: (element.properties['max'] as num?)?.toDouble() ?? 100,
       orientation: horizontal ? RKAxis.horizontal : RKAxis.vertical,
@@ -271,7 +301,8 @@ class CanvasElement extends StatelessWidget {
       center: (element.properties['center'] as num?)?.toDouble() ?? 0.5,
       springCurve: _getCurve(element.properties['springBehavior'] as String?),
       springDuration: Duration(
-        milliseconds: (element.properties['springDuration'] as num?)?.toInt() ?? 300,
+        milliseconds:
+            (element.properties['springDuration'] as num?)?.toInt() ?? 300,
       ),
       divisions: element.properties['divisions'] as int?,
       label: element.label.isNotEmpty ? element.label : null,
@@ -279,7 +310,8 @@ class CanvasElement extends StatelessWidget {
     );
   }
 
-  Widget _buildMultiButton(String id, int count, bool isPlay, double cs, bool showDebug) {
+  Widget _buildMultiButton(
+      String id, int count, bool isPlay, double cs, bool showDebug) {
     final horizontal = element.width >= element.height;
     final pixelW = element.width.toDouble() * cs;
     final pixelH = element.height.toDouble() * cs;
@@ -290,10 +322,25 @@ class CanvasElement extends StatelessWidget {
             .clamp(10.0, pixelH - padding * 2)
         : ((pixelH - padding * 2 - spacing * (count - 1)) / count)
             .clamp(10.0, pixelW - padding * 2);
+    final rawItems = element.properties['items'] as List?;
+    final items = List.generate(count, (i) {
+      final raw = (rawItems != null && i < rawItems.length)
+          ? rawItems[i] as Map?
+          : null;
+      return RKToggleItem(
+        onLabel: raw?['onLabel'] as String? ?? String.fromCharCode(65 + i),
+        onIcon: iconFromName(raw?['onIcon'] as String?),
+        offLabel: raw?['offLabel'] as String?,
+        offIcon: iconFromName(raw?['offIcon'] as String?),
+      );
+    });
     return RKMultiButton(
-      items: List.generate(count, (i) => RKToggleItem(onLabel: String.fromCharCode(65 + i))),
-      selected: isPlay ? (designerState!.getRuntimeWidgetValue(id, 0) as int?) ?? 0 : 0,
-      onChanged: isPlay ? (v) => designerState!.setRuntimeWidgetValue(id, v) : (_) {},
+      items: items,
+      selected: isPlay
+          ? (designerState!.getRuntimeWidgetValue(id, 0) as int?) ?? 0
+          : 0,
+      onChanged:
+          isPlay ? (v) => designerState!.setRuntimeWidgetValue(id, v) : (_) {},
       buttonSize: buttonSize,
       enableHapticFeedback: element.properties['haptic'] ?? true,
       orientation: horizontal ? RKAxis.horizontal : RKAxis.vertical,
@@ -302,7 +349,8 @@ class CanvasElement extends StatelessWidget {
     );
   }
 
-  Widget _buildMultiSelect(String id, int count, bool isPlay, double cs, bool showDebug) {
+  Widget _buildMultiSelect(
+      String id, int count, bool isPlay, double cs, bool showDebug) {
     final horizontal = element.width >= element.height;
     final pixelW = element.width.toDouble() * cs;
     final pixelH = element.height.toDouble() * cs;
@@ -313,10 +361,25 @@ class CanvasElement extends StatelessWidget {
             .clamp(10.0, pixelH - padding * 2)
         : ((pixelH - padding * 2 - spacing * (count - 1)) / count)
             .clamp(10.0, pixelW - padding * 2);
+    final rawItems = element.properties['items'] as List?;
+    final items = List.generate(count, (i) {
+      final raw = (rawItems != null && i < rawItems.length)
+          ? rawItems[i] as Map?
+          : null;
+      return RKToggleItem(
+        onLabel: raw?['onLabel'] as String? ?? String.fromCharCode(65 + i),
+        onIcon: iconFromName(raw?['onIcon'] as String?),
+        offLabel: raw?['offLabel'] as String?,
+        offIcon: iconFromName(raw?['offIcon'] as String?),
+      );
+    });
     return RKMultiSelect(
-      items: List.generate(count, (i) => RKToggleItem(onLabel: String.fromCharCode(65 + i))),
-      bitmask: isPlay ? (designerState!.getRuntimeWidgetValue(id, 0) as int?) ?? 0 : 0,
-      onChanged: isPlay ? (v) => designerState!.setRuntimeWidgetValue(id, v) : (_) {},
+      items: items,
+      bitmask: isPlay
+          ? (designerState!.getRuntimeWidgetValue(id, 0) as int?) ?? 0
+          : 0,
+      onChanged:
+          isPlay ? (v) => designerState!.setRuntimeWidgetValue(id, v) : (_) {},
       buttonSize: buttonSize,
       enableHapticFeedback: element.properties['haptic'] ?? true,
       orientation: horizontal ? RKAxis.horizontal : RKAxis.vertical,
@@ -330,8 +393,11 @@ class CanvasElement extends StatelessWidget {
     final pixelW = element.width.toDouble() * cs;
     final pixelH = element.height.toDouble() * cs;
     return RKGasPedal(
-      value: isPlay ? (designerState!.getRuntimeWidgetValue(id, 0.0) as double) : 0.0,
-      onChanged: isPlay ? (v) => designerState!.setRuntimeWidgetValue(id, v) : (_) {},
+      value: isPlay
+          ? (designerState!.getRuntimeWidgetValue(id, 0.0) as double)
+          : 0.0,
+      onChanged:
+          isPlay ? (v) => designerState!.setRuntimeWidgetValue(id, v) : (_) {},
       min: (element.properties['min'] as num?)?.toDouble() ?? 0,
       max: (element.properties['max'] as num?)?.toDouble() ?? 100,
       orientation: vertical ? RKAxis.vertical : RKAxis.horizontal,
@@ -341,7 +407,8 @@ class CanvasElement extends StatelessWidget {
       center: (element.properties['center'] as num?)?.toDouble() ?? 0.5,
       springCurve: _getCurve(element.properties['springBehavior'] as String?),
       springDuration: Duration(
-        milliseconds: (element.properties['springDuration'] as num?)?.toInt() ?? 300,
+        milliseconds:
+            (element.properties['springDuration'] as num?)?.toInt() ?? 300,
       ),
       divisions: element.properties['divisions'] as int?,
       label: element.label.isNotEmpty ? element.label : null,
@@ -351,28 +418,38 @@ class CanvasElement extends StatelessWidget {
 
   Curve _getCurve(String? behavior) {
     switch (behavior) {
-      case 'linear': return Curves.linear;
-      case 'elastic': return Curves.elasticOut;
-      default: return Curves.easeOutCubic;
+      case 'linear':
+        return Curves.linear;
+      case 'elastic':
+        return Curves.elasticOut;
+      default:
+        return Curves.easeOutCubic;
     }
   }
 
   RKLEDState _getLEDState(String? state) {
     switch (state) {
-      case 'on': return RKLEDState.on;
-      case 'blink': return RKLEDState.blink;
-      case 'breathe': return RKLEDState.breathe;
-      default: return RKLEDState.off;
+      case 'on':
+        return RKLEDState.on;
+      case 'blink':
+        return RKLEDState.blink;
+      case 'breathe':
+        return RKLEDState.breathe;
+      default:
+        return RKLEDState.off;
     }
   }
 
   RKLEDShape _getLEDShape(String? shape) {
     switch (shape) {
-      case 'square': return RKLEDShape.square;
-      case 'diamond': return RKLEDShape.diamond;
-      case 'star': return RKLEDShape.star;
-      default: return RKLEDShape.circle;
+      case 'square':
+        return RKLEDShape.square;
+      case 'diamond':
+        return RKLEDShape.diamond;
+      case 'star':
+        return RKLEDShape.star;
+      default:
+        return RKLEDShape.circle;
     }
   }
 }
-

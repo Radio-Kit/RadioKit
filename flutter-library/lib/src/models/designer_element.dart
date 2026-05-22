@@ -46,21 +46,26 @@ class DesignerElement {
       case DesignerElementType.multiButton:
       case DesignerElementType.multiSelect:
         final count = (properties['itemCount'] as num?)?.toInt() ?? 3;
-        return (count * 0.67).clamp(0.5, 10.0);
+        final baseAr = (count * 0.67).clamp(0.5, 10.0);
+        // Positive  → horizontal (height is primary, width  = height × ar)
+        // Negative  → vertical   (width  is primary, height = width  × |ar|)
+        return width >= height ? baseAr : -baseAr;
       default:
         return null;
     }
   }
 
   /// The effective rendered size in grid units.
-  /// For fixed-aspect-ratio widgets the width is derived from the height
-  /// and the [aspectRatio]; for free-aspect widgets it is `width` × `height`.
   (int, int) get renderedGridSize {
     final ar = aspectRatio;
-    if (ar != null) {
+    if (ar == null) return (width, height);
+    if (ar >= 0) {
+      // Height is primary (horizontal multi, square widgets)
       return ((height * ar).round().clamp(1, 999), height);
+    } else {
+      // Width is primary (vertical multi)
+      return (width, (width * -ar).round().clamp(1, 999));
     }
-    return (width, height);
   }
 
   DesignerElement({
@@ -80,24 +85,44 @@ class DesignerElement {
     switch (type) {
       case DesignerElementType.button:
         return {
-          'variant': 'push',
           'onText': 'ON',
           'offText': 'OFF',
           'onIcon': null,
           'offIcon': null,
-          'haptic': true,
         };
       case DesignerElementType.slideSwitch:
         return {
           'onText': 'ON',
           'offText': 'OFF',
-          'haptic': true,
         };
       case DesignerElementType.rockerSwitch:
         return {
           'onIcon': null,
           'offIcon': null,
-          'haptic': true,
+        };
+      case DesignerElementType.multiButton:
+        return {
+          'itemCount': 3,
+          'items': List.generate(
+              3,
+              (i) => <String, dynamic>{
+                    'onLabel': String.fromCharCode(65 + i),
+                    'onIcon': null,
+                    'offLabel': null,
+                    'offIcon': null,
+                  }),
+        };
+      case DesignerElementType.multiSelect:
+        return {
+          'itemCount': 3,
+          'items': List.generate(
+              3,
+              (i) => <String, dynamic>{
+                    'onLabel': String.fromCharCode(65 + i),
+                    'onIcon': null,
+                    'offLabel': null,
+                    'offIcon': null,
+                  }),
         };
       case DesignerElementType.slider:
         return {
@@ -143,16 +168,6 @@ class DesignerElement {
           'springBehavior': 'smooth',
           'springDuration': 300,
         };
-      case DesignerElementType.multiButton:
-        return {
-          'haptic': true,
-          'itemCount': 3,
-        };
-      case DesignerElementType.multiSelect:
-        return {
-          'haptic': true,
-          'itemCount': 3,
-        };
       case DesignerElementType.gasPedal:
         return {
           'min': 0,
@@ -180,6 +195,22 @@ class DesignerElement {
           'fontSize': 12,
           'fontFamily': 'monospace',
         };
+    }
+  }
+
+  /// Returns the aspect ratio for [type] based on its current [properties],
+  /// or `null` for free-form widgets.
+  static double? _aspectRatioFor(
+      DesignerElementType type, Map<String, dynamic> properties) {
+    switch (type) {
+      case DesignerElementType.button:
+      case DesignerElementType.knob:
+      case DesignerElementType.steeringWheel:
+      case DesignerElementType.joystick:
+      case DesignerElementType.led:
+        return 1.0;
+      default:
+        return null;
     }
   }
 
@@ -242,61 +273,82 @@ class DesignerElement {
 
   String get jsonTypeStr {
     switch (type) {
-      case DesignerElementType.button: return 'button';
-      case DesignerElementType.slideSwitch: return 'slideSwitch';
-      case DesignerElementType.rockerSwitch: return 'switch';
-      case DesignerElementType.slider: return 'slider';
-      case DesignerElementType.gasPedal: return 'slider';
-      case DesignerElementType.knob: return 'knob';
-      case DesignerElementType.steeringWheel: return 'knob';
-      case DesignerElementType.joystick: return 'joystick';
-      case DesignerElementType.multiButton: return 'multiple';
-      case DesignerElementType.multiSelect: return 'multiple';
-      case DesignerElementType.led: return 'led';
-      case DesignerElementType.text: return 'text';
-      case DesignerElementType.serialMonitor: return 'serialMonitor';
+      case DesignerElementType.button:
+        return 'button';
+      case DesignerElementType.slideSwitch:
+        return 'slideSwitch';
+      case DesignerElementType.rockerSwitch:
+        return 'switch';
+      case DesignerElementType.slider:
+        return 'slider';
+      case DesignerElementType.gasPedal:
+        return 'slider';
+      case DesignerElementType.knob:
+        return 'knob';
+      case DesignerElementType.steeringWheel:
+        return 'knob';
+      case DesignerElementType.joystick:
+        return 'joystick';
+      case DesignerElementType.multiButton:
+        return 'multiple';
+      case DesignerElementType.multiSelect:
+        return 'multiple';
+      case DesignerElementType.led:
+        return 'led';
+      case DesignerElementType.text:
+        return 'text';
+      case DesignerElementType.serialMonitor:
+        return 'serialMonitor';
     }
   }
 
   Map<String, dynamic> toJson() {
+    // Build the base properties map: widget-specific values only.
+    // Common fields (rotation, label, labelHidden, haptic, variant) are promoted
+    // to top-level keys and stripped from the properties sub-object.
+    final baseProps = <String, dynamic>{
+      ...properties,
+    }
+      ..remove('rotation')
+      ..remove('label')
+      ..remove('labelHidden')
+      ..remove('haptic')
+      ..remove('variant');
+
+    // Add variant marker for special widget types
+    if (type == DesignerElementType.gasPedal) baseProps['variant'] = 'gasPedal';
+    if (type == DesignerElementType.steeringWheel)
+      baseProps['variant'] = 'steeringWheel';
+    if (type == DesignerElementType.multiSelect)
+      baseProps['variant'] = 'multiSelect';
+    if (type == DesignerElementType.multiButton)
+      baseProps['variant'] = 'multiButton';
+    if (type == DesignerElementType.rockerSwitch)
+      baseProps['variant'] = 'rockerSwitch';
+
+    final ar = aspectRatio;
     final result = <String, dynamic>{
-      'id': id,
       'type': jsonTypeStr,
       'x': x,
       'y': y,
-      'width': width,
-      'height': height,
       'rotation': rotation,
       'label': label,
       'labelHidden': labelHidden,
+      'haptic': (properties['haptic'] as bool?) ?? true,
+      'properties': baseProps,
     };
 
-    // Behavior-related values are nested under a 'behavior' key
-    const behaviorKeys = {
-      'autoCenter', 'center', 'centerX', 'centerY',
-      'springBehavior', 'springDuration',
-    };
-    final behavior = <String, dynamic>{};
-
-    // Split properties: behavior keys go into nested map, rest stay flat
-    for (final entry in properties.entries) {
-      if (behaviorKeys.contains(entry.key)) {
-        behavior[entry.key] = entry.value;
-      } else {
-        result[entry.key] = entry.value;
-      }
+    if (ar == null || ar >= 0) {
+      // Free-form or horizontal fixed-AR: height is the primary dimension.
+      result['height'] = height;
     }
-
-    if (behavior.isNotEmpty) {
-      result['behavior'] = behavior;
+    if (ar == null || ar < 0) {
+      // Free-form or vertical fixed-AR: width is the primary dimension.
+      result['width'] = width;
     }
-
-    // Add variant markers for special widget types
-    if (type == DesignerElementType.gasPedal) result['variant'] = 'gasPedal';
-    if (type == DesignerElementType.steeringWheel) result['variant'] = 'steeringWheel';
-    if (type == DesignerElementType.multiSelect) result['variant'] = 'multiSelect';
-    if (type == DesignerElementType.multiButton) result['variant'] = 'multiButton';
-    if (type == DesignerElementType.rockerSwitch) result['variant'] = 'rockerSwitch';
+    // For horizontal fixed-AR (ar > 0): width is omitted (= height × ar).
+    // For vertical   fixed-AR (ar < 0): height is omitted (= width × |ar|).
+    // For square (ar == 1.0):           width is omitted (= height).
 
     return result;
   }
@@ -312,8 +364,18 @@ class DesignerElement {
     } else {
       props = {};
       const knownKeys = {
-        'id', 'type', 'x', 'y', 'width', 'height',
-        'rotation', 'label', 'labelHidden', 'properties', 'behavior',
+        'type',
+        'x',
+        'y',
+        'width',
+        'height',
+        'rotation',
+        'label',
+        'labelHidden',
+        'variant',
+        'haptic',
+        'properties',
+        'behavior',
       };
       for (final key in json.keys) {
         if (key == 'behavior' && json[key] is Map) {
@@ -328,22 +390,65 @@ class DesignerElement {
     DesignerElementType parsedType;
 
     switch (typeStr) {
-      case 'button': parsedType = DesignerElementType.button; break;
-      case 'switch': parsedType = DesignerElementType.rockerSwitch; break;
-      case 'slideSwitch': parsedType = DesignerElementType.slideSwitch; break;
+      case 'button':
+        parsedType = DesignerElementType.button;
+        break;
+      case 'switch':
+        parsedType = DesignerElementType.rockerSwitch;
+        break;
+      case 'slideSwitch':
+        parsedType = DesignerElementType.slideSwitch;
+        break;
       case 'slider':
-        parsedType = (props['variant'] == 'gasPedal') ? DesignerElementType.gasPedal : DesignerElementType.slider;
-        break;
+        {
+          // variant lives inside properties in the current format
+          final v = (json['variant'] is String)
+              ? json['variant'] as String
+              : (props['variant'] is String
+                  ? props['variant'] as String
+                  : null);
+          parsedType = (v == 'gasPedal')
+              ? DesignerElementType.gasPedal
+              : DesignerElementType.slider;
+          break;
+        }
       case 'knob':
-        parsedType = (props['variant'] == 'steeringWheel') ? DesignerElementType.steeringWheel : DesignerElementType.knob;
+        {
+          // variant lives inside properties in the current format
+          final v = (json['variant'] is String)
+              ? json['variant'] as String
+              : (props['variant'] is String
+                  ? props['variant'] as String
+                  : null);
+          parsedType = (v == 'steeringWheel')
+              ? DesignerElementType.steeringWheel
+              : DesignerElementType.knob;
+          break;
+        }
+      case 'joystick':
+        parsedType = DesignerElementType.joystick;
         break;
-      case 'joystick': parsedType = DesignerElementType.joystick; break;
       case 'multiple':
-        parsedType = (props['variant'] == 'multiSelect') ? DesignerElementType.multiSelect : DesignerElementType.multiButton;
+        {
+          final v = (json['variant'] is String)
+              ? json['variant'] as String
+              : ((props['variant'] is String)
+                  ? props['variant'] as String
+                  : null);
+          parsedType = (v == 'multiSelect')
+              ? DesignerElementType.multiSelect
+              : DesignerElementType.multiButton;
+          break;
+        }
+      case 'led':
+        parsedType = DesignerElementType.led;
         break;
-      case 'led': parsedType = DesignerElementType.led; break;
-      case 'text': parsedType = DesignerElementType.text; break;
-      case 'display': parsedType = DesignerElementType.text; break;
+      case 'text':
+        parsedType = DesignerElementType.text;
+        break;
+      case 'display':
+        parsedType = DesignerElementType.text;
+        break;
       default:
         try {
           parsedType = DesignerElementType.values.byName(typeStr);
@@ -356,7 +461,8 @@ class DesignerElement {
     if (props.containsKey('mode') && !props.containsKey('variant')) {
       props['variant'] = props.remove('mode');
     }
-    if (props.containsKey('enableHapticFeedback') && !props.containsKey('haptic')) {
+    if (props.containsKey('enableHapticFeedback') &&
+        !props.containsKey('haptic')) {
       props['haptic'] = props.remove('enableHapticFeedback');
     }
 
@@ -364,17 +470,77 @@ class DesignerElement {
     final seeded = _defaultProperties(parsedType);
     seeded.addAll(props);
 
+    // Extract rotation/label/labelHidden/variant/haptic — promoted to top-level
+    // in the new JSON format, with fallback to properties for backward compat.
+    // Keep a copy back in `seeded` (properties) so template code and other
+    // consumers can still access them via `element.properties[...]`.
+    final rotationVal =
+        (seeded.remove('rotation') as int?) ?? (json['rotation'] as int? ?? 0);
+    final labelVal =
+        (seeded.remove('label') as String?) ?? (json['label'] as String? ?? '');
+    final labelHiddenVal = (seeded.remove('labelHidden') as bool?) ??
+        (json['labelHidden'] as bool? ?? false);
+    final String? variantVal =
+        (seeded.remove('variant') as String?) ?? (json['variant'] as String?);
+    if (variantVal != null) seeded['variant'] = variantVal;
+    final bool hapticVal =
+        (seeded.remove('haptic') as bool?) ?? (json['haptic'] as bool?) ?? true;
+    seeded['haptic'] = hapticVal;
+
+    // Resolve width and height, handling the orientation-aware format where
+    // only one dimension is stored for multi-widgets.
+    final rawWidth = json['width'] as int?;
+    final rawHeight = json['height'] as int?;
+    int effectiveWidth;
+    int effectiveHeight;
+
+    if (parsedType == DesignerElementType.multiButton ||
+        parsedType == DesignerElementType.multiSelect) {
+      final count = (seeded['itemCount'] as num?)?.toInt() ?? 3;
+      final ratio = (count * 0.67).clamp(0.5, 10.0);
+      if (rawWidth != null && rawHeight == null) {
+        // Vertical format: only width saved — derive height.
+        effectiveWidth = rawWidth;
+        effectiveHeight = (rawWidth * ratio).round().clamp(1, 999);
+      } else if (rawHeight != null && rawWidth == null) {
+        // Horizontal format (current and legacy): only height saved — derive width.
+        effectiveHeight = rawHeight;
+        effectiveWidth = (rawHeight * ratio).round().clamp(1, 999);
+      } else if (rawWidth != null && rawHeight != null) {
+        // Both present (transitioned from free-form phase) — use as-is.
+        effectiveWidth = rawWidth;
+        effectiveHeight = rawHeight;
+      } else {
+        // Fallback: default horizontal proportions.
+        effectiveHeight = 20;
+        effectiveWidth = (20 * ratio).round().clamp(1, 999);
+      }
+    } else {
+      // All other widgets: height is always present in JSON.
+      effectiveHeight = rawHeight ?? 20;
+      if (rawWidth != null) {
+        effectiveWidth = rawWidth;
+      } else {
+        final ar = _aspectRatioFor(parsedType, seeded);
+        if (ar != null) {
+          effectiveWidth = (effectiveHeight * ar).round().clamp(1, 999);
+        } else {
+          effectiveWidth = effectiveHeight.clamp(1, 200);
+        }
+      }
+    }
+
     return DesignerElement(
-      id: json['id'] as String,
+      id: labelVal,
       type: parsedType,
       x: json['x'] as int,
       y: json['y'] as int,
-      width: json['width'] as int,
-      height: json['height'] as int,
+      width: effectiveWidth,
+      height: effectiveHeight,
       properties: seeded,
-      label: json['label'] as String? ?? '',
-      labelHidden: json['labelHidden'] as bool? ?? false,
-      rotation: json['rotation'] as int? ?? 0,
+      label: labelVal,
+      labelHidden: labelHiddenVal,
+      rotation: rotationVal,
     );
   }
 }

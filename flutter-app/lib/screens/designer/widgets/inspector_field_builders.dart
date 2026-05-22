@@ -3,7 +3,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 
 class InspectorFieldBuilders {
-  static Widget buildSection(RKTokens tokens, String title, List<Widget> children) {
+  static Widget buildSection(
+      RKTokens tokens, String title, List<Widget> children) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -25,7 +26,8 @@ class InspectorFieldBuilders {
     );
   }
 
-  static Widget buildTextField(RKTokens tokens, String label, String value, ValueChanged<String> onChanged) {
+  static Widget buildTextField(RKTokens tokens, String label, String value,
+      ValueChanged<String> onChanged) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       child: Row(
@@ -60,7 +62,8 @@ class InspectorFieldBuilders {
                   fontFamily: 'monospace',
                 ),
                 decoration: const InputDecoration(
-                  contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   border: InputBorder.none,
                   isDense: true,
                 ),
@@ -73,7 +76,8 @@ class InspectorFieldBuilders {
     );
   }
 
-  static Widget buildReadOnlyField(RKTokens tokens, String label, String value) {
+  static Widget buildReadOnlyField(
+      RKTokens tokens, String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       child: Row(
@@ -116,8 +120,9 @@ class InspectorFieldBuilders {
     );
   }
 
-
-  static Widget buildNumField(RKTokens tokens, String label, int value, ValueChanged<int> onChanged, {double? min, double? max}) {
+  static Widget buildNumField(
+      RKTokens tokens, String label, int value, ValueChanged<int> onChanged,
+      {double? min, double? max}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       child: Row(
@@ -149,7 +154,9 @@ class InspectorFieldBuilders {
     );
   }
 
-  static Widget buildDoubleField(RKTokens tokens, String label, double value, ValueChanged<double> onChanged, {double? min, double? max, int decimalPlaces = 1}) {
+  static Widget buildDoubleField(RKTokens tokens, String label, double value,
+      ValueChanged<double> onChanged,
+      {double? min, double? max, int decimalPlaces = 1}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       child: Row(
@@ -181,7 +188,9 @@ class InspectorFieldBuilders {
     );
   }
 
-  static Widget buildCompactNumField(RKTokens tokens, String label, int value, ValueChanged<int> onChanged, {double? min, double? max}) {
+  static Widget buildCompactNumField(
+      RKTokens tokens, String label, int value, ValueChanged<int> onChanged,
+      {double? min, double? max}) {
     return Row(
       children: [
         SizedBox(
@@ -210,7 +219,9 @@ class InspectorFieldBuilders {
     );
   }
 
-  static Widget buildOptionSelector(RKTokens tokens, String label, String value, List<String> options, ValueChanged<String> onChanged, {Widget? suffix}) {
+  static Widget buildOptionSelector(RKTokens tokens, String label, String value,
+      List<String> options, ValueChanged<String> onChanged,
+      {Widget? suffix}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       child: Row(
@@ -241,11 +252,16 @@ class InspectorFieldBuilders {
                   return GestureDetector(
                     onTap: () => onChanged(opt),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: isSelected ? tokens.primary : const Color(0xFF1A1A1A),
+                        color: isSelected
+                            ? tokens.primary
+                            : const Color(0xFF1A1A1A),
                         border: Border.all(
-                          color: isSelected ? tokens.primary : const Color(0xFF444444),
+                          color: isSelected
+                              ? tokens.primary
+                              : const Color(0xFF444444),
                           width: 1,
                         ),
                         borderRadius: BorderRadius.circular(2),
@@ -253,10 +269,13 @@ class InspectorFieldBuilders {
                       child: Text(
                         opt.toUpperCase(),
                         style: TextStyle(
-                          color: isSelected ? Colors.black : const Color(0xFF888888),
+                          color: isSelected
+                              ? Colors.black
+                              : const Color(0xFF888888),
                           fontSize: 10,
                           fontFamily: 'monospace',
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.normal,
                         ),
                       ),
                     ),
@@ -276,7 +295,8 @@ class InspectorFieldBuilders {
     );
   }
 
-  static Widget buildBoolToggle(RKTokens tokens, String label, bool value, ValueChanged<bool> onChanged) {
+  static Widget buildBoolToggle(
+      RKTokens tokens, String label, bool value, ValueChanged<bool> onChanged) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       child: Row(
@@ -322,7 +342,9 @@ class InspectorFieldBuilders {
     );
   }
 
-  static Widget buildRotationSlider(RKTokens tokens, double rotation, ValueChanged<double> onChanged, {VoidCallback? onReset}) {
+  static Widget buildRotationSlider(
+      RKTokens tokens, double rotation, ValueChanged<double> onChanged,
+      {VoidCallback? onReset}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       child: Column(
@@ -344,7 +366,8 @@ class InspectorFieldBuilders {
                   onTap: onReset,
                   child: Padding(
                     padding: const EdgeInsets.only(right: 8),
-                    child: Icon(LucideIcons.rotateCcw, size: 12, color: const Color(0xFF555555)),
+                    child: Icon(LucideIcons.rotateCcw,
+                        size: 12, color: const Color(0xFF555555)),
                   ),
                 ),
               ],
@@ -362,7 +385,11 @@ class InspectorFieldBuilders {
           const SizedBox(height: 4),
           Row(
             children: [
-              const Text('-180', style: TextStyle(color: Color(0xFF555555), fontSize: 10, fontFamily: 'monospace')),
+              const Text('-180',
+                  style: TextStyle(
+                      color: Color(0xFF555555),
+                      fontSize: 10,
+                      fontFamily: 'monospace')),
               Expanded(
                 child: Slider(
                   value: rotation,
@@ -374,7 +401,11 @@ class InspectorFieldBuilders {
                   onChanged: onChanged,
                 ),
               ),
-              const Text('180', style: TextStyle(color: Color(0xFF555555), fontSize: 10, fontFamily: 'monospace')),
+              const Text('180',
+                  style: TextStyle(
+                      color: Color(0xFF555555),
+                      fontSize: 10,
+                      fontFamily: 'monospace')),
             ],
           ),
         ],
@@ -443,7 +474,8 @@ class _PopupMenuSelectorState extends State<_PopupMenuSelector> {
   Widget build(BuildContext context) {
     final tokens = widget.tokens;
     final hoverBorderColor = tokens.primary.withValues(alpha: 0.5);
-    final activeBorderColor = _isHovered ? hoverBorderColor : const Color(0xFF333333);
+    final activeBorderColor =
+        _isHovered ? hoverBorderColor : const Color(0xFF333333);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -471,10 +503,13 @@ class _PopupMenuSelectorState extends State<_PopupMenuSelector> {
                     child: Text(
                       opt.toUpperCase(),
                       style: TextStyle(
-                        color: isSelected ? tokens.primary : const Color(0xFFC0C0C0),
+                        color: isSelected
+                            ? tokens.primary
+                            : const Color(0xFFC0C0C0),
                         fontSize: 11,
                         fontFamily: 'monospace',
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
                       ),
                     ),
                   ),
@@ -551,7 +586,8 @@ class DragToAdjustInput extends StatefulWidget {
   State<DragToAdjustInput> createState() => _DragToAdjustInputState();
 }
 
-class _DragToAdjustInputState extends State<DragToAdjustInput> with SingleTickerProviderStateMixin {
+class _DragToAdjustInputState extends State<DragToAdjustInput>
+    with SingleTickerProviderStateMixin {
   bool _isDragging = false;
   bool _isEditing = false;
   bool _isHovered = false;
@@ -563,11 +599,16 @@ class _DragToAdjustInputState extends State<DragToAdjustInput> with SingleTicker
 
   double get _minorStep {
     switch (widget.decimalPlaces) {
-      case 0: return 1.0;
-      case 1: return 0.1;
-      case 2: return 0.01;
-      case 3: return 0.001;
-      default: return 1.0;
+      case 0:
+        return 1.0;
+      case 1:
+        return 0.1;
+      case 2:
+        return 0.01;
+      case 3:
+        return 0.001;
+      default:
+        return 1.0;
     }
   }
 
@@ -604,9 +645,13 @@ class _DragToAdjustInputState extends State<DragToAdjustInput> with SingleTicker
 
   @override
   Widget build(BuildContext context) {
-    final displayValue = widget.value.toStringAsFixed(widget.decimalPlaces) + widget.suffix;
-    final baseBoxColor = _isDragging ? const Color(0xFF222222) : const Color(0xFF2D2D2D);
-    final activeColor = _isDragging || _isHovered ? const Color(0xFFFF8C00) : const Color(0xFF555555);
+    final displayValue =
+        widget.value.toStringAsFixed(widget.decimalPlaces) + widget.suffix;
+    final baseBoxColor =
+        _isDragging ? const Color(0xFF222222) : const Color(0xFF2D2D2D);
+    final activeColor = _isDragging || _isHovered
+        ? const Color(0xFFFF8C00)
+        : const Color(0xFF555555);
 
     if (_isEditing) {
       return Container(
@@ -621,9 +666,14 @@ class _DragToAdjustInputState extends State<DragToAdjustInput> with SingleTicker
           controller: _textController,
           focusNode: _focusNode,
           autofocus: true,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+          keyboardType: const TextInputType.numberWithOptions(
+              decimal: true, signed: true),
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 11, color: Color(0xFFE0E0E0), fontFamily: 'monospace', fontWeight: FontWeight.w600),
+          style: const TextStyle(
+              fontSize: 11,
+              color: Color(0xFFE0E0E0),
+              fontFamily: 'monospace',
+              fontWeight: FontWeight.w600),
           decoration: const InputDecoration(
             isDense: true,
             contentPadding: EdgeInsets.symmetric(vertical: 4, horizontal: 6),
@@ -638,7 +688,8 @@ class _DragToAdjustInputState extends State<DragToAdjustInput> with SingleTicker
       onTap: () {
         setState(() {
           _isEditing = true;
-          _textController.text = widget.value.toStringAsFixed(widget.decimalPlaces);
+          _textController.text =
+              widget.value.toStringAsFixed(widget.decimalPlaces);
         });
       },
       onHorizontalDragStart: (_) {
@@ -672,7 +723,9 @@ class _DragToAdjustInputState extends State<DragToAdjustInput> with SingleTicker
             color: baseBoxColor,
             borderRadius: BorderRadius.circular(2),
             border: Border.all(
-              color: _isDragging ? const Color(0xFFFF8C00) : const Color(0xFF333333),
+              color: _isDragging
+                  ? const Color(0xFFFF8C00)
+                  : const Color(0xFF333333),
               width: 1,
             ),
           ),
@@ -699,11 +752,13 @@ class _DragToAdjustInputState extends State<DragToAdjustInput> with SingleTicker
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: () {
-                    widget.onChanged((widget.value - _minorStep).clamp(widget.min, widget.max));
+                    widget.onChanged((widget.value - _minorStep)
+                        .clamp(widget.min, widget.max));
                   },
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: Icon(Icons.chevron_left, color: activeColor, size: 12),
+                    child:
+                        Icon(Icons.chevron_left, color: activeColor, size: 12),
                   ),
                 ),
               ),
@@ -714,18 +769,21 @@ class _DragToAdjustInputState extends State<DragToAdjustInput> with SingleTicker
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: () {
-                    widget.onChanged((widget.value + _minorStep).clamp(widget.min, widget.max));
+                    widget.onChanged((widget.value + _minorStep)
+                        .clamp(widget.min, widget.max));
                   },
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: Icon(Icons.chevron_right, color: activeColor, size: 12),
+                    child:
+                        Icon(Icons.chevron_right, color: activeColor, size: 12),
                   ),
                 ),
               ),
               Center(
                 child: IgnorePointer(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: baseBoxColor,
                       borderRadius: BorderRadius.circular(2),
@@ -734,7 +792,9 @@ class _DragToAdjustInputState extends State<DragToAdjustInput> with SingleTicker
                       displayValue,
                       style: TextStyle(
                         fontSize: 11,
-                        color: _isDragging ? const Color(0xFFFF8C00) : const Color(0xFFE0E0E0),
+                        color: _isDragging
+                            ? const Color(0xFFFF8C00)
+                            : const Color(0xFFE0E0E0),
                         fontWeight: FontWeight.w600,
                         fontFamily: 'monospace',
                       ),
@@ -787,7 +847,8 @@ class IconFieldBuilder {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (currentIconName != null && kDesignerIcons.containsKey(currentIconName))
+                  if (currentIconName != null &&
+                      kDesignerIcons.containsKey(currentIconName))
                     Padding(
                       padding: const EdgeInsets.only(right: 6),
                       child: Icon(
@@ -801,10 +862,14 @@ class IconFieldBuilder {
                       padding: EdgeInsets.only(right: 6),
                       child: Text(
                         '—',
-                        style: TextStyle(color: Color(0xFF555555), fontSize: 11, fontFamily: 'monospace'),
+                        style: TextStyle(
+                            color: Color(0xFF555555),
+                            fontSize: 11,
+                            fontFamily: 'monospace'),
                       ),
                     ),
-                  const Icon(LucideIcons.chevronDown, color: Color(0xFF666666), size: 12),
+                  const Icon(LucideIcons.chevronDown,
+                      color: Color(0xFF666666), size: 12),
                 ],
               ),
             ),
@@ -827,6 +892,14 @@ class IconFieldBuilder {
       ),
     );
   }
+
+  /// Public entry point for the icon picker dialog.
+  static void openIconPickerDialog(
+    BuildContext context, {
+    required String? currentIconName,
+    required ValueChanged<String?> onChanged,
+  }) =>
+      _openIconPicker(context, currentIconName, onChanged);
 }
 
 class _DesignerIconPicker extends StatefulWidget {
@@ -868,7 +941,8 @@ class _DesignerIconPickerState extends State<_DesignerIconPicker> {
         decoration: const InputDecoration(
           hintText: 'Search icons...',
           hintStyle: TextStyle(color: Color(0xFF666666)),
-          prefixIcon: Icon(LucideIcons.search, size: 16, color: Color(0xFF666666)),
+          prefixIcon:
+              Icon(LucideIcons.search, size: 16, color: Color(0xFF666666)),
           border: InputBorder.none,
           isDense: true,
         ),
@@ -898,14 +972,22 @@ class _DesignerIconPickerState extends State<_DesignerIconPicker> {
                       },
                       child: Container(
                         decoration: BoxDecoration(
-                          color: isActive ? const Color(0xFF333333) : const Color(0xFF222222),
+                          color: isActive
+                              ? const Color(0xFF333333)
+                              : const Color(0xFF222222),
                           borderRadius: BorderRadius.circular(6),
-                          border: isActive ? Border.all(color: const Color(0xFF888888), width: 1) : null,
+                          border: isActive
+                              ? Border.all(
+                                  color: const Color(0xFF888888), width: 1)
+                              : null,
                         ),
                         child: const Center(
                           child: Text(
                             '—',
-                            style: TextStyle(color: Color(0xFF888888), fontSize: 16, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                                color: Color(0xFF888888),
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold),
                           ),
                         ),
                       ),
@@ -921,9 +1003,14 @@ class _DesignerIconPickerState extends State<_DesignerIconPicker> {
                     },
                     child: Container(
                       decoration: BoxDecoration(
-                        color: isActive ? const Color(0xFF333333) : const Color(0xFF222222),
+                        color: isActive
+                            ? const Color(0xFF333333)
+                            : const Color(0xFF222222),
                         borderRadius: BorderRadius.circular(6),
-                        border: isActive ? Border.all(color: const Color(0xFFFF8C00), width: 1) : null,
+                        border: isActive
+                            ? Border.all(
+                                color: const Color(0xFFFF8C00), width: 1)
+                            : null,
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -932,7 +1019,8 @@ class _DesignerIconPickerState extends State<_DesignerIconPicker> {
                           const SizedBox(height: 2),
                           Text(
                             key,
-                            style: const TextStyle(color: Color(0xFF888888), fontSize: 7),
+                            style: const TextStyle(
+                                color: Color(0xFF888888), fontSize: 7),
                             overflow: TextOverflow.ellipsis,
                             maxLines: 1,
                           ),
@@ -981,6 +1069,7 @@ class RulerLinesPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant RulerLinesPainter oldDelegate) {
-    return oldDelegate.progress != progress || oldDelegate.direction != direction;
+    return oldDelegate.progress != progress ||
+        oldDelegate.direction != direction;
   }
 }
