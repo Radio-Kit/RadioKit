@@ -75,7 +75,7 @@ class RKMultiButton extends StatelessWidget {
       showDebug: showDebug,
       contentWidth: cw,
       contentHeight: ch,
-      labelColor: tokens.trackColor.withValues(alpha: 0.8),
+      labelColor: tokens.outlineColor.withValues(alpha: 0.8),
       fitContent: true,
       child: Container(
         width: cw,
@@ -83,7 +83,7 @@ class RKMultiButton extends StatelessWidget {
         padding: EdgeInsets.all(shellPadding),
         decoration: BoxDecoration(
           color: tokens.surface,
-          border: Border.all(color: tokens.trackColor, width: 1),
+          border: Border.all(color: tokens.outlineColor, width: 1),
           borderRadius:
               BorderRadius.circular((buttonSize * 0.2).clamp(4.0, 24.0)),
           boxShadow: tokens.shadows.isNotEmpty
@@ -195,7 +195,7 @@ class RKMultiSelect extends StatelessWidget {
       showDebug: showDebug,
       contentWidth: cw,
       contentHeight: ch,
-      labelColor: tokens.trackColor.withValues(alpha: 0.8),
+      labelColor: tokens.outlineColor.withValues(alpha: 0.8),
       fitContent: true,
       child: Container(
         width: cw,
@@ -203,7 +203,7 @@ class RKMultiSelect extends StatelessWidget {
         padding: EdgeInsets.all(shellPadding),
         decoration: BoxDecoration(
           color: tokens.surface,
-          border: Border.all(color: tokens.trackColor, width: 1),
+          border: Border.all(color: tokens.outlineColor, width: 1),
           borderRadius:
               BorderRadius.circular((buttonSize * 0.2).clamp(4.0, 24.0)),
           boxShadow: tokens.shadows.isNotEmpty
@@ -303,7 +303,7 @@ class _ToggleButton extends StatelessWidget {
             .withLightness((lightness + 0.03).clamp(0.0, 1.0))
             .toColor();
 
-    final borderColor = tokens.trackColor;
+    final borderColor = tokens.outlineColor;
     final dullGrey = tokens.onSurface.withValues(alpha: 0.4);
 
     final double radius = (buttonSize * 0.25).clamp(4.0, 32.0);

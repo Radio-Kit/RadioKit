@@ -61,7 +61,7 @@ class _RKSerialMonitorState extends State<RKSerialMonitor> {
       showDebug: widget.showDebug,
       contentWidth: widget.width,
       contentHeight: widget.height,
-      labelColor: tokens.trackColor.withValues(alpha: 0.8),
+      labelColor: tokens.outlineColor.withValues(alpha: 0.8),
       fitContent: true,
       child: Listener(
         onPointerDown: (_) => widget.onInteractionChanged?.call(true),
@@ -74,7 +74,7 @@ class _RKSerialMonitorState extends State<RKSerialMonitor> {
           decoration: BoxDecoration(
             color: tokens.surface,
             borderRadius: BorderRadius.circular(tokens.borderRadius),
-            border: Border.all(color: tokens.trackColor, width: 1.5),
+            border: Border.all(color: tokens.outlineColor, width: 1.5),
           ),
           child: ListView.builder(
             reverse: true,

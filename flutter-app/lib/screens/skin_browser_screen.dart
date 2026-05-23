@@ -56,7 +56,7 @@ class _ThemeCard extends StatelessWidget {
     final previewColors = [
       tokens.primary,
       tokens.surface,
-      tokens.trackColor,
+      tokens.outlineColor,
       tokens.onSurface,
     ];
 

@@ -154,7 +154,7 @@ class _RKKnobState extends State<RKKnob> with SingleTickerProviderStateMixin {
       showDebug: widget.showDebug,
       contentWidth: widget.size,
       contentHeight: widget.size,
-      labelColor: tokens.trackColor.withValues(alpha: 0.8),
+      labelColor: tokens.outlineColor.withValues(alpha: 0.8),
       fitContent: true,
       child: GestureDetector(
         onPanStart: (details) {
@@ -252,7 +252,7 @@ class _KnobPainter extends CustomPainter {
     final knobRadius = radius * 0.8;
 
     final trackPaint = Paint()
-      ..color = tokens.trackColor
+      ..color = tokens.outlineColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4
       ..strokeCap = StrokeCap.round;

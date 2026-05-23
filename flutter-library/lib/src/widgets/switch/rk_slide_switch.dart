@@ -129,7 +129,7 @@ class _RKSlideSwitchState extends State<RKSlideSwitch> with SingleTickerProvider
       showDebug: widget.showDebug,
       contentWidth: outerWidth,
       contentHeight: outerHeight,
-      labelColor: tokens.trackColor.withValues(alpha: 0.8),
+      labelColor: tokens.outlineColor.withValues(alpha: 0.8),
       fitContent: true,
       child: GestureDetector(
         onTapDown: (_) => widget.onInteractionChanged?.call(true),
@@ -176,7 +176,7 @@ class _RKSlideSwitchState extends State<RKSlideSwitch> with SingleTickerProvider
             borderRadius: BorderRadius.circular(outerHeight * 0.5),
             color: tokens.surface,
             border: Border.all(
-              color: tokens.trackColor.withValues(alpha: 0.5),
+              color: tokens.outlineColor.withValues(alpha: 0.5),
               width: 2.0,
             ),
             boxShadow: const [
@@ -200,7 +200,7 @@ class _RKSlideSwitchState extends State<RKSlideSwitch> with SingleTickerProvider
               decoration: BoxDecoration(
                 color: Color.alphaBlend(Colors.black.withValues(alpha: 0.3), tokens.surface),
                 borderRadius: BorderRadius.circular(trackHeight * 0.5),
-                border: Border.all(color: tokens.trackColor.withValues(alpha: 0.3), width: 1.0),
+                border: Border.all(color: tokens.outlineColor.withValues(alpha: 0.3), width: 1.0),
                 boxShadow: const [
                   BoxShadow(
                     color: Colors.black,

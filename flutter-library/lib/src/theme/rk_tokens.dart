@@ -3,18 +3,21 @@ import 'package:flutter/material.dart';
 /// Design tokens shared across all RadioKit widgets.
 class RKTokens {
   const RKTokens({
-    this.primary = const Color(0xFF00E5FF),
+    this.primary = const Color(0xFF00F2FF),
+    this.secondary = const Color(0xFF122A59),
+    this.tertiary = const Color(0xFF7C4DFF),
+    this.error = const Color(0xFFFF0053),
+    this.neutralVariant = const Color(0xFFF2F2F2),
     this.surface = const Color(0xFF1E1E2E),
-    this.onSurface = const Color(0xFFCDD6F4),
-    this.trackColor = const Color(0xFF313244),
-    this.glowColor = const Color(0x6600E5FF),
+    this.onSurface = const Color(0xFFFFFFFF),
+    this.outlineColor = const Color(0xFF313244),
+    this.glowColor = const Color(0x6600F2FF),
     this.shadowColor = const Color(0x99000000),
     this.onPrimary = const Color(0xFFFFFFFF),
     this.borderRadius = 12.0,
     this.elevation = 4.0,
-    // Gradients for premium styling
     this.primaryGradient = const LinearGradient(
-      colors: [Color(0xFF00E5FF), Color(0xFF00B8D4)],
+      colors: [Color(0xFF00F2FF), Color(0xFF00B8D4)],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     ),
@@ -23,7 +26,6 @@ class RKTokens {
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     ),
-    // Additional design tokens
     this.shadows = const [
       BoxShadow(
         color: Color(0x66000000),
@@ -38,16 +40,15 @@ class RKTokens {
         spreadRadius: 2,
       ),
     ],
-    // Typography tokens
     this.displayTextStyle = const TextStyle(
-      color: Color(0xFF00E5FF),
+      color: Color(0xFF00F2FF),
       fontSize: 24,
       fontWeight: FontWeight.bold,
       fontFamily: 'monospace',
       letterSpacing: 2,
       shadows: [
         Shadow(
-          color: Color(0x6600E5FF),
+          color: Color(0x6600F2FF),
           blurRadius: 8,
         ),
       ],
@@ -65,10 +66,14 @@ class RKTokens {
   });
 
   final Color primary;
+  final Color secondary;
+  final Color tertiary;
+  final Color error;
+  final Color neutralVariant;
   final Color onPrimary;
   final Color surface;
   final Color onSurface;
-  final Color trackColor;
+  final Color outlineColor;
   final Color glowColor;
   final Color shadowColor;
   final double borderRadius;
@@ -80,22 +85,27 @@ class RKTokens {
   final List<BoxShadow> glows;
   final TextStyle bodyTextStyle;
   final TextStyle headlineTextStyle;
+
   /// Default neon dark theme tokens.
   static const RKTokens neon = RKTokens();
 
   /// Dragon industrial theme tokens (matches the reference design).
   static const RKTokens dragon = RKTokens(
-    primary: Color(0xFFFF8C00),
+    primary: Color(0xFFFFA200),
+    secondary: Color(0xFF404040),
+    tertiary: Color(0xFFFF8000),
+    error: Color(0xFFFF5800),
+    neutralVariant: Color(0xFFF2F2F2),
     onPrimary: Color(0xFF000000),
     surface: Color(0xFF1A1A1A),
     onSurface: Color(0xFFE0E0E0),
-    trackColor: Color(0xFF2A2A2A),
-    glowColor: Color(0x66FF8C00),
+    outlineColor: Color(0xFF2A2A2A),
+    glowColor: Color(0x66FFA200),
     shadowColor: Color(0x99000000),
     borderRadius: 4.0,
     elevation: 2.0,
     primaryGradient: LinearGradient(
-      colors: [Color(0xFFFF8C00), Color(0xFFFFA040)],
+      colors: [Color(0xFFFFA200), Color(0xFFFFB84D)],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     ),
@@ -113,20 +123,20 @@ class RKTokens {
     ],
     glows: [
       BoxShadow(
-        color: Color(0x66FF8C00),
+        color: Color(0x66FFA200),
         blurRadius: 12,
         spreadRadius: 1,
       ),
     ],
     displayTextStyle: TextStyle(
-      color: Color(0xFFFF8C00),
+      color: Color(0xFFFFA200),
       fontSize: 24,
       fontWeight: FontWeight.bold,
       fontFamily: 'monospace',
       letterSpacing: 2,
       shadows: [
         Shadow(
-          color: Color(0x66FF8C00),
+          color: Color(0x66FFA200),
           blurRadius: 8,
         ),
       ],
@@ -148,10 +158,14 @@ class RKTokens {
   /// Minimal monochrome theme tokens.
   static const RKTokens minimal = RKTokens(
     primary: Color(0xFFFFFFFF),
+    secondary: Color(0xFF000000),
+    tertiary: Color(0xFFE6FFF6),
+    error: Color(0xFFFFCA91),
+    neutralVariant: Color(0xFFF2F2F2),
     onPrimary: Color(0xFF000000),
     surface: Color(0xFF050505),
-    onSurface: Color(0xFFEEEEEE),
-    trackColor: Color(0xFF1A1A1A),
+    onSurface: Color(0xFFFFFFFF),
+    outlineColor: Color(0xFF1A1A1A),
     glowColor: Colors.transparent,
     shadowColor: Colors.transparent,
     borderRadius: 0.0,
@@ -191,10 +205,14 @@ class RKTokens {
   /// High-visibility debug theme tokens for development.
   static const RKTokens debug = RKTokens(
     primary: Color(0xFF00FF00),
+    secondary: Color(0xFF00CC00),
+    tertiary: Color(0xFF00AA00),
+    error: Color(0xFFFF0000),
+    neutralVariant: Color(0xFF0A1A0A),
     onPrimary: Color(0xFF000000),
     surface: Color(0xFF0A0A0A),
     onSurface: Color(0xFF00FF00),
-    trackColor: Color(0xFF1A3A1A),
+    outlineColor: Color(0xFF1A3A1A),
     glowColor: Color(0x6600FF00),
     shadowColor: Colors.transparent,
     borderRadius: 2.0,
@@ -240,10 +258,14 @@ class RKTokens {
 
   RKTokens copyWith({
     Color? primary,
+    Color? secondary,
+    Color? tertiary,
+    Color? error,
+    Color? neutralVariant,
     Color? onPrimary,
     Color? surface,
     Color? onSurface,
-    Color? trackColor,
+    Color? outlineColor,
     Color? glowColor,
     Color? shadowColor,
     double? borderRadius,
@@ -258,10 +280,14 @@ class RKTokens {
   }) {
     return RKTokens(
       primary: primary ?? this.primary,
+      secondary: secondary ?? this.secondary,
+      tertiary: tertiary ?? this.tertiary,
+      error: error ?? this.error,
+      neutralVariant: neutralVariant ?? this.neutralVariant,
       onPrimary: onPrimary ?? this.onPrimary,
       surface: surface ?? this.surface,
       onSurface: onSurface ?? this.onSurface,
-      trackColor: trackColor ?? this.trackColor,
+      outlineColor: outlineColor ?? this.outlineColor,
       glowColor: glowColor ?? this.glowColor,
       shadowColor: shadowColor ?? this.shadowColor,
       borderRadius: borderRadius ?? this.borderRadius,

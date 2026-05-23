@@ -259,7 +259,7 @@ class _RKJoystickState extends State<RKJoystick> with SingleTickerProviderStateM
       showDebug: widget.showDebug,
       contentWidth: widget.size,
       contentHeight: widget.size,
-      labelColor: tokens.trackColor.withValues(alpha: 0.8),
+      labelColor: tokens.outlineColor.withValues(alpha: 0.8),
       fitContent: true,
       child: GestureDetector(
         onPanStart: _onPanStart,
@@ -312,7 +312,7 @@ class _JoystickPainter extends CustomPainter {
     canvas.drawCircle(center, radius - 2, bevelPaint);
 
     final guidePaint = Paint()
-      ..color = tokens.trackColor.withValues(alpha: 0.5)
+      ..color = tokens.outlineColor.withValues(alpha: 0.5)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     canvas.drawLine(Offset(center.dx - radius, center.dy), Offset(center.dx + radius, center.dy), guidePaint);

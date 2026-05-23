@@ -184,7 +184,7 @@ class _PedalGrip extends StatelessWidget {
         gradient: LinearGradient(
           colors: [
             Colors.black.withValues(alpha: 0.9),
-            tokens.trackColor,
+            tokens.outlineColor,
             Colors.black.withValues(alpha: 1.0),
           ],
           begin: isHorizontal ? Alignment.centerLeft : Alignment.topCenter,

@@ -64,7 +64,7 @@ class RKDisplay extends StatelessWidget {
         decoration: BoxDecoration(
           color: tokens.surface,
           borderRadius: BorderRadius.circular(tokens.borderRadius),
-          border: Border.all(color: tokens.trackColor, width: 1.5),
+          border: Border.all(color: tokens.outlineColor, width: 1.5),
         ),
         child: Text(
           text,
@@ -80,7 +80,7 @@ class RKDisplay extends StatelessWidget {
       showDebug: showDebug,
       contentWidth: width,
       contentHeight: height,
-      labelColor: tokens.trackColor.withValues(alpha: 0.8),
+      labelColor: tokens.outlineColor.withValues(alpha: 0.8),
       fitContent: true,
       child: content,
     );

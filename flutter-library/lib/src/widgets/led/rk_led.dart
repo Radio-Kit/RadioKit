@@ -103,7 +103,7 @@ class _RKLedState extends State<RKLed> with SingleTickerProviderStateMixin {
       showDebug: widget.showDebug,
       contentWidth: widget.size,
       contentHeight: widget.size,
-      labelColor: tokens.trackColor.withValues(alpha: 0.8),
+      labelColor: tokens.outlineColor.withValues(alpha: 0.8),
       fitContent: true,
       child: AnimatedBuilder(
         animation: _opacity,
@@ -130,7 +130,7 @@ class _RKLedState extends State<RKLed> with SingleTickerProviderStateMixin {
               break;
           }
 
-          final ledColor = isActive ? baseColor.withValues(alpha: currentOpacity) : tokens.trackColor;
+          final ledColor = isActive ? baseColor.withValues(alpha: currentOpacity) : tokens.outlineColor;
 
           return SizedBox(
             width: widget.size,

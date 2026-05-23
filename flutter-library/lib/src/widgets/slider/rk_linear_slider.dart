@@ -251,7 +251,7 @@ class _RKSliderState extends State<RKSlider>
       showDebug: false,
       contentWidth: contentW,
       contentHeight: contentH,
-      labelColor: tokens.trackColor.withValues(alpha: 0.8),
+      labelColor: tokens.outlineColor.withValues(alpha: 0.8),
       fitContent: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -467,7 +467,7 @@ class _LinearSliderPainter extends CustomPainter {
 
     final activeHeight = thickness * 0.48;
     final activeFillPaint = Paint()
-      ..color = tokens.trackColor.withValues(alpha: 0.92)
+      ..color = tokens.outlineColor.withValues(alpha: 0.92)
       ..style = PaintingStyle.fill;
 
     final activeRect = isHorizontal
