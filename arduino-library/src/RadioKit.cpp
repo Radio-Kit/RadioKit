@@ -6,6 +6,16 @@
 #include "RadioKit.h"
 #include <string.h>
 
+// ── Debug logging (enabled by default for debugging) ────────────────────
+// Set to 0 to disable verbose debug output
+#define RK_DEBUG_VERBOSE 1
+
+#if RK_DEBUG_VERBOSE
+#define RK_DEBUG_PRINT(fmt, ...) Serial.printf(fmt, ##__VA_ARGS__)
+#else
+#define RK_DEBUG_PRINT(fmt, ...)
+#endif
+
 // ── CONF_DATA / META_DATA payload buffer sizes ──────────────────────────
 #define RK_STR_BUF_SIZE 640
 
@@ -74,15 +84,20 @@ void RadioKitClass::update() {
             if (inSz > 0 && inSz <= 4) {
                 uint8_t currentBuf[4] = {0};
                 w->serializeInput(currentBuf);
-                if (memcmp(currentBuf, _shadowInput[i], inSz) != 0) {
+                bool match = (memcmp(currentBuf, _shadowInput[i], inSz) == 0);
+                RK_DEBUG_PRINT("[DBG] update shadow[%d]: cur=%d shadow=%d match=%d\n",
+                    i, currentBuf[0], _shadowInput[i][0], match);
+                if (!match) {
+                    RK_DEBUG_PRINT("[DBG]   -> shadow MISMATCH! Updating and pushing\n");
                     memcpy(_shadowInput[i], currentBuf, inSz);
-                    pushUpdate(i); // enqueue an update
+                    pushUpdate(i);
                 }
             }
         }
     }
 
     if (_pendingUpdatesMask != 0 && _transport && _transport->isConnected()) {
+        RK_DEBUG_PRINT("[DBG] _pendingUpdatesMask=0x%08lX\n", (unsigned long)_pendingUpdatesMask);
         if ((_pendingUpdatesMask & (1UL << _varUpdateId)) == 0) {
             // Current ID was ACKed or dropped. Pick next.
             for (uint8_t i = 0; i < 32; i++) {
@@ -91,6 +106,7 @@ void RadioKitClass::update() {
                     _varUpdateSeq++;
                     _varUpdateRetries = 0;
                     _varUpdateSentAt = 0;
+                    RK_DEBUG_PRINT("[DBG] pending: picked id=%d seq=%d\n", i, _varUpdateSeq);
                     break;
                 }
             }
@@ -100,6 +116,7 @@ void RadioKitClass::update() {
         // Force send on first run (_varUpdateSentAt == 0) or if timeout exceeded
         if (_varUpdateSentAt == 0 || now - _varUpdateSentAt >= RK_VAR_UPDATE_TIMEOUT_MS) {
             if (_varUpdateRetries >= RK_VAR_UPDATE_MAX_RETRIES) {
+                RK_DEBUG_PRINT("[DBG] pending: RETRIES EXHAUSTED for id=%d, dropping\n", _varUpdateId);
                 // Drop and move on.
                 _pendingUpdatesMask &= ~(1UL << _varUpdateId);
                 _varUpdateRetries = 0;
@@ -120,6 +137,8 @@ void RadioKitClass::update() {
                 } else {
                     w->serializeOutput(&payload[2]);
                 }
+                RK_DEBUG_PRINT("[DBG] pending: SENDING %s id=%d seq=%d val=%d retry=%d\n",
+                    rk_cmdName(cmd), _varUpdateId, _varUpdateSeq, payload[2], _varUpdateRetries);
                 uint16_t pkt = rk_buildPacket(_txBuf, cmd, payload, 2 + dataSz);
                 _sendPacket(pkt);
                 _varUpdateSentAt = now;
@@ -233,6 +252,7 @@ void RadioKitClass::_handleGetMeta() {
 }
 
 void RadioKitClass::_handleSetInput(const uint8_t* payload, uint16_t len) {
+    RK_DEBUG_PRINT("[DBG] _handleSetInput: len=%d\n", len);
     uint16_t offset = 0;
     for (uint8_t i = 0; i < _widgetCount; i++) {
         RadioKit_Widget* w = _widgets[i];
@@ -240,6 +260,10 @@ void RadioKitClass::_handleSetInput(const uint8_t* payload, uint16_t len) {
         if (sz == 0) continue;
         if (offset + sz > len) break;
         w->deserializeInput(payload + offset);
+        if (sz <= 4) {
+            memcpy(_shadowInput[i], payload + offset, sz);
+        }
+        RK_DEBUG_PRINT("[DBG]   widget[%d]: sz=%d, val=%d\n", i, sz, payload[offset]);
         offset += sz;
     }
     uint8_t seq = 0;
@@ -255,9 +279,14 @@ void RadioKitClass::_handlePing() {
 void RadioKitClass::_handleAck(const uint8_t* payload, uint16_t len) {
     if (len < 1) return;
     uint8_t seq = payload[0];
+    RK_DEBUG_PRINT("[DBG] _handleAck: seq=%d pendingMask=0x%08lX varSeq=%d\n",
+        seq, (unsigned long)_pendingUpdatesMask, _varUpdateSeq);
     if (_pendingUpdatesMask != 0 && seq == _varUpdateSeq) {
+        RK_DEBUG_PRINT("[DBG]   MATCH! Clearing pending for id=%d\n", _varUpdateId);
         _pendingUpdatesMask &= ~(1UL << _varUpdateId);
         _varUpdateRetries = 0;
+    } else if (_pendingUpdatesMask != 0) {
+        RK_DEBUG_PRINT("[DBG]   seq mismatch: got=%d expected=%d\n", seq, _varUpdateSeq);
     }
     if (_pendingMetaMask != 0 && seq == _metaUpdateSeq) {
         _pendingMetaMask &= ~(1UL << _metaUpdateId);
@@ -266,19 +295,36 @@ void RadioKitClass::_handleAck(const uint8_t* payload, uint16_t len) {
 }
 
 void RadioKitClass::_handleVarUpdate(const uint8_t* payload, uint16_t len) {
-    if (len < 2) return;
+    if (len < 2) {
+        RK_DEBUG_PRINT("[DBG] _handleVarUpdate: too short (%d)\n", len);
+        return;
+    }
     uint8_t widgetId = payload[0];
     uint8_t seq = payload[1];
-    if (widgetId >= _widgetCount) return;
+    if (widgetId >= _widgetCount) {
+        RK_DEBUG_PRINT("[DBG] _handleVarUpdate: invalid widgetId %d\n", widgetId);
+        return;
+    }
 
     RadioKit_Widget* w = _widgets[widgetId];
     uint8_t inSz = w->inputSize();
     uint8_t outSz = w->outputSize();
+    RK_DEBUG_PRINT("[DBG] _handleVarUpdate: wid=%d seq=%d inSz=%d outSz=%d\n",
+        widgetId, seq, inSz, outSz);
+    
     if (inSz > 0 && 2 + inSz <= len) {
+        uint8_t oldVal = 0;
+        w->serializeInput(&oldVal);  // need actual state
+        uint8_t newVal = payload[2];
         w->deserializeInput(&payload[2]);
         if (inSz <= 4) {
+            RK_DEBUG_PRINT("[DBG]   input: old=%d new=%d, updating shadow\n", oldVal, newVal);
             memcpy(_shadowInput[widgetId], &payload[2], inSz);
         }
+    } else if (outSz > 0 && 2 + outSz <= len) {
+        // Output widgets (LED, Text) receive VAR_UPDATE for value updates
+        // (No deserializeOutput method exists in the base Widget interface)
+        RK_DEBUG_PRINT("[DBG]   output: len=%d (ignored, no deserializeOutput)\n", outSz);
     }
 
     // Ack back to sender

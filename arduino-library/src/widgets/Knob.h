@@ -42,7 +42,7 @@ public:
     int8_t  get()           const { return props.value; }
     void    set(int8_t val)       { props.value = val > 100 ? 100 : (val < -100 ? -100 : val); }
     uint8_t centering()     const { return props.centering; }
-    uint8_t detents()       const { return props.detents; }
+    uint8_t detents()       const { return (_variant >> 2) & 0x3F; }
     uint8_t knobVariant()   const { return props.variant; }
     const char* centerIconStr() const { return props.centerIcon; }
 

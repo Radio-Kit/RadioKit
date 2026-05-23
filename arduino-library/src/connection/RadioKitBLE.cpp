@@ -76,6 +76,8 @@ void RadioKitBLE::begin(const char* deviceName, RK_PacketCallback cb) {
     );
     _characteristic->setCallbacks(&s_charCallbacks);
 
+    Serial.println("BLE: Starting server...");
+    _server->start();
 
     Serial.println("BLE: Starting advertising...");
     NimBLEAdvertising* pAdv = NimBLEDevice::getAdvertising();

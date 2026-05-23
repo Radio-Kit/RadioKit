@@ -20,23 +20,14 @@
  *   1. Flash to ESP32
  *   2. Connect to "RobotDrive" in the RadioKit app
  *   3. Use the joystick to drive; tap E-Stop to halt
- *
- * Swap startBLE → startSerial(Serial) for USB testing.
  */
 
 #include <Arduino.h>
-#include <RadioKit.h>
+#include "RadioKit_UI.h"
 
 // ── Pin definitions ───────────────────────────────────────────
 #define PWM_LEFT_PIN  25
 #define PWM_RIGHT_PIN 26
-
-// ── Widget declarations ───────────────────────────────────────────
-//                           label      x    y  size
-RadioKit_Joystick drive     ("Drive",  160,  50,  60);
-RadioKit_Button   eStop     ("E-Stop",  20,  50,  24);
-RadioKit_LED      dirLED    (           20,  20,  14);
-RadioKit_Text     speedText ("Speed",  100,  20,  10);
 
 // ── State ────────────────────────────────────────────────────────────
 bool emergencyStop = false;
@@ -48,11 +39,7 @@ void setup() {
     analogWrite(PWM_LEFT_PIN,  0);
     analogWrite(PWM_RIGHT_PIN, 0);
 
-    RadioKit.startBLE("RobotDrive");
-    
-    // To test over USB Serial: comment out startBLE and uncomment these:
-    // Serial.begin(115200);
-    // RadioKit.startSerial(Serial);
+    initRadioKit();
 }
 
 // ────────────────────────────────────────────────────────────
@@ -60,14 +47,14 @@ void loop() {
     RadioKit.update();
 
     // Emergency stop toggle on each press
-    if (eStop.isPressed()) {
+    if (eStop.clicked()) {
         emergencyStop = !emergencyStop;
     }
 
     if (emergencyStop) {
         analogWrite(PWM_LEFT_PIN,  0);
         analogWrite(PWM_RIGHT_PIN, 0);
-        dirLED.set(RadioKit_LED::RED);
+        dirLED.setColor(RK_RED);
         speedText.set("E-STOP");
         return;
     }
@@ -85,13 +72,13 @@ void loop() {
 
     // Direction LED
     if (jx == 0 && jy == 0) {
-        dirLED.set(RadioKit_LED::OFF);
+        dirLED.setColor(RK_OFF);
     } else if (abs(jx) > abs(jy)) {
-        dirLED.set(RadioKit_LED::YELLOW);
+        dirLED.setColor(RK_YELLOW);
     } else if (jy > 0) {
-        dirLED.set(RadioKit_LED::GREEN);
+        dirLED.setColor(RK_GREEN);
     } else {
-        dirLED.set(RadioKit_LED::RED);
+        dirLED.setColor(RK_RED);
     }
 
     // Speed text

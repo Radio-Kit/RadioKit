@@ -1,12 +1,12 @@
 /**
  * SliderServo — RadioKit Example
  *
- * A slider in the app controls a servo motor angle (0–180°).
+ * A slider in the app controls a servo motor angle (0-180°).
  * A text widget shows the current angle.
  * An LED indicates the position zone:
- *   0–30°   → RED   (left)
- *   31–150°  → GREEN (centre)
- *   151–180° → BLUE  (right)
+ *   0-30°   → RED   (left)
+ *   31-150°  → GREEN (centre)
+ *   151-180° → BLUE  (right)
  *
  * Hardware:
  *   - ESP32 dev board
@@ -22,14 +22,14 @@
  * ───────────────────────────────────────────────────────────────
  *  Editing policy
  *
- *  • Widget positions / labels / transport selection → RadioKitUI.h
+ *  • Widget positions / labels / transport selection → RadioKit_UI.h
  *  • This file: hardware pins, servo driving, and loop() logic only
  * ───────────────────────────────────────────────────────────────
  */
 
 #include <Arduino.h>
 #include <ESP32Servo.h>
-#include "RadioKitUI.h"
+#include "RadioKit_UI.h"
 
 // ── Pin definitions ───────────────────────────────────────────
 #define SERVO_PIN 18
@@ -41,7 +41,7 @@ Servo myServo;
 //  State tracking for zone LED debounce
 // ──────────────────────────────────────────────────────────────
 static int   lastAngle     = -1;
-static uint8_t lastLedColor = 0xFF;
+static uint32_t lastLedColor = 0;
 
 // ──────────────────────────────────────────────────────────────
 void setup()
@@ -53,7 +53,7 @@ void setup()
     delay(2000);
     Serial.println("--- RadioKit SliderServo Start ---");
 
-    initRadioKit();   // <-- all RadioKit init lives in RadioKitUI.cpp
+    initRadioKit();   // all RadioKit init lives in RadioKit_UI.h
 
     zoneLED.off();
     Serial.println("RK: Setup complete.");
@@ -77,7 +77,7 @@ void loop()
     }
 
     // ── Zone LED: update only on zone change ─────────────────
-    uint8_t zoneColor = RK_GREEN;   // default: centre zone
+    uint32_t zoneColor = RK_GREEN;   // default: centre zone
     if      (angle <= 30)   zoneColor = RK_RED;
     else if (angle <= 150)  zoneColor = RK_GREEN;
     else                    zoneColor = RK_BLUE;

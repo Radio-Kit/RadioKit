@@ -12,57 +12,7 @@
  */
 
 #include <Arduino.h>
-#include <RadioKit.h>
-
-// ── Widget declarations ──────────────────────────────────────────────
-
-// 1. Gas Pedal on the left. Springs to -100 (idle) on release.
-RK_GasPedal gasPedal({ .label = "Gas Pedal",
-                       .x = 15,
-                       .y = 60,
-                       .rotation = -90,  // Vertical orientation
-                       .scale = 1.2f,
-                       .aspect = 3.0f,  // Taller slider
-                       .value = -100 });
-
-// 2. Steering Wheel on the right. Springs to 0 (center) on release.
-RK_Knob steeringWheel({ .label = "Steering",
-                        .x = 85,
-                        .y = 60,
-                        .scale = 1.5f,
-                        .centering = RK_CENTER,
-                        .value = 0,
-                        .variant = 0x80 | RK_CENTER, // RK_SHAPE_ALT | RK_CENTER
-                        .startAngle = -150,
-                        .endAngle = 150 });
-
-// 3. Gear Selector (D, P, R)
-RK_MultipleButton driveMode({ .label = "Gear",
-                              .x = 50,
-                              .y = 85,
-                              .scale = 1.0f,
-                              .items = {
-                                { .label = "D", .icon = "drive_eta" },
-                                { .label = "P", .icon = "local_parking" },
-                                { .label = "R", .icon = "settings_backup_restore" } } });
-
-// 4. Lights Control (Multi-select)
-RK_MultipleSelect lights({ .label = "Truck Lights",
-                           .x = 50,
-                           .y = 35,
-                           .scale = 0.9f,
-                           .items = {
-                             { .label = "Head", .icon = "lightbulb" },
-                             { .label = "Fog", .icon = "cloud" },
-                             { .label = "Hazard", .icon = "warning" },
-                             { .label = "Cabin", .icon = "home" } } });
-
-// 5. Status Display at the top center
-RK_Text truckStatus({ .label = "Truck Status",
-                      .x = 50,
-                      .y = 10,
-                      .scale = 1.2f,
-                      .text = "Initializing..." });
+#include "RadioKit_UI.h"
 
 // ── Setup ────────────────────────────────────────────────────────────
 
@@ -71,16 +21,7 @@ void setup() {
   delay(2000);
   Serial.println("--- RadioKit RC Truck Example ---");
 
-  // Optional: Set theme and orientation
-  RadioKit.config.theme = RK_CYBERPUNK;
-  RadioKit.config.orientation = RK_LANDSCAPE;
-  RadioKit.config.description = "Advanced RC Truck Controller";
-
-  // Initialize RadioKit
-  RadioKit.begin();
-
-  // Start BLE advertising as "RC Truck"
-  RadioKit.startBLE("RC Truck");
+  initRadioKit();
 
   truckStatus.set("Ready to Drive");
   Serial.println("System Ready.");

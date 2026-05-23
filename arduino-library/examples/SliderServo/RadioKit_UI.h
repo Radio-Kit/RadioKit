@@ -3,69 +3,38 @@
   "version": 1,
   "config": {
     "name": "ServoControl",
-    "description": "SliderServo — RadioKit widget configuration + transport init.",
+    "description": "SliderServo — servo control via slider",
     "type": "Locomotive",
     "transport": "BLE",
     "theme": "RK_DEFAULT",
     "password": ""
   },
   "canvas": {
-    "size": "200 x 100",
+    "size": [200, 100],
     "grid": "none",
     "skin": "dragon"
   },
   "widgets": [
     {
-      "id": "placeholder_slider",
       "type": "slider",
-      "x": 100,
-      "y": 50,
-      "width": 80,
-      "height": 12,
-      "properties": {
-        "rotation": 0,
-        "label": "Angle",
-        "labelHidden": false,
-        "min": 0,
-        "max": 100,
-        "autoCenter": false,
-        "center": 0.5,
-        "springBehavior": "smooth",
-        "springDuration": 300,
-        "divisions": null
-      }
+      "name": "servoSlider",
+      "label": { "text": "Angle", "show": true },
+      "position": [100, 50, 0],
+      "size": [80, 12]
     },
     {
-      "id": "placeholder_led",
       "type": "led",
-      "x": 20,
-      "y": 20,
-      "height": 14,
-      "properties": {
-        "rotation": 0,
-        "label": "Zone",
-        "labelHidden": false,
-        "state": "on",
-        "shape": "circle",
-        "color": 65280,
-        "timing": 500
-      }
+      "name": "zoneLED",
+      "label": { "text": "Zone", "show": true },
+      "position": [20, 20, 0],
+      "size": [null, 14]
     },
     {
-      "id": "placeholder_text",
       "type": "text",
-      "x": 20,
-      "y": 80,
-      "width": 60,
-      "height": 10,
-      "properties": {
-        "rotation": 0,
-        "label": "Deg",
-        "labelHidden": false,
-        "text": "",
-        "fontSize": 14,
-        "fontFamily": "monospace"
-      }
+      "name": "angleText",
+      "label": { "text": "Deg", "show": true },
+      "position": [20, 80, 0],
+      "size": [60, 10]
     }
   ]
 }
@@ -79,17 +48,35 @@ RadioKit_UI_Designer_Config__*/
 
 #include <RadioKit.h>
 
+// ─── Widget Declarations ───
+RK_Slider servoSlider({
+    .x = 100, .y = 50,
+    .height = 12, .width = 80,
+    .label = "Angle"
+});
 
+RK_LED zoneLED({
+    .x = 20, .y = 20,
+    .height = 14,
+    .label = "Zone"
+});
+
+RK_Text angleText({
+    .x = 20, .y = 80,
+    .height = 10, .width = 60,
+    .label = "Deg"
+});
+
+// ─── Config Init ───
 static inline void initRadioKit()
 {
     RadioKit.config.name        = "ServoControl";
-    RadioKit.config.description = "SliderServo — RadioKit widget configuration + transport init.";
+    RadioKit.config.description = "SliderServo — servo control via slider";
     RadioKit.config.theme       = RK_DEFAULT;
     RadioKit.config.password    = "";
 
     RadioKit.begin();
     RadioKit.startBLE(RadioKit.config.name);
-
 }
 
 #endif // RADIOKIT_UI_H

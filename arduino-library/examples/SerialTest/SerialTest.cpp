@@ -8,68 +8,16 @@
  */
 
 #include <Arduino.h>
-#include <RadioKit.h>
+#include "RadioKit_UI.h"
 
 #define LED_PIN 7
-
-// ── Widget declarations ───────────────────────────────────────────
-RK_PushButton
-    btn({.label = "Press", .icon = "wifi", .x = 20, .y = 60, .scale = 2.0f});
-RK_ToggleButton sw({.label = "LED", .x = 20, .y = 80, .scale = 2.0f});
-RK_SlideSwitch slideSw({.label = "Power",
-                        .icon = "power",
-                        .x = 20,
-                        .y = 40,
-                        .aspect = 2.5f,
-                        .state = false,
-                        .onText = "ON",
-                        .offText = "OFF"});
-RK_Slider sld({.label = "Level",
-               .x = 100,
-               .y = 60,
-               .rotation = 45,
-               .aspect = 8.0f,
-               .value = 0});
-RK_Knob pan({.label = "Pan",
-             .icon = "knob",
-             .x = 170,
-             .y = 40,
-             .scale = 2.0f,
-             .centering = RK_CENTER});
-RK_Knob steering({.label = "Steer",
-                  .icon = "steering",
-                  .x = 170,
-                  .y = 80,
-                  .scale = 2.0f,
-                  .centering = RK_CENTER,
-                  .minAngle = -90,
-                  .maxAngle = 90});
-RK_Joystick joy({.label = "Stick", .x = 160, .y = 70, .scale = 2.0f});
-RK_MultipleButton mode({.label = "Multiple Button",
-                        .x = 60,
-                        .y = 30,
-                        .items = {{.label = "Auto", .icon = "cpu"},
-                                  {.label = "Man", .icon = "hand"}}});
-RK_MultipleSelect opts({.label = "Multiple Select",
-                        .x = 60,
-                        .y = 90,
-                        .items = {{.label = "Log", .icon = "file-text"},
-                                  {.label = "Mute", .icon = "volume-x"}}});
-RK_LED statusLED({.label = "Status", .x = 20, .y = 20, .scale = 1.4f});
-RK_Text uptimeText({.label = "Uptime", .x = 20, .y = 10});
 
 void setup() {
   Serial.begin(115200);
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);
 
-  RadioKit.config.name = "Serial Test v2.0";
-  RadioKit.config.description = "USB Serial Connection Test Example";
-  RadioKit.config.theme = RK_DEFAULT;
-  RadioKit.config.password = "1234";
-
-  RadioKit.begin();
-  RadioKit.startSerial(Serial);
+  initRadioKit();
   Serial.println("RADIOKIT_READY");
 }
 
