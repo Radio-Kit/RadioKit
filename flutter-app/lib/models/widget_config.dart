@@ -1,31 +1,5 @@
 import 'protocol.dart';
 
-// These are the baseline dimensions of each widget at scale=1.0.
-// Resizable widgets (Slider, Text) use both maps. 
-// Non-resizable widgets ignore kWidgetBaseWidth and derive width from height * aspect.
-const Map<int, double> kWidgetBaseHeight = {
-  kWidgetButton:      15.0,
-  kWidgetSlideSwitch:  12.0,
-  kWidgetSlider:      10.0,
-  kWidgetJoystick:    20.0,
-  kWidgetLed:          15.0,
-  kWidgetText:         10.0,
-  kWidgetMultiple:    10.0,
-  kWidgetKnob:        20.0,
-};
-
-const Map<int, double> kWidgetDefaultAspect = {
-  kWidgetButton:      1.0, // Visual Square
-  // kWidgetSwitch:      5.0, // Wide Pill
-  kWidgetSlideSwitch: 2.5,
-  kWidgetSlider:      1.0, 
-  kWidgetJoystick:    1.0, // Visual Square
-  kWidgetLed:         1.0, // Visual Square
-  kWidgetMultiple:    1.0,
-  kWidgetKnob:        1.0, // Visual Square
-  kWidgetText:         5.0,
-};
-
 /// Represents a single item in a Multiple widget.
 class MultipleItem {
   final String label;
@@ -103,46 +77,8 @@ class WidgetConfig {
   /// The float multiplier for height (scaleheight).
   double get heightF => height / 10.0;
 
-  /// Whether this widget supports independent width/height control.
+  /// Whether this widget supports independent width/height control on the device.
   bool get isResizable => typeId == kWidgetSlider || typeId == kWidgetText;
-
-  /// Returns true if this slider is a Gas Pedal variant.
-  bool get isGasPedal => typeId == kWidgetSlider && variantIsAlternateShape(variant);
-
-  /// Returns true if this knob is a Steering Wheel variant.
-  bool get isSteeringWheel => typeId == kWidgetKnob && variantIsAlternateShape(variant);
-
-  /// Returns a full descriptive label for debug mode (e.g. "Knob:Steering").
-  String get debugLabel {
-    final typeName = widgetTypeName(typeId);
-    final variantName = widgetVariantName(typeId, variant);
-    if (variantName.isEmpty) return typeName;
-    return '$typeName:$variantName';
-  }
-
-  /// The intrinsic aspect ratio of this widget.
-  /// For Multiple widgets, this is derived from the number of menu items.
-  double get dynamicAspect {
-    if (typeId == kWidgetMultiple) {
-      final itemsCount = multipleItems.length;
-      return itemsCount > 0 ? itemsCount.toDouble() : 1.0;
-    }
-    return kWidgetDefaultAspect[typeId] ?? 1.0;
-  }
-
-  /// Base height for this widget type in canvas units at scale 1.0.
-  double get baseH => kWidgetBaseHeight[typeId] ?? 10.0;
-
-  /// Base width derived from height and aspect ratio.
-  double get baseW => baseH * dynamicAspect;
-
-  /// Computed height in absolute virtual units for the canvas.
-  double get h => baseH * heightF;
-
-  /// Computed width in absolute virtual units for the canvas.
-  /// For all widgets, width scales with height scale [heightF]. 
-  /// For resizable widgets, the [widthF] acts as an additional multiplier.
-  double get w => baseW * heightF * (isResizable ? widthF : 1.0);
 
   /// Display rotation in degrees (wire stores degrees÷2 as int16).
   double get rotationDegrees => (rotation * 2).toDouble();
@@ -231,8 +167,7 @@ class WidgetConfig {
   @override
   String toString() =>
       'WidgetConfig(id=$widgetId, type=$typeName, label="$label", '
-      'pos=($x,$y), w=$widthF× h=$heightF× → '
-      '${w.toStringAsFixed(1)}×${h.toStringAsFixed(1)}, '
+      'pos=($x,$y), scale=$widthF×$heightF, '
       'style=$style, variant=$variant, rot=$rotationDegrees°)';
 }
 

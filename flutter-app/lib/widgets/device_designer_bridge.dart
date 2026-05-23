@@ -96,6 +96,24 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
         props['mode'] = config.variant == 1 ? 'toggle' : 'push';
       }
 
+      // Use designer defaults as the base size, scaled by wire scale factors.
+      // This ensures Control UI matches Designer Test mode at scale 1.0 while
+      // preserving the device's relative sizing (2× on device = 2× on Flutter).
+      final (defaultW, defaultH) = DesignerElement.defaultSize(type);
+      final h = (defaultH * config.heightF).round();
+      final ar = DesignerElement.aspectRatioFor(type, props);
+      final int w;
+      if (ar == null) {
+        // Free-form: slider, text, gasPedal, multiButton, multiSelect, serialMonitor
+        w = (defaultW * config.heightF * config.widthF).round();
+      } else if (ar >= 0) {
+        // Height is primary (button, slideSwitch, knob, joystick, led)
+        w = (h * ar).round();
+      } else {
+        // Width is primary (rockerSwitch)
+        w = (defaultW * config.heightF).round();
+      }
+
       // Y is flipped here because App is Y-up, Designer is Y-down
       final flippedY = canvasVH - config.y;
 
@@ -104,8 +122,8 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
         config.x.round(),
         flippedY.round(),
         properties: props,
-        width: config.w.round(),
-        height: config.h.round(),
+        width: w,
+        height: h,
       );
 
       _designerState.updateElementRotation(

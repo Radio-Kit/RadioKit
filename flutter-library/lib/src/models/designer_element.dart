@@ -47,7 +47,7 @@ class DesignerElement {
         // Negative  → vertical   (width  is primary, height = width  × |ar|)
         return width >= height ? baseAr : -baseAr;
       default:
-        return _aspectRatioFor(type, properties);
+        return aspectRatioFor(type, properties);
     }
   }
 
@@ -226,7 +226,7 @@ class DesignerElement {
 
   /// Returns the aspect ratio for [type] based on its current [properties],
   /// or `null` for free-form widgets.
-  static double? _aspectRatioFor(
+  static double? aspectRatioFor(
       DesignerElementType type, Map<String, dynamic> properties) {
     switch (type) {
       case DesignerElementType.button:
@@ -723,7 +723,7 @@ class DesignerElement {
       if (rawWidthJson != null) {
         effectiveWidth = rawWidthJson;
       } else {
-        final ar = _aspectRatioFor(parsedType, seeded);
+        final ar = aspectRatioFor(parsedType, seeded);
         if (ar != null) {
           effectiveWidth = (effectiveHeight * ar).round().clamp(1, 999);
         } else {

@@ -62,19 +62,6 @@ const Map<int, int> kWidgetOutputSize = {
   kWidgetKnob:        0,
 };
 
-// Default aspect × 10 per widget type (mirrors Arduino defaultAspect())
-const Map<int, int> kWidgetDefaultAspect = {
-  kWidgetButton:      10,  // 1.0 (square)
-  kWidgetSwitch:      10,  // 1.0
-  kWidgetSlider:      50,  // 5.0 (wide)
-  kWidgetJoystick:    10,  // 1.0 (square)
-  kWidgetLed:         10,  // 1.0
-  kWidgetText:        30,  // 3.0 (wide)
-  kWidgetMultiple:    20,  // 2.0
-  kWidgetSlideSwitch: 25,  // 2.5 (wide track)
-  kWidgetKnob:        10,  // 1.0 (square)
-};
-
 // Protocol version
 const int kProtocolVersion = 0x03;
 
