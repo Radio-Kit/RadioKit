@@ -476,6 +476,7 @@ class _DemoScreenState extends State<DemoScreen> {
                   index: 1,
                   title: 'PUSH BUTTON',
                   liveWidget: RKButton(
+                    value: value,
                     onText: _switchOnText,
                     offText: _switchOffText,
                     onIcon: _switchOnIcon,
@@ -516,6 +517,7 @@ class _DemoScreenState extends State<DemoScreen> {
                   index: 2,
                   title: 'TOGGLE BUTTON',
                   liveWidget: RKButton(
+                    value: value,
                     onText: _switchOnText,
                     offText: _switchOffText,
                     onIcon: _switchOnIcon,

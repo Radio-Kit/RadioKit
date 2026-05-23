@@ -7,12 +7,15 @@ class SettingsProvider with ChangeNotifier {
   static const _storageKey = 'radiokit_settings';
   static const _defaultShowDemo = true;
   static const _defaultUseFullscreen = false;
+  static const _defaultEnableDevTools = true;
 
   bool _showDemo = _defaultShowDemo;
   bool _useFullscreen = _defaultUseFullscreen;
+  bool _enableDevTools = _defaultEnableDevTools;
 
   bool get showDemo => _showDemo;
   bool get useFullscreen => _useFullscreen;
+  bool get enableDevTools => _enableDevTools;
 
   SettingsProvider() {
     _loadSettings();
@@ -34,6 +37,14 @@ class SettingsProvider with ChangeNotifier {
     }
   }
 
+  Future<void> setEnableDevTools(bool value) async {
+    if (_enableDevTools != value) {
+      _enableDevTools = value;
+      notifyListeners();
+      await _persist();
+    }
+  }
+
   Future<void> _loadSettings() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -42,6 +53,7 @@ class SettingsProvider with ChangeNotifier {
         final decoded = Map<String, dynamic>.from(jsonDecode(data));
         _showDemo = decoded['showDemo'] ?? _defaultShowDemo;
         _useFullscreen = decoded['useFullscreen'] ?? _defaultUseFullscreen;
+        _enableDevTools = decoded['enableDevTools'] ?? _defaultEnableDevTools;
       }
     } catch (e) {
       debugPrint('RadioKit: Failed to load settings: $e');
@@ -54,6 +66,7 @@ class SettingsProvider with ChangeNotifier {
       final data = jsonEncode({
         'showDemo': _showDemo,
         'useFullscreen': _useFullscreen,
+        'enableDevTools': _enableDevTools,
       });
       await prefs.setString(_storageKey, data);
     } catch (e) {

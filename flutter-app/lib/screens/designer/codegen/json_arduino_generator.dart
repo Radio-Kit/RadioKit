@@ -37,6 +37,8 @@ class JsonArduinoGenerator {
     final transport = (config['transport'] as String? ?? 'BLE').toLowerCase();
     if (transport == 'ble') {
       buf.writeln('  RadioKit.startBLE(RadioKit.config.name);');
+    } else {
+      buf.writeln('  RadioKit.config.transport = RK_TRANSPORT_SERIAL;');
     }
     buf.writeln('}');
     buf.writeln();
@@ -55,7 +57,6 @@ class JsonArduinoGenerator {
     final type = config['type'] as String? ?? '';
     final theme = config['theme'] as String? ?? 'RK_DEFAULT';
     final password = config['password'] as String? ?? '';
-    final transport = (config['transport'] as String? ?? 'BLE').toLowerCase();
 
     if (name.isNotEmpty) {
       buf.writeln('${indent}RadioKit.config.name        = "${_escapeC(name)}";');
@@ -70,9 +71,6 @@ class JsonArduinoGenerator {
     buf.writeln('${indent}RadioKit.config.theme       = $theme;');
     if (password.isNotEmpty) {
       buf.writeln('${indent}RadioKit.config.password    = "${_escapeC(password)}";');
-    }
-    if (transport != 'ble') {
-      buf.writeln('${indent}RadioKit.config.transport   = SerialTransport;');
     }
   }
 
@@ -121,7 +119,7 @@ class JsonArduinoGenerator {
         final buf = StringBuffer();
         buf.writeln('$widgetType $name {');
         buf.writeln('    .x = $x, .y = $y,');
-        buf.writeln('    .width = $cppW, .height = $cppH,');
+        buf.writeln('    .height = $cppH, .width = $cppW,');
         buf.writeln('    .rotation = $rotation');
         buf.writeln('};$comment');
         buf.writeln('  $name.setOnText("${_escapeC(onText)}");');
@@ -135,7 +133,7 @@ class JsonArduinoGenerator {
         return '''
 RK_SlideSwitch $name {
     .x = $x, .y = $y,
-    .width = $cppW, .height = $cppH,
+    .height = $cppH, .width = $cppW,
     .rotation = $rotation
 };$comment
   $name.setOnText("${_escapeC(onText)}");
@@ -146,7 +144,7 @@ RK_SlideSwitch $name {
         return '''
 RK_RockerSwitch $name {
     .x = $x, .y = $y,
-    .width = $cppW, .height = $cppH,
+    .height = $cppH, .width = $cppW,
     .rotation = $rotation
 };$comment''';
       }
@@ -172,7 +170,7 @@ RK_RockerSwitch $name {
         final buf = StringBuffer();
         buf.writeln('RK_Joystick $name {');
         buf.writeln('    .x = $x, .y = $y,');
-        buf.writeln('    .width = $cppW, .height = $cppH,');
+        buf.writeln('    .height = $cppH, .width = $cppW,');
         buf.writeln('    .rotation = $rotation');
         buf.writeln('};$comment');
         buf.writeln('  $name.props.centering = ${_centeringEnum(acList)};');
@@ -197,7 +195,7 @@ RK_RockerSwitch $name {
         return '''
 RK_LED $name {
     .x = $x, .y = $y,
-    .width = $cppW, .height = $cppH,
+    .height = $cppH, .width = $cppW,
     .rotation = $rotation
 };$comment
   $name.setColor(0x$colorHex);''';
@@ -208,7 +206,7 @@ RK_LED $name {
         return '''
 RK_Text $name {
     .x = $x, .y = $y,
-    .width = $cppW, .height = $cppH,
+    .height = $cppH, .width = $cppW,
     .rotation = $rotation
 };$comment
   $name.set("${_escapeC(text)}");''';
@@ -218,7 +216,7 @@ RK_Text $name {
         return '''
 RK_SerialMonitor $name {
     .x = $x, .y = $y,
-    .width = $cppW, .height = $cppH,
+    .height = $cppH, .width = $cppW,
     .rotation = $rotation
 };$comment''';
       }
@@ -235,7 +233,7 @@ RK_SerialMonitor $name {
     return '''
 RK_Slider $name {
     .x = $x, .y = $y,
-    .width = $w, .height = $h,
+    .height = $h, .width = $w,
     .rotation = $rot
 };$comment
   $name.props.centering = ${_centeringEnum(ac)};''';
@@ -246,7 +244,7 @@ RK_Slider $name {
     return '''
 RK_GasPedal $name {
     .x = $x, .y = $y,
-    .width = $w, .height = $h,
+    .height = $h, .width = $w,
     .rotation = $rot
 };$comment
   $name.props.centering = ${_centeringEnum(ac)};''';
@@ -259,7 +257,7 @@ RK_GasPedal $name {
     return '''
 RK_Knob $name {
     .x = $x, .y = $y,
-    .width = $w, .height = $h,
+    .height = $h, .width = $w,
     .rotation = $rot
 };$comment
   $name.props.centering = ${_centeringEnum(ac)};
@@ -274,7 +272,7 @@ RK_Knob $name {
     return '''
 RK_Knob $name {
     .x = $x, .y = $y,
-    .width = $w, .height = $h,
+    .height = $h, .width = $w,
     .rotation = $rot
 };$comment
   $name.props.variant = 1;     // steeringWheel
@@ -289,7 +287,7 @@ RK_Knob $name {
     final buf = StringBuffer();
     buf.writeln('$widgetType $name {');
     buf.writeln('    .x = $x, .y = $y,');
-    buf.writeln('    .width = $w, .height = $h,');
+    buf.writeln('    .height = $h, .width = $w,');
     buf.writeln('    .rotation = $rot');
     buf.writeln('};$comment');
 

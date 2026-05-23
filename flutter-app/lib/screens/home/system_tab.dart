@@ -249,6 +249,22 @@ class SystemTab extends StatelessWidget {
                 ),
               ],
             ),
+            const Divider(height: 32, color: Colors.white10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Expanded(
+                  child: _SettingLabel(label: 'ENABLE_DEV_TOOLS', value: 'Show Dev Tools tab'),
+                ),
+                Consumer<SettingsProvider>(
+                  builder: (context, settings, _) => Switch(
+                    value: settings.enableDevTools,
+                    onChanged: (v) => settings.setEnableDevTools(v),
+                    activeThumbColor: AppColors.brandOrange,
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),

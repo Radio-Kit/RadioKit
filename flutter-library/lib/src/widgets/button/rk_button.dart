@@ -10,6 +10,7 @@ enum RKButtonMode { push, toggle }
 class RKButton extends StatefulWidget {
   const RKButton({
     super.key,
+    this.value = false,
     required this.onChanged,
     this.mode = RKButtonMode.push,
     this.onText,
@@ -27,6 +28,7 @@ class RKButton extends StatefulWidget {
   /// The fixed aspect ratio (width/height) for this widget.
   static const double? aspectRatio = 1.0;
 
+  final bool value;
   final ValueChanged<bool> onChanged;
   final RKButtonMode mode;
   final String? onText;
@@ -47,6 +49,7 @@ class RKButton extends StatefulWidget {
 class _RKButtonState extends State<RKButton> with SingleTickerProviderStateMixin {
   bool _pressed = false;
   bool _isLatched = false;
+  bool _pendingAutoReverse = false;
   late final AnimationController _glowController;
 
   @override
@@ -57,10 +60,51 @@ class _RKButtonState extends State<RKButton> with SingleTickerProviderStateMixin
       duration: const Duration(milliseconds: 200),
       reverseDuration: const Duration(milliseconds: 300),
     );
+    _glowController.addStatusListener(_onGlowStatusChanged);
+    if (widget.mode == RKButtonMode.toggle && widget.value) {
+      _isLatched = true;
+      _glowController.value = 1.0;
+    }
+  }
+
+  void _onGlowStatusChanged(AnimationStatus status) {
+    if (status == AnimationStatus.completed && _pendingAutoReverse) {
+      _pendingAutoReverse = false;
+      widget.onChanged(false);
+      setState(() => _pressed = false);
+      _glowController.reverse();
+    }
+  }
+
+  @override
+  void didUpdateWidget(RKButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value) {
+      if (widget.mode == RKButtonMode.toggle) {
+        _isLatched = widget.value;
+        if (_isLatched) {
+          _glowController.forward();
+        } else {
+          _glowController.reverse();
+        }
+      } else {
+        if (_glowController.isAnimating) return;
+        if (widget.value) {
+          setState(() => _pressed = true);
+          _pendingAutoReverse = true;
+          _glowController.forward();
+        } else {
+          _pendingAutoReverse = false;
+          setState(() => _pressed = false);
+          _glowController.reverse();
+        }
+      }
+    }
   }
 
   @override
   void dispose() {
+    _glowController.removeStatusListener(_onGlowStatusChanged);
     _glowController.dispose();
     super.dispose();
   }
@@ -221,6 +265,7 @@ class _RKButtonState extends State<RKButton> with SingleTickerProviderStateMixin
   }
 
   void _handleDown() {
+    _pendingAutoReverse = false;
     if (widget.enableHapticFeedback) HapticFeedback.lightImpact();
     setState(() => _pressed = true);
     widget.onInteractionChanged?.call(true);
