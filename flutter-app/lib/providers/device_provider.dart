@@ -367,6 +367,8 @@ class DeviceProvider extends ChangeNotifier {
     switch (name) {
       case 'button':
         return kWidgetButton;
+      case 'rockerSwitch':
+      case 'switch':
       case 'slideSwitch':
         return kWidgetSlideSwitch;
       case 'slider':

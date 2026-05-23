@@ -110,7 +110,7 @@ Initialises BLE (NimBLE) and starts advertising.
 void startBLE(const char* deviceName = nullptr);
 ```
 
-- **`deviceName`** — Overrides `config.name` for BLE advertising. If `nullptr`, uses `config.name`.
+- **`deviceName`** — Overrides `config.name` for BLE advertising. If `nullptr`, uses `config.name`. The advertised name is automatically prefixed with `RK_` for app filtering; `config.name` (without prefix) is sent in CONF_DATA and displayed in the app UI.
 - Uses NimBLE on ESP32, Nordic SoftDevice on nRF52.
 - Service UUID: `0000FFE0-0000-1000-8000-00805F9B34FB`
 - Characteristic UUID: `0000FFE1-0000-1000-8000-00805F9B34FB`

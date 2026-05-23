@@ -64,9 +64,14 @@ void RadioKitClass::pushMetaUpdate(uint8_t widgetId) {
 }
 
 void RadioKitClass::startBLE(const char* deviceName) {
-    const char* name = (deviceName && deviceName[0] != '\0') ? deviceName : config.name;
+    const char* baseName = (deviceName && deviceName[0] != '\0') ? deviceName : config.name;
+    // Prefix "RK_" to the BLE broadcast name so the app can reliably filter
+    // by name prefix. The config.name (without prefix) is sent in CONF_DATA
+    // and displayed in the app UI.
+    static char bleAdvName[RADIOKIT_MAX_NAME + 4]; // 3 for "RK_" + null
+    snprintf(bleAdvName, sizeof(bleAdvName), "RK_%s", baseName ? baseName : "RadioKit");
     _transport = &RadioKitBLEInstance;
-    _transport->begin(name, RadioKitClass::_onPacket);
+    _transport->begin(bleAdvName, RadioKitClass::_onPacket);
 }
 
 void RadioKitClass::startSerial(Stream& stream) {

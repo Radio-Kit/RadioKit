@@ -153,19 +153,20 @@ class BleService implements TransportService {
 
     UniversalBle.onScanResult = (BleDevice result) {
       final id = result.deviceId;
-      final name = result.name ?? 'Unknown';
-      
-      // Manual filter for RadioKit device by name or service UUID (if available)
-      bool isRadioKit = name.toLowerCase().contains('radiokit') || 
-                        name.toLowerCase().contains('lightswitch') || // User's custom name
-                        result.services.any((s) => s.toLowerCase() == kRadioKitServiceUuid.toLowerCase());
+      final rawName = result.name ?? '';
 
-      if (isRadioKit && !seen.contains(id)) {
+      // All RadioKit devices advertise with the "RK_" prefix.
+      // Filter by that prefix — no hardcoded device names needed.
+      if (!rawName.startsWith('RK_')) return;
+
+      if (!seen.contains(id)) {
         seen.add(id);
-        debugPrint('BLE_SERVICE: Found RadioKit device: $name ($id)');
+        // Strip the "RK_" prefix for display in the app UI.
+        final displayName = rawName.substring(3);
+        debugPrint('BLE_SERVICE: Found RadioKit device: $displayName ($id)');
         final info = DeviceInfo(
           id: id,
-          name: name,
+          name: displayName,
           rssi: result.rssi ?? -100,
         );
         if (!controller.isClosed) {
@@ -174,8 +175,12 @@ class BleService implements TransportService {
       }
     };
 
+    // Scan all devices — filtering is done by name prefix above.
+    // A hardware ScanFilter(withServices:) would be ideal but can miss devices
+    // on some Android versions when the service UUID is in the scan response
+    // rather than the primary advertisement packet.
     UniversalBle.startScan(
-      scanFilter: ScanFilter(), // No hardware filter, we filter in code
+      scanFilter: ScanFilter(),
     ).then((_) {
       debugPrint('BLE_SERVICE: UniversalBle.startScan success');
     }).catchError((error) {

@@ -96,23 +96,18 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
         props['mode'] = config.variant == 1 ? 'toggle' : 'push';
       }
 
-      // We manually add the element to bypass the undo stack overhead and constraints
       // Y is flipped here because App is Y-up, Designer is Y-down
       final flippedY = canvasVH - config.y;
-      
+
       _designerState.addElement(
         type,
         config.x.round(),
         flippedY.round(),
         properties: props,
-      );
-
-      // Force update dimensions and rotation
-      _designerState.updateElementSize(
-        _designerState.elements.last.id,
         width: config.w.round(),
         height: config.h.round(),
       );
+
       _designerState.updateElementRotation(
         _designerState.elements.last.id,
         config.rotationDegrees.round(),
@@ -135,7 +130,7 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
     for (final el in _designerState.elements) {
       final widgetId = int.tryParse(el.label) ?? 0;
       final config = widget.deviceProvider.widgets.firstWhere((w) => w.widgetId == widgetId, orElse: () => const WidgetConfig(typeId: 0, widgetId: 0, x: 0, y: 0, width: 0, height: 0));
-      if (config.widgetId == 0) continue;
+      if (config.typeId == 0) continue;
 
       if (config.typeId == kWidgetLed) {
         final outValues = state.outputValues[widgetId];
@@ -193,10 +188,9 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
   void _onWidgetValueChanged(String id, dynamic value) {
     final el = _designerState.elements.firstWhere((e) => e.id == id);
     final widgetId = int.tryParse(el.label) ?? 0;
-    if (widgetId == 0) return;
 
     final config = widget.deviceProvider.widgets.firstWhere((w) => w.widgetId == widgetId, orElse: () => const WidgetConfig(typeId: 0, widgetId: 0, x: 0, y: 0, width: 0, height: 0));
-    if (config.widgetId == 0) return;
+    if (config.typeId == 0) return;
 
     List<int> payload = [0];
 

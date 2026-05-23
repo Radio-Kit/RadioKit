@@ -54,7 +54,7 @@ RadioKit_UI_Designer_Config__*/
 #include <RadioKit.h>
 
 // ─── Widget Declarations ───
-RK_RockerSwitch slide_switch_1({
+RK_SlideSwitch slide_switch_1({
     .x = 102, .y = 52,
     .height = 40, .width = 0,
     .rotation = 0
@@ -63,12 +63,12 @@ RK_RockerSwitch slide_switch_1({
 // ─── Config Init ───
 static inline void initRadioKit() {
   RadioKit.config.name        = "Basic_Switch";
+  RadioKit.config.description = "Simple switch example to control a LED";
   RadioKit.config.type        = "IOT";
   RadioKit.config.theme       = RK_DEFAULT;
 
   RadioKit.begin();
-  RadioKit.startSerial(Serial);
+  RadioKit.startBLE(RadioKit.config.name);
 }
 
 #endif // RADIOKIT_UI_H
-

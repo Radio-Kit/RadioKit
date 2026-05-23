@@ -144,8 +144,8 @@ class WidgetConfig {
   /// For resizable widgets, the [widthF] acts as an additional multiplier.
   double get w => baseW * heightF * (isResizable ? widthF : 1.0);
 
-  /// Display rotation in degrees.
-  double get rotationDegrees => rotation.toDouble();
+  /// Display rotation in degrees (wire stores degrees÷2 as int16).
+  double get rotationDegrees => (rotation * 2).toDouble();
 
 
   const WidgetConfig({

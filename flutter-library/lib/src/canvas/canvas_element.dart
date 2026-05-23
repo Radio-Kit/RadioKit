@@ -28,24 +28,15 @@ class CanvasElement extends StatelessWidget {
     final cs = _cellSize;
     final rotationRad = element.rotation * math.pi / 180;
 
-    if (isPlayMode) {
-      Widget w = _buildWidget(context);
-      if (rotationRad != 0) {
-        w = Transform.rotate(angle: rotationRad, child: w);
-      }
-      return w;
-    }
-
-    // Use the rendered size so the bounding box matches the debug overlay.
-    // For fixed-aspect-ratio widgets (button, knob, etc.) this is square:
-    // min(width, height) × min(width, height).
     final (rw, rh) = element.renderedGridSize;
     final rWpx = rw.toDouble() * cs;
     final rHpx = rh.toDouble() * cs;
 
-    Widget child = IgnorePointer(
-      child: _buildWidget(context),
-    );
+    Widget child = _buildWidget(context);
+
+    if (!isPlayMode) {
+      child = IgnorePointer(child: child);
+    }
 
     child = SizedBox(
       width: rWpx,
@@ -53,11 +44,6 @@ class CanvasElement extends StatelessWidget {
       child: child,
     );
 
-    // Rotate the entire widget together. Rotation is applied here so individual
-    // widgets don't need to handle it, avoiding double-rotation.
-    // The pivot is Alignment.center to match the handle position calculation
-    // in designer_canvas.dart, which rotates debug-box corners around the
-    // element centre.
     if (rotationRad != 0) {
       child = Transform.rotate(
         angle: rotationRad,

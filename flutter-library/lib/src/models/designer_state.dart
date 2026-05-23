@@ -112,9 +112,12 @@ class DesignerState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void addElement(DesignerElementType type, int x, int y, {Map<String, dynamic>? properties}) {
+  void addElement(DesignerElementType type, int x, int y,
+      {Map<String, dynamic>? properties, int? width, int? height}) {
     _pushUndo();
-    final (w, h) = DesignerElement.defaultSize(type);
+    final (dw, dh) = DesignerElement.defaultSize(type);
+    final w = width ?? dw;
+    final h = height ?? dh;
     final halfW = w ~/ 2;
     final halfH = h ~/ 2;
     final autoLabel = _generateAutoLabel(type);

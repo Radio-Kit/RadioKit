@@ -32,7 +32,7 @@
 #include "RadioKit_UI.h"
 
 // ── Pin definitions ───────────────────────────────────────────
-#define SERVO_PIN 18
+#define SERVO_PIN 5
 
 // ── Servo object ────────────────────────────────────────────────
 Servo myServo;

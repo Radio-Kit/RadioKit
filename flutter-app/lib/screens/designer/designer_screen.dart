@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
+import 'package:share_plus/share_plus.dart';
 import 'utils/file_download.dart';
 import 'widgets/designer_widget_dialog.dart';
 import 'widgets/designer_inspector.dart';
@@ -173,54 +174,58 @@ class _DesignerScreenState extends State<DesignerScreen> {
   // ── Top bar ──────────────────────────────────────────────────────────────
 
   Widget _buildTopBar(RKTokens tokens) {
+    final topPad = MediaQuery.of(context).padding.top;
     return Container(
-      height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: EdgeInsets.fromLTRB(24, topPad, 24, 0),
       decoration: const BoxDecoration(
         color: Color(0xFF111111),
         border: Border(bottom: BorderSide(color: Color(0xFF222222), width: 1)),
       ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: Icon(LucideIcons.arrowLeft, color: tokens.primary, size: 20),
-            onPressed: () => _handleBack(context),
-          ),
-          const SizedBox(width: 8),
-          ListenableBuilder(
-            listenable: _state,
-            builder: (context, _) => Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _state.modelName.isNotEmpty
-                      ? _state.modelName
-                      : 'Untitled Project',
-                  style: TextStyle(
-                    color: tokens.primary,
-                    fontSize: 18,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon:
-                      Icon(LucideIcons.pencil, size: 16, color: tokens.primary),
-                  onPressed: () => _editProjectName(context),
-                  tooltip: 'Edit Project Name',
-                ),
-              ],
+      child: SizedBox(
+        height: 56,
+        child: Row(
+          children: [
+            IconButton(
+              icon:
+                  Icon(LucideIcons.arrowLeft, color: tokens.primary, size: 20),
+              onPressed: () => _handleBack(context),
             ),
-          ),
-          const Spacer(),
-          _buildPlayModeButton(tokens),
-          const SizedBox(width: 12),
-          _buildUndoRedoButtons(tokens),
-          const SizedBox(width: 8),
-          _buildSaveButton(tokens),
-        ],
+            const SizedBox(width: 8),
+            ListenableBuilder(
+              listenable: _state,
+              builder: (context, _) => Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _state.modelName.isNotEmpty
+                        ? _state.modelName
+                        : 'Untitled Project',
+                    style: TextStyle(
+                      color: tokens.primary,
+                      fontSize: 18,
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: Icon(LucideIcons.pencil,
+                        size: 16, color: tokens.primary),
+                    onPressed: () => _editProjectName(context),
+                    tooltip: 'Edit Project Name',
+                  ),
+                ],
+              ),
+            ),
+            const Spacer(),
+            _buildPlayModeButton(tokens),
+            const SizedBox(width: 12),
+            _buildUndoRedoButtons(tokens),
+            const SizedBox(width: 8),
+            _buildSaveButton(tokens),
+          ],
+        ),
       ),
     );
   }
@@ -694,10 +699,8 @@ class _DesignerScreenState extends State<DesignerScreen> {
       RegExp(r'\[\s*\n((?:\s*[^\[\]\{\}]+,\s*\n)+)\s*\]'),
       (m) {
         final inner = m.group(1)!;
-        final parts = inner
-            .split(RegExp(r',\s*\n\s*'))
-            .map((s) => s.trim())
-            .join(', ');
+        final parts =
+            inner.split(RegExp(r',\s*\n\s*')).map((s) => s.trim()).join(', ');
         return '[$parts]';
       },
     );
@@ -804,6 +807,14 @@ class _DesignerScreenState extends State<DesignerScreen> {
     return spans;
   }
 
+  /// Builds the complete RadioKit_UI.h content: JSON config block + Arduino code.
+  String _buildFullHeader() {
+    const encoder = JsonEncoder.withIndent('  ');
+    final json = encoder.convert(_state.toJson());
+    final arduino = _generateArduinoHeader();
+    return '/*__RadioKit_UI_Designer_Config__\n$json\nRadioKit_UI_Designer_Config__*/\n$arduino';
+  }
+
   // ── Code generation dialog ───────────────────────────────────────────────
 
   void _showSourceCode(BuildContext context, RKTokens tokens) {
@@ -860,11 +871,12 @@ class _DesignerScreenState extends State<DesignerScreen> {
                         // COPY
                         GestureDetector(
                           onTap: () {
-                            Clipboard.setData(ClipboardData(text: jsonString));
+                            Clipboard.setData(
+                                ClipboardData(text: _buildFullHeader()));
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                   content: SelectableText(
-                                      'Config copied to clipboard')),
+                                      'RadioKit_UI.h copied to clipboard')),
                             );
                           },
                           child: Container(
@@ -896,12 +908,8 @@ class _DesignerScreenState extends State<DesignerScreen> {
                         // SHARE
                         GestureDetector(
                           onTap: () {
-                            _autoSaveToApp();
-                            Navigator.of(ctx).pop();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: SelectableText('Design saved')),
-                            );
+                            Share.share(_buildFullHeader(),
+                                subject: 'RadioKit_UI.h');
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(
@@ -932,10 +940,10 @@ class _DesignerScreenState extends State<DesignerScreen> {
                         const SizedBox(width: 8),
                         // DOWNLOAD .h
                         GestureDetector(
-                          onTap: () {
-                            final wrapped =
-                                '/*__RadioKit_UI_Designer_Config__\n$jsonString\nRadioKit_UI_Designer_Config__*/';
-                            downloadFile('RadioKit_UI.h', wrapped);
+                          onTap: () async {
+                            await downloadFile(
+                                'RadioKit_UI.h', _buildFullHeader());
+                            if (!context.mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                   content: SelectableText(
@@ -1009,9 +1017,10 @@ class _DesignerScreenState extends State<DesignerScreen> {
                                             'JSON config copied to clipboard')),
                                   );
                                 },
-                                onDownload: () {
-                                  downloadFile(
+                                onDownload: () async {
+                                  await downloadFile(
                                       'RadioKit_UI.json', jsonString);
+                                  if (!context.mounted) return;
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
                                         content: SelectableText(
@@ -1045,8 +1054,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                                 label: 'ARDUINO CODE',
                                 tokens: tokens,
                                 onCopy: () {
-                                  final arduinoCode =
-                                      _generateArduinoHeader();
+                                  final arduinoCode = _generateArduinoHeader();
                                   Clipboard.setData(
                                       ClipboardData(text: arduinoCode));
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -1079,48 +1087,49 @@ class _DesignerScreenState extends State<DesignerScreen> {
   }
 }
 
-  /// Shared pane header builder with copy icon button and optional download.
-  Widget _buildPaneHeader({
-    required IconData icon,
-    required String label,
-    required RKTokens tokens,
-    required VoidCallback onCopy,
-    VoidCallback? onDownload,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      decoration: const BoxDecoration(
-        color: Color(0xFF181818),
-        border: Border(bottom: BorderSide(color: Color(0xFF2A2A2A))),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: tokens.primary, size: 14),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFFAAAAAA),
-              fontSize: 11,
-              fontFamily: 'monospace',
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.5,
-            ),
+/// Shared pane header builder with copy icon button and optional download.
+Widget _buildPaneHeader({
+  required IconData icon,
+  required String label,
+  required RKTokens tokens,
+  required VoidCallback onCopy,
+  VoidCallback? onDownload,
+}) {
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+    decoration: const BoxDecoration(
+      color: Color(0xFF181818),
+      border: Border(bottom: BorderSide(color: Color(0xFF2A2A2A))),
+    ),
+    child: Row(
+      children: [
+        Icon(icon, color: tokens.primary, size: 14),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Color(0xFFAAAAAA),
+            fontSize: 11,
+            fontFamily: 'monospace',
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
           ),
-          const Spacer(),
-          GestureDetector(
-            onTap: onCopy,
-            child: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF222222),
-                borderRadius: BorderRadius.circular(2),
-              ),
-              child: Icon(Icons.copy, color: tokens.primary, size: 13),
+        ),
+        const Spacer(),
+        GestureDetector(
+          onTap: onCopy,
+          child: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: const Color(0xFF222222),
+              borderRadius: BorderRadius.circular(2),
             ),
+            child: Icon(Icons.copy, color: tokens.primary, size: 13),
           ),
-          if (onDownload != null) ...[const SizedBox(width: 6),
+        ),
+        if (onDownload != null) ...[
+          const SizedBox(width: 6),
           GestureDetector(
             onTap: onDownload,
             child: Container(
@@ -1129,13 +1138,15 @@ class _DesignerScreenState extends State<DesignerScreen> {
                 color: const Color(0xFF222222),
                 borderRadius: BorderRadius.circular(2),
               ),
-              child: Icon(LucideIcons.download, color: tokens.primary, size: 13),
+              child:
+                  Icon(LucideIcons.download, color: tokens.primary, size: 13),
             ),
-          )],
+          )
         ],
-      ),
-    );
-  }
+      ],
+    ),
+  );
+}
 
 class _IconButton extends StatelessWidget {
   final IconData icon;
