@@ -7,7 +7,7 @@
 #include <string.h>
 
 // ── Debug logging (enabled by default for debugging) ────────────────────
-// Set to 0 to disable verbose debug output
+// Set to 1 to enable verbose debug output
 #define RK_DEBUG_VERBOSE 1
 
 #if RK_DEBUG_VERBOSE
@@ -85,10 +85,8 @@ void RadioKitClass::update() {
                 uint8_t currentBuf[4] = {0};
                 w->serializeInput(currentBuf);
                 bool match = (memcmp(currentBuf, _shadowInput[i], inSz) == 0);
-                RK_DEBUG_PRINT("[DBG] update shadow[%d]: cur=%d shadow=%d match=%d\n",
-                    i, currentBuf[0], _shadowInput[i][0], match);
                 if (!match) {
-                    RK_DEBUG_PRINT("[DBG]   -> shadow MISMATCH! Updating and pushing\n");
+                    RK_DEBUG_PRINT("[DBG]   -> shadow MISMATCH for widget %d! Updating and pushing\n", i);
                     memcpy(_shadowInput[i], currentBuf, inSz);
                     pushUpdate(i);
                 }
@@ -97,7 +95,6 @@ void RadioKitClass::update() {
     }
 
     if (_pendingUpdatesMask != 0 && _transport && _transport->isConnected()) {
-        RK_DEBUG_PRINT("[DBG] _pendingUpdatesMask=0x%08lX\n", (unsigned long)_pendingUpdatesMask);
         if ((_pendingUpdatesMask & (1UL << _varUpdateId)) == 0) {
             // Current ID was ACKed or dropped. Pick next.
             for (uint8_t i = 0; i < 32; i++) {

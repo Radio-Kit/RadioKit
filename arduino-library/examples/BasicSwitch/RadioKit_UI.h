@@ -5,7 +5,7 @@
     "name": "Basic_Switch",
     "description": "",
     "type": "IOT",
-    "transport": "BLE",
+    "transport": "Serial",
     "theme": "RK_DEFAULT",
     "password": ""
   },
@@ -67,7 +67,7 @@ static inline void initRadioKit() {
   RadioKit.config.theme       = RK_DEFAULT;
 
   RadioKit.begin();
-  RadioKit.startBLE(RadioKit.config.name);
+  RadioKit.startSerial(Serial);
 }
 
 #endif // RADIOKIT_UI_H

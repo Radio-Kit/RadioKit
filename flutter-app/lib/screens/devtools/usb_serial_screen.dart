@@ -63,6 +63,7 @@ class _UsbSerialScreenState extends State<UsbSerialScreen> {
     '230400',
     '460800',
     '921600',
+    '1000000',
   ];
 
   @override

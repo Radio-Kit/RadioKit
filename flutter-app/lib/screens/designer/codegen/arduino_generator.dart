@@ -34,7 +34,7 @@ class ArduinoGenerator {
     }
 
     buf.writeln('void setup() {');
-    buf.writeln('  Serial.begin(115200);');
+    buf.writeln('  Serial.begin(1000000);');
     buf.writeln();
     buf.writeln('  // TODO: Initialize RadioKit with your transport');
     buf.writeln('  // RadioKit.begin(bleTransport);');

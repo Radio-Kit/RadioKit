@@ -60,7 +60,7 @@ class DebugTransport implements TransportService {
   bool get isConnected => _inner.isConnected;
 
   @override
-  Future<void> connect(String deviceId, {int baudRate = 115200}) =>
+  Future<void> connect(String deviceId, {int baudRate = 1000000}) =>
       _inner.connect(deviceId, baudRate: baudRate);
 
   @override

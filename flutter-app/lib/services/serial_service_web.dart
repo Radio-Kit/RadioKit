@@ -16,14 +16,14 @@ export 'transport_service.dart';
 /// Flow:
 ///   1. [listPorts] → calls `serial.requestPort(null)` — shows the browser
 ///      port picker once and yields the selected port as a [DeviceInfo].
-///   2. [connect] → opens the port at 115200 baud and starts the read loop.
+///   2. [connect] → opens the port at 1000000 baud and starts the read loop.
 ///   3. [writePacket] → locks the writable stream, writes, then releases lock.
 ///
 /// [isConnected] returns true for [_kSessionTimeout] after the last valid
 /// packet — matching the Arduino firmware's 3-second keep-alive window.
 class SerialService implements TransportService {
   static const _kSessionTimeout = Duration(seconds: 3);
-  static const _kDefaultBaud = 115200;
+  static const _kDefaultBaud = 1000000;
 
   @override PacketReceivedCallback? onPacketReceived;
   @override ConnectionLostCallback? onConnectionLost;
@@ -147,12 +147,10 @@ class SerialService implements TransportService {
     _connected = false;
     _reading = true;
 
-    // Assert DTR/RTS to standard "Terminal Ready" states
-    // Important for Native USB CDC devices so they know a host is listening
     try {
       await port.setSignals(JSSerialOutputSignals(
         dataTerminalReady: true,
-        requestToSend: true,
+        requestToSend: false,
       )).toDart;
     } catch (_) {}
 
@@ -282,9 +280,13 @@ class SerialService implements TransportService {
     _reading = false;
     _connected = false;
     _sessionTimer?.cancel();
-    try { _port?.close().toDart; } catch (_) {}
-    _port = null;
-    onConnectionLost?.call(reason);
+    disconnect().then((_) {
+      _port = null;
+      onConnectionLost?.call(reason);
+    }).catchError((_) {
+      _port = null;
+      onConnectionLost?.call(reason);
+    });
   }
 
   @override

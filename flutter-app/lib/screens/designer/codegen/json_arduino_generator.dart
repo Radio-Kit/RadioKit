@@ -38,7 +38,7 @@ class JsonArduinoGenerator {
     if (transport == 'ble') {
       buf.writeln('  RadioKit.startBLE(RadioKit.config.name);');
     } else {
-      buf.writeln('  RadioKit.config.transport = RK_TRANSPORT_SERIAL;');
+      buf.writeln('  RadioKit.startSerial(Serial);');
     }
     buf.writeln('}');
     buf.writeln();
@@ -57,6 +57,7 @@ class JsonArduinoGenerator {
     final type = config['type'] as String? ?? '';
     final theme = config['theme'] as String? ?? 'RK_DEFAULT';
     final password = config['password'] as String? ?? '';
+    final baudrate = config['baudrate'] as int? ?? 1000000;
 
     if (name.isNotEmpty) {
       buf.writeln('${indent}RadioKit.config.name        = "${_escapeC(name)}";');
@@ -72,6 +73,7 @@ class JsonArduinoGenerator {
     if (password.isNotEmpty) {
       buf.writeln('${indent}RadioKit.config.password    = "${_escapeC(password)}";');
     }
+    buf.writeln('${indent}RadioKit.config.baudrate    = $baudrate;');
   }
 
   // ── Widget generator ─────────────────────────────────────────────────────

@@ -200,7 +200,7 @@ class BleService implements TransportService {
   // ---------------------------------------------------------------------------
 
   @override
-  Future<void> connect(String deviceId, {int baudRate = 115200}) async {
+  Future<void> connect(String deviceId, {int baudRate = 1000000}) async {
     if (deviceId == 'MOCK-UUID-1234') {
       _isMockConnected = true;
       return;

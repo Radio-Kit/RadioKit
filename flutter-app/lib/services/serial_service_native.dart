@@ -68,7 +68,7 @@ class SerialService implements TransportService {
   }
 
   @override
-  Future<void> connect(String deviceId, {int baudRate = 115200}) =>
+  Future<void> connect(String deviceId, {int baudRate = 1000000}) =>
       _impl.connect(deviceId, baudRate: baudRate);
 
   @override
@@ -92,7 +92,7 @@ class _UnsupportedSerialService implements TransportService {
   @override Stream<String> get logStream => const Stream.empty();
 
   @override
-  Future<void> connect(String _, {int baudRate = 115200}) async =>
+  Future<void> connect(String _, {int baudRate = 1000000}) async =>
       throw UnsupportedError('USB Serial is not supported on ${defaultTargetPlatform.name}');
 
   @override

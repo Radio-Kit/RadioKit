@@ -17,7 +17,7 @@ export 'transport_service.dart';
 /// packet — matching the Arduino firmware's 3-second keep-alive window.
 class SerialService implements TransportService {
   static const _kSessionTimeout = Duration(seconds: 3);
-  static const _kDefaultBaud = 115200;
+  static const _kDefaultBaud = 1000000;
 
   @override PacketReceivedCallback? onPacketReceived;
   @override ConnectionLostCallback? onConnectionLost;

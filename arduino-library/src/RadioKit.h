@@ -33,6 +33,7 @@ struct RK_Config {
     uint8_t     width       = 0;  ///< Canvas width  (0 = auto)
     uint8_t     height      = 0;  ///< Canvas height (0 = auto)
     uint8_t     transport   = RK_TRANSPORT_BLE; ///< Transport type
+    uint32_t    baudrate    = 1000000; ///< Serial baud rate
 
     // ── Read-only (set by library) ────────────────────────────
     uint8_t     architecture = RK_ARCH_DETECTED;

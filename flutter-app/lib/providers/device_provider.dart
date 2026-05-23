@@ -153,7 +153,7 @@ class DeviceProvider extends ChangeNotifier {
 
   // ── Connection ─────────────────────────────────────────────────────────────
 
-  Future<void> connectToDevice(DeviceInfo device, {int baudRate = 115200}) async {
+  Future<void> connectToDevice(DeviceInfo device, {int baudRate = 1000000}) async {
     _connectionState = DeviceConnectionState.connecting;
     _connectedDevice = device;
     _errorMessage    = null;

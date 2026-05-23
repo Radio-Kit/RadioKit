@@ -17,7 +17,7 @@ class DemoTransport implements TransportService {
   bool get isConnected => _connected;
 
   @override
-  Future<void> connect(String deviceId, {int baudRate = 115200}) async {
+  Future<void> connect(String deviceId, {int baudRate = 1000000}) async {
     _connected = true;
   }
 

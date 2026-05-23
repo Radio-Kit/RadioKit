@@ -125,7 +125,7 @@ void startSerial(Stream& stream);
 
 - **`stream`** — Reference to a `Stream` object (e.g., `Serial`, `Serial1`, `SerialUSB`).
 - The sketch **must** call `stream.begin(baud)` before this.
-- Baud rate is unrestricted; 115200 recommended.
+- Baud rate is unrestricted; 1000000 recommended.
 - Supports WebSerial (Chrome/Edge) for browser-based control.
 
 ### `update()`

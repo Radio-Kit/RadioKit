@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 import '../models/device_info.dart';
 
 /// Stub implementation for platforms without serial support (iOS, desktop).
@@ -10,7 +9,7 @@ class RawSerialService {
 
   Future<void> connect(
     String portId, {
-    int baudRate = 115200,
+    int baudRate = 1000000,
     int dataBits = 8,
     int stopBits = 1,
     String parity = 'none',

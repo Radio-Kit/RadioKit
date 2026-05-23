@@ -56,7 +56,7 @@ RK_LED status({.x=20, .y=20, .height=15, .width=0, .rotation=0, .label="Status",
 RK_Text uptime({.x=20, .y=10, .height=10, .width=0, .rotation=0, .label="Uptime", .active=false});
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(1000000);
   
   RadioKit.config.name = "MyRobot";
   RadioKit.config.description = "Robot Controller v3.0";
@@ -154,7 +154,7 @@ See [Widgets Reference](widgets.md) for complete documentation of all widget cla
 
 ### Serial Not Working
 - Verify Serial.begin() is called before RadioKit.startSerial()
-- Check baud rate matches (115200 recommended)
+- Check baud rate matches (1000000 recommended)
 - On Web Serial, ensure correct port is selected
 
 ### Widgets Not Updating

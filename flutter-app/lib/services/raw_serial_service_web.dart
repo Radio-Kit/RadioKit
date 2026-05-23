@@ -117,7 +117,7 @@ class RawSerialService {
 
   Future<void> connect(
     String portId, {
-    int baudRate = 115200,
+    int baudRate = 1000000,
     int dataBits = 8,
     int stopBits = 1,
     String parity = 'none',
@@ -145,12 +145,11 @@ class RawSerialService {
     _connected = true;
     _reading = true;
 
-    // Assert DTR/RTS
     try {
       await port
           .setSignals(JSSerialOutputSignals(
             dataTerminalReady: true,
-            requestToSend: true,
+            requestToSend: false,
           ))
           .toDart;
     } catch (_) {}
@@ -228,10 +227,11 @@ class RawSerialService {
   void _handleDisconnect(String reason) {
     _reading = false;
     _connected = false;
-    try {
-      _port?.close().toDart;
-    } catch (_) {}
-    _port = null;
+    disconnect().then((_) {
+      _port = null;
+    }).catchError((_) {
+      _port = null;
+    });
   }
 
   Future<void> disconnect() async {

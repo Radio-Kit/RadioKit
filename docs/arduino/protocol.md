@@ -246,7 +246,7 @@ Periodic status updates (optional).
 
 ### USB Serial / UART
 
-- **Baud rate**: 115200 (recommended), any speed supported
+- **Baud rate**: 1000000 (recommended), any speed supported
 - **Connection timeout**: 3000 ms after last valid packet
 - **Recommended PING interval**: 1000 ms
 - **Hardware flow control**: Optional (RTS/CTS)

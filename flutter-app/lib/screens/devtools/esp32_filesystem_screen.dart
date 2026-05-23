@@ -63,6 +63,7 @@ class _Esp32FilesystemScreenState extends State<Esp32FilesystemScreen> {
     '230400',
     '460800',
     '921600',
+    '1000000',
   ];
 
   @override

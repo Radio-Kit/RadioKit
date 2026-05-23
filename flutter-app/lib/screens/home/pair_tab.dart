@@ -83,7 +83,7 @@ class _PairTabState extends State<PairTab> {
     }
   }
 
-  Future<void> _connectSerial(DeviceInfo device, {int baudRate = 115200}) async {
+  Future<void> _connectSerial(DeviceInfo device, {int baudRate = 1000000}) async {
     final serialProvider = context.read<SerialProvider>();
     final deviceProvider = context.read<DeviceProvider>();
     final history        = context.read<HistoryProvider>();
@@ -110,7 +110,7 @@ class _PairTabState extends State<PairTab> {
     DeviceInfo device,
     DeviceProvider deviceProvider,
     ConsoleProvider console, {
-    int baudRate = 115200,
+    int baudRate = 1000000,
   }) async {
     if (!mounted) return false;
     console.log('ESTABLISHING HANDSHAKE...', level: ConsoleLogLevel.info);
@@ -504,7 +504,7 @@ class _SerialTab extends StatefulWidget {
 }
 
 class _SerialTabState extends State<_SerialTab> {
-  String _selectedBaud = '115200';
+  String _selectedBaud = '1000000';
   DeviceInfo? _selectedPort;
 
   @override
@@ -556,7 +556,7 @@ class _SerialTabState extends State<_SerialTab> {
             _buildDropdownLabel('BAUD_RATE'),
             _buildDropdown<String>(
               value: _selectedBaud,
-              items: ['9600', '19200', '38400', '57600', '115200']
+              items: ['9600', '19200', '38400', '57600', '115200', '1000000']
                   .map((b) =>
                       DropdownMenuItem(value: b, child: Text(b)))
                   .toList(),
@@ -574,7 +574,7 @@ class _SerialTabState extends State<_SerialTab> {
                     ? null
                     : () => widget.onPortTapped(
                           _selectedPort!,
-                          int.tryParse(_selectedBaud) ?? 115200,
+                          int.tryParse(_selectedBaud) ?? 1000000,
                         ),
                 child: Text('CONNECT_+',
                     style: GoogleFonts.changa(
