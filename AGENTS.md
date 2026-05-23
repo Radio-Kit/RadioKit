@@ -274,3 +274,33 @@ The `_colorRow` method renders each token color as a row with:
 
 - **Rule**: Only work on the current request, it's okay if it breaks backward compatibility. We can break the API whenever needed.
 - **Rule**: We don't need to support old versions of the library. We can drop support for old versions whenever needed.
+
+## 10. PlatformIO (Arduino Build)
+
+PlatformIO is installed globally via `uv tool install platformio` (v6.1.19). It is available as the `pio` command from anywhere.
+
+### 10.1 Build commands
+
+```bash
+pio run                          # builds default env (SerialTest)
+pio run -e BasicSwitch           # builds a specific example
+pio run -e SerialTest -t upload  # flash to board
+pio run -e SliderServo           # builds SliderServo (includes ESP32Servo dep)
+```
+
+### 10.2 Available environments
+
+Defined in `platformio.ini`:
+- `SerialTest` — default, no BLE needed
+- `BasicSwitch` — BLE basic switch
+- `JoystickMotor` — BLE joystick motor
+- `SliderServo` — servo slider (adds ESP32Servo)
+- `BLE_RC_Truck` — BLE RC truck
+
+### 10.3 Reinstallation
+
+If `pio` is ever missing or broken:
+
+```bash
+uv tool install platformio
+```
