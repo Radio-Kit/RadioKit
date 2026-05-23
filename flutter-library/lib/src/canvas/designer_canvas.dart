@@ -168,6 +168,13 @@ class _DesignerCanvasState extends State<DesignerCanvas> {
                                         el.y = newY;
                                         state.notifyChanged();
                                       },
+                                      onMoveEnd: (finalX, finalY) {
+                                        state.updateElementPosition(
+                                          el.id,
+                                          finalX,
+                                          finalY,
+                                        );
+                                      },
                                     ),
                                   ),
                                 );
@@ -333,6 +340,7 @@ class _MovableElement extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback onSelect;
   final void Function(int x, int y) onMoved;
+  final void Function(int x, int y)? onMoveEnd;
 
   const _MovableElement({
     required this.element,
@@ -347,6 +355,7 @@ class _MovableElement extends StatefulWidget {
     required this.onTap,
     required this.onSelect,
     required this.onMoved,
+    this.onMoveEnd,
   });
 
   @override
@@ -399,6 +408,18 @@ class _MovableElementState extends State<_MovableElement> {
   }
 
   void _onPanEnd(DragEndDetails details) {
+    if (_dragStartGridX == null || _dragStartGridY == null) {
+      _dragStartCanvas = null;
+      return;
+    }
+    // Save the final (post-drag) position, then restore to pre-drag
+    // position so that _pushUndo() inside updateElementPosition captures
+    // the correct pre-move state for undo.
+    final finalX = widget.element.x;
+    final finalY = widget.element.y;
+    widget.element.x = _dragStartGridX!;
+    widget.element.y = _dragStartGridY!;
+    widget.onMoveEnd?.call(finalX, finalY);
     _dragStartGridX = null;
     _dragStartGridY = null;
     _dragStartCanvas = null;
@@ -472,6 +493,7 @@ class _DragHandleState extends State<_DragHandle> {
   int? _startRotation;
 
   void _onPanStart(DragStartDetails details) {
+    widget.designerState.beginGesture();
     _startWidth = widget.element.width;
     _startHeight = widget.element.height;
     _startRotation = widget.element.rotation;
@@ -580,6 +602,7 @@ class _DragHandleState extends State<_DragHandle> {
   }
 
   void _onPanEnd(DragEndDetails details) {
+    widget.designerState.commitGesture();
     _startCanvasPos = null;
     _startRotation = null;
   }
@@ -591,6 +614,7 @@ class _DragHandleState extends State<_DragHandle> {
       onPanStart: _onPanStart,
       onPanUpdate: _onPanUpdate,
       onPanEnd: _onPanEnd,
+      onPanCancel: () => widget.designerState.cancelGesture(),
       child: MouseRegion(
         cursor: widget.isRotateHandle
             ? SystemMouseCursors.grab

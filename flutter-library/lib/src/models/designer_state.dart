@@ -26,9 +26,21 @@ class DesignerState extends ChangeNotifier {
   final Map<String, dynamic> _runtimeWidgetValues = {};
   void Function(String id, dynamic value)? onRuntimeValueChanged;
 
+  /// Monotonically-increasing counter bumped on every real data mutation.
+  /// The screen listener compares this against a saved baseline to detect
+  /// unsaved changes without false positives from UI-only notifications
+  /// (e.g. selectElement, togglePlayMode).
+  int _mutationCount = 0;
+  int get mutationCount => _mutationCount;
+
   final List<List<DesignerElement>> _undoStack = [];
   final List<List<DesignerElement>> _redoStack = [];
   static const int _maxUndoStack = 50;
+
+  /// Snapshot saved at gesture start (resize/rotate). Intermediate mutations
+  /// during the gesture skip _pushUndo(); commitGesture() pushes the snapshot
+  /// to the undo stack once, preventing one undo entry per drag frame.
+  List<DesignerElement>? _gestureSnapshot;
 
   List<DesignerElement> get elements => _elements;
   String? get selectedElementId => _selectedElementId;
@@ -59,11 +71,45 @@ class DesignerState extends ChangeNotifier {
   int get canvasHeight => _isLandscape ? 100 : 200;
 
   void _pushUndo() {
+    // During an active resize/rotate gesture, skip undo pushes per frame.
+    // The pre-gesture snapshot is saved in beginGesture() and committed
+    // once in commitGesture() at gesture end.
+    if (_gestureSnapshot != null) return;
+    _mutationCount++;
     _undoStack.add(_elements.map((e) => e.copyWith()).toList());
     if (_undoStack.length > _maxUndoStack) {
       _undoStack.removeAt(0);
     }
     _redoStack.clear();
+  }
+
+  /// Call when a gesture (resize/rotate) starts. Saves a snapshot of
+  /// the current element state so commitGesture can push it to undo.
+  void beginGesture() {
+    assert(_gestureSnapshot == null, 'beginGesture without matching commitGesture');
+    _gestureSnapshot = _elements.map((e) => e.copyWith()).toList();
+  }
+
+  /// Call when a gesture ends. Pushes the pre-gesture snapshot to the
+  /// undo stack — a single undo point for the whole gesture.
+  void commitGesture() {
+    if (_gestureSnapshot == null) return;
+    _mutationCount++;
+    _undoStack.add(_gestureSnapshot!);
+    if (_undoStack.length > _maxUndoStack) {
+      _undoStack.removeAt(0);
+    }
+    _redoStack.clear();
+    _gestureSnapshot = null;
+  }
+
+  /// Call if the gesture is cancelled without applying changes.
+  void cancelGesture() {
+    if (_gestureSnapshot == null) return;
+    // Restore elements to the pre-gesture state
+    _elements = _gestureSnapshot!;
+    _gestureSnapshot = null;
+    notifyListeners();
   }
 
   void addElement(DesignerElementType type, int x, int y, {Map<String, dynamic>? properties}) {
@@ -238,16 +284,19 @@ class DesignerState extends ChangeNotifier {
   }
 
   void setSkin(String name) {
+    _mutationCount++;
     _activeSkin = name;
     notifyListeners();
   }
 
   void setGridStyle(GridStyle style) {
+    _mutationCount++;
     _gridStyle = style;
     notifyListeners();
   }
 
   void cycleGridStyle() {
+    _mutationCount++;
     _gridStyle = switch (_gridStyle) {
       GridStyle.lines => GridStyle.dots,
       GridStyle.dots => GridStyle.none,
@@ -290,31 +339,37 @@ class DesignerState extends ChangeNotifier {
   }
 
   void setConnectionType(String value) {
+    _mutationCount++;
     _connectionType = value;
     notifyListeners();
   }
 
   void setModelName(String value) {
+    _mutationCount++;
     _modelName = value;
     notifyListeners();
   }
 
   void setModelType(String value) {
+    _mutationCount++;
     _modelType = value;
     notifyListeners();
   }
 
   void setModelDescription(String value) {
+    _mutationCount++;
     _modelDescription = value;
     notifyListeners();
   }
 
   void setConnectionPassword(String value) {
+    _mutationCount++;
     _connectionPassword = value;
     notifyListeners();
   }
 
   void setScreenSize(dynamic value) {
+    _mutationCount++;
     if (value is List && value.length >= 2) {
       final w = (value[0] as num?)?.toInt() ?? 200;
       final h = (value[1] as num?)?.toInt() ?? 100;
@@ -332,6 +387,7 @@ class DesignerState extends ChangeNotifier {
 
   void undo() {
     if (_undoStack.isEmpty) return;
+    _mutationCount++;
     _redoStack.add(_elements.map((e) => e.copyWith()).toList());
     _elements = _undoStack.removeLast();
     _selectedElementId = null;
@@ -340,6 +396,7 @@ class DesignerState extends ChangeNotifier {
 
   void redo() {
     if (_redoStack.isEmpty) return;
+    _mutationCount++;
     _undoStack.add(_elements.map((e) => e.copyWith()).toList());
     _elements = _redoStack.removeLast();
     _selectedElementId = null;

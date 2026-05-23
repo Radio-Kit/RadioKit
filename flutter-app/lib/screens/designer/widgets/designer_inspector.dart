@@ -1185,9 +1185,16 @@ class _DesignerInspectorState extends State<DesignerInspector> {
     final count = (el.properties['itemCount'] as num?)?.toInt() ?? 3;
     final raw = el.properties['items'] as List?;
     return List.generate(count, (i) {
-    if (raw != null && i < raw.length) {
+      if (raw != null && i < raw.length) {
         final entry = raw[i];
-        return Map<String, dynamic>.from(entry is Map ? entry : {});
+        final item = Map<String, dynamic>.from(entry is Map ? entry : {});
+        // Apply power-icon fallback for empty items so the editor UI matches
+        // what will be serialised at save time (see DesignerElement.toJson()).
+        if ((item['onLabel'] is! String || (item['onLabel'] as String).isEmpty) &&
+            (item['onIcon'] is! String || (item['onIcon'] as String).isEmpty)) {
+          item['onIcon'] = 'power';
+        }
+        return item;
       }
       return <String, dynamic>{
         'onLabel': String.fromCharCode(65 + i),

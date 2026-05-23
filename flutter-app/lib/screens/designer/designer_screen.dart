@@ -26,6 +26,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
   String? _currentDesignId;
   bool _hasUnsavedChanges = false;
   bool _isInitializing = false;
+  int _lastMutationCount = 0;
 
   @override
   void initState() {
@@ -61,6 +62,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
     }
     _isInitializing = false;
     _hasUnsavedChanges = false;
+    _lastMutationCount = _state.mutationCount;
   }
 
   @override
@@ -74,7 +76,11 @@ class _DesignerScreenState extends State<DesignerScreen> {
   void _onStateChanged() {
     RKDebugOverlay.enabled = !_state.isPlayMode;
     if (!_isInitializing && !_state.isPlayMode) {
-      _hasUnsavedChanges = true;
+      final currentCount = _state.mutationCount;
+      if (currentCount != _lastMutationCount) {
+        _lastMutationCount = currentCount;
+        _hasUnsavedChanges = true;
+      }
     }
     setState(() {});
   }

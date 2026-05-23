@@ -141,13 +141,13 @@ class _RKButtonState extends State<RKButton> with SingleTickerProviderStateMixin
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.6),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
+                      blurRadius: widget.size * 0.2,
+                      offset: Offset(0, widget.size * 0.1),
                     ),
                     BoxShadow(
                       color: activeColor.withValues(alpha: 0.5 * t),
-                      blurRadius: 10 + (12 * t),
-                      spreadRadius: 1 + (2 * t),
+                      blurRadius: widget.size * (0.1 + 0.12 * t),
+                      spreadRadius: widget.size * (0.01 + 0.02 * t),
                     ),
                   ],
                 ),
@@ -157,7 +157,7 @@ class _RKButtonState extends State<RKButton> with SingleTickerProviderStateMixin
                     color: const Color(0xFF222428),
                     border: Border.all(
                       color: const Color(0xFF1A1C1E),
-                      width: 2,
+                      width: widget.size * 0.02,
                     ),
                   ),
                   child: Padding(
@@ -188,8 +188,8 @@ class _RKButtonState extends State<RKButton> with SingleTickerProviderStateMixin
                         boxShadow: [
                           BoxShadow(
                             color: activeColor.withValues(alpha: 0.5 * t),
-                            blurRadius: 6 + (10 * t),
-                            spreadRadius: 0 + (2 * t),
+                            blurRadius: widget.size * (0.06 + 0.1 * t),
+                            spreadRadius: widget.size * (0 + 0.02 * t),
                           ),
                         ],
                       ),
@@ -201,13 +201,13 @@ class _RKButtonState extends State<RKButton> with SingleTickerProviderStateMixin
                             color: const Color(0xFF25272B),
                             border: Border.all(
                               color: const Color(0xFF1C1E22),
-                              width: 1.5,
+                              width: widget.size * 0.015,
                             ),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.4),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
+                                blurRadius: widget.size * 0.1,
+                                offset: Offset(0, widget.size * 0.04),
                               ),
                             ],
                           ),

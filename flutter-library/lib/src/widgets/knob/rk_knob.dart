@@ -251,14 +251,22 @@ class _KnobPainter extends CustomPainter {
     final radius = size.width / 2;
     final knobRadius = radius * 0.8;
 
+    // Proportional scaling based on size (baseline: size=100)
+    final trackStrokeWidth = size.width * 0.04;
+    final arcRadius = radius - trackStrokeWidth;
+    final shadowBlur = size.width * 0.04;
+    final knobBorderWidth = size.width * 0.01;
+    final pointerDistanceFromCenter = knobRadius * 0.7;
+    final pointerRadius = size.width * 0.04;
+
     final trackPaint = Paint()
       ..color = tokens.outlineColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
+      ..strokeWidth = trackStrokeWidth
       ..strokeCap = StrokeCap.round;
 
     canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius - 4),
+      Rect.fromCircle(center: center, radius: arcRadius),
       startAngle,
       sweepAngle,
       false,
@@ -268,14 +276,14 @@ class _KnobPainter extends CustomPainter {
     final activePaint = Paint()
       ..color = tokens.primary.withValues(alpha: 0.5)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
+      ..strokeWidth = trackStrokeWidth
       ..strokeCap = StrokeCap.round;
 
     final arcStart = startAngle + centerPos * sweepAngle;
     final arcSweep = (normalized - centerPos) * sweepAngle;
 
     canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius - 4),
+      Rect.fromCircle(center: center, radius: arcRadius),
       arcStart,
       arcSweep,
       false,
@@ -284,7 +292,7 @@ class _KnobPainter extends CustomPainter {
 
     canvas.drawCircle(center, knobRadius, Paint()
       ..color = tokens.shadowColor.withValues(alpha: 0.3)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, shadowBlur));
 
     canvas.drawCircle(center, knobRadius, Paint()
       ..color = tokens.surface
@@ -293,18 +301,18 @@ class _KnobPainter extends CustomPainter {
     canvas.drawCircle(center, knobRadius, Paint()
       ..color = tokens.primary.withValues(alpha: 0.2)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1);
+      ..strokeWidth = knobBorderWidth);
 
     final pointerPaint = Paint()
       ..color = tokens.primary
       ..style = PaintingStyle.fill;
 
     final pointerCenter = Offset(
-      center.dx + (knobRadius - 12) * math.cos(angle),
-      center.dy + (knobRadius - 12) * math.sin(angle),
+      center.dx + pointerDistanceFromCenter * math.cos(angle),
+      center.dy + pointerDistanceFromCenter * math.sin(angle),
     );
 
-    canvas.drawCircle(pointerCenter, 4, pointerPaint);
+    canvas.drawCircle(pointerCenter, pointerRadius, pointerPaint);
   }
 
   @override

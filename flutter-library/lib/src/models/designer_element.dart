@@ -387,6 +387,24 @@ class DesignerElement {
       ..remove('labelHidden')
       ..remove('haptic');
 
+    // For multi-button/multi-select items, fill empty items (no label, no icon)
+    // with a default 'power' icon so they are never blank in saved output.
+    if (baseProps.containsKey('items') && baseProps['items'] is List) {
+      final items = (baseProps['items'] as List).map((item) {
+        if (item is! Map) return item;
+        final m = Map<String, dynamic>.from(item);
+        final hasLabel =
+            m['onLabel'] is String && (m['onLabel'] as String).isNotEmpty;
+        final hasIcon =
+            m['onIcon'] is String && (m['onIcon'] as String).isNotEmpty;
+        if (!hasLabel && !hasIcon) {
+          m['onIcon'] = 'power';
+        }
+        return m;
+      }).toList();
+      baseProps['items'] = items;
+    }
+
     // Serialize autoCenter as [position, type, duration] array.
     // Only emit autoCenter if it was set on this element (skip for types that
     // don't support auto-center, like switches).
