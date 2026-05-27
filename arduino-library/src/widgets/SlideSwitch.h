@@ -38,6 +38,8 @@ public:
     bool get() const { return props.state; }
     void set(bool val) { props.state = val; }
     void setIcon(const char* val);
+    void setOnText(const char* val) { props.onText = val; }
+    void setOffText(const char* val) { props.offText = val; }
 
     RK_SlideSwitchProps props;
 

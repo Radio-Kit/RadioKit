@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
@@ -30,6 +31,7 @@ class _RadioKitAppState extends State<RadioKitApp> {
   late final ConsoleProvider _consoleProvider;
   late final DeviceProvider _deviceProvider;
   late final SkinProvider _skinProvider;
+  late final SettingsProvider _settingsProvider;
   late final DesignsProvider _designsProvider;
   late final ConnectionNotifier _connectionNotifier;
   late final GoRouter _router;
@@ -41,6 +43,7 @@ class _RadioKitAppState extends State<RadioKitApp> {
     _skinProvider = SkinProvider();
     _skinProvider.init(); // Restore persisted theme choice
     
+    _settingsProvider = SettingsProvider();
     _designsProvider = DesignsProvider();
     _designsProvider.load();
     
@@ -64,6 +67,7 @@ class _RadioKitAppState extends State<RadioKitApp> {
   @override
   void dispose() {
     _connectionNotifier.dispose();
+    _settingsProvider.dispose();
     super.dispose();
   }
 
@@ -79,7 +83,7 @@ class _RadioKitAppState extends State<RadioKitApp> {
         ChangeNotifierProvider<HistoryProvider>.value(value: _historyProvider),
         ChangeNotifierProvider<ConsoleProvider>.value(value: _consoleProvider),
         ChangeNotifierProvider<DeviceProvider>.value(value: _deviceProvider),
-        ChangeNotifierProvider<SettingsProvider>.value(value: SettingsProvider()),
+        ChangeNotifierProvider<SettingsProvider>.value(value: _settingsProvider),
         ChangeNotifierProvider<DesignsProvider>.value(value: _designsProvider),
       ],
       child: Consumer2<ThemeProvider, SkinProvider>(
@@ -94,7 +98,59 @@ class _RadioKitAppState extends State<RadioKitApp> {
               themeMode: themeProvider.themeMode,
               routerConfig: _router,
               builder: (context, child) {
-                return ConnectionListener(child: child!);
+                final settings = context.watch<SettingsProvider>();
+                final scale = settings.interfaceScale.clamp(50, 200) / 100.0;
+                final mq = MediaQuery.of(context);
+                return MediaQuery(
+                  data: mq.copyWith(
+                    size: Size(mq.size.width / scale, mq.size.height / scale),
+                  ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final w = constraints.maxWidth / scale;
+                      final h = constraints.maxHeight / scale;
+                      return OverflowBox(
+                        minWidth: w,
+                        maxWidth: w,
+                        minHeight: h,
+                        maxHeight: h,
+                        child: Transform.scale(
+                          scale: scale,
+                          child: CallbackShortcuts(
+                            bindings: {
+                              const SingleActivator(
+                                LogicalKeyboardKey.minus,
+                                control: true,
+                              ): () {
+                                final s = context.read<SettingsProvider>();
+                                s.setInterfaceScale(s.interfaceScale - 10);
+                              },
+                              const SingleActivator(
+                                LogicalKeyboardKey.equal,
+                                control: true,
+                              ): () {
+                                final s = context.read<SettingsProvider>();
+                                s.setInterfaceScale(s.interfaceScale + 10);
+                              },
+                              const SingleActivator(
+                                LogicalKeyboardKey.digit0,
+                                control: true,
+                              ): () {
+                                context
+                                    .read<SettingsProvider>()
+                                    .setInterfaceScale(100);
+                              },
+                            },
+                            child: Focus(
+                              autofocus: true,
+                              child: ConnectionListener(child: child!),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                );
               },
             ),
           );

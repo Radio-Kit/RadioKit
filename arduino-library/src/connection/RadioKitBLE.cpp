@@ -84,7 +84,7 @@ void RadioKitBLE::begin(const char* deviceName, RK_PacketCallback cb) {
     pAdv->addServiceUUID(RK_BLE_SERVICE_UUID);
     pAdv->enableScanResponse(true);
     pAdv->setName(deviceName ? deviceName : "RadioKit");
-    pAdv->setPreferredParams(0x06, 0x12);
+    pAdv->setPreferredParams(0x06, 0x06);
     pAdv->start();
     
     Serial.println("BLE: System ready.");
@@ -105,13 +105,11 @@ void RadioKitBLE::sendPacket(const uint8_t* buf, uint16_t len) {
         }
     }
 
-    Serial.printf("BLE: Sending packet, total len %d, using MTU %d...\n", len, mtu);
     uint16_t offset = 0;
     while (offset < len) {
         uint16_t chunk = len - offset;
         if (chunk > mtu) chunk = mtu;
         bool success = _characteristic->notify(buf + offset, chunk);
-        Serial.printf("  Chunk offset %d, size %d, notify=%d\n", offset, chunk, success);
         offset += chunk;
         if (offset < len && !success) delay(50); // Delay if queue is full
         else if (offset < len) delay(20); // Normal pacing

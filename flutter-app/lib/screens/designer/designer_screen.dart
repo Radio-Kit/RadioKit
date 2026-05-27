@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:file_picker/file_picker.dart';
 import 'utils/file_download.dart';
 import 'widgets/designer_widget_dialog.dart';
 import 'widgets/designer_inspector.dart';
@@ -27,13 +29,19 @@ class _DesignerScreenState extends State<DesignerScreen> {
   String? _currentDesignId;
   bool _hasUnsavedChanges = false;
   bool _isInitializing = false;
+  bool _isFileMode = false;
   int _lastMutationCount = 0;
+
+  bool get _isJsonMode => _isFileMode && _state.originalHeaderPath != null && _state.originalHeaderPath!.endsWith('.json');
+
+  static const _appVersion = '1.0.0';
 
   @override
   void initState() {
     super.initState();
     _currentDesignId = widget.designId;
     _state.addListener(_onStateChanged);
+    _state.setAppData(appVersion: _appVersion);
     RKDebugOverlay.enabled = !_state.isPlayMode;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -49,11 +57,28 @@ class _DesignerScreenState extends State<DesignerScreen> {
       final existing =
           designs.where((d) => d.id == widget.designId).firstOrNull;
       if (existing != null) {
-        try {
-          final json = jsonDecode(existing.jsonContent);
-          _state.loadFromJson(json);
-        } catch (e) {
-          debugPrint('Failed to load design: $e');
+        if (existing.filePath != null) {
+          try {
+            _isFileMode = true;
+            if (existing.filePath!.endsWith('.json')) {
+              _state.loadJsonFromPath(existing.filePath!);
+            } else {
+              _state.loadFromHeaderFile(existing.filePath!);
+            }
+          } catch (e) {
+            debugPrint('Failed to load file design: $e');
+            _state.setModelName('Project-${math.Random().nextInt(10000)}');
+          }
+        } else if (existing.jsonContent != null) {
+          try {
+            final json = jsonDecode(existing.jsonContent!);
+            _state.loadFromJson(json);
+          } catch (e) {
+            debugPrint('Failed to load design: $e');
+            _state.setModelName('Project-${math.Random().nextInt(10000)}');
+          }
+        } else {
+          _state.setModelName('Project-${math.Random().nextInt(10000)}');
         }
       } else {
         _state.setModelName('Project-${math.Random().nextInt(10000)}');
@@ -97,6 +122,70 @@ class _DesignerScreenState extends State<DesignerScreen> {
 
     await provider.saveDesign(_currentDesignId!, name, jsonContent);
     if (mounted) setState(() => _hasUnsavedChanges = false);
+  }
+
+  String _saveContent(String filePath) {
+    _state.setAppData(lastEdit: DateTime.now().millisecondsSinceEpoch);
+    return filePath.endsWith('.json')
+        ? _buildJsonContent()
+        : _buildFullHeader();
+  }
+
+  Future<void> _autoSaveToFile() async {
+    if (!mounted) return;
+    final filePath = _state.originalHeaderPath;
+    if (filePath == null) return;
+
+    final content = _saveContent(filePath);
+    await File(filePath).writeAsString(content);
+
+    // Update the provider entry with fresh timestamp
+    _currentDesignId ??= DateTime.now().millisecondsSinceEpoch.toString();
+    final provider = context.read<DesignsProvider>();
+    final name =
+        _state.modelName.isNotEmpty ? _state.modelName : 'Untitled Design';
+    await provider.saveDesign(
+      _currentDesignId!, name, null,
+      filePath: filePath,
+      lastEdit: _state.lastEdit ?? DateTime.now().millisecondsSinceEpoch,
+      appVersion: _state.appVersion,
+    );
+    if (mounted) setState(() => _hasUnsavedChanges = false);
+  }
+
+  Future<void> _saveAs() async {
+    final ext = _isJsonMode ? 'json' : 'h';
+    final path = await FilePicker.saveFile(
+      fileName: 'RadioKit_UI.$ext',
+      allowedExtensions: [ext],
+      type: FileType.custom,
+    );
+    if (path == null || !mounted) return;
+
+    final content = _saveContent(path);
+    await File(path).writeAsString(content);
+
+    // Create a new provider entry with the new file path
+    final provider = context.read<DesignsProvider>();
+    final name =
+        _state.modelName.isNotEmpty ? _state.modelName : 'Untitled Design';
+    final id = DateTime.now().millisecondsSinceEpoch.toString();
+    await provider.saveDesign(
+      id, name, null,
+      filePath: path,
+      lastEdit: _state.lastEdit ?? DateTime.now().millisecondsSinceEpoch,
+      appVersion: _state.appVersion,
+    );
+
+    _currentDesignId = id;
+    _isFileMode = true;
+    if (mounted) setState(() => _hasUnsavedChanges = false);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Saved as ${path.split('/').last}')),
+      );
+    }
   }
 
   @override
@@ -208,6 +297,17 @@ class _DesignerScreenState extends State<DesignerScreen> {
                       letterSpacing: 1,
                     ),
                   ),
+                  if (_isFileMode && _state.originalHeaderPath != null) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      '(${_state.originalHeaderPath!.split('/').last})',
+                      style: const TextStyle(
+                        color: Color(0xFF666666),
+                        fontSize: 11,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ],
                   const SizedBox(width: 8),
                   IconButton(
                     icon: Icon(LucideIcons.pencil,
@@ -223,6 +323,8 @@ class _DesignerScreenState extends State<DesignerScreen> {
             const SizedBox(width: 12),
             _buildUndoRedoButtons(tokens),
             const SizedBox(width: 8),
+            if (_isFileMode) _buildSaveAsButton(tokens),
+            if (_isFileMode) const SizedBox(width: 4),
             _buildSaveButton(tokens),
           ],
         ),
@@ -274,8 +376,11 @@ class _DesignerScreenState extends State<DesignerScreen> {
 
     if (newName != null && newName.trim().isNotEmpty) {
       _state.setModelName(newName.trim());
-      // Explicitly trigger save for immediate UI/persistence update if needed
-      _autoSaveToApp();
+      if (_isFileMode) {
+        _autoSaveToFile();
+      } else {
+        _autoSaveToApp();
+      }
     }
   }
 
@@ -307,7 +412,11 @@ class _DesignerScreenState extends State<DesignerScreen> {
     if (!_hasUnsavedChanges) return const SizedBox.shrink();
     return GestureDetector(
       onTap: () async {
-        await _autoSaveToApp();
+        if (_isFileMode) {
+          await _autoSaveToFile();
+        } else {
+          await _autoSaveToApp();
+        }
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: SelectableText('Design saved')),
@@ -330,6 +439,38 @@ class _DesignerScreenState extends State<DesignerScreen> {
               'SAVE',
               style: TextStyle(
                 color: tokens.primary,
+                fontSize: 11,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSaveAsButton(RKTokens tokens) {
+    return GestureDetector(
+      onTap: () async {
+        await _saveAs();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A1A),
+          border: Border.all(color: const Color(0xFF444444), width: 1),
+          borderRadius: BorderRadius.circular(2),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(LucideIcons.save, color: Colors.white54, size: 14),
+            const SizedBox(width: 6),
+            Text(
+              'SAVE AS',
+              style: TextStyle(
+                color: Colors.white54,
                 fontSize: 11,
                 fontFamily: 'monospace',
                 fontWeight: FontWeight.bold,
@@ -450,9 +591,11 @@ class _DesignerScreenState extends State<DesignerScreen> {
             fontWeight: FontWeight.w600,
           ),
         ),
-        content: const Text(
-          'Do you want to save your changes before leaving?',
-          style: TextStyle(color: Color(0xFFAAAAAA), fontFamily: 'monospace'),
+        content: Text(
+          _isFileMode
+              ? 'Save changes to ${_state.originalHeaderPath?.split('/').last ?? 'RadioKit_UI.h'}?'
+              : 'Do you want to save your changes before leaving?',
+          style: const TextStyle(color: Color(0xFFAAAAAA), fontFamily: 'monospace'),
         ),
         actions: [
           TextButton(
@@ -484,7 +627,11 @@ class _DesignerScreenState extends State<DesignerScreen> {
     if (!mounted) return;
 
     if (result == 'save') {
-      await _autoSaveToApp();
+      if (_isFileMode) {
+        await _autoSaveToFile();
+      } else {
+        await _autoSaveToApp();
+      }
       if (!mounted) return;
     }
     // Both 'save' and 'discard' navigate back; null (dismissed) stays.
@@ -813,6 +960,12 @@ class _DesignerScreenState extends State<DesignerScreen> {
     final json = encoder.convert(_state.toJson());
     final arduino = _generateArduinoHeader();
     return '/*__RadioKit_UI_Designer_Config__\n$json\nRadioKit_UI_Designer_Config__*/\n$arduino';
+  }
+
+  /// Builds just the JSON config content for .json files.
+  String _buildJsonContent() {
+    const encoder = JsonEncoder.withIndent('  ');
+    return encoder.convert(_state.toJson());
   }
 
   // ── Code generation dialog ───────────────────────────────────────────────

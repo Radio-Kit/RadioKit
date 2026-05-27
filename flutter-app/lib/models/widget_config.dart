@@ -164,6 +164,137 @@ class WidgetConfig {
     }).toList();
   }
 
+  /// Converts this [WidgetConfig] to a designer-format JSON map
+  /// suitable for [DesignerElement.fromJson] or [DesignerState.loadFromJson].
+  ///
+  /// [canvasW] / [canvasH] are the designer canvas dimensions in grid units
+  /// (typically 200×100 for landscape, 100×200 for portrait).
+  ///
+  /// Coordinate system: The wire protocol and the designer JSON both use
+  /// top-left origin (Y increases downward). The wire stores the same
+  /// grid-unit values that the JSON uses directly.
+  Map<String, dynamic> toDesignerJsonMap(int canvasW, int canvasH) {
+    final props = _buildDesignerProps();
+
+    // ── Size: wire stores grid units directly ──────────────────────────────
+    // width=0 means aspect-ratio-driven → emit null so DesignerElement.fromJson
+    // derives it from height × aspectRatio.
+    final int? jsonW = width == 0 ? null : width;
+    final int jsonH = height.clamp(1, canvasH);
+
+    // ── Position: top-left origin, no Y flip needed ────────────────────────
+    final posX = x.round().clamp(0, canvasW);
+    final posY = y.round().clamp(0, canvasH);
+
+    // ── Auto-center ───────────────────────────────────────────────────────
+    props['autoCenter'] = _acListForCentering(variantCentering(variant));
+    if (props['autoCenter'][0] == null) {
+      props.remove('autoCenter');
+    }
+
+    // ── Variant / mode ────────────────────────────────────────────────────
+    final (String? topVariant, String? propVariant) = _resolveVariants();
+
+    // ── Type string: use base type, variant is promoted separately ─────────
+    final typeStr = _wireTypeToDesignerTypeName(typeId);
+
+    // ── Label ─────────────────────────────────────────────────────────────
+    final displayLabel = label.isNotEmpty ? label : 'widget_$widgetId';
+
+    final result = <String, dynamic>{
+      'type': typeStr,
+      'name': displayLabel,
+      'label': <String, dynamic>{'text': displayLabel, 'show': true},
+      'position': [posX, posY, rotationDegrees.round()],
+      'size': [jsonW, jsonH],
+      'haptic': true,
+      'properties': props,
+    };
+
+    if (topVariant != null) result['variant'] = topVariant;
+    if (propVariant != null) {
+      result['properties']['variant'] = propVariant;
+    }
+
+    return result;
+  }
+
+  /// Maps wire typeId to designer JSON type string (base type, variant promoted
+  /// separately by [_resolveVariants]).
+  static String _wireTypeToDesignerTypeName(int typeId) {
+    switch (typeId) {
+      case kWidgetButton:      return 'button';
+      case kWidgetSlideSwitch: return 'switch';
+      case kWidgetSlider:      return 'slider';
+      case kWidgetKnob:        return 'knob';
+      case kWidgetJoystick:    return 'joystick';
+      case kWidgetLed:         return 'led';
+      case kWidgetText:        return 'text';
+      case kWidgetMultiple:    return 'multiple';
+      default:                 return 'button';
+    }
+  }
+
+  /// Build the base properties map for designer JSON.
+  Map<String, dynamic> _buildDesignerProps() {
+    final p = <String, dynamic>{
+      'widgetId': widgetId,
+    };
+
+    if (onText.isNotEmpty) p['onText'] = onText;
+    if (offText.isNotEmpty) p['offText'] = offText;
+    p['minAngle'] = minAngle;
+    p['maxAngle'] = maxAngle;
+
+    final detents = variantDetents(variant);
+    if (detents > 1) p['divisions'] = detents;
+
+    if (typeId == kWidgetMultiple) {
+      final items = multipleItems;
+      p['itemCount'] = items.length;
+      p['items'] = items.map((m) => <String, dynamic>{
+        'onLabel': m.label,
+        'onIcon': m.icon.isNotEmpty ? m.icon : null,
+        'offLabel': null,
+        'offIcon': null,
+      }).toList();
+    }
+
+    return p;
+  }
+
+  /// Resolves variant strings for wire protocol values.
+  /// Returns (topLevelVariant, propertyVariant) — either may be null.
+  (String?, String?) _resolveVariants() {
+    switch (typeId) {
+      case kWidgetButton:
+        if (variant == 1) return (null, 'toggle');
+        return (null, 'push');
+      case kWidgetSlider:
+        if (variantIsAlternateShape(variant)) return ('gasPedal', null);
+        return (null, null);
+      case kWidgetKnob:
+        if (variantIsAlternateShape(variant)) return ('steeringWheel', null);
+        return (null, null);
+      case kWidgetMultiple:
+        return (variant == 1 ? 'multiSelect' : 'multiButton', null);
+      case kWidgetSlideSwitch:
+        return ('slideSwitch', null);
+      default:
+        return (null, null);
+    }
+  }
+
+  /// Maps a protocol centering mode to the designer autoCenter list format.
+  static List<dynamic> _acListForCentering(int centerMode) {
+    switch (centerMode) {
+      case kCenterMin:  return ['min', 'smooth', 300];
+      case kCenterMid:  return ['center', 'smooth', 300];
+      case kCenterMax:  return ['max', 'smooth', 300];
+      default:          return [null, 'smooth', 300];
+    }
+  }
+
   @override
   String toString() =>
       'WidgetConfig(id=$widgetId, type=$typeName, label="$label", '
@@ -225,4 +356,40 @@ class RadioWidgetState {
     newOutputs[widgetId] = value;
     return RadioWidgetState(inputValues: inputValues, outputValues: newOutputs);
   }
+}
+
+/// Converts a list of [WidgetConfig] + metadata to a full designer-format JSON map.
+///
+/// The output matches the schema used by [DesignerState.loadFromJson] and
+/// [DesignerElement.fromJson], so it can be used directly for rendering.
+Map<String, dynamic> widgetConfigsToDesignerJson({
+  required List<WidgetConfig> widgets,
+  required String name,
+  required String description,
+  required int orientation,
+  required String theme,
+}) {
+  final isLandscape = orientation == kOrientationLandscape;
+  final canvasW = isLandscape ? 200 : 100;
+  final canvasH = isLandscape ? 100 : 200;
+
+  return {
+    'version': 1,
+    'config': <String, dynamic>{
+      'name': name,
+      'description': description,
+      'type': 'Locomotive',
+      'transport': 'BLE',
+      'theme': theme.isNotEmpty ? theme : 'RK_DEFAULT',
+      'password': '',
+    },
+    'canvas': <String, dynamic>{
+      'size': [canvasW, canvasH],
+      'grid': 'none',
+      'skin': 'dragon',
+    },
+    'widgets': widgets
+        .map((w) => w.toDesignerJsonMap(canvasW, canvasH))
+        .toList(),
+  };
 }

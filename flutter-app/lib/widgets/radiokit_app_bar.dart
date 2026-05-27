@@ -15,7 +15,13 @@ class RadioKitAppBar extends AppBar {
   }) : super(
           title: Row(
             children: [
-              const LogoIcon(),
+              Builder(builder: (context) {
+                final orientation = MediaQuery.of(context).orientation;
+                if (orientation == Orientation.landscape) {
+                  return const SizedBox.shrink();
+                }
+                return const LogoIcon();
+              }),
               const SizedBox(width: 12),
               Text(
                 title ?? 'RADIO_KIT',

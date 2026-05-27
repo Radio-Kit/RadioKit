@@ -1,5 +1,9 @@
 {
   "version": 1,
+  "appdata": {
+    "appVersion": "1.0.0",
+    "lastEdit": 1779896264240
+  },
   "config": {
     "name": "WIDGETS_DEMO",
     "description": "Interactive Demo Mode",
@@ -8,12 +12,11 @@
     "theme": "RK_DEFAULT",
     "password": ""
   },
-  "initialOutputs": {
-    "alive": [1, 57, 255, 20, 255],
-    "widgets_test": "LINK_READY_v1.7"
-  },
   "canvas": {
-    "size": [200, 100],
+    "size": [
+      200,
+      100
+    ],
     "grid": "none",
     "skin": "dragon"
   },
@@ -21,158 +24,329 @@
     {
       "type": "button",
       "name": "push",
-      "label": { "text": "PUSH", "show": true },
-      "position": [25, 75, 0],
-      "size": [10, 10],
+      "label": {
+        "text": "push",
+        "show": true
+      },
+      "position": [
+        25,
+        75,
+        0
+      ],
+      "size": [
+        null,
+        20
+      ],
       "haptic": true,
       "properties": {
-        "widgetId": 1,
         "variant": "push",
         "onText": "ACTIVE",
         "offText": "IDLE",
         "onIcon": "zap",
-        "offIcon": null
+        "offIcon": null,
+        "widgetId": 1,
+        "autoCenter": [
+          null,
+          "smooth",
+          300
+        ]
       }
     },
     {
       "type": "button",
       "name": "toggle",
-      "label": { "text": "TOGGLE", "show": true },
-      "position": [25, 50, 0],
-      "size": [10, 10],
+      "label": {
+        "text": "toggle",
+        "show": true
+      },
+      "position": [
+        25,
+        50,
+        0
+      ],
+      "size": [
+        null,
+        20
+      ],
       "haptic": true,
       "properties": {
-        "widgetId": 2,
         "variant": "toggle",
         "onText": "ON",
         "offText": "OFF",
         "onIcon": "power",
-        "offIcon": null
+        "offIcon": null,
+        "widgetId": 2,
+        "autoCenter": [
+          null,
+          "smooth",
+          300
+        ]
       }
     },
     {
-      "type": "slideSwitch",
+      "type": "switch",
       "name": "slide",
-      "label": { "text": "SLIDE", "show": true },
-      "position": [25, 25, 10],
-      "size": [10, 10],
+      "label": {
+        "text": "slide",
+        "show": true
+      },
+      "position": [
+        25,
+        25,
+        10
+      ],
+      "size": [
+        null,
+        13
+      ],
       "haptic": true,
+      "variant": "slideSwitch",
       "properties": {
-        "widgetId": 3,
         "onText": "ON",
         "offText": "OFF",
-        "onIcon": "sliders"
+        "widgetId": 3,
+        "onIcon": "sliders",
+        "autoCenter": [
+          null,
+          "smooth",
+          300
+        ]
       }
     },
     {
       "type": "text",
       "name": "widgets_test",
-      "label": { "text": "WIDGETS_TEST", "show": true },
-      "position": [100, 92, 0],
-      "size": [14, 10],
+      "label": {
+        "text": "widgets_test",
+        "show": true
+      },
+      "position": [
+        100,
+        14,
+        0
+      ],
+      "size": [
+        56,
+        16
+      ],
       "haptic": true,
       "properties": {
+        "text": "Display",
+        "fontSize": 14,
+        "fontFamily": "monospace",
         "widgetId": 4,
-        "text": "Display"
+        "autoCenter": [
+          null,
+          "smooth",
+          300
+        ]
       }
     },
     {
       "type": "slider",
       "name": "slider",
-      "label": { "text": "SLIDER", "show": true },
-      "position": [100, 70, 10],
-      "size": [60, 10],
+      "label": {
+        "text": "slider",
+        "show": true
+      },
+      "position": [
+        100,
+        39,
+        10
+      ],
+      "size": [
+        68,
+        12
+      ],
       "haptic": true,
       "properties": {
-        "widgetId": 5,
         "min": -100,
         "max": 100,
-        "autoCenter": [null, "smooth", 300],
-        "divisions": null
+        "divisions": null,
+        "widgetId": 5,
+        "autoCenter": [
+          null,
+          "smooth",
+          300
+        ]
       }
     },
     {
       "type": "multiple",
       "name": "multi",
-      "label": { "text": "MULTI", "show": true },
-      "position": [100, 50, 0],
-      "size": [10, 10],
-      "variant": "multiSelect",
+      "label": {
+        "text": "multi",
+        "show": true
+      },
+      "position": [
+        99,
+        65,
+        0
+      ],
+      "size": [
+        null,
+        23
+      ],
       "haptic": true,
+      "variant": "multiSelect",
       "properties": {
-        "widgetId": 11,
         "itemCount": 3,
         "items": [
-          { "onLabel": "WiFi", "onIcon": "wifi" },
-          { "onLabel": "BT", "onIcon": "bluetooth" },
-          { "onLabel": "GPS", "onIcon": "map-pin" }
+          {
+            "onLabel": "WiFi",
+            "onIcon": "wifi"
+          },
+          {
+            "onLabel": "BT",
+            "onIcon": "bluetooth"
+          },
+          {
+            "onLabel": "GPS",
+            "onIcon": "map-pin"
+          }
+        ],
+        "widgetId": 11,
+        "autoCenter": [
+          null,
+          "smooth",
+          300
         ]
       }
     },
     {
       "type": "multiple",
       "name": "modes",
-      "label": { "text": "MODES", "show": true },
-      "position": [100, 25, 0],
-      "size": [10, 10],
-      "variant": "multiButton",
+      "label": {
+        "text": "modes",
+        "show": true
+      },
+      "position": [
+        97,
+        87,
+        0
+      ],
+      "size": [
+        null,
+        20
+      ],
       "haptic": true,
+      "variant": "multiButton",
       "properties": {
-        "widgetId": 8,
         "itemCount": 4,
         "items": [
-          { "onLabel": "Auto", "onIcon": "cpu" },
-          { "onLabel": "Man", "onIcon": "mouse" },
-          { "onLabel": "Night", "onIcon": "moon" },
-          { "onLabel": "Eco", "onIcon": "leaf" }
+          {
+            "onLabel": "Auto",
+            "onIcon": "cpu"
+          },
+          {
+            "onLabel": "Man",
+            "onIcon": "mouse"
+          },
+          {
+            "onLabel": "Night",
+            "onIcon": "moon"
+          },
+          {
+            "onLabel": "Eco",
+            "onIcon": "leaf"
+          }
+        ],
+        "widgetId": 8,
+        "autoCenter": [
+          null,
+          "smooth",
+          300
         ]
       }
     },
     {
       "type": "knob",
       "name": "pan",
-      "label": { "text": "PAN", "show": true },
-      "position": [170, 80, 0],
-      "size": [10, 10],
+      "label": {
+        "text": "pan",
+        "show": true
+      },
+      "position": [
+        170,
+        83,
+        0
+      ],
+      "size": [
+        null,
+        28
+      ],
       "haptic": true,
       "properties": {
-        "widgetId": 7,
         "min": 0,
         "max": 100,
         "minAngle": -135,
         "maxAngle": 135,
-        "autoCenter": [null, "smooth", 500],
         "centerIcon": "rotate-cw",
-        "divisions": null
+        "divisions": null,
+        "widgetId": 7,
+        "autoCenter": [
+          null,
+          "smooth",
+          500
+        ]
       }
     },
     {
       "type": "joystick",
       "name": "stick",
-      "label": { "text": "STICK", "show": true },
-      "position": [170, 50, 0],
-      "size": [10, 10],
+      "label": {
+        "text": "stick",
+        "show": true
+      },
+      "position": [
+        168,
+        48,
+        0
+      ],
+      "size": [
+        null,
+        31
+      ],
       "haptic": true,
       "properties": {
-        "widgetId": 10,
-        "autoCenter": ["center", "smooth", 300],
         "centerX": 0.0,
-        "centerY": 0.0
+        "centerY": 0.0,
+        "widgetId": 10,
+        "autoCenter": [
+          "center",
+          "smooth",
+          300
+        ]
       }
     },
     {
       "type": "led",
       "name": "alive",
-      "label": { "text": "ALIVE", "show": true },
-      "position": [170, 25, 0],
-      "size": [5, 5],
+      "label": {
+        "text": "alive",
+        "show": true
+      },
+      "position": [
+        166,
+        17,
+        0
+      ],
+      "size": [
+        null,
+        12
+      ],
       "haptic": true,
       "properties": {
-        "widgetId": 9,
         "state": "off",
         "shape": "circle",
         "color": 65280,
-        "timing": 500
+        "timing": 500,
+        "widgetId": 9,
+        "autoCenter": [
+          null,
+          "smooth",
+          300
+        ]
       }
     }
   ]

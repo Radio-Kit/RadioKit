@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/logo_icon.dart';
 
 class HomeScreen extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
@@ -14,53 +15,77 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final showDevTools = context.watch<SettingsProvider>().enableDevTools;
+    final orientation = MediaQuery.of(context).orientation;
 
-    final items = <BottomNavigationBarItem>[
-      const BottomNavigationBarItem(
-        icon: Icon(Icons.dashboard_outlined, size: 18),
-        activeIcon: Icon(Icons.dashboard_rounded, size: 22),
+    if (orientation == Orientation.landscape) {
+      return _buildLandscape(context, showDevTools);
+    }
+    return _buildPortrait(context, showDevTools);
+  }
+
+  // ─── Shared data ────────────────────────────────────────────────
+
+  List<_NavItem> _buildNavItems(bool showDevTools) {
+    return [
+      const _NavItem(
+        icon: Icons.dashboard_outlined,
+        activeIcon: Icons.dashboard_rounded,
         label: 'MODELS',
       ),
-      const BottomNavigationBarItem(
-        icon: Icon(Icons.add_circle_outline_rounded, size: 18),
-        activeIcon: Icon(Icons.add_circle_rounded, size: 22),
+      const _NavItem(
+        icon: Icons.add_circle_outline_rounded,
+        activeIcon: Icons.add_circle_rounded,
         label: 'PAIR',
       ),
-      const BottomNavigationBarItem(
-        icon: Icon(Icons.create_new_folder_outlined, size: 18),
-        activeIcon: Icon(Icons.create_new_folder_rounded, size: 22),
+      const _NavItem(
+        icon: Icons.create_new_folder_outlined,
+        activeIcon: Icons.create_new_folder_rounded,
         label: 'PROJECTS',
       ),
       if (showDevTools)
-        const BottomNavigationBarItem(
-          icon: Icon(Icons.handyman_outlined, size: 18),
-          activeIcon: Icon(Icons.handyman_rounded, size: 22),
+        const _NavItem(
+          icon: Icons.handyman_outlined,
+          activeIcon: Icons.handyman_rounded,
           label: 'DEV_TOOLS',
         ),
-      const BottomNavigationBarItem(
-        icon: Icon(Icons.settings_outlined, size: 18),
-        activeIcon: Icon(Icons.settings_rounded, size: 22),
+      const _NavItem(
+        icon: Icons.settings_outlined,
+        activeIcon: Icons.settings_rounded,
         label: 'SYSTEM',
       ),
     ];
+  }
 
-    final rawIndex = navigationShell.currentIndex;
-    final currentIdx = showDevTools
-        ? rawIndex
-        : (rawIndex >= 3 ? 3 : rawIndex);
+  int _resolvedIndex(bool showDevTools) {
+    final raw = navigationShell.currentIndex;
+    return showDevTools ? raw : (raw >= 3 ? raw : raw);
+  }
+
+  int _branchIndex(int visibleIndex) {
+    if (visibleIndex < 3) return visibleIndex;
+    return visibleIndex + 1;
+  }
+
+  void _onTap(int visibleIndex, bool showDevTools) {
+    final branchIndex = showDevTools ? visibleIndex : _branchIndex(visibleIndex);
+    navigationShell.goBranch(
+      branchIndex,
+      initialLocation: branchIndex == navigationShell.currentIndex,
+    );
+  }
+
+  // ─── Portrait: BottomNavigationBar ────────────────────────────
+
+  Widget _buildPortrait(BuildContext context, bool showDevTools) {
+    final items = _buildNavItems(showDevTools);
+    final currentIdx = _resolvedIndex(showDevTools);
 
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: currentIdx,
-        onTap: (index) {
-          final branchIndex = showDevTools ? index : _branchIndex(index);
-          navigationShell.goBranch(
-            branchIndex,
-            initialLocation: branchIndex == navigationShell.currentIndex,
-          );
-        },
+        onTap: (index) => _onTap(index, showDevTools),
         selectedItemColor: AppColors.brandOrange,
         unselectedItemColor:
             Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38),
@@ -74,13 +99,87 @@ class HomeScreen extends StatelessWidget {
           fontWeight: FontWeight.w500,
           letterSpacing: 1.0,
         ),
-        items: items,
+        items: items
+            .map((e) => BottomNavigationBarItem(
+                  icon: Icon(e.icon, size: 18),
+                  activeIcon: Icon(e.activeIcon, size: 22),
+                  label: e.label,
+                ))
+            .toList(),
       ),
     );
   }
 
-  int _branchIndex(int visibleIndex) {
-    if (visibleIndex < 3) return visibleIndex;
-    return visibleIndex + 1;
+  // ─── Landscape: NavigationRail ─────────────────────────────────
+
+  Widget _buildLandscape(BuildContext context, bool showDevTools) {
+    final items = _buildNavItems(showDevTools);
+    final currentIdx = _resolvedIndex(showDevTools);
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      body: Row(
+        children: [
+          NavigationRail(
+            selectedIndex: currentIdx,
+            onDestinationSelected: (index) => _onTap(index, showDevTools),
+            labelType: NavigationRailLabelType.all,
+            backgroundColor: theme.colorScheme.surface,
+            indicatorColor: Colors.transparent,
+            minWidth: 80,
+            leading: Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 16),
+              child: Transform.scale(
+                scale: 2.0,
+                child: const LogoIcon(),
+              ),
+            ),
+            selectedIconTheme: const IconThemeData(
+              color: AppColors.brandOrange,
+              size: 22,
+            ),
+            unselectedIconTheme: IconThemeData(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.38),
+              size: 18,
+            ),
+            selectedLabelTextStyle: GoogleFonts.changa(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.0,
+              color: AppColors.brandOrange,
+            ),
+            unselectedLabelTextStyle: GoogleFonts.changa(
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 1.0,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.38),
+            ),
+            destinations: items
+                .map((e) => NavigationRailDestination(
+                      icon: Icon(e.icon),
+                      selectedIcon: Icon(e.activeIcon),
+                      label: Text(e.label),
+                    ))
+                .toList(),
+          ),
+          const VerticalDivider(width: 1, thickness: 1),
+          Expanded(child: navigationShell),
+        ],
+      ),
+    );
   }
+}
+
+// ─── Helper ─────────────────────────────────────────────────────
+
+class _NavItem {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+
+  const _NavItem({
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+  });
 }

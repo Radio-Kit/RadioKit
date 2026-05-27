@@ -19,7 +19,7 @@ class DesignsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<DesignsProvider>();
-    final designs = provider.designs;
+    final designs = provider.activeDesigns;
 
     return Scaffold(
       appBar: RadioKitAppBar(
@@ -64,6 +64,7 @@ class DesignsTab extends StatelessWidget {
                 final date = DateTime.fromMillisecondsSinceEpoch(design.timestamp);
                 final formattedDate = DateFormat.yMMMd().add_jm().format(date);
 
+                final isFileMode = design.filePath != null;
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
                   child: ListTile(
@@ -74,15 +75,28 @@ class DesignsTab extends StatelessWidget {
                         color: AppColors.brandCharcoal,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(LucideIcons.fileCode, color: AppColors.brandOrange),
+                      child: Icon(
+                        isFileMode ? LucideIcons.fileCode : LucideIcons.archive,
+                        color: AppColors.brandOrange,
+                      ),
                     ),
                     title: Text(
                       design.name,
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    subtitle: Text(
-                      formattedDate,
-                      style: const TextStyle(color: AppColors.brandGray, fontSize: 12),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          formattedDate,
+                          style: const TextStyle(color: AppColors.brandGray, fontSize: 12),
+                        ),
+                        if (isFileMode)
+                          Text(
+                            design.filePath!,
+                            style: const TextStyle(color: AppColors.brandOrange, fontSize: 10),
+                          ),
+                      ],
                     ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -128,37 +142,46 @@ class DesignsTab extends StatelessWidget {
     try {
       FilePickerResult? result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['h'],
+        allowedExtensions: ['h', 'json'],
         withData: true,
       );
 
       if (result != null && result.files.isNotEmpty) {
-        final bytes = result.files.first.bytes;
-        String content = '';
-        if (bytes != null) {
-          content = utf8.decode(bytes);
-        } else {
-          final path = result.files.first.path;
-          if (path != null && !kIsWeb) {
-            content = await File(path).readAsString();
-          } else {
-            throw Exception('Could not read file data');
-          }
+        final filePath = result.files.first.path;
+        if (filePath == null || kIsWeb) {
+          throw Exception('File path not available on this platform');
         }
 
-        final match = DesignerState.configPattern.firstMatch(content);
-        if (match == null || match.group(1) == null) {
-          throw const FormatException('No RadioKit UI Designer block found in file');
+        final content = await File(filePath).readAsString();
+        final Map<String, dynamic> decoded;
+
+        if (filePath.endsWith('.json')) {
+          // Raw JSON file — parse directly
+          decoded = json.decode(content) as Map<String, dynamic>;
+        } else {
+          // .h file — extract JSON from the comment block
+          final match = DesignerState.configPattern.firstMatch(content);
+          if (match == null || match.group(1) == null) {
+            throw const FormatException('No RadioKit UI Designer block found in file');
+          }
+          decoded = json.decode(match.group(1)!.trim()) as Map<String, dynamic>;
         }
-        final jsonStr = (match.group(1) as String).trim();
-        final decoded = json.decode(jsonStr) as Map<String, dynamic>;
 
         if (!context.mounted) return;
         final provider = context.read<DesignsProvider>();
         final name = (decoded['config']?['name'] as String?) ?? result.files.first.name;
         final id = DateTime.now().millisecondsSinceEpoch.toString();
+        final appData = decoded['appdata'];
+        final lastEdit = appData is Map ? appData['lastEdit'] as int? : null;
+        final appVersion = appData is Map ? appData['appVersion'] as String? : null;
 
-        await provider.saveDesign(id, name, jsonStr);
+        // Save as file-mode entry (no jsonContent — the file is the source of truth)
+        await provider.saveDesign(
+          id, name, null,
+          filePath: filePath,
+          lastEdit: lastEdit ?? DateTime.now().millisecondsSinceEpoch,
+          appVersion: appVersion,
+        );
 
         if (!context.mounted) return;
         context.push('/designer?id=$id');

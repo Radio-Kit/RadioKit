@@ -15,6 +15,7 @@ import '../providers/console_provider.dart';
 import '../providers/skin_provider.dart';
 import '../providers/debug_provider.dart';
 import '../models/console_entry.dart';
+import 'package:radiokit_widgets/radiokit_widgets.dart';
 
 enum DeviceConnectionState {
   disconnected,
@@ -69,6 +70,13 @@ class DeviceProvider extends ChangeNotifier {
 
   final Map<int, _PendingUpdate> _pendingUpdates = {};
   int _nextSeq = 0;
+
+  /// Cached designer-format JSON for fast UI rendering.
+  /// Populated from device CONF_DATA or demo assets.
+  Map<String, dynamic>? _deviceConfigJson;
+
+  /// The cached designer-format JSON config, or null if not yet loaded.
+  Map<String, dynamic>? get deviceConfigJson => _deviceConfigJson;
 
   DeviceProvider({
     required TransportService transport,
@@ -262,6 +270,9 @@ class DeviceProvider extends ChangeNotifier {
         }
       }
 
+      // Cache the original designer JSON for fast UI rendering.
+      _deviceConfigJson = data;
+
       _connectionState = DeviceConnectionState.connected;
       _log('CONFIG LOADED: "$_configName" with ${_widgets.length} widgets',
           level: ConsoleLogLevel.success);
@@ -294,8 +305,35 @@ class DeviceProvider extends ChangeNotifier {
     final x = ((pos[0] as num?)?.toDouble() ?? 0);
     final y = ((pos[1] as num?)?.toDouble() ?? 0);
     final rotation = (pos[2] as num?)?.toInt() ?? 0;
-    final width = (size[0] as num?)?.toInt() ?? 10;
-    final height = (size[1] as num?)?.toInt() ?? 10;
+
+    // Convert designer JSON grid-unit sizes to wire SCALE/ASPECT ×10 values.
+    // WidgetConfig stores width as SCALE×10 and height as ASPECT×10, used by
+    // DeviceDesignerBridge to compute grid-unit sizes via designer defaults.
+    final rawW = size[0];
+    final rawH = size[1];
+    int width = 10;  // SCALE ×10
+    int height = 10; // ASPECT ×10
+    final designerType = _wireTypeToDesignerType(typeId);
+    if (designerType != null) {
+      final (defaultW, defaultH) = DesignerElement.defaultSize(designerType);
+      final jsonH = (rawH is num) ? rawH.toInt() : defaultH;
+      if (defaultH > 0) {
+        height = (jsonH / defaultH * 10).round().clamp(0, 255);
+      }
+      final ar = DesignerElement.aspectRatioFor(designerType, props);
+      final jsonW = (rawW is num) ? rawW.toInt() : defaultW;
+      if (ar != null) {
+        // Fixed-aspect: SCALE is unused by bridge (width = h × ar)
+        width = 10;
+      } else {
+        // Free-form: need SCALE to achieve jsonW width
+        final aspectF = height / 10.0;
+        if (aspectF > 0 && defaultW > 0) {
+          final scaleF = jsonW / (defaultW * aspectF);
+          width = (scaleF * 10).round().clamp(0, 255);
+        }
+      }
+    }
 
     // ── variant ──────────────────────────────────────────────────
     final variantStr =
@@ -385,6 +423,31 @@ class DeviceProvider extends ChangeNotifier {
         return kWidgetMultiple;
       default:
         return 0;
+    }
+  }
+
+  /// Maps a wire-format typeId to a [DesignerElementType] for size conversion,
+  /// or `null` for unknown types.
+  DesignerElementType? _wireTypeToDesignerType(int typeId) {
+    switch (typeId) {
+      case kWidgetButton:
+        return DesignerElementType.button;
+      case kWidgetSlideSwitch:
+        return DesignerElementType.slideSwitch;
+      case kWidgetSlider:
+        return DesignerElementType.slider;
+      case kWidgetKnob:
+        return DesignerElementType.knob;
+      case kWidgetJoystick:
+        return DesignerElementType.joystick;
+      case kWidgetLed:
+        return DesignerElementType.led;
+      case kWidgetText:
+        return DesignerElementType.text;
+      case kWidgetMultiple:
+        return DesignerElementType.multiButton;
+      default:
+        return null;
     }
   }
 
@@ -652,7 +715,16 @@ class DeviceProvider extends ChangeNotifier {
     _orientation     = conf.orientation;
     _widgetState     = RadioWidgetState.initial(conf.widgets);
     _connectionState = DeviceConnectionState.connected;
-    
+
+    // Convert to designer-format JSON and cache for fast UI rendering.
+    _deviceConfigJson = widgetConfigsToDesignerJson(
+      widgets: conf.widgets,
+      name: conf.name,
+      description: conf.description,
+      orientation: conf.orientation,
+      theme: conf.theme,
+    );
+
     // Apply the skin provided by the device
     _skinProvider?.setSkin(conf.theme);
 
@@ -931,11 +1003,12 @@ class DeviceProvider extends ChangeNotifier {
       _confCompleter!.completeError(TimeoutException('Disconnected by user'));
     }
     await _transport.disconnect();
-    _connectedDevice = null;
-    _widgets         = [];
-    _widgetState     = null;
-    _description     = null;
-    _errorMessage    = null;
+    _connectedDevice  = null;
+    _widgets          = [];
+    _widgetState      = null;
+    _description      = null;
+    _deviceConfigJson = null;
+    _errorMessage     = null;
     notifyListeners();
   }
 

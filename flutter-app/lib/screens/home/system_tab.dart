@@ -210,6 +210,30 @@ class SystemTab extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
+            const _SettingLabel(label: 'INTERFACE_SCALE', value: ''),
+            const SizedBox(height: 8),
+            Consumer<SettingsProvider>(
+              builder: (context, settings, _) => Row(
+                children: [
+                  Expanded(
+                    child: Slider(
+                      value: settings.interfaceScale.toDouble(),
+                      min: 50,
+                      max: 200,
+                      divisions: 15,
+                      activeColor: AppColors.brandOrange,
+                      onChanged: (v) => settings.setInterfaceScale(v.round()),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${settings.interfaceScale}%',
+                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [

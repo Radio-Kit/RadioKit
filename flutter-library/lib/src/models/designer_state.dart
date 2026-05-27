@@ -19,7 +19,11 @@ class DesignerState extends ChangeNotifier {
   String _modelDescription = '';
   String _connectionPassword = '';
   String _screenSize = '200 x 100';
-  
+
+  // appdata (metadata from the JSON block, not user-configurable)
+  int? _lastEdit;
+  String? _appVersion;
+
   String? _originalHeaderContent;
   String? _originalHeaderPath;
 
@@ -55,6 +59,8 @@ class DesignerState extends ChangeNotifier {
   String get modelDescription => _modelDescription;
   String get connectionPassword => _connectionPassword;
   String get screenSize => _screenSize;
+  int? get lastEdit => _lastEdit;
+  String? get appVersion => _appVersion;
   bool get canUndo => _undoStack.isNotEmpty;
   bool get canRedo => _redoStack.isNotEmpty;
 
@@ -371,6 +377,11 @@ class DesignerState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setAppData({int? lastEdit, String? appVersion}) {
+    if (lastEdit != null) _lastEdit = lastEdit;
+    if (appVersion != null) _appVersion = appVersion;
+  }
+
   void setScreenSize(dynamic value) {
     _mutationCount++;
     if (value is List && value.length >= 2) {
@@ -434,7 +445,7 @@ class DesignerState extends ChangeNotifier {
       throw UnsupportedError('Header-file I/O requires a desktop platform');
     }
     final content = await File(filePath).readAsString();
-    loadFromHeaderContent(content);
+    loadFromHeaderContent(content, path: filePath);
   }
 
   /// Load designer state from a plain `.json` file (no header markers).
@@ -443,6 +454,8 @@ class DesignerState extends ChangeNotifier {
       throw UnsupportedError('JSON file I/O requires a desktop platform');
     }
     final content = await File(filePath).readAsString();
+    _originalHeaderContent = content;
+    _originalHeaderPath = filePath;
     final decoded = json.decode(content) as Map<String, dynamic>;
     loadFromJson(decoded);
   }
@@ -512,6 +525,13 @@ class DesignerState extends ChangeNotifier {
       _activeSkin = canvasSkin;
     }
 
+    // appdata
+    final appData = decoded['appdata'];
+    if (appData is Map) {
+      _lastEdit = appData['lastEdit'] as int?;
+      _appVersion = appData['appVersion'] as String?;
+    }
+
     _selectedElementId = null;
     notifyListeners();
   }
@@ -525,6 +545,7 @@ class DesignerState extends ChangeNotifier {
     if (kIsWeb || !(Platform.isLinux || Platform.isMacOS || Platform.isWindows)) {
       throw UnsupportedError('Header-file I/O requires a desktop platform');
     }
+    _lastEdit = DateTime.now().millisecondsSinceEpoch;
     final content = await File(filePath).readAsString();
     final result = generateHeaderContent(content);
     await File(filePath).writeAsString(result);
@@ -623,6 +644,10 @@ class DesignerState extends ChangeNotifier {
 
   Map<String, dynamic> toJson() => {
         'version': 1,
+        'appdata': {
+          if (_appVersion != null) 'appVersion': _appVersion,
+          if (_lastEdit != null) 'lastEdit': _lastEdit,
+        },
         'config': {
           'name': _modelName,
           'description': _modelDescription,

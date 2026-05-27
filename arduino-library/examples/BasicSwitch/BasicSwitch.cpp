@@ -20,6 +20,7 @@
 
 // ── Pin definitions ───────────────────────────────────────────
 #define LED_PIN       2  // This is a regular LED, not a neopixel!!!
+#define BUTTON_PIN   14
 
 // ────────────────────────────────────────────────────────────
 void setup() {
@@ -29,6 +30,10 @@ void setup() {
 
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+  led_1.off();
+  led_2.off();
 
   // Initialize RadioKit from the UI config and start USB Serial.
   initRadioKit();
@@ -49,6 +54,17 @@ void loop() {
   if (switchNow != lastSwitchState) {
     lastSwitchState = switchNow;
     digitalWrite(LED_PIN, switchNow ? HIGH : LOW);
+  }
+
+  // button_1 → led_1 (direct mapping)
+  if (button_1.get() != led_1.props.state) {
+    led_1.set(button_1.get());
+  }
+
+  // Physical button on BUTTON_PIN → led_2 (direct mapping)
+  bool btnPressed = (digitalRead(BUTTON_PIN) == LOW);
+  if (btnPressed != led_2.props.state) {
+    led_2.set(btnPressed);
   }
 }
 

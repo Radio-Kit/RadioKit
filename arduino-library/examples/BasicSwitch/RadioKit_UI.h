@@ -1,11 +1,15 @@
 /*__RadioKit_UI_Designer_Config__
 {
   "version": 1,
+  "appdata": {
+    "appVersion": "1.0.0",
+    "lastEdit": 1779879673081
+  },
   "config": {
     "name": "Basic_Switch",
     "description": "",
     "type": "IOT",
-    "transport": "Serial",
+    "transport": "BLE",
     "theme": "RK_DEFAULT",
     "password": ""
   },
@@ -26,25 +30,117 @@
         "show": false
       },
       "position": [
-        102,
-        52,
+        135,
+        71,
         0
       ],
       "size": [
         null,
-        40
+        31
       ],
       "haptic": true,
       "variant": "slideSwitch",
       "properties": {
         "onText": "ON",
-        "offText": "OFF"
+        "offText": "OFF",
+        "autoCenter": [
+          null,
+          "smooth",
+          300
+        ]
+      }
+    },
+    {
+      "type": "button",
+      "name": "button_1",
+      "label": {
+        "text": "button_1",
+        "show": false
+      },
+      "position": [
+        155,
+        28,
+        0
+      ],
+      "size": [
+        null,
+        34
+      ],
+      "haptic": true,
+      "properties": {
+        "variant": "push",
+        "onText": "ON",
+        "offText": "OFF",
+        "onIcon": null,
+        "offIcon": null,
+        "autoCenter": [
+          null,
+          "smooth",
+          300
+        ]
+      }
+    },
+    {
+      "type": "led",
+      "name": "led_2",
+      "label": {
+        "text": "led_2",
+        "show": false
+      },
+      "position": [
+        48,
+        49,
+        0
+      ],
+      "size": [
+        null,
+        32
+      ],
+      "haptic": true,
+      "properties": {
+        "state": "off",
+        "shape": "circle",
+        "color": 65280,
+        "timing": 500,
+        "autoCenter": [
+          null,
+          "smooth",
+          300
+        ]
+      }
+    },
+    {
+      "type": "led",
+      "name": "led_1",
+      "label": {
+        "text": "led_1",
+        "show": false
+      },
+      "position": [
+        115,
+        29,
+        0
+      ],
+      "size": [
+        null,
+        28
+      ],
+      "haptic": true,
+      "properties": {
+        "state": "off",
+        "shape": "circle",
+        "color": 65280,
+        "timing": 500,
+        "autoCenter": [
+          null,
+          "smooth",
+          300
+        ]
       }
     }
   ]
 }
 RadioKit_UI_Designer_Config__*/
-
 //__RadioKit_Generated_Code__
 //__Might_Be_Overwritten_
 
@@ -54,21 +150,45 @@ RadioKit_UI_Designer_Config__*/
 #include <RadioKit.h>
 
 // ─── Widget Declarations ───
-RK_SlideSwitch slide_switch_1({
-    .x = 102, .y = 52,
-    .height = 40, .width = 0,
+RK_RockerSwitch slide_switch_1({
+    .x = 135, .y = 71,
+    .height = 31, .width = 0,
     .rotation = 0
-});  // switch: pos=(102,52) size=?x40 label="slide_switch_1"
+});  // switch: pos=(135,71) size=?x31 label="slide_switch_1"
+
+RK_PushButton button_1({
+    .x = 155, .y = 28,
+    .height = 34, .width = 0,
+    .rotation = 0
+});  // button: pos=(155,28) size=?x34 label="button_1"
+
+RK_LED led_2({
+    .x = 48, .y = 49,
+    .height = 32, .width = 0,
+    .rotation = 0
+});  // led: pos=(48,49) size=?x32 label="led_2"
+
+RK_LED led_1({
+    .x = 115, .y = 29,
+    .height = 28, .width = 0,
+    .rotation = 0
+});  // led: pos=(115,29) size=?x28 label="led_1"
 
 // ─── Config Init ───
 static inline void initRadioKit() {
   RadioKit.config.name        = "Basic_Switch";
-  RadioKit.config.description = "Simple switch example to control a LED";
   RadioKit.config.type        = "IOT";
   RadioKit.config.theme       = RK_DEFAULT;
+  RadioKit.config.baudrate    = 1000000;
+
+  button_1.setOnText("ON");
+  button_1.setOffText("OFF");
+  led_2.setColor(0x00ff00);
+  led_1.setColor(0x00ff00);
 
   RadioKit.begin();
   RadioKit.startBLE(RadioKit.config.name);
 }
 
 #endif // RADIOKIT_UI_H
+

@@ -22,7 +22,7 @@ class PairTab extends StatefulWidget {
 }
 
 class _PairTabState extends State<PairTab> {
-  int _selectedTransportIndex = 0; // 0: BLE, 1: USB
+  int _selectedTransportIndex = 1; // 0: BLE, 1: USB
 
   @override
   void initState() {

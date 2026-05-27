@@ -8,7 +8,7 @@
 
 // ── Debug logging (enabled by default for debugging) ────────────────────
 // Set to 1 to enable verbose debug output
-#define RK_DEBUG_VERBOSE 1
+#define RK_DEBUG_VERBOSE 0
 
 #if RK_DEBUG_VERBOSE
 #define RK_DEBUG_PRINT(fmt, ...) Serial.printf(fmt, ##__VA_ARGS__)
