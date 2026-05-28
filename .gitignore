@@ -41,7 +41,8 @@ build_log.txt
 .pub/
 .flutter-plugins
 .flutter-plugins-dependencies
-pubspec.lock
+# pubspec.lock for published packages, but app/pubspec.lock should be committed
+# /pubspec.lock
 .metadata
 GeneratedPluginRegistrant.java
 .screenshots/
