@@ -182,6 +182,7 @@ com.rambros3d.radiokit.yml
 generated/
 build-dir/
 repo/
+.flatpak-builder/
 
 # -----------------------------------------------------------------------------
 # Linux-specific patterns
