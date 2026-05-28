@@ -98,6 +98,7 @@ jobs:
             --app-pubspec flutter-app \
             --extra-pubspecs flutter-library \
             flatpak/flatpak-flutter.yml
+          mv com.rambros3d.radiokit.yml flatpak/
 
       - name: Build Flatpak
         run: |
