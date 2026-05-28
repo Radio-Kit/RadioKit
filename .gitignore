@@ -21,6 +21,7 @@ tmp/
 *~
 *.log
 *.txt
+!**/CMakeLists.txt
 
 # PlatformIO
 .pio/

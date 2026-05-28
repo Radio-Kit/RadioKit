@@ -15,7 +15,8 @@ modules:
   - name: radiokit
     buildsystem: simple
     build-commands:
-      - cd flutter-app && flutter config --enable-linux-desktop && flutter build linux --release --no-pub
+      - flutter config --enable-linux-desktop
+      - flutter build linux --release --no-pub --project-dir flutter-app
       - mkdir -p /app/share/radiokit
       - cp -r flutter-app/build/linux/*/release/bundle/lib /app/share/radiokit/
       - cp -r flutter-app/build/linux/*/release/bundle/data /app/share/radiokit/
