@@ -35,6 +35,9 @@ public:
     const char* icon()     const { return _icon; }
     const char* onText()   const { return _onText; }
     const char* offText()  const { return _offText; }
+    bool        labelHidden() const { return _labelHidden; }
+
+    void setLabelHidden(bool hidden) { _labelHidden = hidden; }
 
     // ── Serialization ─────────────────────────────────────────────────────
     virtual uint8_t inputSize()  const = 0;
@@ -54,6 +57,7 @@ protected:
     uint8_t  _width;
     int16_t  _rotation;
     bool     _enabled;
+    bool     _labelHidden = false;
     uint8_t  _style;
     uint8_t  _variant;
     char     _label  [RADIOKIT_MAX_LABEL + 1];

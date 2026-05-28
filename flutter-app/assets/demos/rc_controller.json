@@ -1,5 +1,9 @@
 {
   "version": 1,
+  "appdata": {
+    "appVersion": "1.0.0",
+    "lastEdit": 1779950143236
+  },
   "config": {
     "name": "RC_CONTROLLER",
     "description": "Interactive Demo Mode",
@@ -8,15 +12,11 @@
     "theme": "RK_DEFAULT",
     "password": ""
   },
-  "initialInputs": {
-    "gas": [-100]
-  },
-  "initialOutputs": {
-    "lights": [1, 255, 120, 0, 255],
-    "telemetry": "912MHz / -84dBm"
-  },
   "canvas": {
-    "size": [200, 100],
+    "size": [
+      200,
+      100
+    ],
     "grid": "none",
     "skin": "dragon"
   },
@@ -24,66 +24,180 @@
     {
       "type": "slider",
       "name": "gas",
-      "label": { "text": "GAS", "show": true },
-      "position": [25, 60, 0],
-      "size": [8, 50],
-      "variant": "gasPedal",
+      "label": {
+        "text": "gas",
+        "show": true
+      },
+      "position": [
+        23,
+        57,
+        0
+      ],
+      "size": [
+        25,
+        54
+      ],
       "haptic": true,
+      "variant": "gasPedal",
       "properties": {
-        "widgetId": 1,
         "min": 0,
         "max": 100,
-        "autoCenter": ["min", "smooth", 300]
+        "widgetId": 1,
+        "autoCenter": [
+          "min",
+          "smooth",
+          300
+        ]
       }
     },
     {
       "type": "knob",
       "name": "steering",
-      "label": { "text": "STEERING", "show": true },
-      "position": [160, 60, 0],
-      "size": [10, 30],
-      "variant": "steeringWheel",
+      "label": {
+        "text": "steering",
+        "show": true
+      },
+      "position": [
+        162,
+        57,
+        0
+      ],
+      "size": [
+        null,
+        55
+      ],
       "haptic": true,
+      "variant": "steeringWheel",
       "properties": {
-        "widgetId": 2,
         "min": -100,
         "max": 100,
         "minAngle": -135,
         "maxAngle": 135,
-        "autoCenter": ["center", "smooth", 500],
-        "centerIcon": null,
-        "divisions": null
+        "centerIcon": "renault",
+        "divisions": null,
+        "widgetId": 2,
+        "autoCenter": [
+          "center",
+          "smooth",
+          500
+        ]
       }
     },
     {
       "type": "multiple",
       "name": "lights",
-      "label": { "text": "LIGHTS", "show": true },
-      "position": [100, 55, 0],
-      "size": [10, 12],
-      "variant": "multiSelect",
+      "label": {
+        "text": "lights",
+        "show": true
+      },
+      "position": [
+        94,
+        58,
+        0
+      ],
+      "size": [
+        null,
+        22
+      ],
       "haptic": true,
+      "variant": "multiSelect",
       "properties": {
-        "widgetId": 3,
         "itemCount": 4,
         "items": [
-          { "onLabel": "Head", "onIcon": "lightbulb" },
-          { "onLabel": "Fog", "onIcon": "cloud" },
-          { "onLabel": "Hazard", "onIcon": "warning" },
-          { "onLabel": "Cabin", "onIcon": "home" }
+          {
+            "onLabel": "Head",
+            "onIcon": "lightbulb"
+          },
+          {
+            "onLabel": "Fog",
+            "onIcon": "cloud"
+          },
+          {
+            "onLabel": "Hazard",
+            "onIcon": "warning"
+          },
+          {
+            "onLabel": "Cabin",
+            "onIcon": "home"
+          }
+        ],
+        "widgetId": 3,
+        "autoCenter": [
+          null,
+          "smooth",
+          300
         ]
       }
     },
     {
       "type": "text",
       "name": "telemetry",
-      "label": { "text": "TELEMETRY", "show": true },
-      "position": [100, 80, 0],
-      "size": [50, 12],
+      "label": {
+        "text": "telemetry",
+        "show": true
+      },
+      "position": [
+        97,
+        10,
+        0
+      ],
+      "size": [
+        87,
+        20
+      ],
       "haptic": true,
       "properties": {
+        "text": "Display",
+        "fontSize": 14,
+        "fontFamily": "monospace",
         "widgetId": 5,
-        "text": "Display"
+        "autoCenter": [
+          null,
+          "smooth",
+          300
+        ]
+      }
+    },
+    {
+      "type": "multiple",
+      "name": "multi_button_1",
+      "label": {
+        "text": "multi_button_1",
+        "show": false
+      },
+      "position": [
+        51,
+        58,
+        0
+      ],
+      "size": [
+        19,
+        null
+      ],
+      "haptic": true,
+      "variant": "multiButton",
+      "properties": {
+        "itemCount": 3,
+        "items": [
+          {
+            "onLabel": "D",
+            "onIcon": null,
+            "offLabel": null,
+            "offIcon": null
+          },
+          {
+            "onLabel": "P",
+            "onIcon": null,
+            "offLabel": null,
+            "offIcon": null
+          },
+          {
+            "onLabel": "R",
+            "onIcon": null,
+            "offLabel": null,
+            "offIcon": null
+          }
+        ]
       }
     }
   ]

@@ -7,7 +7,7 @@ on:
 
 jobs:
   release:
-    name: Build and Release
+    name: Build and Release (Android + iOS)
     runs-on: macos-latest
     permissions:
       contents: write
@@ -66,5 +66,57 @@ jobs:
             radiokit-*.apk
             radiokit-*.ipa
           generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  flatpak:
+    name: Build Flatpak
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install flatpak-builder and dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder python3-pip
+          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install -y --noninteractive \
+            org.freedesktop.Platform//24.08 \
+            org.freedesktop.Sdk//24.08
+          pip install packaging pyyaml tomlkit
+
+      - name: Pre-process manifest with flatpak-flutter
+        run: |
+          git clone --depth=1 https://github.com/TheAppgineer/flatpak-flutter.git /tmp/flatpak-flutter
+          python3 /tmp/flatpak-flutter/flatpak-flutter.py \
+            --app-pubspec flutter-app \
+            --extra-pubspecs flutter-library \
+            flatpak/flatpak-flutter.yml
+
+      - name: Build Flatpak
+        run: |
+          flatpak-builder --repo=repo --force-clean --sandbox \
+            --install-deps-from=flathub \
+            build-dir flatpak/com.rambros3d.radiokit.yml
+
+      - name: Export .flatpak bundle
+        run: |
+          flatpak build-bundle repo radiokit.flatpak com.rambros3d.radiokit
+
+      - name: Upload Flatpak artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: radiokit-flatpak
+          path: radiokit.flatpak
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            radiokit.flatpak
+          generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

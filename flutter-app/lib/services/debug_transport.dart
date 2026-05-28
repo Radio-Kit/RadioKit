@@ -4,7 +4,7 @@ import '../models/debug_log_entry.dart';
 import '../models/protocol.dart';
 import 'protocol_service.dart';
 
-/// Transparent [TransportService] decorator that logs every RX/TX packet
+/// Transparent [TransportService] decorator that logs every APP/MCU packet
 /// to a [DebugLogSink] without altering transport behaviour.
 ///
 /// Usage:
@@ -23,7 +23,7 @@ class DebugTransport implements TransportService {
   Stream<String> get logStream => _inner.logStream;
 
   // ---------------------------------------------------------------------------
-  // Delegate callbacks — intercept RX
+  // Delegate callbacks — intercept MCU
   // ---------------------------------------------------------------------------
 
   @override
@@ -33,7 +33,7 @@ class DebugTransport implements TransportService {
         : (packet) {
             // Log before forwarding
             final entry = _makeEntry(
-              direction: PacketDirection.rx,
+              direction: PacketDirection.mcu,
               bytes: _rebuildFramedBytes(packet),
               crcOk: true, // ProtocolService only calls back on valid CRC
             );
@@ -53,7 +53,7 @@ class DebugTransport implements TransportService {
   ConnectionLostCallback? get onConnectionLost => _inner.onConnectionLost;
 
   // ---------------------------------------------------------------------------
-  // Delegate core methods — intercept TX
+  // Delegate core methods — intercept APP
   // ---------------------------------------------------------------------------
 
   @override
@@ -69,7 +69,7 @@ class DebugTransport implements TransportService {
   @override
   Future<void> writePacket(Uint8List data) async {
     final entry = _makeEntry(
-      direction: PacketDirection.tx,
+      direction: PacketDirection.app,
       bytes: data,
       crcOk: _verifyCrc(data),
     );
@@ -87,7 +87,7 @@ class DebugTransport implements TransportService {
   // Helpers
   // ---------------------------------------------------------------------------
 
-  /// Rebuild the full framed packet bytes from a [ParsedPacket] (RX path).
+  /// Rebuild the full framed packet bytes from a [ParsedPacket] (MCU path).
   /// Since ProtocolService already validated and stripped the frame, we
   /// rebuild it for display purposes.
   List<int> _rebuildFramedBytes(ParsedPacket packet) {

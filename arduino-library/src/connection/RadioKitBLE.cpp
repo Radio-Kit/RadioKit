@@ -129,17 +129,10 @@ void RadioKitBLE::_onDisconnect() { _connected = false; _needRestartAdv = true; 
 
 void RadioKitBLE::_onWrite(const uint8_t* data, size_t len) {
     if (!_packetCallback) return;
-    
-    Serial.print("BLE RX: ");
-    for (size_t i = 0; i < len; i++) {
-        Serial.printf("%02X ", data[i]);
-    }
-    Serial.println();
 
     uint8_t cmd; const uint8_t* payload; uint16_t payloadLen;
     for (size_t i = 0; i < len; i++) {
         if (rk_rxFeedByte(data[i], cmd, payload, payloadLen)) {
-            Serial.printf("BLE CMD: %s (0x%02X), payloadLen: %d\n", rk_cmdName(cmd), cmd, payloadLen);
             _packetCallback(cmd, payload, payloadLen);
         }
     }

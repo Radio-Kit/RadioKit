@@ -111,7 +111,7 @@ class DebugProvider extends ChangeNotifier implements DebugLogSink {
   }
 
   // ---------------------------------------------------------------------------
-  // Manual TX
+  // Manual APP (send packet)
   // ---------------------------------------------------------------------------
 
   /// Send a manually constructed packet: [cmd] byte + [payloadHex] hex string.

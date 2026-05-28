@@ -18,7 +18,7 @@ import '../../widgets/radiokit_app_bar.dart';
 ///   - Hex view mode (byte-by-byte hex dump)
 ///   - Send bar: text input with configurable line ending
 ///   - Toolbar: clear, auto-scroll, pause, copy, hex toggle
-///   - Status bar: connection state, RX/TX byte counts, baud rate
+///   - Status bar: connection state, MCU/APP byte counts, baud rate
 class UsbSerialScreen extends StatefulWidget {
   const UsbSerialScreen({super.key});
 
@@ -716,7 +716,7 @@ class _UsbSerialScreenState extends State<UsbSerialScreen> {
             ),
           ),
           const SizedBox(width: 16),
-          // RX Count
+          // MCU Count
           Icon(LucideIcons.arrowDown, size: 10, color: AppColors.connected),
           const SizedBox(width: 4),
           Text(
@@ -728,7 +728,7 @@ class _UsbSerialScreenState extends State<UsbSerialScreen> {
             ),
           ),
           const SizedBox(width: 12),
-          // TX Count
+          // APP Count
           Icon(LucideIcons.arrowUp, size: 10, color: AppColors.brandOrange),
           const SizedBox(width: 4),
           Text(
@@ -863,7 +863,7 @@ class _TerminalLine extends StatelessWidget {
           // Direction indicator
           if (entry.isTx)
             Text(
-              'TX ',
+              'APP ',
               style: TextStyle(
                 fontSize: 9,
                 fontFamily: 'monospace',

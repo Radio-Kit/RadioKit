@@ -130,7 +130,7 @@ class BleService implements TransportService {
       final targetId = kRadioKitCharUuid.toLowerCase();
       
       // Log ALL incoming data from ANY characteristic
-      _log('RAW RX from $characteristicId: ${value.map((b) => b.toRadixString(16).padLeft(2, "0")).join(" ")}');
+      _log('RAW MCU from $characteristicId: ${value.map((b) => b.toRadixString(16).padLeft(2, "0")).join(" ")}');
 
       if (deviceId == _connectedDeviceId && charId.contains(targetId)) {
         _log('MATCH! Appending ${value.length} bytes to buffer.');

@@ -71,6 +71,9 @@ class WidgetConfig {
   /// Multiply by 2 to get display degrees.
   final int rotation;
 
+  /// Whether the label should be hidden in the UI (set via kStrMaskLabelHidden bit).
+  final bool labelHidden;
+
   /// The float multiplier for width (scalewidth).
   double get widthF => width / 10.0;
 
@@ -102,6 +105,7 @@ class WidgetConfig {
     this.rotation = 0,
     this.minAngle = -135,
     this.maxAngle = 135,
+    this.labelHidden = false,
   });
 
   WidgetConfig copyWith({
@@ -122,6 +126,7 @@ class WidgetConfig {
     int? rotation,
     double? minAngle,
     double? maxAngle,
+    bool? labelHidden,
   }) {
     return WidgetConfig(
       typeId:   typeId   ?? this.typeId,
@@ -141,6 +146,7 @@ class WidgetConfig {
       rotation: rotation ?? this.rotation,
       minAngle: minAngle ?? this.minAngle,
       maxAngle: maxAngle ?? this.maxAngle,
+      labelHidden: labelHidden ?? this.labelHidden,
     );
   }
 
@@ -199,12 +205,14 @@ class WidgetConfig {
     final typeStr = _wireTypeToDesignerTypeName(typeId);
 
     // ── Label ─────────────────────────────────────────────────────────────
-    final displayLabel = label.isNotEmpty ? label : 'widget_$widgetId';
+    final hasLabel = label.isNotEmpty;
+    final displayLabel = hasLabel ? label : 'widget_$widgetId';
+    final shouldShow = hasLabel && !labelHidden;
 
     final result = <String, dynamic>{
       'type': typeStr,
       'name': displayLabel,
-      'label': <String, dynamic>{'text': displayLabel, 'show': true},
+      'label': <String, dynamic>{'text': displayLabel, 'show': shouldShow},
       'position': [posX, posY, rotationDegrees.round()],
       'size': [jsonW, jsonH],
       'haptic': true,

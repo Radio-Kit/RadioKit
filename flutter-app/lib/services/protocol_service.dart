@@ -262,24 +262,27 @@ class ProtocolService {
         }
       }
 
+      final labelHidden = (strMask & kStrMaskLabelHidden) != 0;
+
       widgets.add(WidgetConfig(
-        typeId:   typeId,
-        widgetId: widgetId,
-        x:        x,
-        y:        y,
-        width:    width,
-        height:   height,
-        rotation: rotation,
-        style:    style,
-        variant:  variant,
-        strMask:  strMask,
-        label:    label,
-        icon:     icon,
-        onText:   onText,
-        offText:  offText,
-        content:  content,
-        minAngle: minAngle,
-        maxAngle: maxAngle,
+        typeId:      typeId,
+        widgetId:    widgetId,
+        x:           x,
+        y:           y,
+        width:       width,
+        height:      height,
+        rotation:    rotation,
+        style:       style,
+        variant:     variant,
+        strMask:     strMask,
+        label:       label,
+        icon:        icon,
+        onText:      onText,
+        offText:     offText,
+        content:     content,
+        minAngle:    minAngle,
+        maxAngle:    maxAngle,
+        labelHidden: labelHidden,
       ));
 
       debugPrint('  widget[$i]: ${widgets.last}');
@@ -430,6 +433,8 @@ class ProtocolService {
       }
     }
 
+    final labelHidden = (strMask & kStrMaskLabelHidden) != 0;
+
     final updated = w.copyWith(
       label: label,
       icon: icon,
@@ -439,6 +444,7 @@ class ProtocolService {
       strMask: strMask,
       minAngle: minAngle,
       maxAngle: maxAngle,
+      labelHidden: labelHidden,
     );
     return (updated, current);
   }

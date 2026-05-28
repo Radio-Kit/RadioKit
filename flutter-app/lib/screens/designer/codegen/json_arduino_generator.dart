@@ -247,6 +247,13 @@ class JsonArduinoGenerator {
         declBuf.writeln('  // Unsupported widget type: $type');
         break;
     }
+
+    // ── Label visibility ──────────────────────────────────────────────
+    final labelObj = w['label'] as Map<String, dynamic>?;
+    final show = labelObj?['show'] as bool? ?? true;
+    if (!show) {
+      setupBuf.writeln('  $name.setLabelHidden(true);');
+    }
   }
 
   // ── Sub-generators for widget variants ────────────────────────────────────

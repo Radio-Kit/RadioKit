@@ -462,7 +462,7 @@ class DeviceProvider extends ChangeNotifier {
       try {
         final pkt = ProtocolService.buildGetConf();
         final hex = pkt.map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase()).join(' ');
-        _log('TX -> GET_CONF (attempt ${attempt + 1}/3) bytes: $hex');
+        _log('APP -> GET_CONF (attempt ${attempt + 1}/3) bytes: $hex');
         await _writePacket(pkt);
       } catch (e) {
         _log('FAILED TO SEND GET_CONF: $e', level: ConsoleLogLevel.error);
@@ -485,7 +485,7 @@ class DeviceProvider extends ChangeNotifier {
         _confTimeoutTimer?.cancel();
         _confTimeoutTimer = null;
         _confCompleter = null;
-        _log('RX <- CONF_DATA (${_transport.isConnected ? "connected" : "handshake done"})');
+        _log('MCU <- CONF_DATA (${_transport.isConnected ? "connected" : "handshake done"})');
         break; // Success
       } on TimeoutException catch (_) {
         _confTimeoutTimer?.cancel();
@@ -700,7 +700,7 @@ class DeviceProvider extends ChangeNotifier {
   }
 
   void _handleConfData(List<int> payload) {
-    _log('RX <- CONF_DATA (${payload.length} bytes)');
+    _log('MCU <- CONF_DATA (${payload.length} bytes)');
     final conf = ProtocolService.parseConfData(payload);
     if (conf == null) {
       _log('PARSE FAILED: Invalid CONF_DATA payload.', level: ConsoleLogLevel.error);
@@ -772,7 +772,7 @@ class DeviceProvider extends ChangeNotifier {
           ? values.map(_signedByte).toList()
           : values;
       next = current.copyWithInput(widgetId, cooked);
-      _log('RX <- SET_INPUT (wid:$widgetId, seq:$seq, override:$cooked)');
+      _log('MCU <- SET_INPUT (wid:$widgetId, seq:$seq, override:$cooked)');
     }
 
     _widgetState = next;
@@ -823,14 +823,14 @@ class DeviceProvider extends ChangeNotifier {
       }
     } else {
       // It's an input bounce. Discard it.
-      _log('RX <- VAR_UPDATE (IGNORED BOUNCE for Input wid:$widgetId)');
+      _log('MCU <- VAR_UPDATE (IGNORED BOUNCE for Input wid:$widgetId)');
     }
 
     _widgetState = next;
     notifyListeners();
 
     if (widget.hasOutput) {
-        _log('RX <- VAR_UPDATE (wid:$widgetId, seq:$seq)');
+        _log('MCU <- VAR_UPDATE (wid:$widgetId, seq:$seq)');
     }
 
     _writePacket(ProtocolService.buildAck(seq)).catchError((_) {});
@@ -840,7 +840,7 @@ class DeviceProvider extends ChangeNotifier {
     final updated = ProtocolService.parseMetaData(payload, _widgets);
     if (updated != null) {
       _widgets = updated;
-      _log('RX <- META_DATA (${_widgets.length} widgets updated)');
+      _log('MCU <- META_DATA (${_widgets.length} widgets updated)');
       notifyListeners();
     }
   }
@@ -853,7 +853,7 @@ class DeviceProvider extends ChangeNotifier {
     final idx = _widgets.indexWhere((w) => w.widgetId == widgetId);
     if (idx != -1) {
       _widgets[idx] = updatedWidget;
-      _log('RX <- META_UPDATE (wid:$widgetId, label:"${updatedWidget.label}")');
+      _log('MCU <- META_UPDATE (wid:$widgetId, label:"${updatedWidget.label}")');
       notifyListeners();
     }
 

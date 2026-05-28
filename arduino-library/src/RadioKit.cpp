@@ -28,12 +28,10 @@ extern void RadioKit_Widget_drainDeferred();
 RadioKitClass::RadioKitClass()
     : _widgetCount(0)
     , _transport(nullptr)
-    , _varUpdateSentAt(0)
+    , _pendingUpdatesMask(0)
+    , _varUpdateSeq(0)
     , _pendingMetaMask(0)
     , _metaUpdateSeq(0)
-    , _metaUpdateId(0)
-    , _metaUpdateRetries(0)
-    , _metaUpdateSentAt(0)
 {
     memset(_widgets, 0, sizeof(_widgets));
     memset(_txBuf,   0, sizeof(_txBuf));
@@ -99,87 +97,50 @@ void RadioKitClass::update() {
         }
     }
 
+    // ── Batch-fire all pending VAR_UPDATE / SET_INPUT ─────────────
     if (_pendingUpdatesMask != 0 && _transport && _transport->isConnected()) {
-        if ((_pendingUpdatesMask & (1UL << _varUpdateId)) == 0) {
-            // Current ID was ACKed or dropped. Pick next.
-            for (uint8_t i = 0; i < 32; i++) {
-                if (_pendingUpdatesMask & (1UL << i)) {
-                    _varUpdateId = i;
-                    _varUpdateSeq++;
-                    _varUpdateRetries = 0;
-                    _varUpdateSentAt = 0;
-                    RK_DEBUG_PRINT("[DBG] pending: picked id=%d seq=%d\n", i, _varUpdateSeq);
-                    break;
-                }
-            }
-        }
-        
-        uint32_t now = millis();
-        // Force send on first run (_varUpdateSentAt == 0) or if timeout exceeded
-        if (_varUpdateSentAt == 0 || now - _varUpdateSentAt >= RK_VAR_UPDATE_TIMEOUT_MS) {
-            if (_varUpdateRetries >= RK_VAR_UPDATE_MAX_RETRIES) {
-                RK_DEBUG_PRINT("[DBG] pending: RETRIES EXHAUSTED for id=%d, dropping\n", _varUpdateId);
-                // Drop and move on.
-                _pendingUpdatesMask &= ~(1UL << _varUpdateId);
-                _varUpdateRetries = 0;
-                // Fallback to full sync if ACK fails
-                _handleGetVars();
-            } else {
-                RadioKit_Widget* w = _widgets[_varUpdateId];
+        for (uint8_t i = 0; i < 32; i++) {
+            if (_pendingUpdatesMask & (1UL << i)) {
+                RadioKit_Widget* w = _widgets[i];
                 uint8_t inSz = w->inputSize();
                 uint8_t outSz = w->outputSize();
                 uint8_t dataSz = inSz > 0 ? inSz : outSz;
+                if (dataSz == 0) continue;
+
                 uint8_t payload[2 + dataSz];
-                payload[0] = _varUpdateId;
-                payload[1] = _varUpdateSeq;
-                uint8_t cmd = RK_CMD_VAR_UPDATE;
+                payload[0] = i;
+                payload[1] = ++_varUpdateSeq;
+                uint8_t cmd;
                 if (inSz > 0) {
                     w->serializeInput(&payload[2]);
                     cmd = RK_CMD_SET_INPUT;
                 } else {
                     w->serializeOutput(&payload[2]);
+                    cmd = RK_CMD_VAR_UPDATE;
                 }
-                RK_DEBUG_PRINT("[DBG] pending: SENDING %s id=%d seq=%d val=%d retry=%d\n",
-                    rk_cmdName(cmd), _varUpdateId, _varUpdateSeq, payload[2], _varUpdateRetries);
-                uint16_t pkt = rk_buildPacket(_txBuf, cmd, payload, 2 + dataSz);
-                _sendPacket(pkt);
-                _varUpdateSentAt = now;
-                _varUpdateRetries++;
+                uint8_t pktBuf[RK_MAX_PACKET_SIZE];
+                uint16_t pktLen = rk_buildPacket(pktBuf, cmd, payload, 2 + dataSz);
+                _sendPacket(pktBuf, pktLen);
             }
         }
+        _pendingUpdatesMask = 0;
     }
 
-    // ── Process META_UPDATE (Reliable) ───────────────────────────────────
+    // ── Batch-fire all pending META_UPDATE ────────────────────────
     if (_pendingMetaMask != 0 && _transport && _transport->isConnected()) {
-        if ((_pendingMetaMask & (1UL << _metaUpdateId)) == 0) {
-            for (uint8_t i = 0; i < 32; i++) {
-                if (_pendingMetaMask & (1UL << i)) {
-                    _metaUpdateId = i;
-                    _metaUpdateSeq++;
-                    _metaUpdateRetries = 0;
-                    _metaUpdateSentAt = 0;
-                    break;
-                }
-            }
-        }
-        
-        uint32_t now = millis();
-        if (_metaUpdateSentAt == 0 || now - _metaUpdateSentAt >= RK_VAR_UPDATE_TIMEOUT_MS) {
-            if (_metaUpdateRetries >= RK_VAR_UPDATE_MAX_RETRIES) {
-                _pendingMetaMask &= ~(1UL << _metaUpdateId);
-                _metaUpdateRetries = 0;
-            } else {
-                RadioKit_Widget* w = _widgets[_metaUpdateId];
+        for (uint8_t i = 0; i < 32; i++) {
+            if (_pendingMetaMask & (1UL << i)) {
+                RadioKit_Widget* w = _widgets[i];
+                uint8_t pktBuf[RK_MAX_PACKET_SIZE];
                 uint8_t payload[2 + RK_STR_BUF_SIZE];
-                payload[0] = _metaUpdateId;
-                payload[1] = _metaUpdateSeq;
+                payload[0] = i;
+                payload[1] = ++_metaUpdateSeq;
                 uint16_t strLen = w->serializeStrings(&payload[2]);
-                uint16_t pkt = rk_buildPacket(_txBuf, RK_CMD_META_UPDATE, payload, 2 + strLen);
-                _sendPacket(pkt);
-                _metaUpdateSentAt = now;
-                _metaUpdateRetries++;
+                uint16_t pktLen = rk_buildPacket(pktBuf, RK_CMD_META_UPDATE, payload, 2 + strLen);
+                _sendPacket(pktBuf, pktLen);
             }
         }
+        _pendingMetaMask = 0;
     }
 }
 
@@ -192,7 +153,7 @@ void RadioKitClass::_onPacket(uint8_t cmd,
                               uint16_t payloadLen)
 {
     if (!s_instance) return;
-    Serial.printf("RK: Dispatching CMD %s (0x%02X), len %d\n", rk_cmdName(cmd), cmd, payloadLen);
+    RK_DEBUG_PRINT("RK: Dispatching CMD %s (0x%02X), len %d\n", rk_cmdName(cmd), cmd, payloadLen);
     switch (cmd) {
         case RK_CMD_GET_CONF:  s_instance->_handleGetConf();                      break;
         case RK_CMD_GET_VARS:  s_instance->_handleGetVars();                      break;
@@ -233,9 +194,7 @@ void RadioKitClass::_handleGetConf() {
     uint8_t* payloadPtr = &_txBuf[RK_HEADER_SIZE];
     uint16_t payloadLen = _buildConfPayload(payloadPtr,
                                             RK_MAX_PACKET_SIZE - RK_HEADER_SIZE - RK_CRC_SIZE);
-    Serial.printf("RK: _handleGetConf: payloadLen = %d\n", payloadLen);
     uint16_t totalLen = rk_buildPacket(_txBuf, RK_CMD_CONF_DATA, payloadPtr, payloadLen);
-    Serial.printf("RK: _handleGetConf: totalLen = %d, sending...\n", totalLen);
     _sendPacket(totalLen);
 }
 
@@ -279,21 +238,7 @@ void RadioKitClass::_handlePing() {
 }
 
 void RadioKitClass::_handleAck(const uint8_t* payload, uint16_t len) {
-    if (len < 1) return;
-    uint8_t seq = payload[0];
-    RK_DEBUG_PRINT("[DBG] _handleAck: seq=%d pendingMask=0x%08lX varSeq=%d\n",
-        seq, (unsigned long)_pendingUpdatesMask, _varUpdateSeq);
-    if (_pendingUpdatesMask != 0 && seq == _varUpdateSeq) {
-        RK_DEBUG_PRINT("[DBG]   MATCH! Clearing pending for id=%d\n", _varUpdateId);
-        _pendingUpdatesMask &= ~(1UL << _varUpdateId);
-        _varUpdateRetries = 0;
-    } else if (_pendingUpdatesMask != 0) {
-        RK_DEBUG_PRINT("[DBG]   seq mismatch: got=%d expected=%d\n", seq, _varUpdateSeq);
-    }
-    if (_pendingMetaMask != 0 && seq == _metaUpdateSeq) {
-        _pendingMetaMask &= ~(1UL << _metaUpdateId);
-        _metaUpdateRetries = 0;
-    }
+    // ACKs are informational only — shadow comparison provides reliability.
 }
 
 void RadioKitClass::_handleVarUpdate(const uint8_t* payload, uint16_t len) {
@@ -449,9 +394,13 @@ uint16_t RadioKitClass::_buildMetaPayload(uint8_t* buf, uint16_t bufSize) {
     return out;
 }
 
+void RadioKitClass::_sendPacket(const uint8_t* buf, uint16_t len) {
+    if (!_transport) return;
+    _transport->sendPacket(buf, len);
+}
+
 void RadioKitClass::_sendPacket(uint16_t len) {
     if (!_transport) return;
-    uint8_t cmd = _txBuf[3];
-    Serial.printf("RK: Sending CMD %s (0x%02X), len %d\n", rk_cmdName(cmd), cmd, len);
+    RK_DEBUG_PRINT("RK: Sending CMD %s (0x%02X), len %d\n", rk_cmdName(_txBuf[3]), _txBuf[3], len);
     _transport->sendPacket(_txBuf, len);
 }

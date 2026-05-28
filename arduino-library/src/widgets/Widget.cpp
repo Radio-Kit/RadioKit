@@ -94,7 +94,10 @@ void RadioKit_Widget::_registerSelf() {
 
 uint16_t RadioKit_Widget::serializeStrings(uint8_t* buf) const {
     uint8_t mask = 0;
-    if (_label[0]   != '\0') mask |= RK_STR_LABEL;
+    if (_label[0] != '\0') {
+        mask |= RK_STR_LABEL;
+        if (_labelHidden) mask |= RK_STR_LABEL_HIDDEN;
+    }
     if (_icon[0]    != '\0') mask |= RK_STR_ICON;
     if (_onText[0]  != '\0') mask |= RK_STR_ONTEXT;
     if (_offText[0] != '\0') mask |= RK_STR_OFFTEXT;

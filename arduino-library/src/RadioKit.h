@@ -94,19 +94,13 @@ private:
     uint8_t            _widgetCount;
     RadioKitTransport* _transport;
 
-    // VAR_UPDATE / SET_INPUT reliability
+    // VAR_UPDATE / SET_INPUT batch dispatch
     uint32_t _pendingUpdatesMask;
     uint8_t _varUpdateSeq;
-    uint8_t _varUpdateId;
-    uint8_t _varUpdateRetries;
-    uint32_t _varUpdateSentAt;
 
-    // META_UPDATE reliability
+    // META_UPDATE batch dispatch
     uint32_t _pendingMetaMask;
     uint8_t _metaUpdateSeq;
-    uint8_t _metaUpdateId;
-    uint8_t _metaUpdateRetries;
-    uint32_t _metaUpdateSentAt;
     
     // Shadow state to track implicit input changes by firmware
     uint8_t _shadowInput[RADIOKIT_MAX_WIDGETS][4];
@@ -124,6 +118,7 @@ private:
     void _handleVarUpdate(const uint8_t* payload, uint16_t len);
     void _handleMetaUpdate(const uint8_t* payload, uint16_t len);
     void _handleGetTelemetry();
+    void _sendPacket(const uint8_t* buf, uint16_t len);
     void _sendPacket(uint16_t len);
 
     uint16_t _buildConfPayload(uint8_t* buf, uint16_t bufSize);

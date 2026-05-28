@@ -124,6 +124,7 @@
 #define RK_STR_OFFTEXT (1 << 3) ///< OffText string present
 #define RK_STR_CONTENT (1 << 4) ///< Content (Text widget initial value)
 #define RK_STR_EXTRA   (1 << 5) ///< Widget-specific binary configuration (v3.1+)
+#define RK_STR_LABEL_HIDDEN (1 << 6) ///< Label visibility flag (hidden when set)
 
 // ─────────────────────────────────────────────
 //  Widget limits

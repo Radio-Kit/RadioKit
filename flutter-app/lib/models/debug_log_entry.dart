@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 /// Direction of a logged packet.
-enum PacketDirection { rx, tx }
+enum PacketDirection { mcu, app }
 
 /// A single entry in the debug packet log.
 @immutable
@@ -39,7 +39,7 @@ class DebugLogEntry {
       .map((b) => (b >= 0x20 && b < 0x7F) ? String.fromCharCode(b) : '.')
       .join();
 
-  String get dirLabel => direction == PacketDirection.rx ? 'RX' : 'TX';
+  String get dirLabel => direction == PacketDirection.app ? 'APP' : 'MCU';
 
   String get timeLabel {
     final t = timestamp;

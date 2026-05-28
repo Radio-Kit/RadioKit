@@ -9,7 +9,7 @@ import '../theme/app_theme.dart';
 /// Transport-agnostic debug monitor.
 ///
 /// Two tabs:
-///   1. Packet Log  — real-time hex + decoded packet stream (RX + TX)
+///   1. Packet Log  — real-time hex + decoded packet stream (MCU + APP)
 ///   2. Send        — manual packet builder + quick-send buttons
 class DebugScreen extends StatefulWidget {
   const DebugScreen({super.key});
@@ -452,8 +452,8 @@ class _LogRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isRx = entry.direction == PacketDirection.rx;
-    final dirColor = isRx ? AppColors.connected : AppColors.brandOrange;
+    final isMcu = entry.direction == PacketDirection.mcu;
+    final dirColor = isMcu ? AppColors.brandBlue : AppColors.brandOrange;
     final crcColor = entry.crcOk == false
         ? Theme.of(context).colorScheme.error
         : AppColors.connected;
@@ -471,7 +471,7 @@ class _LogRow extends StatelessWidget {
           dense: true,
           tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
           leading: Container(
-            width: 30,
+            width: 36,
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
             decoration: BoxDecoration(
               color: dirColor.withValues(alpha: 0.2),
@@ -480,6 +480,7 @@ class _LogRow extends StatelessWidget {
             child: Text(
               entry.dirLabel,
               textAlign: TextAlign.center,
+              softWrap: false,
               style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
@@ -638,15 +639,15 @@ class _DirFilterButton extends StatelessWidget {
       ),
       onSelected: (value) {
         switch (value) {
-          case 'rx':  dp.setDirFilter(PacketDirection.rx); break;
-          case 'tx':  dp.setDirFilter(PacketDirection.tx); break;
+          case 'mcu':  dp.setDirFilter(PacketDirection.mcu); break;
+          case 'app':  dp.setDirFilter(PacketDirection.app); break;
           default:    dp.setDirFilter(null);               break;
         }
       },
       itemBuilder: (_) => [
         const PopupMenuItem(value: 'all', child: Text('All')),
-        const PopupMenuItem(value: 'rx',  child: Text('RX only')),
-        const PopupMenuItem(value: 'tx',  child: Text('TX only')),
+        const PopupMenuItem(value: 'mcu', child: Text('MCU only')),
+        const PopupMenuItem(value: 'app', child: Text('APP only')),
       ],
     );
   }

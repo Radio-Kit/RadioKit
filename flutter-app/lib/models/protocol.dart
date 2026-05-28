@@ -126,6 +126,7 @@ const int kStrMaskOnText  = 0x04;
 const int kStrMaskOffText = 0x08;
 const int kStrMaskContent = 0x10;
 const int kStrMaskExtra   = 0x20;
+const int kStrMaskLabelHidden = 0x40;
 
 // Widget type name for display
 String widgetTypeName(int typeId) {
