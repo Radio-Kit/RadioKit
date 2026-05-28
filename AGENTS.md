@@ -270,16 +270,97 @@ The `_colorRow` method renders each token color as a row with:
 - Fields use `InspectorFieldBuilders` static methods with 20px horizontal padding and `vertical: 6`.
 - The panel header uses `padding: const EdgeInsets.all(20)` with icon + title + optional close button pattern.
 
-## 9. No need for Backward Compatibility
+## 11. Flatpak / Flathub Packaging
+
+### 11.0 Tag convention
+
+Push a tag ending in `-flatpak` (e.g. `test-flatpak`, `v1.0.0-flatpak`) to trigger only the Flatpak build job. The `release` job (Android + iOS) is skipped for these tags. A regular `v*` tag triggers both Android/iOS and (previously) Flatpak — now `*-flatpak` is the dedicated Flatpak-only trigger.
+
+### 11.1 Toolchain
+
+- **flatpak-flutter** is the de facto standard for publishing Flutter apps on Flathub. It pre-processes the manifest to pin all pub.dev dependencies for offline (sandboxed) builds.
+- Source: `https://github.com/TheAppgineer/flatpak-flutter`
+- Usage pattern:
+  ```
+  python3 flatpak-flutter.py \
+    --app-pubspec flutter-app \
+    --extra-pubspecs flutter-library \
+    flatpak/flatpak-flutter.yml
+  ```
+
+### 11.2 File Structure
+
+```
+flatpak/
+  flatpak-flutter.yml                    # Input template (committed, hand-written)
+  com.rambros3d.radiokit.yml             # Generated output (gitignored, pinned deps)
+  com.rambros3d.radiokit.desktop         # Desktop entry
+  com.rambros3d.radiokit.metainfo.xml    # AppStream metadata (required by Flathub)
+  flathub.json                           # Flathub submission metadata
+```
+
+### 11.3 Key details
+
+- **App ID**: `com.rambros3d.radiokit`
+- **Runtime**: `org.freedesktop.Platform//24.08`
+- **Flutter SDK tag**: must match the latest stable Flutter (check `git ls-remote --tags https://github.com/flutter/flutter.git`)
+- **Monorepo path dep**: `radiokit_widgets` (`path: ../flutter-library`) is handled via `--extra-pubspecs flutter-library` — the code is already in the git checkout, only its transitive hosted/git deps need pinning
+- **`libserialport`**: no separate Flatpak module needed — `flutter_libserialport` bundles and self-builds the C library from `third_party/libserialport/`
+- **Bundle layout**: `flutter build linux --release` produces `bundle/radiokit` + `bundle/lib/*.so` + `bundle/data/`. The binary uses rpath `$ORIGIN/lib`. Install everything under `/app/share/radiokit/` and symlink into `/app/bin/`.
+
+### 11.4 Permissions (finish-args)
+
+```yaml
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=all              # serial ports (/dev/ttyACM*, /dev/ttyUSB*)
+  - --socket=system-bus       # BlueZ D-Bus for BLE
+  - --talk-name=org.bluez
+  - --share=network
+  - --filesystem=host         # file picker access
+```
+
+### 11.5 Build & verification
+
+```bash
+# Pre-process
+python3 flatpak-flutter.py --app-pubspec flutter-app --extra-pubspecs flutter-library flatpak/flatpak-flutter.yml
+
+# Build in sandbox (no network)
+flatpak-builder --repo=repo --force-clean --sandbox --user --install \
+  --install-deps-from=flathub \
+  build flatpak/com.rambros3d.radiokit.yml
+
+# Run
+flatpak run com.rambros3d.radiokit
+```
+
+### 11.6 CI
+
+The `.github/workflows/release.yml` has a `flatpak` job that runs after the Android/iOS release job. It:
+1. Installs flatpak-builder + flatpak-flutter + runtimes
+2. Pre-processes the manifest with `--extra-pubspecs flutter-library`
+3. Builds with `--sandbox`
+4. Exports `.flatpak` bundle
+5. Uploads to the existing GitHub Release
+
+### 11.7 Flathub submission
+
+- Fork `https://github.com/flathub/flathub`
+- Place the **generated** `com.rambros3d.radiokit.yml`, `.desktop`, `metainfo.xml`, and `flathub.json` at `flatpak/applications/com.rambros3d.radiokit/`
+- Open a PR — Flathub bot builds and verifies
+
+## 12. No need for Backward Compatibility
 
 - **Rule**: Only work on the current request, it's okay if it breaks backward compatibility. We can break the API whenever needed.
 - **Rule**: We don't need to support old versions of the library. We can drop support for old versions whenever needed.
 
-## 10. PlatformIO (Arduino Build)
+## 13. PlatformIO (Arduino Build)
 
 PlatformIO is installed globally via `uv tool install platformio` (v6.1.19). It is available as the `pio` command from anywhere.
 
-### 10.1 Build commands
+### 13.1 Build commands
 
 ```bash
 pio run                          # builds default env (SerialTest)
@@ -288,7 +369,7 @@ pio run -e SerialTest -t upload  # flash to board
 pio run -e SliderServo           # builds SliderServo (includes ESP32Servo dep)
 ```
 
-### 10.2 Available environments
+### 13.2 Available environments
 
 Defined in `platformio.ini`:
 - `SerialTest` — default, no BLE needed
@@ -297,7 +378,7 @@ Defined in `platformio.ini`:
 - `SliderServo` — servo slider (adds ESP32Servo)
 - `BLE_RC_Truck` — BLE RC truck
 
-### 10.3 Reinstallation
+### 13.3 Reinstallation
 
 If `pio` is ever missing or broken:
 

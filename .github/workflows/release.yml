@@ -4,10 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+      - '*-flatpak'
 
 jobs:
   release:
     name: Build and Release (Android + iOS)
+    if: startsWith(github.ref_name, 'v') && !endsWith(github.ref_name, '-flatpak')
     runs-on: macos-latest
     permissions:
       contents: write
@@ -71,6 +73,7 @@ jobs:
 
   flatpak:
     name: Build Flatpak
+    if: endsWith(github.ref_name, '-flatpak')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -106,17 +109,12 @@ jobs:
         run: |
           flatpak build-bundle repo radiokit.flatpak com.rambros3d.radiokit
 
-      - name: Upload Flatpak artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: radiokit-flatpak
-          path: radiokit.flatpak
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            radiokit.flatpak
-          generate_release_notes: false
+      - name: Create or update GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" --json id >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" radiokit.flatpak --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" radiokit.flatpak --generate-notes
+          fi

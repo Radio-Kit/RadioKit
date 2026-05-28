@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=RadioKit
+Comment=BLE & USB Serial companion app for Arduino RadioKit library
+Exec=radiokit
+Icon=com.rambros3d.radiokit
+Terminal=false
+Type=Application
+Categories=Utility;Electronics;
+StartupNotify=true
