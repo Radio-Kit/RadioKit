@@ -178,7 +178,8 @@ Runner/GeneratedPluginRegistrant.*
 # -----------------------------------------------------------------------------
 # Flatpak
 # -----------------------------------------------------------------------------
-flatpak/com.rambros3d.radiokit.yml
+com.rambros3d.radiokit.yml
+generated/
 build-dir/
 repo/
 
