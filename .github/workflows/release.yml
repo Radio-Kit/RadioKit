@@ -101,7 +101,7 @@ jobs:
 
       - name: Build Flatpak
         run: |
-          flatpak-builder --repo=repo --force-clean --sandbox \
+          flatpak-builder --repo=repo --force-clean \
             --install-deps-from=flathub \
             build-dir com.rambros3d.radiokit.yml
 
