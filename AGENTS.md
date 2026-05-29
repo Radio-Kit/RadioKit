@@ -303,10 +303,14 @@ flatpak/
 
 - **App ID**: `com.rambros3d.radiokit`
 - **Runtime**: `org.freedesktop.Platform//24.08`
+- **SDK extension**: `org.freedesktop.Sdk.Extension.llvm18` — required for C++ compiler (CMake)
 - **Flutter SDK tag**: must match the latest stable Flutter (check `git ls-remote --tags https://github.com/flutter/flutter.git`)
 - **Monorepo path dep**: `radiokit_widgets` (`path: ../flutter-library`) is handled via `--extra-pubspecs flutter-library` — the code is already in the git checkout, only its transitive hosted/git deps need pinning
 - **`libserialport`**: no separate Flatpak module needed — `flutter_libserialport` bundles and self-builds the C library from `third_party/libserialport/`
+- **CMakeLists.txt**: must be tracked in git (add `!**/CMakeLists.txt` to `.gitignore` to override `*.txt` pattern)
+- **Icon**: must be ≤512x512px (Flathub limit)
 - **Bundle layout**: `flutter build linux --release` produces `bundle/radiokit` + `bundle/lib/*.so` + `bundle/data/`. The binary uses rpath `$ORIGIN/lib`. Install everything under `/app/share/radiokit/` and symlink into `/app/bin/`.
+- **Build options**: `append-path: /usr/lib/sdk/llvm18/bin:/run/build/radiokit/flutter/bin` with `CC: clang` and `CXX: clang++` env vars
 
 ### 11.4 Permissions (finish-args)
 
@@ -339,9 +343,9 @@ flatpak run com.rambros3d.radiokit
 ### 11.6 CI
 
 The `.github/workflows/release.yml` has a `flatpak` job that runs after the Android/iOS release job. It:
-1. Installs flatpak-builder + flatpak-flutter + runtimes
+1. Installs flatpak-builder, flatpak-flutter, runtimes, and `org.freedesktop.Sdk.Extension.llvm18` (C++ compiler)
 2. Pre-processes the manifest with `--extra-pubspecs flutter-library`
-3. Builds with `--sandbox`
+3. Builds with flatpak-builder (no `--sandbox` for CI stability)
 4. Exports `.flatpak` bundle
 5. Uploads to the existing GitHub Release
 
