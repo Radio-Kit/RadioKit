@@ -1,6 +1,8 @@
 app-id: com.rambros3d.radiokit
 runtime: org.freedesktop.Platform//24.08
 sdk: org.freedesktop.Sdk//24.08
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.llvm18
 command: radiokit
 finish-args:
   - --socket=wayland
@@ -25,8 +27,10 @@ modules:
       - install -Dm644 flatpak/com.rambros3d.radiokit.desktop /app/share/applications/com.rambros3d.radiokit.desktop
       - install -Dm644 flatpak/com.rambros3d.radiokit.metainfo.xml /app/share/metainfo/com.rambros3d.radiokit.metainfo.xml
     build-options:
-      append-path: /run/build/radiokit/flutter/bin
+      append-path: /usr/lib/sdk/llvm18/bin:/run/build/radiokit/flutter/bin
       env:
+        CC: clang
+        CXX: clang++
         PUB_CACHE: /run/build/radiokit/.pub-cache
     sources:
       - type: git
