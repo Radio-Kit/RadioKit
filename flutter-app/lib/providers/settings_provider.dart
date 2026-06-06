@@ -10,18 +10,21 @@ class SettingsProvider with ChangeNotifier {
   static const _defaultEnableDevTools = true;
   static const _defaultInterfaceScale = 100;
   static const _defaultEnableRemoteAccess = false;
+  static const _defaultFollowRemoteAccess = false;
 
   bool _showDemo = _defaultShowDemo;
   bool _useFullscreen = _defaultUseFullscreen;
   bool _enableDevTools = _defaultEnableDevTools;
   int _interfaceScale = _defaultInterfaceScale;
   bool _enableRemoteAccess = _defaultEnableRemoteAccess;
+  bool _followRemoteAccess = _defaultFollowRemoteAccess;
 
   bool get showDemo => _showDemo;
   bool get useFullscreen => _useFullscreen;
   bool get enableDevTools => _enableDevTools;
   int get interfaceScale => _interfaceScale;
   bool get enableRemoteAccess => _enableRemoteAccess;
+  bool get followRemoteAccess => _followRemoteAccess;
 
   SettingsProvider() {
     _loadSettings();
@@ -68,6 +71,14 @@ class SettingsProvider with ChangeNotifier {
     }
   }
 
+  Future<void> setFollowRemoteAccess(bool value) async {
+    if (_followRemoteAccess != value) {
+      _followRemoteAccess = value;
+      notifyListeners();
+      await _persist();
+    }
+  }
+
   Future<void> _loadSettings() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -79,6 +90,7 @@ class SettingsProvider with ChangeNotifier {
         _enableDevTools = decoded['enableDevTools'] ?? _defaultEnableDevTools;
         _interfaceScale = decoded['interfaceScale'] ?? _defaultInterfaceScale;
         _enableRemoteAccess = decoded['enableRemoteAccess'] ?? _defaultEnableRemoteAccess;
+        _followRemoteAccess = decoded['followRemoteAccess'] ?? _defaultFollowRemoteAccess;
       }
       notifyListeners();
     } catch (e) {
@@ -95,6 +107,7 @@ class SettingsProvider with ChangeNotifier {
         'enableDevTools': _enableDevTools,
         'interfaceScale': _interfaceScale,
         'enableRemoteAccess': _enableRemoteAccess,
+        'followRemoteAccess': _followRemoteAccess,
       });
       await prefs.setString(_storageKey, data);
     } catch (e) {

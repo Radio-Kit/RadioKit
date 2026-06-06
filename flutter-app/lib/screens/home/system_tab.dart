@@ -392,8 +392,25 @@ class SystemTab extends StatelessWidget {
                     ),
                   ],
                 ),
-                if (ra.isRunning && ra.logs.isNotEmpty) ...[
+                if (ra.isRunning) ...[
                   const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const _SettingLabel(label: 'FOLLOW_REMOTE', value: 'Live navigation on API calls'),
+                      Consumer<SettingsProvider>(
+                        builder: (context, settings, _) => Switch(
+                          value: settings.followRemoteAccess,
+                          onChanged: (v) => settings.setFollowRemoteAccess(v),
+                          activeThumbColor: Colors.yellowAccent,
+                          activeTrackColor: Colors.yellowAccent.withValues(alpha: 0.3),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                if (ra.isRunning && ra.logs.isNotEmpty) ...[
+                  const SizedBox(height: 8),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Container(

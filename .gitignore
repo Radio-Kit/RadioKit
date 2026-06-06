@@ -12,6 +12,7 @@
 .codex/
 .claude/
 references/
+ref/
 tmp/
 *.iml
 *.ipr

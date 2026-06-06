@@ -30,6 +30,7 @@ class RemoteAccessService {
   final ConsoleProvider _consoleProvider;
   final DesignsProvider _designsProvider;
   final void Function(ApiLogEntry) _onLog;
+  final void Function(String route)? _onFollowEvent;
 
   HttpServer? _server;
   bool _isRunning = false;
@@ -50,6 +51,7 @@ class RemoteAccessService {
     required ConsoleProvider consoleProvider,
     required DesignsProvider designsProvider,
     required void Function(ApiLogEntry) onLog,
+    void Function(String route)? onFollowEvent,
   })  : _deviceProvider = deviceProvider,
         _bleProvider = bleProvider,
         _serialProvider = serialProvider,
@@ -57,7 +59,8 @@ class RemoteAccessService {
         _settingsProvider = settingsProvider,
         _consoleProvider = consoleProvider,
         _designsProvider = designsProvider,
-        _onLog = onLog;
+        _onLog = onLog,
+        _onFollowEvent = onFollowEvent;
 
   // ── Middleware ──────────────────────────────────────────────────────────────
 
@@ -87,19 +90,44 @@ class RemoteAccessService {
         final sw = Stopwatch()..start();
         final response = await handler(request);
         sw.stop();
+        final path = request.requestedUri.path;
         final entry = ApiLogEntry(
           timestamp: DateTime.now(),
           method: request.method,
-          path: request.requestedUri.path,
+          path: path,
           statusCode: response.statusCode,
           durationMs: sw.elapsedMilliseconds,
         );
         _logEntries.add(entry);
         if (_logEntries.length > 500) _logEntries.removeAt(0);
         _onLog(entry);
+
+        // Follow-mode route mapping
+        if (_onFollowEvent != null && response.statusCode >= 200 && response.statusCode < 300) {
+          final route = _followRoute(path);
+          if (route != null) _onFollowEvent?.call(route);
+        }
+
         return response;
       };
     };
+  }
+
+  static String? _followRoute(String path) {
+    if (path.startsWith('/api/pair/')) return '/pair';
+    if (path.startsWith('/api/connection/connect')) return '/control';
+    if (path.startsWith('/api/connection/disconnect')) return '/models';
+    if (path.startsWith('/api/connection/reconnect')) return '/models';
+    if (path.startsWith('/api/connection/demo')) return '/control';
+    if (path.startsWith('/api/widgets/')) return '/control';
+    if (path.startsWith('/api/fs/')) return '/dev-tools/esp32-fs';
+    if (path.startsWith('/api/designs')) return '/designs';
+    if (path.startsWith('/api/transport/')) return '/debug';
+    if (path.startsWith('/api/settings')) return '/system';
+    if (path.startsWith('/api/console')) return '/system';
+    if (path.startsWith('/api/log')) return '/system';
+    if (path.startsWith('/api/models')) return '/models';
+    return null;
   }
 
   // ── Start / Stop ────────────────────────────────────────────────────────────
@@ -338,6 +366,7 @@ class RemoteAccessService {
       'enableDevTools': _settingsProvider.enableDevTools,
       'interfaceScale': _settingsProvider.interfaceScale,
       'enableRemoteAccess': _settingsProvider.enableRemoteAccess,
+      'followRemoteAccess': _settingsProvider.followRemoteAccess,
     });
   }
 
@@ -358,6 +387,10 @@ class RemoteAccessService {
     if (body.containsKey('enableRemoteAccess')) {
       await _settingsProvider.setEnableRemoteAccess(
           body['enableRemoteAccess'] as bool);
+    }
+    if (body.containsKey('followRemoteAccess')) {
+      await _settingsProvider.setFollowRemoteAccess(
+          body['followRemoteAccess'] as bool);
     }
     return _json({'ok': true});
   }

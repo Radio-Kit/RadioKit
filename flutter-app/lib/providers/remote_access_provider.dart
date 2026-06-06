@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 import '../models/api_log_entry.dart';
 import '../services/remote_access_service.dart'
@@ -31,6 +32,10 @@ class RemoteAccessProvider extends ChangeNotifier {
 
   final List<ApiLogEntry> _logs = [];
   static const int _maxLogEntries = 500;
+
+  /// Follow-mode navigation target. Consumed by [consumeFollowTarget].
+  final ValueNotifier<String?> followNavigationTarget = ValueNotifier(null);
+  final ValueNotifier<Color> glowColor = ValueNotifier(Colors.yellowAccent);
 
   bool get isRunning => _isRunning;
   String get lastError => _lastError;
@@ -72,6 +77,7 @@ class RemoteAccessProvider extends ChangeNotifier {
       consoleProvider: _consoleProvider,
       designsProvider: _designsProvider,
       onLog: _addLogEntry,
+      onFollowEvent: _onFollowEvent,
     );
 
     final error = await _service!.start();
@@ -131,6 +137,13 @@ class RemoteAccessProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Read and clear the current follow target.
+  String? consumeFollowTarget() {
+    final target = followNavigationTarget.value;
+    if (target != null) followNavigationTarget.value = null;
+    return target;
+  }
+
   void _addLogEntry(ApiLogEntry entry) {
     _logs.add(entry);
     if (_logs.length > _maxLogEntries) {
@@ -139,8 +152,18 @@ class RemoteAccessProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _onFollowEvent(String route) {
+    followNavigationTarget.value = route;
+    glowColor.value = const Color(0xFF4488FF);
+    Future.delayed(const Duration(milliseconds: 500), () {
+      glowColor.value = Colors.yellowAccent;
+    });
+  }
+
   @override
   void dispose() {
+    followNavigationTarget.dispose();
+    glowColor.dispose();
     stop();
     super.dispose();
   }

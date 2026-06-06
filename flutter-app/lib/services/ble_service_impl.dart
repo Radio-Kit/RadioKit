@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform, File;
 import 'package:universal_ble/universal_ble.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter/foundation.dart';
@@ -18,8 +19,23 @@ import 'ble_js_bridge_stub.dart' if (dart.library.js) 'ble_js_bridge_web.dart';
 /// Web, Android, iOS, Windows, macOS, and Linux.
 class BleService implements TransportService {
   BleService() {
-    _setupListeners();
+    if (_dbusAvailable() || !Platform.isLinux) {
+      _setupListeners();
+    } else {
+      _log('D-Bus system bus not available — BLE disabled');
+      _bleOperational = false;
+    }
     setupBleJsBridge(this);
+  }
+
+  bool _bleOperational = true;
+
+  static bool _dbusAvailable() {
+    try {
+      return File('/var/run/dbus/system_bus_socket').existsSync();
+    } catch (_) {
+      return false;
+    }
   }
 
   @override
@@ -57,8 +73,14 @@ class BleService implements TransportService {
 
   /// Returns true if Bluetooth is available/enabled.
   Future<bool> get isAvailable async {
-    final state = await UniversalBle.getBluetoothAvailabilityState();
-    return state == AvailabilityState.poweredOn;
+    if (!_bleOperational) return false;
+    try {
+      final state = await UniversalBle.getBluetoothAvailabilityState();
+      return state == AvailabilityState.poweredOn;
+    } catch (e) {
+      _log('isAvailable failed: $e');
+      return false;
+    }
   }
 
   /// Returns true if Location Services are enabled (required for Android < 12).
@@ -78,7 +100,13 @@ class BleService implements TransportService {
 
   /// Returns the current Bluetooth availability state.
   Future<AvailabilityState> getAvailability() async {
-    return await UniversalBle.getBluetoothAvailabilityState();
+    if (!_bleOperational) return AvailabilityState.unsupported;
+    try {
+      return await UniversalBle.getBluetoothAvailabilityState();
+    } catch (e) {
+      _log('getAvailability failed: $e');
+      return AvailabilityState.unsupported;
+    }
   }
 
   /// Requests necessary Bluetooth permissions.

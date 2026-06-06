@@ -1,21 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
-import 'theme/app_theme.dart';
+
 import 'providers/ble_provider.dart';
-import 'providers/serial_provider.dart';
-import 'providers/device_provider.dart';
-import 'providers/debug_provider.dart';
-import 'providers/theme_provider.dart';
-import 'providers/history_provider.dart';
 import 'providers/console_provider.dart';
+import 'providers/debug_provider.dart';
+import 'providers/designs_provider.dart';
+import 'providers/device_provider.dart';
+import 'providers/history_provider.dart';
+import 'providers/remote_access_provider.dart';
+import 'providers/serial_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/skin_provider.dart';
-import 'providers/designs_provider.dart';
-import 'providers/remote_access_provider.dart';
+import 'providers/theme_provider.dart';
 import 'router.dart';
+import 'theme/app_theme.dart';
 
 class RadioKitApp extends StatefulWidget {
   const RadioKitApp({super.key});

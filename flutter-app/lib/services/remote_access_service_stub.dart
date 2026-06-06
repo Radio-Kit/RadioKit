@@ -15,6 +15,7 @@ class RemoteAccessService {
     required dynamic consoleProvider,
     // ignore: avoid_unused_constructor_parameters
     required dynamic designsProvider,
+    void Function(String route)? onFollowEvent,
   }) : onLog = onLog {
     this.onLog = onLog;
   }
