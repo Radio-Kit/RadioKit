@@ -505,6 +505,8 @@ class RemoteAccessService {
           status: 500);
     }
 
+    await _historyProvider.saveDevice(target, type);
+
     return _json({
       'ok': true,
       'message': 'Connected to ${target.displayName}',
@@ -542,6 +544,8 @@ class RemoteAccessService {
           _deviceProvider.errorMessage ?? 'Reconnection failed',
           status: 500);
     }
+
+    await _historyProvider.saveDevice(info, last.type);
 
     return _json({
       'ok': true,

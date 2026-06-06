@@ -38,12 +38,34 @@ class _FilesystemExplorerScreenState
 
   String _currentPath = '/';
   bool _loading = false;
+  bool _initTriggered = false;
   String? _statusMessage;
   String? _errorMessage;
   double? _progress;
 
   bool _isMultiSelect = false;
   final Set<String> _selectedPaths = <String>{};
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initialRefresh());
+  }
+
+  /// Kick off a listing once the FS service is ready, but only once.
+  void _initialRefresh() {
+    if (!mounted || _initTriggered) return;
+    final dp = context.read<DeviceProvider>();
+    if (!dp.isConnected) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _initialRefresh());
+      return;
+    }
+    _initTriggered = true;
+    if (_fs == null) {
+      _fs = createDeviceFsService(dp);
+    }
+    _refresh();
+  }
 
   @override
   Widget build(BuildContext context) {
