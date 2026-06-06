@@ -36,8 +36,8 @@ class DevToolsTab extends StatelessWidget {
             const SizedBox(height: 12),
             _ToolCard(
               icon: LucideIcons.hardDrive,
-              title: 'ESP32 Filesystem',
-              subtitle: 'Browse, upload, and manage files on ESP32',
+              title: 'Filesystem Explorer',
+              subtitle: 'Browse, upload, rename, and format the device partition',
               onTap: () => context.push('/dev-tools/esp32-fs'),
             ),
             const SizedBox(height: 12),

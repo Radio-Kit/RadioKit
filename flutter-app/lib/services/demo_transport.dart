@@ -4,7 +4,9 @@ import 'transport_service.dart';
 class DemoTransport implements TransportService {
   @override
   PacketReceivedCallback? onPacketReceived;
-  
+  @override
+  FsPacketReceivedCallback? onFsPacketReceived;
+
   @override
   ConnectionLostCallback? onConnectionLost;
 

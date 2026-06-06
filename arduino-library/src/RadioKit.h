@@ -17,6 +17,8 @@
 #include "connection/RadioKitTransport.h"
 #include "connection/RadioKitBLE.h"
 #include "connection/RadioKitSerial.h"
+#include "connection/RadioKitFS.h"
+#include "connection/RadioKitFsHandlers.h"
 
 class RadioKit_Widget;
 
@@ -86,6 +88,25 @@ public:
     int8_t  getRssi();
     uint8_t widgetCount() const { return _widgetCount; }
 
+    // ── Filesystem (bulk protocol) ───────────────────────────
+    /**
+     * Mount the default filesystem (LittleFS when available).
+     * Idempotent: subsequent calls are no-ops once mounted.
+     * Returns true on success. If the user sketch defines a custom
+     * filesystem, override RKFs::begin() in user code instead.
+     */
+    bool beginFs();
+
+    /// True once the FS is mounted and ready to serve requests.
+    bool isFsReady() const;
+
+    /// Format and remount the FS. Returns true on success.
+    bool formatFs();
+
+    /// Send a pre-built FS frame to the device. Used by external code
+    /// (e.g. user-supplied handlers) to inject their own FS traffic.
+    void sendFsFrame(const uint8_t* buf, uint16_t len);
+
     // ── Internal ─────────────────────────────────────────────
     void _registerWidget(RadioKit_Widget* widget);
 
@@ -108,6 +129,8 @@ private:
     uint8_t _txBuf[RK_MAX_PACKET_SIZE];
 
     static void _onPacket(uint8_t cmd, const uint8_t* payload, uint16_t payloadLen);
+    static void _onFsPacket(uint8_t subCmd, const uint8_t* payload, uint16_t payloadLen);
+    static void _sendFsFrame(const uint8_t* buf, uint16_t len);
 
     void _handleGetConf();
     void _handleGetVars();

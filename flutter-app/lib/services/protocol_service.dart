@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import '../models/protocol.dart';
 import '../models/widget_config.dart';
+import 'fs_protocol_service.dart';
 
 /// Result of parsing a CONF_DATA payload.
 class ParsedConf {
@@ -106,6 +107,72 @@ class ProtocolService {
     final rxCrc      = data[payloadEnd] | (data[payloadEnd + 1] << 8);
     if (rxCrc != _crc16([cmd, ...payload])) return null;
     return ParsedPacket(cmd: cmd, payload: Uint8List.fromList(payload));
+  }
+
+  // ── Buffer draining (shared by all transports) ───────────────────────────
+  //
+  // Drains up to one complete frame (0x55 widget OR 0xAA FS) from [buffer].
+  // Returns:
+  //   null   — no complete frame yet, caller should keep waiting
+  //   { kind: 'widget', packet }  — widget-protocol frame ready
+  //   { kind: 'fs',     packet }  — FS-protocol frame ready
+  // Caller is responsible for removing the consumed bytes from the buffer.
+
+  static DrainResult? drainBuffer(List<int> buffer) {
+    while (buffer.length >= 4) {
+      // Find the first start byte of either protocol
+      int? startIdx;
+      int? startByte;
+      for (int i = 0; i < buffer.length; i++) {
+        if (buffer[i] == kStartByte || buffer[i] == kFsStartByte) {
+          startIdx = i;
+          startByte = buffer[i];
+          break;
+        }
+      }
+      if (startIdx == null) {
+        // No start byte — keep at most 3 bytes for recovery
+        if (buffer.length > 3) buffer.removeRange(0, buffer.length - 3);
+        return null;
+      }
+      if (startIdx > 0) {
+        buffer.removeRange(0, startIdx);
+        continue;
+      }
+      if (buffer.length < 4) return null;
+
+      // Length field position depends on the protocol:
+      //   0x55 widget: [START(1)][LEN_LO(1)][LEN_HI(1)][CMD(1)]... → length at [1..2]
+      //   0xAA FS:     [START(1)][SUB_CMD(1)][LEN_LO(1)][LEN_HI(1)]... → length at [2..3]
+      final int length = (startByte == kStartByte)
+          ? (buffer[1] | (buffer[2] << 8))
+          : (buffer[2] | (buffer[3] << 8));
+
+      if (length < 4 || length > 0xFFFF) {
+        buffer.removeAt(0);
+        continue;
+      }
+      if (buffer.length < length) return null;
+
+      final frameBytes = buffer.sublist(0, length);
+      buffer.removeRange(0, length);
+
+      if (startByte == kStartByte) {
+        final pkt = parsePacket(frameBytes);
+        if (pkt != null) {
+          return DrainResult.widget(pkt);
+        }
+        // CRC failed — discard and continue
+        continue;
+      } else {
+        final pkt = FsProtocolService.parseFrame(frameBytes);
+        if (pkt != null) {
+          return DrainResult.fs(pkt);
+        }
+        continue;
+      }
+    }
+    return null;
   }
 
   // ── CONF_DATA parsing (protocol v3) ─────────────────────────────────────
@@ -462,4 +529,16 @@ class ParsedPacket {
   String toString() =>
       'ParsedPacket(cmd=0x${cmd.toRadixString(16).padLeft(2, "0")}, '
       'payloadLen=${payload.length})';
+}
+
+/// Result of draining the receive buffer. Either a widget-protocol frame
+/// or a 0xAA bulk-FS frame.
+class DrainResult {
+  final String kind; // 'widget' or 'fs'
+  final ParsedPacket? widgetPacket;
+  final ParsedFsPacket? fsPacket;
+  const DrainResult.widget(ParsedPacket this.widgetPacket)
+      : kind = 'widget', fsPacket = null;
+  const DrainResult.fs(ParsedFsPacket this.fsPacket)
+      : kind = 'fs', widgetPacket = null;
 }

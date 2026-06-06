@@ -37,6 +37,8 @@ public:
     /** Satisfies RadioKitTransport pure-virtual; unused for serial. */
     void begin(const char* /*name*/, RK_PacketCallback cb) override;
 
+    void setFsCallback(RK_FsPacketCallback cb) override;
+
     void update()                                      override;
     void sendPacket(const uint8_t* buf, uint16_t len)  override;
     bool isConnected() const                           override;
@@ -46,11 +48,12 @@ public:
     static constexpr uint32_t TIMEOUT_MS = 3000;
 
 private:
-    Stream*           _stream;
-    RK_PacketCallback _cb;
-    uint32_t          _lastPacketMs;
-    uint32_t          _lastByteMs;
-    bool              _everReceived;
+    Stream*             _stream;
+    RK_PacketCallback   _cb;
+    RK_FsPacketCallback _fsCb;
+    uint32_t            _lastPacketMs;
+    uint32_t            _lastByteMs;
+    bool                _everReceived;
 };
 
 extern RadioKitSerialTransport RadioKitSerialInstance;

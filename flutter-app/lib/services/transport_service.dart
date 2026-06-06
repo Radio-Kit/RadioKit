@@ -1,8 +1,10 @@
 import 'dart:typed_data';
 import 'protocol_service.dart';
+import 'fs_protocol_service.dart';
 
 /// Callback types shared across all transport implementations.
 typedef PacketReceivedCallback = void Function(ParsedPacket packet);
+typedef FsPacketReceivedCallback = void Function(ParsedFsPacket packet);
 typedef ConnectionLostCallback = void Function(String reason);
 
 /// Abstract transport used by [DeviceProvider].
@@ -11,6 +13,7 @@ typedef ConnectionLostCallback = void Function(String reason);
 /// is agnostic to the underlying physical transport.
 abstract class TransportService {
   PacketReceivedCallback? onPacketReceived;
+  FsPacketReceivedCallback? onFsPacketReceived;
   ConnectionLostCallback? onConnectionLost;
   Stream<String> get logStream;
 

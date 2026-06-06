@@ -6,6 +6,7 @@
 #include "RadioKitBLE.h"
 #include "../RadioKitProtocol.h"
 #include "../RadioKit.h"
+#include "RadioKitFS.h"
 #include <NimBLEDevice.h>
 
 #define RK_BLE_SERVICE_UUID        "0000FFE0-0000-1000-8000-00805F9B34FB"
@@ -44,13 +45,15 @@ static RKCharCallbacks   s_charCallbacks;
 // ─────────────────────────────────────────────
 RadioKitBLE::RadioKitBLE()
     : _server(nullptr), _characteristic(nullptr)
-    , _packetCallback(nullptr), _connected(false), _needRestartAdv(false)
+    , _packetCallback(nullptr), _fsPacketCallback(nullptr)
+    , _connected(false), _needRestartAdv(false)
 {}
 
 void RadioKitBLE::begin(const char* deviceName, RK_PacketCallback cb) {
-    _packetCallback = cb;
-    _connected      = false;
-    _needRestartAdv = false;
+    _packetCallback   = cb;
+    _fsPacketCallback = nullptr;
+    _connected        = false;
+    _needRestartAdv   = false;
 
     // Pulse the LED to show we reached begin()
     pinMode(7, OUTPUT);
@@ -125,15 +128,21 @@ void RadioKitBLE::update() {
 }
 
 void RadioKitBLE::_onConnect()    { _connected = true; }
-void RadioKitBLE::_onDisconnect() { _connected = false; _needRestartAdv = true; rk_rxReset(); }
+void RadioKitBLE::_onDisconnect() { _connected = false; _needRestartAdv = true; rk_rxReset(); rk_fsRxReset(); }
+
+void RadioKitBLE::setFsCallback(RK_FsPacketCallback cb) {
+    _fsPacketCallback = cb;
+}
 
 void RadioKitBLE::_onWrite(const uint8_t* data, size_t len) {
-    if (!_packetCallback) return;
-
     uint8_t cmd; const uint8_t* payload; uint16_t payloadLen;
     for (size_t i = 0; i < len; i++) {
         if (rk_rxFeedByte(data[i], cmd, payload, payloadLen)) {
-            _packetCallback(cmd, payload, payloadLen);
+            if (_packetCallback) _packetCallback(cmd, payload, payloadLen);
+            continue;
+        }
+        if (rk_fsRxFeedByte(data[i], cmd, payload, payloadLen)) {
+            if (_fsPacketCallback) _fsPacketCallback(cmd, payload, payloadLen);
         }
     }
 }

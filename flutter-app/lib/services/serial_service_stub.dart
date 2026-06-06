@@ -7,6 +7,7 @@ export 'transport_service.dart';
 /// Unsupported-platform stub for [SerialService].
 class SerialService implements TransportService {
   @override PacketReceivedCallback? onPacketReceived;
+  @override FsPacketReceivedCallback? onFsPacketReceived;
   @override ConnectionLostCallback? onConnectionLost;
 
   @override bool get isConnected => false;

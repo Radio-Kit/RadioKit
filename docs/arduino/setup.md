@@ -10,6 +10,7 @@
 2. [RadioKit (Main Object)](#2-radiokit-main-object)
 3. [Widget Classes](#3-widget-classes)
 4. [Constants & Enums](#4-constants--enums)
+5. [Bulk Filesystem (LittleFS)](#5-bulk-filesystem-littlefs)
 
 ---
 
@@ -330,6 +331,97 @@ RGB hex values for `setColor()`:
 #define RK_PROTOCOL_VERSION 0x03  // Protocol v3
 #define RK_LIB_VERSION "2.0.0"    // Library version
 ```
+
+---
+
+## 5. Bulk Filesystem (LittleFS)
+
+The library can expose a LittleFS partition to the companion app for browsing, reading, writing, deleting, and renaming files. The app uses the bulk-FS protocol (0xAA start byte) — see the [Protocol Spec](protocol.md#bulk-filesystem-protocol-0xaa) for the wire format.
+
+### `beginFs()`
+
+Mount the LittleFS partition. Returns `true` on success. Safe to call once after `RadioKit.begin()`.
+
+```cpp
+bool beginFs();
+```
+
+### `isFsReady()`
+
+Returns `true` if the FS is mounted and ready to handle requests.
+
+```cpp
+bool isFsReady();
+```
+
+### `formatFs()`
+
+Format the FS partition. Destroys all data.
+
+```cpp
+bool formatFs();
+```
+
+### `sendFsFrame()`
+
+Send a raw FS frame back to the app. Used by custom backends (e.g., a sketch that proxies FS over Wi-Fi).
+
+```cpp
+void sendFsFrame(const uint8_t* data, size_t len);
+```
+
+### Example
+
+```cpp
+void setup() {
+    Serial.begin(115200);
+    initRadioKit();
+
+    if (!RadioKit.beginFs()) {
+        Serial.println("FS not available");
+        return;
+    }
+
+    if (!LittleFS.exists("/demo")) {
+        LittleFS.mkdir("/demo");
+        File f = LittleFS.open("/demo/data.json", "w");
+        f.print("{\"hello\":\"world\"}");
+        f.close();
+    }
+}
+```
+
+### Custom Backends
+
+The default backend uses `LittleFS` directly. To use a different filesystem (SPIFFS, FFat, SDFS, etc.) or to expose a virtual file system (e.g., backed by SD card or RAM), re-implement the `RKFs` namespace functions in your sketch:
+
+```cpp
+namespace RKFs {
+    void begin() { /* mount your FS */ }
+    bool listDir(const String& path, std::vector<String>& names, std::vector<bool>& isDir, std::vector<size_t>& sizes) { /* ... */ }
+    size_t readFile(const String& path, size_t offset, uint8_t* buf, size_t len) { /* ... */ }
+    bool writeFile(const String& path, size_t offset, const uint8_t* buf, size_t len) { /* ... */ }
+    bool delFile(const String& path) { /* ... */ }
+    bool mkdir(const String& path) { /* ... */ }
+    bool rename(const String& oldPath, const String& newPath) { /* ... */ }
+    bool getInfo(uint32_t& total, uint32_t& used, uint16_t& blockSize, char* fsType, size_t fsTypeLen) { /* ... */ }
+}
+```
+
+The library calls the `RKFs` functions with weak linkage, so your re-implementation will replace the defaults at link time.
+
+### Companion App
+
+The Flutter companion app exposes the bulk-FS protocol through a Material 3 file explorer (DevTools → Filesystem Explorer). It supports:
+
+- Browse directories and read file sizes
+- Upload files (auto-chunked at 8 KB)
+- Download files (auto-chunked at 8 KB)
+- Create, rename, and delete entries (recursive delete for folders)
+- Pull-to-refresh and multi-select (long-press to enter)
+- Format partition (gated behind a typed-name confirmation)
+
+The explorer is reachable at `/dev-tools/esp32-fs` in the app and uses the same BLE/Serial transport the user is already connected to for widgets — no second connection required.
 
 ---
 

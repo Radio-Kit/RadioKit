@@ -25,6 +25,8 @@ class BleService implements TransportService {
   @override
   PacketReceivedCallback? onPacketReceived;
   @override
+  FsPacketReceivedCallback? onFsPacketReceived;
+  @override
   ConnectionLostCallback? onConnectionLost;
 
   final _logController = StreamController<String>.broadcast();
@@ -328,33 +330,17 @@ class BleService implements TransportService {
   }
 
   void _processBuffer() {
-    while (_receiveBuffer.length >= 6) {
-      final startIdx = _receiveBuffer.indexOf(kStartByte);
-      if (startIdx < 0) {
-        _receiveBuffer.clear();
-        return;
-      }
-      if (startIdx > 0) {
-        _receiveBuffer.removeRange(0, startIdx);
-        continue;
-      }
-
-      if (_receiveBuffer.length < 3) return;
-      final length = _receiveBuffer[1] | (_receiveBuffer[2] << 8);
-
-      if (length < 6) {
-        _receiveBuffer.removeAt(0);
-        continue;
-      }
-      if (_receiveBuffer.length < length) return;
-
-      _log('Found packet candidate, length $length. Buffer size: ${_receiveBuffer.length}');
-      final packetBytes = Uint8List.fromList(_receiveBuffer.sublist(0, length));
-      _receiveBuffer.removeRange(0, length);
-
-      final packet = ProtocolService.parsePacket(Uint8List.fromList(packetBytes));
-      if (packet != null) {
-        onPacketReceived?.call(packet);
+    while (true) {
+      final drained = ProtocolService.drainBuffer(_receiveBuffer);
+      if (drained == null) break;
+      if (drained.kind == 'widget') {
+        _log('Widget packet: cmd=0x${drained.widgetPacket!.cmd.toRadixString(16)} '
+            'payloadLen=${drained.widgetPacket!.payload.length}');
+        onPacketReceived?.call(drained.widgetPacket!);
+      } else if (drained.kind == 'fs') {
+        _log('FS packet: sub=0x${drained.fsPacket!.subCmd.toRadixString(16)} '
+            'payloadLen=${drained.fsPacket!.payload.length}');
+        onFsPacketReceived?.call(drained.fsPacket!);
       }
     }
   }

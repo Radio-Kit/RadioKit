@@ -17,6 +17,7 @@ class LinuxSerialService implements TransportService {
   static const _kSessionTimeout = Duration(seconds: 3);
 
   @override PacketReceivedCallback? onPacketReceived;
+  @override FsPacketReceivedCallback? onFsPacketReceived;
   @override ConnectionLostCallback? onConnectionLost;
 
   final _logController = StreamController<String>.broadcast();
@@ -122,25 +123,15 @@ class LinuxSerialService implements TransportService {
   }
 
   void _processBuffer() {
-    while (_receiveBuffer.length >= 6) {
-      final startIdx = _receiveBuffer.indexOf(0x55);
-      if (startIdx < 0) { _receiveBuffer.clear(); return; }
-      if (startIdx > 0) { _receiveBuffer.removeRange(0, startIdx); continue; }
-
-      if (_receiveBuffer.length < 3) return;
-      final length = _receiveBuffer[1] | (_receiveBuffer[2] << 8);
-
-      if (length < 6) { _receiveBuffer.removeAt(0); continue; }
-      if (_receiveBuffer.length < length) return;
-
-      final packetBytes = _receiveBuffer.sublist(0, length);
-      _receiveBuffer.removeRange(0, length);
-
-      final packet = ProtocolService.parsePacket(packetBytes);
-      if (packet != null) {
-        _connected = true;
-        _resetSessionTimer();
-        onPacketReceived?.call(packet);
+    while (true) {
+      final drained = ProtocolService.drainBuffer(_receiveBuffer);
+      if (drained == null) break;
+      _connected = true;
+      _resetSessionTimer();
+      if (drained.kind == 'widget') {
+        onPacketReceived?.call(drained.widgetPacket!);
+      } else if (drained.kind == 'fs') {
+        onFsPacketReceived?.call(drained.fsPacket!);
       }
     }
   }

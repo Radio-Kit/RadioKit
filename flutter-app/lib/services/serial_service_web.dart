@@ -26,6 +26,7 @@ class SerialService implements TransportService {
   static const _kDefaultBaud = 1000000;
 
   @override PacketReceivedCallback? onPacketReceived;
+  @override FsPacketReceivedCallback? onFsPacketReceived;
   @override ConnectionLostCallback? onConnectionLost;
 
   JSSerialPort? _port;
@@ -196,33 +197,21 @@ class SerialService implements TransportService {
   }
 
   void _processBuffer() {
-    while (_receiveBuffer.length >= 6) {
-      final startIdx = _receiveBuffer.indexOf(0x55);
-      if (startIdx < 0) { _receiveBuffer.clear(); return; }
-      if (startIdx > 0) { _receiveBuffer.removeRange(0, startIdx); continue; }
-
-      if (_receiveBuffer.length < 3) return;
-      final length = _receiveBuffer[1] | (_receiveBuffer[2] << 8);
-
-      if (length < 6) { _receiveBuffer.removeAt(0); continue; }
-      if (_receiveBuffer.length < length) return;
-
-      final packetBytes = _receiveBuffer.sublist(0, length);
-      _receiveBuffer.removeRange(0, length);
-
-      final packet = ProtocolService.parsePacket(packetBytes);
-      if (packet != null) {
-        _connected = true;
-        _resetSessionTimer();
-        onPacketReceived?.call(packet);
-      } else {
-        // Log corrupted packet or junk
-        final junk = String.fromCharCodes(packetBytes);
-        debugPrint('RadioKit: Junk/Partial data: $junk');
+    while (true) {
+      final drained = ProtocolService.drainBuffer(_receiveBuffer);
+      if (drained == null) break;
+      _connected = true;
+      _resetSessionTimer();
+      if (drained.kind == 'widget') {
+        onPacketReceived?.call(drained.widgetPacket!);
+      } else if (drained.kind == 'fs') {
+        onFsPacketReceived?.call(drained.fsPacket!);
       }
     }
-    // If there's 1..5 bytes trailing and we haven't found a 0x55, log them too
-    if (_receiveBuffer.isNotEmpty && _receiveBuffer[0] != 0x55) {
+    // If there's trailing data and no start byte found, log + clear it.
+    if (_receiveBuffer.isNotEmpty &&
+        !_receiveBuffer.contains(0x55) &&
+        !_receiveBuffer.contains(0xAA)) {
       final junk = String.fromCharCodes(_receiveBuffer);
       debugPrint('RadioKit: Serial string: $junk');
       _receiveBuffer.clear();

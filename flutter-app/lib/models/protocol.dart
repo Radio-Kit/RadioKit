@@ -24,6 +24,66 @@ const int kCmdSetInput    = 0x0C;
 const int kCmdGetTelemetry = 0x0D;
 const int kCmdTelemetryData = 0x0E;
 
+// ── Filesystem bulk protocol ─────────────────────────────────────────────────
+// Uses a different start byte (0xAA) and has its own sub-command namespace.
+// Sub-commands are NOT in the 0x55 command table — see FsProtocolService.
+
+const int kFsStartByte = 0xAA;
+const int kFsHeaderSize = 4; // START(1) + SUB_CMD(1) + LEN_LO(1) + LEN_HI(1)
+const int kFsMaxPayload = 16384;
+
+// App → MCU sub-commands
+const int kFsCmdList          = 0x01;
+const int kFsCmdRead          = 0x02;
+const int kFsCmdWrite         = 0x03;
+const int kFsCmdDelete        = 0x04;
+const int kFsCmdInfo          = 0x05;
+const int kFsCmdMkdir         = 0x06;
+const int kFsCmdRename        = 0x07;
+const int kFsCmdUploadBegin   = 0x08;
+const int kFsCmdUploadChunk   = 0x09;
+const int kFsCmdUploadEnd     = 0x0A;
+
+// MCU → App sub-commands
+const int kFsRespListData         = 0x81;
+const int kFsRespReadData         = 0x82;
+const int kFsRespWriteAck         = 0x83;
+const int kFsRespDeleteAck        = 0x84;
+const int kFsRespInfoData         = 0x85;
+const int kFsRespMkdirAck         = 0x86;
+const int kFsRespRenameAck        = 0x87;
+const int kFsRespUploadBeginAck   = 0x88;
+const int kFsRespUploadChunkAck   = 0x89;
+const int kFsRespUploadEndAck     = 0x8A;
+
+// FS error codes (single byte returned in *Ack frames)
+const int kFsErrOk             = 0x00;
+const int kFsErrNotFound       = 0x01;
+const int kFsErrIo             = 0x02;
+const int kFsErrNoFs           = 0x03;
+const int kFsErrAccessDenied   = 0x04;
+const int kFsErrInvalidPath    = 0x05;
+const int kFsErrOutOfSpace     = 0x06;
+const int kFsErrInvalidState   = 0x07;
+
+// File type flags (in LIST_DATA entries)
+const int kFsTypeFile = 0x00;
+const int kFsTypeDir  = 0x01;
+
+String fsErrorName(int code) {
+  switch (code) {
+    case kFsErrOk:           return 'OK';
+    case kFsErrNotFound:     return 'NOT_FOUND';
+    case kFsErrIo:           return 'IO_ERROR';
+    case kFsErrNoFs:         return 'NO_FS';
+    case kFsErrAccessDenied: return 'ACCESS_DENIED';
+    case kFsErrInvalidPath:  return 'INVALID_PATH';
+    case kFsErrOutOfSpace:   return 'OUT_OF_SPACE';
+    case kFsErrInvalidState: return 'INVALID_STATE';
+    default:                 return 'UNKNOWN';
+  }
+}
+
 // Widget type identifiers
 const int kWidgetButton      = 0x01;
 const int kWidgetSwitch      = 0x02;

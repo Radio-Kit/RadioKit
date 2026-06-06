@@ -56,6 +56,12 @@ class SerialService implements TransportService {
   set onPacketReceived(PacketReceivedCallback? v) => _impl.onPacketReceived = v;
 
   @override
+  FsPacketReceivedCallback? get onFsPacketReceived => _impl.onFsPacketReceived;
+  @override
+  set onFsPacketReceived(FsPacketReceivedCallback? v) =>
+      _impl.onFsPacketReceived = v;
+
+  @override
   ConnectionLostCallback? get onConnectionLost => _impl.onConnectionLost;
   @override
   set onConnectionLost(ConnectionLostCallback? v) => _impl.onConnectionLost = v;
@@ -94,6 +100,7 @@ class SerialService implements TransportService {
 /// Returned on iOS / desktop where USB Serial is not supported.
 class _UnsupportedSerialService implements TransportService {
   @override PacketReceivedCallback? onPacketReceived;
+  @override FsPacketReceivedCallback? onFsPacketReceived;
   @override ConnectionLostCallback? onConnectionLost;
   @override bool get isConnected => false;
   @override Stream<String> get logStream => const Stream.empty();

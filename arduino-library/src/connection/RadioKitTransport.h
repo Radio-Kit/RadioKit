@@ -13,11 +13,18 @@
 #include <Arduino.h>
 #include <stdint.h>
 
-/// Callback signature: called by the transport when a complete,
-/// CRC-validated packet has been received.
+/// Callback signature: called by the transport when a complete
+/// widget-protocol (0x55) frame has been received and CRC-validated.
 typedef void (*RK_PacketCallback)(uint8_t cmd,
                                   const uint8_t* payload,
                                   uint16_t payloadLen);
+
+/// Callback signature: called by the transport when a complete
+/// bulk-FS-protocol (0xAA) frame has been received. No CRC validation
+/// (transport reliability is sufficient for short bursts).
+typedef void (*RK_FsPacketCallback)(uint8_t subCmd,
+                                    const uint8_t* payload,
+                                    uint16_t payloadLen);
 
 class RadioKitTransport {
 public:
@@ -26,9 +33,13 @@ public:
     /**
      * Initialise the transport.
      * @param name  Device/service name (used by BLE; ignored by Serial).
-     * @param cb    Packet callback invoked on every valid received packet.
+     * @param cb    Packet callback invoked on every valid received
+     *              widget-protocol frame.
      */
     virtual void begin(const char* name, RK_PacketCallback cb) = 0;
+
+    /** Register the bulk-FS callback. Optional — only needed for FS support. */
+    virtual void setFsCallback(RK_FsPacketCallback cb) { (void)cb; }
 
     /** Poll for incoming data / handle async events. Call every loop(). */
     virtual void update() = 0;

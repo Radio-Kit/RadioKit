@@ -270,6 +270,60 @@ The `_colorRow` method renders each token color as a row with:
 - Fields use `InspectorFieldBuilders` static methods with 20px horizontal padding and `vertical: 6`.
 - The panel header uses `padding: const EdgeInsets.all(20)` with icon + title + optional close button pattern.
 
+## 9. Filesystem Explorer (M3)
+
+The bulk-FS protocol is exposed in the Flutter app through a Material 3 file explorer screen at `lib/screens/devtools/filesystem/`. New files in this domain MUST follow these conventions:
+
+### 9.1 Sub-directory layout
+
+```
+lib/screens/devtools/filesystem/
+  filesystem_explorer_screen.dart   # Main screen state + body
+  fs_drawer.dart                    # NavigationDrawer (jump-to + format)
+  fs_breadcrumbs.dart               # ActionChip row per path segment
+  fs_info_strip.dart                # Card.filled + LinearProgressIndicator
+  fs_file_tile.dart                 # ListTile wrapper (normal + multi-select)
+  fs_action_sheet.dart              # showModalBottomSheet (per-file actions)
+  fs_helpers.dart                   # Pure functions: path utils, icon map, formatBytes
+```
+
+### 9.2 M3 component rules
+
+- Use `Scaffold` with `AppBar` (M3 surface tint, no custom `Container` chrome).
+- Use `ListView` of `ListTile` inside a wrapping `Card` (filled or outlined) — never hand-roll row chrome.
+- Use `FloatingActionButton.extended` for primary create action.
+- Use `showModalBottomSheet(showDragHandle: true, isScrollControlled: true)` for per-file actions.
+- Use `RefreshIndicator` (with `AlwaysScrollableScrollPhysics()`) to allow pull-to-refresh on empty and populated states.
+- Use `NavigationDrawer` for jump-to-root / format actions, with a `LinearProgressIndicator` in the header showing storage usage.
+- Use `Chip` / `ActionChip` for breadcrumbs (M3 segmented chip look) — never raw text with `Icon`.
+- Use `LinearProgressIndicator` for in-progress file operations (upload/download) — not custom progress bars.
+- Pull colors from `Theme.of(context).colorScheme` (`primary`, `onSurface`, `onSurfaceVariant`, `primaryContainer`, `errorContainer`, etc.). Avoid `withValues(alpha: ...)` on hard-coded colors when a semantic role exists.
+- For destructive actions, use `scheme.error` for icons and `FilledButton.tonal(backgroundColor: scheme.errorContainer, foregroundColor: scheme.onErrorContainer)`.
+- For Info / format-confirmation dialogs, use `AlertDialog` with an `icon:` parameter and a `ValueListenableBuilder` to enable the confirm button only when the typed value matches.
+
+### 9.3 Multi-select pattern
+
+- Long-press a `ListTile` to enter selection mode (haptic feedback via `HapticFeedback.mediumImpact()`).
+- The AppBar swaps title to `"N selected"` and replaces actions with `select_all` / `delete` icons.
+- The FAB is hidden during selection.
+- The `ListTile.leading` swaps to a `Checkbox` while in selection mode.
+- Add a `Set<String> _selectedPaths` storing the full path (so duplicate basenames in different dirs don't collide).
+- A close (`Icons.close_rounded`) leading icon exits selection.
+
+### 9.4 File operations
+
+- All file operations go through `DeviceFsService` (in `lib/services/`). Never call `DeviceProvider.sendFs()` directly from a screen.
+- For every long operation, set a `_progress` double (0..1) and render it in a status bar with a `LinearProgressIndicator` + status text.
+- After any mutation (upload, delete, mkdir, rename), call `_refresh()` to re-list the current directory.
+- `formatFs()` is a destructive action — always wrap in a typed-name confirmation dialog (the device name from `DeviceProvider.connectedDevice`).
+
+### 9.5 Path utilities
+
+- Path manipulation lives in `fs_helpers.dart` (`joinPath`, `parentPath`, `baseName`, `pathSegments`).
+- `joinPath('/', 'foo')` returns `/foo` (not `//foo`).
+- `parentPath('/')` returns `/` (no-op for root).
+- Screens should not compute paths inline — use the helpers.
+
 ## 11. Flatpak / Flathub Packaging
 
 ### 11.0 Tag convention

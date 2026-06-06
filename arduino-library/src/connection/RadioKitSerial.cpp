@@ -5,25 +5,32 @@
 
 #include "RadioKitSerial.h"
 #include "../RadioKitProtocol.h"
+#include "RadioKitFS.h"
 
 RadioKitSerialTransport RadioKitSerialInstance;
 
 RadioKitSerialTransport::RadioKitSerialTransport()
-    : _stream(nullptr), _cb(nullptr)
+    : _stream(nullptr), _cb(nullptr), _fsCb(nullptr)
     , _lastPacketMs(0), _lastByteMs(0), _everReceived(false)
 {}
 
 void RadioKitSerialTransport::begin(Stream& stream, RK_PacketCallback cb) {
     _stream       = &stream;
     _cb           = cb;
+    _fsCb         = nullptr;
     _lastPacketMs = 0;
     _lastByteMs   = 0;
     _everReceived = false;
     rk_rxReset();
+    rk_fsRxReset();
 }
 
 void RadioKitSerialTransport::begin(const char* /*name*/, RK_PacketCallback cb) {
     _cb = cb;  // stream must be set via begin(Stream&, cb) overload
+}
+
+void RadioKitSerialTransport::setFsCallback(RK_FsPacketCallback cb) {
+    _fsCb = cb;
 }
 
 void RadioKitSerialTransport::update() {
@@ -37,16 +44,26 @@ void RadioKitSerialTransport::update() {
         uint8_t byte = (uint8_t)_stream->read();
         _lastByteMs = millis();
 
+        // Route to widget state machine
         if (rk_rxFeedByte(byte, cmd, payload, payloadLen)) {
             _everReceived = true;
             _lastPacketMs = millis();
             if (_cb) _cb(cmd, payload, payloadLen);
+            continue;
+        }
+
+        // Route to FS state machine (parallel, separate start byte)
+        if (rk_fsRxFeedByte(byte, cmd, payload, payloadLen)) {
+            _everReceived = true;
+            _lastPacketMs = millis();
+            if (_fsCb) _fsCb(cmd, payload, payloadLen);
         }
     }
 
     // Junk recovery: reset framing if mid-packet but silent for >1000 ms
     if (_lastByteMs > 0 && (millis() - _lastByteMs) > 1000) {
         rk_rxReset();
+        rk_fsRxReset();
         _lastByteMs = 0;
     }
 }

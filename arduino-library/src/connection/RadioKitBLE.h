@@ -25,6 +25,7 @@ public:
     RadioKitBLE();
 
     void begin(const char* deviceName, RK_PacketCallback cb) override;
+    void setFsCallback(RK_FsPacketCallback cb) override;
     void update()                                            override;
     void sendPacket(const uint8_t* buf, uint16_t len)       override;
     bool isConnected() const                                override { return _connected; }
@@ -39,6 +40,7 @@ private:
     NimBLEServer*         _server;
     NimBLECharacteristic* _characteristic;
     RK_PacketCallback     _packetCallback;
+    RK_FsPacketCallback   _fsPacketCallback;
     volatile bool         _connected;
     bool                  _needRestartAdv;
 };

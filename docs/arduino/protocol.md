@@ -297,6 +297,98 @@ App → Arduino: ACK
 
 ---
 
+## Bulk Filesystem Protocol (0xAA)
+
+A separate, higher-bandwidth protocol runs on the **same physical transport** for filesystem operations (browse, read, write, delete, mkdir, rename, info). It uses a different start byte so it can coexist with the widget protocol (0x55) without interfering.
+
+The FS protocol is suitable for transferring multi-kilobyte files without bloating the 0x55 widget state machine.
+
+### FS Frame Structure
+
+```
+[START][SUB_CMD][LENGTH_LO][LENGTH_HI][PAYLOAD...]
+  0xAA    uint8     uint16     uint16     0..16384 bytes
+```
+
+| Field     | Size     | Description                                  |
+|-----------|----------|----------------------------------------------|
+| `START`   | 1        | Always `0xAA`                                |
+| `SUB_CMD` | 1        | FS sub-command (see table)                   |
+| `LENGTH`  | 2 (LE)   | Payload length in bytes (not including header) |
+| `PAYLOAD` | 0..16384 | Sub-command-specific payload                 |
+| **CRC**   | **none** | The FS protocol has no checksum — rely on transport reliability |
+
+Maximum payload size: **16 384 bytes** (one frame fits a typical BLE notification, or ~2 ms at 115 200 baud).
+
+### Sub-Commands (App → Arduino)
+
+| Value  | Name              | Payload                          | Description |
+|--------|-------------------|----------------------------------|-------------|
+| `0x01` | `FS_LIST`         | `[u8 path_len][path...]`         | List entries in a directory |
+| `0x02` | `FS_READ`         | `[u8 path_len][path...][u32 offset][u32 len]` | Read a file chunk |
+| `0x03` | `FS_WRITE`        | `[u8 path_len][path...][u32 offset][bytes...]` | Write a file chunk |
+| `0x04` | `FS_DELETE`       | `[u8 path_len][path...]`         | Delete a file or empty dir |
+| `0x05` | `FS_INFO`         | (empty)                          | Get FS usage / free space |
+| `0x06` | `FS_MKDIR`        | `[u8 path_len][path...]`         | Create a directory |
+| `0x07` | `FS_RENAME`       | `[u8 old_len][old...][u8 new_len][new...]` | Rename / move a file |
+| `0x08` | `FS_UPLOAD_BEGIN` | `[u8 path_len][path...][u32 size]` | Begin a multi-frame write (reserves space) |
+| `0x09` | `FS_UPLOAD_CHUNK` | `[u8 path_len][path...][u32 offset][bytes...]` | Write a chunk of an upload |
+| `0x0A` | `FS_UPLOAD_END`   | `[u8 path_len][path...][u32 size]` | Finalize a multi-frame write |
+
+### Sub-Commands (Arduino → App)
+
+| Value  | Name                | Payload | Description |
+|--------|---------------------|---------|-------------|
+| `0x81` | `FS_LIST_DATA`      | `[u8 count]` then repeated `[u8 is_dir][u8 name_len][name...][u32 size]` | Directory listing result |
+| `0x82` | `FS_READ_DATA`      | `[u8 path_len][path...][u32 offset][u32 len][bytes...]` | File chunk |
+| `0x83` | `FS_INFO_DATA`      | `[u32 total][u32 used][u16 block_size][u8 fs_type_len][fs_type...]` | FS info result |
+| `0x84` | `FS_ACK`            | `[u8 sub_cmd_echo][u8 result_code]` | Acknowledgement of a write/delete/rename/mkdir |
+| `0x85..0x8A` | (reserved)  |                                     | Future upload stream results |
+
+### Result Codes (in `FS_ACK`)
+
+| Value | Name          | Meaning                                |
+|-------|---------------|----------------------------------------|
+| `0x00`| `OK`          | Success                                |
+| `0x01`| `ERR_NOT_FOUND` | File/directory does not exist        |
+| `0x02`| `ERR_IO`      | Read/write error                       |
+| `0x03`| `ERR_INVALID` | Bad path or arguments                  |
+| `0x04`| `ERR_EXISTS`  | Path already exists                    |
+| `0x05`| `ERR_NO_SPACE` | Out of space                          |
+| `0x06`| `ERR_BUSY`    | FS busy                                |
+| `0x07`| `NO_FS`       | LittleFS not compiled in or not mounted |
+
+### Notes
+
+- The FS protocol is optional. Sketches that don't use it can simply not call `RadioKit.beginFs()`.
+- Sketches may override the default `LittleFS` backend by re-implementing the `RKFs::listDir`, `RKFs::readFile`, `RKFs::writeFile`, `RKFs::delFile`, `RKFs::getInfo`, `RKFs::mkdir`, `RKFs::rename` functions (weak symbols).
+- The two state machines (0x55 widget + 0xAA FS) are fed from the same byte stream and demuxed by the start byte. There is no contention.
+
+### Example: Listing a directory
+
+```
+App → Arduino: FS_LIST ("/")
+  0xAA 0x01 0x01 0x00 0x2F
+
+Arduino → App: FS_LIST_DATA ([
+  (0x01, "demo",  0),   // directory
+  (0x00, "README.txt", 87) // file, 87 bytes
+])
+  0xAA 0x81 0x10 0x00 ...
+```
+
+### Example: Reading a file in chunks
+
+```
+App → Arduino: FS_READ ("/README.txt", 0, 512)
+Arduino → App: FS_READ_DATA (0, 87 bytes...)
+
+App → Arduino: FS_READ ("/README.txt", 512, 512)
+Arduino → App: FS_READ_DATA (512, 0 bytes — EOF)
+```
+
+---
+
 ## Version History
 
 | Version | Changes |
@@ -306,3 +398,4 @@ App → Arduino: ACK
 | v0.03   | Added reliability (ACK, VAR_UPDATE) |
 | v2.0    | Added META_DATA, TELEMETRY, expanded to 256 widgets, aspect ratio support |
 | v3.0    | Current version — Absolute Height/Width layout, META_UPDATE, enhanced reliability |
+| v3.1    | Added bulk Filesystem protocol (0xAA start byte, 16 KB max payload, no CRC) |

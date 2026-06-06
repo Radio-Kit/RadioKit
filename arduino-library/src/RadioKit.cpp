@@ -4,6 +4,7 @@
  */
 
 #include "RadioKit.h"
+#include "connection/RadioKitFsHandlers.h"
 #include <string.h>
 
 // ── Debug logging (enabled by default for debugging) ────────────────────
@@ -47,6 +48,11 @@ void RadioKitClass::_registerWidget(RadioKit_Widget* widget) {
 
 void RadioKitClass::begin() {
     RadioKit_Widget_drainDeferred();
+    // Auto-mount the FS. The handler namespace is a no-op when LittleFS
+    // is unavailable, in which case all FS commands reply with NO_FS.
+    RKFs::setSender(&RadioKitClass::_sendFsFrame);
+    rk_fsSetCallback(&RadioKitClass::_onFsPacket);
+    RKFs::begin();
 }
 
 void RadioKitClass::pushUpdate(uint8_t widgetId) {
@@ -70,11 +76,13 @@ void RadioKitClass::startBLE(const char* deviceName) {
     snprintf(bleAdvName, sizeof(bleAdvName), "RK_%s", baseName ? baseName : "RadioKit");
     _transport = &RadioKitBLEInstance;
     _transport->begin(bleAdvName, RadioKitClass::_onPacket);
+    _transport->setFsCallback(RadioKitClass::_onFsPacket);
 }
 
 void RadioKitClass::startSerial(Stream& stream) {
     _transport = &RadioKitSerialInstance;
     RadioKitSerialInstance.begin(stream, RadioKitClass::_onPacket);
+    RadioKitSerialInstance.setFsCallback(RadioKitClass::_onFsPacket);
 }
 
 void RadioKitClass::update() {
@@ -403,4 +411,36 @@ void RadioKitClass::_sendPacket(uint16_t len) {
     if (!_transport) return;
     RK_DEBUG_PRINT("RK: Sending CMD %s (0x%02X), len %d\n", rk_cmdName(_txBuf[3]), _txBuf[3], len);
     _transport->sendPacket(_txBuf, len);
+}
+
+// ── Filesystem bulk protocol ────────────────────────────────────────────────
+
+bool RadioKitClass::beginFs() {
+    return RKFs::begin();
+}
+
+bool RadioKitClass::isFsReady() const {
+    return RKFs::isReady();
+}
+
+bool RadioKitClass::formatFs() {
+    return RKFs::format();
+}
+
+void RadioKitClass::sendFsFrame(const uint8_t* buf, uint16_t len) {
+    if (!_transport) return;
+    _transport->sendPacket(buf, len);
+}
+
+void RadioKitClass::_sendFsFrame(const uint8_t* buf, uint16_t len) {
+    if (s_instance) s_instance->sendFsFrame(buf, len);
+}
+
+void RadioKitClass::_onFsPacket(uint8_t subCmd,
+                                const uint8_t* payload,
+                                uint16_t payloadLen)
+{
+    RK_DEBUG_PRINT("RK: Dispatching FS %s (0x%02X), len %d\n",
+                   rk_fsCmdName(subCmd), subCmd, payloadLen);
+    RKFs::dispatch(subCmd, payload, payloadLen);
 }

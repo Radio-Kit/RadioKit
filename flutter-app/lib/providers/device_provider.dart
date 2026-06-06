@@ -8,6 +8,7 @@ import '../models/widget_config.dart';
 import '../models/protocol.dart';
 import '../services/transport_service.dart';
 import '../services/protocol_service.dart';
+import '../services/fs_protocol_service.dart';
 import '../services/debug_transport.dart';
 import '../services/demo_transport.dart';
 
@@ -70,6 +71,12 @@ class DeviceProvider extends ChangeNotifier {
 
   final Map<int, _PendingUpdate> _pendingUpdates = {};
   int _nextSeq = 0;
+
+  // ── FS (bulk protocol) ────────────────────────────────────────────────
+  /// Active FS request per sub-cmd. The device may also send unsolic­ited
+  /// FS frames (e.g. an upload begin from a server-side tool) — those
+  /// are dispatched to [_handleUnsolicitedFs] instead.
+  final Map<int, Completer<ParsedFsPacket>> _pendingFs = {};
 
   /// Cached designer-format JSON for fast UI rendering.
   /// Populated from device CONF_DATA or demo assets.
@@ -151,6 +158,7 @@ class DeviceProvider extends ChangeNotifier {
 
     // 6. Always ensure callbacks are assigned to the current transport instance
     _transport.onPacketReceived = _handlePacket;
+    _transport.onFsPacketReceived = _handleFsPacket;
     _transport.onConnectionLost = _handleConnectionLost;
 
     // 7. Synchronize DebugProvider if it's our sink
@@ -867,8 +875,69 @@ class DeviceProvider extends ChangeNotifier {
     pending?.timer?.cancel();
   }
 
+  // ── Bulk FS protocol (0xAA) ──────────────────────────────────────────
+
+  /// Incoming FS frame dispatcher. Completes a pending FS request if the
+  /// sub-cmd matches one, or logs it as unsolicited.
+  void _handleFsPacket(ParsedFsPacket packet) {
+    final pending = _pendingFs.remove(packet.subCmd);
+    if (pending != null && !pending.isCompleted) {
+      pending.complete(packet);
+    } else {
+      _log('MCU <- UNSOL FS 0x${packet.subCmd.toRadixString(16).padLeft(2, "0")} '
+          '(${packet.payload.length} bytes)');
+    }
+  }
+
+  /// Send an FS request and await the matching response.
+  /// Returns null on timeout or disconnect.
+  Future<ParsedFsPacket?> _sendFsRequest(
+    Uint8List frame, {
+    Duration timeout = const Duration(seconds: 5),
+  }) async {
+    if (!_transport.isConnected) return null;
+    final subCmd = frame[1];
+
+    final completer = Completer<ParsedFsPacket>();
+    _pendingFs[subCmd] = completer;
+
+    try {
+      await _writePacket(frame);
+    } catch (e) {
+      _pendingFs.remove(subCmd);
+      return null;
+    }
+
+    // Manual timeout — using completer.future.timeout would force
+    // us to return a non-null value from onTimeout which collides
+    // with our "no response" semantics.
+    final timedOut = await completer.future
+        .then<ParsedFsPacket?>((p) => p)
+        .timeout(timeout, onTimeout: () => null)
+        .catchError((_) => null as ParsedFsPacket?);
+    if (timedOut == null) _pendingFs.remove(subCmd);
+    return timedOut;
+  }
+
+  void _cancelAllPendingFs() {
+    for (final c in _pendingFs.values) {
+      if (!c.isCompleted) c.completeError(Exception('Disconnected'));
+    }
+    _pendingFs.clear();
+  }
+
+  /// Public entry point for sending an FS request frame and awaiting
+  /// the matching response. Returns null on timeout or disconnect.
+  Future<ParsedFsPacket?> sendFs(
+    Uint8List frame, {
+    Duration timeout = const Duration(seconds: 5),
+  }) {
+    return _sendFsRequest(frame, timeout: timeout);
+  }
+
   void _handleConnectionLost(String reason) {
     _cancelAllPendingUpdates();
+    _cancelAllPendingFs();
     _stopPolling();
     _connectionState = DeviceConnectionState.disconnected;
     _errorMessage    = reason;
@@ -996,6 +1065,7 @@ class DeviceProvider extends ChangeNotifier {
     notifyListeners();
 
     _cancelAllPendingUpdates();
+    _cancelAllPendingFs();
     _stopPolling();
     _confTimeoutTimer?.cancel();
     _confTimeoutTimer = null;
@@ -1017,6 +1087,7 @@ class DeviceProvider extends ChangeNotifier {
   @override
   void dispose() {
     _cancelAllPendingUpdates();
+    _cancelAllPendingFs();
     _stopPolling();
     _confTimeoutTimer?.cancel();
     super.dispose();

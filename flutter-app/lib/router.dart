@@ -13,8 +13,8 @@ import 'screens/home_screen.dart';
 import 'screens/designer/designer_screen.dart';
 import 'screens/home/designs_tab.dart';
 import 'screens/devtools/usb_serial_screen.dart';
-import 'screens/devtools/esp32_filesystem_screen.dart';
 import 'screens/devtools/firmware_flasher_screen.dart';
+import 'screens/devtools/filesystem/filesystem_explorer_screen.dart';
 import 'theme/app_theme.dart';
 
 class ConnectionNotifier extends ChangeNotifier {
@@ -130,7 +130,7 @@ GoRouter createRouter(ConnectionNotifier connectionNotifier) {
         ),
         GoRoute(
           path: '/dev-tools/esp32-fs',
-          builder: (context, state) => const Esp32FilesystemScreen(),
+          builder: (context, state) => const FilesystemExplorerScreen(),
         ),
         GoRoute(
           path: '/dev-tools/firmware-flasher',
