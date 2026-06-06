@@ -6,8 +6,10 @@ import '../../providers/theme_provider.dart';
 import '../../providers/history_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/skin_provider.dart';
+import '../../providers/remote_access_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/radiokit_app_bar.dart';
+import '../../widgets/api_log_view.dart';
 import '../donate_screen.dart';
 
 class SystemTab extends StatelessWidget {
@@ -101,7 +103,11 @@ class SystemTab extends StatelessWidget {
           const SizedBox(height: 32),
           _buildSectionTag(context, '03. HARDWARE_METRICS'),
           _buildAboutCard(context),
-          
+
+          const SizedBox(height: 32),
+          _buildSectionTag(context, '04. REMOTE_ACCESS'),
+          _buildRemoteAccessCard(context),
+
           const SizedBox(height: 48),
           _buildDangerZone(context),
           const SizedBox(height: 32),
@@ -307,6 +313,109 @@ class SystemTab extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildRemoteAccessCard(BuildContext context) {
+    final ra = context.watch<RemoteAccessProvider>();
+
+    return Column(
+      children: [
+        Card(
+          color: Colors.white.withValues(alpha: 0.05),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _SettingLabel(label: 'ENABLE_REMOTE_ACCESS', value: 'HTTP API for automation & testing'),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (ra.isRunning) ...[
+                          Row(
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: AppColors.connected,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                ra.actualUrl,
+                                style: const TextStyle(
+                                  color: AppColors.connected,
+                                  fontSize: 13,
+                                  fontFamily: 'monospace',
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Port ${ra.actualPort}',
+                            style: const TextStyle(color: Colors.white24, fontSize: 10),
+                          ),
+                        ] else if (ra.lastError.isNotEmpty) ...[
+                          Row(
+                            children: [
+                              const Icon(Icons.error_outline, size: 14, color: Colors.redAccent),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  ra.lastError,
+                                  style: const TextStyle(color: Colors.redAccent, fontSize: 11),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ] else ...[
+                          Text(
+                            'Server stopped',
+                            style: const TextStyle(color: Colors.white24, fontSize: 12),
+                          ),
+                        ],
+                      ],
+                    ),
+                    Switch(
+                      value: ra.isRunning,
+                      onChanged: (_) => ra.toggle(),
+                      activeThumbColor: AppColors.brandOrange,
+                    ),
+                  ],
+                ),
+                if (ra.isRunning && ra.logs.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: ApiLogView(height: 200),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        if (ra.isRunning) ...[
+          Card(
+            color: Colors.white.withValues(alpha: 0.03),
+            child: ApiLogView(height: 240),
+          ),
+        ],
+      ],
     );
   }
 

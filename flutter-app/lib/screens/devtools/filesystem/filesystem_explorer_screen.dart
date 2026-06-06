@@ -2,12 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../models/fs_entry.dart';
 import '../../../models/fs_info.dart';
 import '../../../providers/device_provider.dart';
 import '../../../services/device_fs_service.dart';
+import '../../../widgets/radiokit_app_bar.dart';
 import 'fs_action_sheet.dart';
 import 'fs_breadcrumbs.dart';
 import 'fs_drawer.dart';
@@ -55,23 +57,28 @@ class _FilesystemExplorerScreenState
     }
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: RadioKitAppBar(
         title: _isMultiSelect
-            ? Text(
-                '${_selectedPaths.length} selected',
-                style: Theme.of(context).textTheme.titleLarge,
-              )
-            : Text(
-                'Filesystem',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
+            ? '${_selectedPaths.length} selected'
+            : 'Filesystem',
+        automaticallyImplyLeading: false,
         leading: _isMultiSelect
             ? IconButton(
                 icon: const Icon(Icons.close_rounded),
                 tooltip: 'Cancel selection',
                 onPressed: _exitMultiSelect,
               )
-            : null,
+            : IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: 'Back',
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/models');
+                  }
+                },
+              ),
         actions: _isMultiSelect
             ? [
                 IconButton(
