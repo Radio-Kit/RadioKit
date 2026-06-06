@@ -299,92 +299,129 @@ App → Arduino: ACK
 
 ## Bulk Filesystem Protocol (0xAA)
 
-A separate, higher-bandwidth protocol runs on the **same physical transport** for filesystem operations (browse, read, write, delete, mkdir, rename, info). It uses a different start byte so it can coexist with the widget protocol (0x55) without interfering.
+A separate, higher-bandwidth protocol runs on the **same physical transport** for filesystem operations (browse, read, write, delete, mkdir, rename, info, ping, format). It uses a different start byte so it can coexist with the widget protocol (0x55) without interfering.
 
 The FS protocol is suitable for transferring multi-kilobyte files without bloating the 0x55 widget state machine.
 
 ### FS Frame Structure
 
 ```
-[START][SUB_CMD][LENGTH_LO][LENGTH_HI][PAYLOAD...]
-  0xAA    uint8     uint16     uint16     0..16384 bytes
+[START][SUB_CMD][LEN_LO][LEN_HI][PAYLOAD...]
+  0xAA   uint8     uint8   uint8   0..16380 bytes
 ```
 
-| Field     | Size     | Description                                  |
-|-----------|----------|----------------------------------------------|
-| `START`   | 1        | Always `0xAA`                                |
-| `SUB_CMD` | 1        | FS sub-command (see table)                   |
-| `LENGTH`  | 2 (LE)   | Payload length in bytes (not including header) |
-| `PAYLOAD` | 0..16384 | Sub-command-specific payload                 |
-| **CRC**   | **none** | The FS protocol has no checksum — rely on transport reliability |
+| Field     | Size     | Description                                       |
+|-----------|----------|---------------------------------------------------|
+| `START`   | 1        | Always `0xAA`                                     |
+| `SUB_CMD` | 1        | FS sub-command (see table)                        |
+| `LEN`     | 2 (LE)   | **Total frame length** (header(4) + payload)      |
+| `PAYLOAD` | 0..16380 | Sub-command-specific payload                      |
+| **CRC**   | **none** | No checksum — rely on transport reliability       |
 
-Maximum payload size: **16 384 bytes** (one frame fits a typical BLE notification, or ~2 ms at 115 200 baud).
+Maximum payload size: **16 380 bytes** (16 384 − 4-byte header).
 
 ### Sub-Commands (App → Arduino)
 
-| Value  | Name              | Payload                          | Description |
-|--------|-------------------|----------------------------------|-------------|
-| `0x01` | `FS_LIST`         | `[u8 path_len][path...]`         | List entries in a directory |
-| `0x02` | `FS_READ`         | `[u8 path_len][path...][u32 offset][u32 len]` | Read a file chunk |
-| `0x03` | `FS_WRITE`        | `[u8 path_len][path...][u32 offset][bytes...]` | Write a file chunk |
-| `0x04` | `FS_DELETE`       | `[u8 path_len][path...]`         | Delete a file or empty dir |
-| `0x05` | `FS_INFO`         | (empty)                          | Get FS usage / free space |
-| `0x06` | `FS_MKDIR`        | `[u8 path_len][path...]`         | Create a directory |
-| `0x07` | `FS_RENAME`       | `[u8 old_len][old...][u8 new_len][new...]` | Rename / move a file |
-| `0x08` | `FS_UPLOAD_BEGIN` | `[u8 path_len][path...][u32 size]` | Begin a multi-frame write (reserves space) |
-| `0x09` | `FS_UPLOAD_CHUNK` | `[u8 path_len][path...][u32 offset][bytes...]` | Write a chunk of an upload |
-| `0x0A` | `FS_UPLOAD_END`   | `[u8 path_len][path...][u32 size]` | Finalize a multi-frame write |
+| Value  | Name              | Payload                                              | Description                            |
+|--------|-------------------|------------------------------------------------------|----------------------------------------|
+| `0x01` | `FS_LIST`         | `[u8 path_len][path...]`                              | List entries in a directory            |
+| `0x02` | `FS_READ`         | `[u8 path_len][path...][u32 offset][u16 max_bytes]`   | Read up to 65 535 bytes from offset    |
+| `0x03` | `FS_WRITE`        | `[u8 path_len][path...][u32 offset][bytes...]`         | Write a file chunk (offset 0 truncates) |
+| `0x04` | `FS_DELETE`       | `[u8 path_len][path...][u8 recursive]`                | Delete a file or directory             |
+| `0x05` | `FS_INFO`         | (empty)                                              | Get FS usage / free space              |
+| `0x06` | `FS_MKDIR`        | `[u8 path_len][path...]`                              | Create a directory                     |
+| `0x07` | `FS_RENAME`       | `[u8 old_len][old...][u8 new_len][new...]`            | Rename / move a file or directory      |
+| `0x08` | `FS_UPLOAD_BEGIN` | `[u8 path_len][path...][u32 size]`                    | Begin a multi-frame write              |
+| `0x09` | `FS_UPLOAD_CHUNK` | `[u8 path_len][path...][u32 offset][bytes...]`         | Write a chunk of an upload             |
+| `0x0A` | `FS_UPLOAD_END`   | `[u8 path_len][path...][u32 size]`                    | Finalize a multi-frame write           |
+| `0x0B` | `FS_PING`         | (empty)                                              | Capability probe — replies `FS_PING_ACK` |
+| `0x0C` | `FS_FORMAT`       | (empty)                                              | Re-format the default FS (destructive) |
 
 ### Sub-Commands (Arduino → App)
 
-| Value  | Name                | Payload | Description |
-|--------|---------------------|---------|-------------|
-| `0x81` | `FS_LIST_DATA`      | `[u8 count]` then repeated `[u8 is_dir][u8 name_len][name...][u32 size]` | Directory listing result |
-| `0x82` | `FS_READ_DATA`      | `[u8 path_len][path...][u32 offset][u32 len][bytes...]` | File chunk |
-| `0x83` | `FS_INFO_DATA`      | `[u32 total][u32 used][u16 block_size][u8 fs_type_len][fs_type...]` | FS info result |
-| `0x84` | `FS_ACK`            | `[u8 sub_cmd_echo][u8 result_code]` | Acknowledgement of a write/delete/rename/mkdir |
-| `0x85..0x8A` | (reserved)  |                                     | Future upload stream results |
+| Value  | Name                  | Payload                                                              | Description                                |
+|--------|-----------------------|----------------------------------------------------------------------|--------------------------------------------|
+| `0x81` | `FS_LIST_DATA`        | `[u16 count]` then per entry `[u8 is_dir][u32 size][u8 name_len][name...]` | Directory listing result                   |
+| `0x82` | `FS_READ_DATA`        | `[u32 total_size][u32 offset][bytes...]`                              | File chunk (offset + length tell client position) |
+| `0x83` | `FS_WRITE_ACK`        | `[u8 err]`                                                            | Write ack                                  |
+| `0x84` | `FS_DELETE_ACK`       | `[u8 err]`                                                            | Delete ack                                 |
+| `0x85` | `FS_INFO_DATA`        | `[u32 total][u32 used][u16 block_size][u8 fs_type]`                   | FS usage / metadata                        |
+| `0x86` | `FS_MKDIR_ACK`        | `[u8 err]`                                                            | Mkdir ack                                  |
+| `0x87` | `FS_RENAME_ACK`       | `[u8 err]`                                                            | Rename ack                                 |
+| `0x88` | `FS_UPLOAD_BEGIN_ACK` | `[u8 err]`                                                            | Upload begin ack                           |
+| `0x89` | `FS_UPLOAD_CHUNK_ACK` | `[u8 err]`                                                            | Upload chunk ack                           |
+| `0x8A` | `FS_UPLOAD_END_ACK`   | `[u8 err]`                                                            | Upload end ack                             |
+| `0x8B` | `FS_PING_ACK`         | `[u8 status]`                                                         | Mount status (0 = mounted, 0x03 = NO_FS)  |
+| `0x8C` | `FS_FORMAT_ACK`       | `[u8 err]`                                                            | Format ack                                 |
 
-### Result Codes (in `FS_ACK`)
+### Error Codes (returned in all `*_ACK` payloads and `FS_PING_ACK`/`FS_READ_DATA`)
 
-| Value | Name          | Meaning                                |
-|-------|---------------|----------------------------------------|
-| `0x00`| `OK`          | Success                                |
-| `0x01`| `ERR_NOT_FOUND` | File/directory does not exist        |
-| `0x02`| `ERR_IO`      | Read/write error                       |
-| `0x03`| `ERR_INVALID` | Bad path or arguments                  |
-| `0x04`| `ERR_EXISTS`  | Path already exists                    |
-| `0x05`| `ERR_NO_SPACE` | Out of space                          |
-| `0x06`| `ERR_BUSY`    | FS busy                                |
-| `0x07`| `NO_FS`       | LittleFS not compiled in or not mounted |
+| Value | Name              | Meaning                                |
+|-------|-------------------|----------------------------------------|
+| `0x00`| `OK`              | Success                                |
+| `0x01`| `NOT_FOUND`       | File or directory does not exist       |
+| `0x02`| `IO`              | Read/write error                       |
+| `0x03`| `NO_FS`           | LittleFS not compiled in or not mounted |
+| `0x04`| `ACCESS_DENIED`   | Permission denied                      |
+| `0x05`| `INVALID_PATH`    | Malformed path or argument             |
+| `0x06`| `OUT_OF_SPACE`    | Filesystem full                        |
+| `0x07`| `INVALID_STATE`   | Operation not valid in current state   |
 
 ### Notes
 
 - The FS protocol is optional. Sketches that don't use it can simply not call `RadioKit.beginFs()`.
 - Sketches may override the default `LittleFS` backend by re-implementing the `RKFs::listDir`, `RKFs::readFile`, `RKFs::writeFile`, `RKFs::delFile`, `RKFs::getInfo`, `RKFs::mkdir`, `RKFs::rename` functions (weak symbols).
 - The two state machines (0x55 widget + 0xAA FS) are fed from the same byte stream and demuxed by the start byte. There is no contention.
+- `FS_PING` is the recommended way to detect FS support on a freshly-connected device. The app sends a few probes; if any reply is `OK`, set `hasFs = true`.
+
+### Example: Capability detection (PING)
+
+```
+App  → Arduino: FS_PING
+  0xAA 0x0B 0x04 0x00          // header only, no payload (LEN=4)
+
+Arduino → App: FS_PING_ACK (mounted)
+  0xAA 0x8B 0x05 0x00 0x00     // LEN=5, status=OK
+```
 
 ### Example: Listing a directory
 
 ```
 App → Arduino: FS_LIST ("/")
-  0xAA 0x01 0x01 0x00 0x2F
+  0xAA 0x01 0x05 0x00 0x01 0x2F     // path_len=1, "/"
 
-Arduino → App: FS_LIST_DATA ([
-  (0x01, "demo",  0),   // directory
-  (0x00, "README.txt", 87) // file, 87 bytes
-])
-  0xAA 0x81 0x10 0x00 ...
+Arduino → App: FS_LIST_DATA (2 entries)
+  0xAA 0x81 0x14 0x00                  // LEN=20
+  0x02 0x00                            // count=2
+  0x01 0x00 0x00 0x00 0x00 0x04 'd' 'e' 'm' 'o'      // dir, 0 bytes, "demo"
+  0x00 0x57 0x00 0x00 0x00 0x04 'R' 'E' 'A' 'D' 'M' 'E'  // file, 87 bytes, "README"
 ```
 
 ### Example: Reading a file in chunks
 
 ```
-App → Arduino: FS_READ ("/README.txt", 0, 512)
-Arduino → App: FS_READ_DATA (0, 87 bytes...)
+App → Arduino: FS_READ ("/README", offset=0, max=512)
+  0xAA 0x02 ...
+  // path_len=7, "README", 4-byte offset=0, 2-byte max=512
 
-App → Arduino: FS_READ ("/README.txt", 512, 512)
-Arduino → App: FS_READ_DATA (512, 0 bytes — EOF)
+Arduino → App: FS_READ_DATA (87 bytes total, sent 87 in this chunk)
+  0xAA 0x82 ...
+  // 4-byte total_size=87, 4-byte offset=0, then 87 data bytes
+
+App → Arduino: FS_READ ("/README", offset=512, max=512)
+  // (offset past EOF — server returns 0 data bytes)
+Arduino → App: FS_READ_DATA (87 total, 0 bytes at offset 512)
+  // → client knows EOF, no more reads needed
+```
+
+### Example: Upload a small file
+
+```
+App → Arduino: FS_WRITE ("/hello.txt", offset=0, "Hello, world!")
+  // 12 bytes of payload after path + offset
+
+Arduino → App: FS_WRITE_ACK
+  0xAA 0x83 0x05 0x00 0x00       // LEN=5, err=0 (OK)
 ```
 
 ---
@@ -399,3 +436,4 @@ Arduino → App: FS_READ_DATA (512, 0 bytes — EOF)
 | v2.0    | Added META_DATA, TELEMETRY, expanded to 256 widgets, aspect ratio support |
 | v3.0    | Current version — Absolute Height/Width layout, META_UPDATE, enhanced reliability |
 | v3.1    | Added bulk Filesystem protocol (0xAA start byte, 16 KB max payload, no CRC) |
+| v3.2    | Added FS_PING (0x0B) and FS_FORMAT (0x0C) sub-commands for capability detection and partition formatting |

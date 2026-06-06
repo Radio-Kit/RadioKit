@@ -75,6 +75,14 @@ class FsProtocolService {
     return buildFrame(kFsCmdRename, p);
   }
 
+  /// Build a PING frame. Empty payload — the device replies with PING_ACK
+  /// carrying the current mount status (kFsErrOk if mounted, else kFsErrNoFs).
+  static Uint8List buildPing() => buildFrame(kFsCmdPing);
+
+  /// Build a FORMAT frame. Empty payload — the device re-formats the
+  /// default filesystem and replies with FORMAT_ACK.
+  static Uint8List buildFormat() => buildFrame(kFsCmdFormat);
+
   /// Read up to [maxSize] bytes at [offset] from [path].
   static Uint8List buildRead(String path, int offset, int maxSize) {
     final p = <int>[];

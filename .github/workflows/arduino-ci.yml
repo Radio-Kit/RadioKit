@@ -1,0 +1,51 @@
+name: Arduino Build
+
+# Build all 5 PlatformIO environments on every push and PR to catch
+# Arduino-side regressions early. Does not run on `*-flatpak` or `v*`
+# tags (those use the release workflow instead).
+
+on:
+  push:
+    branches: [main]
+    tags-ignore:
+      - 'v*'
+      - '*-flatpak'
+  pull_request:
+    branches: [main]
+
+jobs:
+  pio:
+    name: PlatformIO (${{ matrix.env }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        env:
+          - SerialTest
+          - BasicSwitch
+          - JoystickMotor
+          - SliderServo
+          - BLE_RC_Truck
+          - FilesystemDemo
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PlatformIO
+        run: |
+          python -m pip install --upgrade pip
+          pip install platformio
+          pio --version
+
+      - name: Cache PlatformIO packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            .pio
+          key: pio-${{ matrix.env }}-${{ hashFiles('arduino-library/platformio.ini', 'arduino-library/**/library.properties', 'arduino-library/**/library.json') }}
+          restore-keys: |
+            pio-${{ matrix.env }}-
+
+      - name: Build ${{ matrix.env }}
+        working-directory: arduino-library
+        run: pio run -e ${{ matrix.env }}

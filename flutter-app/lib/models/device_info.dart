@@ -4,11 +4,26 @@ class DeviceInfo {
   final String name;
   final int rssi;
 
+  /// Whether the device exposes the bulk-FS (0xAA) protocol.
+  /// Demos hardcode `true`; real devices need a probe (TODO).
+  final bool hasFs;
+
   const DeviceInfo({
     required this.id,
     required this.name,
     required this.rssi,
+    this.hasFs = false,
   });
+
+  /// Return a new [DeviceInfo] with the given fields replaced.
+  DeviceInfo copyWith({String? name, int? rssi, bool? hasFs}) {
+    return DeviceInfo(
+      id: id,
+      name: name ?? this.name,
+      rssi: rssi ?? this.rssi,
+      hasFs: hasFs ?? this.hasFs,
+    );
+  }
 
   /// Display name — falls back to 'Unknown Device' if no name is advertised.
   String get displayName => name.isNotEmpty ? name : 'Unknown Device';

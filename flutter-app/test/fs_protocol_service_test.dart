@@ -29,6 +29,20 @@ void main() {
       expect(f.length, 4); // header only
     });
 
+    test('buildFrame: PING has empty payload, subCmd 0x0B', () {
+      final f = FsProtocolService.buildPing();
+      expect(f[0], kFsStartByte);
+      expect(f[1], kFsCmdPing);
+      expect(f.length, 4); // header only
+    });
+
+    test('buildFrame: FORMAT has empty payload, subCmd 0x0C', () {
+      final f = FsProtocolService.buildFormat();
+      expect(f[0], kFsStartByte);
+      expect(f[1], kFsCmdFormat);
+      expect(f.length, 4); // header only
+    });
+
     test('buildFrame: READ encodes path + offset + max_size', () {
       final f = FsProtocolService.buildRead('/data.bin', 0x100, 512);
       expect(f[0], kFsStartByte);

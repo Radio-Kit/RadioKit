@@ -43,6 +43,8 @@ const int kFsCmdRename        = 0x07;
 const int kFsCmdUploadBegin   = 0x08;
 const int kFsCmdUploadChunk   = 0x09;
 const int kFsCmdUploadEnd     = 0x0A;
+const int kFsCmdPing          = 0x0B;
+const int kFsCmdFormat        = 0x0C;
 
 // MCU → App sub-commands
 const int kFsRespListData         = 0x81;
@@ -55,6 +57,8 @@ const int kFsRespRenameAck        = 0x87;
 const int kFsRespUploadBeginAck   = 0x88;
 const int kFsRespUploadChunkAck   = 0x89;
 const int kFsRespUploadEndAck     = 0x8A;
+const int kFsRespPingAck          = 0x8B;
+const int kFsRespFormatAck        = 0x8C;
 
 // FS error codes (single byte returned in *Ack frames)
 const int kFsErrOk             = 0x00;

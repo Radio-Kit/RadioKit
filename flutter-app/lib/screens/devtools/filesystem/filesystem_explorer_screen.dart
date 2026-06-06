@@ -49,7 +49,7 @@ class _FilesystemExplorerScreenState
     final isConnected = deviceProvider.isConnected;
 
     if (isConnected && _fs == null) {
-      _fs = DeviceFsService(deviceProvider);
+      _fs = createDeviceFsService(deviceProvider);
     } else if (!isConnected) {
       _fs = null;
     }
@@ -429,6 +429,34 @@ class _FilesystemExplorerScreenState
 
   // ─── Refresh ──────────────────────────────────────────────────────────
 
+  /// Show a SnackBar with [message] and (optionally) a friendly prefix
+  /// indicating the operation that failed. Also sets the in-page
+  /// [_errorMessage] for the persistent status strip.
+  void _showError(String message) {
+    if (!mounted) return;
+    final scheme = Theme.of(context).colorScheme;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: scheme.errorContainer,
+          content: Row(
+            children: [
+              Icon(Icons.error_outline, color: scheme.onErrorContainer, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  message,
+                  style: TextStyle(color: scheme.onErrorContainer),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+  }
+
   Future<void> _refresh() async {
     if (_fs == null) return;
     setState(() {
@@ -455,6 +483,7 @@ class _FilesystemExplorerScreenState
         _errorMessage = 'List error: $e';
         _statusMessage = null;
       });
+      _showError('List error: $e');
     }
   }
 
@@ -505,6 +534,7 @@ class _FilesystemExplorerScreenState
           _statusMessage = null;
           _progress = null;
         });
+        _showError('Upload failed: ${res.errorName}');
       }
       await _refresh();
     } catch (e) {
@@ -513,6 +543,7 @@ class _FilesystemExplorerScreenState
         _errorMessage = 'Upload error: $e';
         _progress = null;
       });
+      _showError('Upload error: $e');
     }
   }
 
@@ -540,6 +571,7 @@ class _FilesystemExplorerScreenState
           _errorMessage = 'Download failed';
           _progress = null;
         });
+        _showError('Download failed');
         return;
       }
       final savePath = await promptSaveFile(context,
@@ -557,6 +589,7 @@ class _FilesystemExplorerScreenState
         _errorMessage = 'Download error: $e';
         _progress = null;
       });
+      _showError('Download error: $e');
     }
   }
 
@@ -582,6 +615,7 @@ class _FilesystemExplorerScreenState
           _statusMessage = null;
           _progress = null;
         });
+        _showError('Delete failed: ${res.errorName}');
       }
       await _refresh();
     } catch (e) {
@@ -590,6 +624,7 @@ class _FilesystemExplorerScreenState
         _errorMessage = 'Delete error: $e';
         _progress = null;
       });
+      _showError('Delete error: $e');
     }
   }
 
@@ -672,6 +707,7 @@ class _FilesystemExplorerScreenState
           _errorMessage = 'Rename failed: ${res.errorName}';
           _progress = null;
         });
+        _showError('Rename failed: ${res.errorName}');
       }
       await _refresh();
     } catch (e) {
@@ -680,6 +716,7 @@ class _FilesystemExplorerScreenState
         _errorMessage = 'Rename error: $e';
         _progress = null;
       });
+      _showError('Rename error: $e');
     }
   }
 
@@ -704,6 +741,7 @@ class _FilesystemExplorerScreenState
           _errorMessage = 'Create failed: ${res.errorName}';
           _progress = null;
         });
+        _showError('Create failed: ${res.errorName}');
       }
       await _refresh();
     } catch (e) {
@@ -712,19 +750,26 @@ class _FilesystemExplorerScreenState
         _errorMessage = 'Create error: $e';
         _progress = null;
       });
+      _showError('Create error: $e');
     }
   }
 
   Future<bool> _formatPartition() async {
     if (_fs == null) return false;
-    // The actual format is exposed via RadioKit.formatFs(). DeviceFsService
-    // doesn't wrap it yet, so we mark this as a no-op for now and surface
-    // a status message.
     setState(() {
-      _statusMessage = 'Format not yet exposed in DeviceFsService';
+      _statusMessage = 'Formatting partition…';
       _progress = null;
     });
-    return false;
+    final res = await _fs!.format();
+    if (!mounted) return res.success;
+    setState(() {
+      _statusMessage = res.success
+          ? 'Format complete'
+          : 'Format failed: ${res.errorName}';
+      _progress = null;
+    });
+    if (!res.success) _showError('Format failed: ${res.errorName}');
+    return res.success;
   }
 
   // ─── Multi-select helpers ─────────────────────────────────────────────

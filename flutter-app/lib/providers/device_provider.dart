@@ -11,6 +11,7 @@ import '../services/protocol_service.dart';
 import '../services/fs_protocol_service.dart';
 import '../services/debug_transport.dart';
 import '../services/demo_transport.dart';
+import '../services/demo_fs_transport.dart';
 
 import '../providers/console_provider.dart';
 import '../providers/skin_provider.dart';
@@ -191,16 +192,54 @@ class DeviceProvider extends ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 3500));
     if (_connectionState == DeviceConnectionState.disconnected) return;
 
+    // FS_PING handshake — runs in parallel with config fetch.
+    // Sets hasFs=true only if the device actually responds.
+    unawaited(_detectFs());
+
     await _requestConfig();
+  }
+
+  /// Send a few FS_PING frames and set [connectedDevice.hasFs] based on
+  /// the response. Resilient to no-FS boards and transport jitter.
+  Future<void> _detectFs() async {
+    if (_connectedDevice == null) return;
+    if (_connectedDevice!.hasFs) return; // already true (e.g. demos)
+    for (int attempt = 0; attempt < 3; attempt++) {
+      if (_connectionState == DeviceConnectionState.disconnected) return;
+      if (!_transport.isConnected) return;
+      final resp = await sendFs(
+        FsProtocolService.buildPing(),
+        timeout: const Duration(milliseconds: 1500),
+      );
+      if (resp == null) {
+        await Future.delayed(const Duration(milliseconds: 250));
+        continue;
+      }
+      final code = FsProtocolService.parseAck(resp.payload) ?? kFsErrNoFs;
+      if (code == kFsErrOk) {
+        _connectedDevice = _connectedDevice!.copyWith(hasFs: true);
+        _log('FS_PING OK — filesystem detected (${_connectedDevice!.name})',
+            level: ConsoleLogLevel.success);
+        notifyListeners();
+        return;
+      }
+    }
+    _log('FS_PING: no response after 3 attempts — assuming no FS',
+        level: ConsoleLogLevel.info);
   }
 
   Future<void> loadDemo(String demoId) async {
     _connectionState = DeviceConnectionState.connecting;
-    _connectedDevice = DeviceInfo(id: 'demo_$demoId', name: demoId.replaceAll('_', ' '), rssi: -50);
+    _connectedDevice = DeviceInfo(
+      id: 'demo_$demoId',
+      name: demoId.replaceAll('_', ' '),
+      rssi: -50,
+      hasFs: true,
+    );
     _errorMessage = null;
     notifyListeners();
-    
-    setTransport(DemoTransport());
+
+    setTransport(DemoFsTransport());
     await _transport.connect(_connectedDevice!.id);
 
     // Load config from designer-format JSON asset

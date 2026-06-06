@@ -18,6 +18,8 @@
  *   0x08  FS_UPLOAD_BEGIN [PATH, TOTAL_SIZE(4 LE)]           → FS_UPLOAD_BEGIN_ACK
  *   0x09  FS_UPLOAD_CHUNK  [OFFSET(4 LE), ...DATA]           → FS_UPLOAD_CHUNK_ACK
  *   0x0A  FS_UPLOAD_END [CRC32(4 LE)]                        → FS_UPLOAD_END_ACK
+ *   0x0B  FS_PING       (empty)                              → FS_PING_ACK [STATUS(1)]
+ *   0x0C  FS_FORMAT     (empty)                              → FS_FORMAT_ACK
  *
  * Sub-commands (MCU → APP):
  *   0x81  FS_LIST_DATA   [ENTRY_COUNT(2 LE), per entry: [TYPE(1)][SIZE(4 LE)][NAME_LEN(1)][NAME]]
@@ -30,6 +32,8 @@
  *   0x88  FS_UPLOAD_BEGIN_ACK [ERROR_CODE(1)]
  *   0x89  FS_UPLOAD_CHUNK_ACK [ERROR_CODE(1)]
  *   0x8A  FS_UPLOAD_END_ACK   [ERROR_CODE(1)]
+ *   0x8B  FS_PING_ACK    [STATUS(1)]   0x00 = mounted, 0x03 = NO_FS
+ *   0x8C  FS_FORMAT_ACK  [ERROR_CODE(1)]
  *
  * Error codes:
  *   0x00  OK
@@ -67,6 +71,8 @@
 #define RK_FS_CMD_UPLOAD_BEGIN     0x08
 #define RK_FS_CMD_UPLOAD_CHUNK     0x09
 #define RK_FS_CMD_UPLOAD_END       0x0A
+#define RK_FS_CMD_PING             0x0B
+#define RK_FS_CMD_FORMAT           0x0C
 
 // ── Sub-commands (MCU → App) ────────────────────────────────────────────────
 #define RK_FS_RESP_LIST_DATA       0x81
@@ -79,6 +85,8 @@
 #define RK_FS_RESP_UPLOAD_BEGIN_ACK 0x88
 #define RK_FS_RESP_UPLOAD_CHUNK_ACK 0x89
 #define RK_FS_RESP_UPLOAD_END_ACK   0x8A
+#define RK_FS_RESP_PING_ACK        0x8B
+#define RK_FS_RESP_FORMAT_ACK      0x8C
 
 // ── Error codes ─────────────────────────────────────────────────────────────
 #define RK_FS_ERR_OK               0x00

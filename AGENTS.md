@@ -324,6 +324,32 @@ lib/screens/devtools/filesystem/
 - `parentPath('/')` returns `/` (no-op for root).
 - Screens should not compute paths inline — use the helpers.
 
+## 10. Filesystem Demo Mode (No MCU)
+
+The widgets_demo / RC_CONTROLLER / IOT_DASHBOARD connections can be exercised against an in-memory simulated FS, with no Arduino, no serial port, and no second device.
+
+**File layout**:
+
+- `lib/services/demo_fs_state.dart` — pure-Dart in-memory `FsDemoNode` tree (file/dir nodes, recursive delete, quota check). `DemoFsState.seeded()` ships with `/demo/README.txt`, `/demo/sensors.json`, and an empty `/scripts/`. `FsDemoResult` exposes `errOk`/`errNotFound`/`errIo`/`errNoFs`/`errAccessDenied`/`errInvalidPath`/`errOutOfSpace`/`errInvalidState` as static int constants (named to avoid the `const FsDemoResult.ok()` constructor shadowing).
+- `lib/services/demo_fs_transport.dart` — `DemoFsTransport` extends `DemoTransport`, intercepts `writePacket` for 0xAA frames, dispatches to `DemoFsState`, fires `onFsPacketReceived` on the next microtask. Default `responseDelay: Duration.zero` (instant); can be raised for visible progress bars.
+
+**Device gating**:
+
+- `lib/models/device_info.dart` — `final bool hasFs` field (default `false`). Demos pass `hasFs: true`; real devices default `false` (real-device detection deferred — no probing on connect).
+- `lib/providers/device_provider.dart` — `loadDemo(...)` constructs a `DemoFsTransport` (not the plain `DemoTransport`) and sets `hasFs: true` in the resulting `DeviceInfo`.
+- Visibility rule: any UI that exposes FS features must gate the trigger on `device.hasFs`. The canonical example is `_ActiveLinkSection` in `models_tab.dart`, which renders a FILESYSTEM outlined button below OPEN_CONTROLLER only when `device.hasFs` is true. Hidden on real-device connections (for now).
+
+**Payload-size validation gotcha** (caught by unit tests):
+
+- READ handler in `demo_fs_transport.dart` requires `payload.length >= 1 + pathLen + 6` (path_len byte + path + 4-byte offset + 2-byte length). An off-by-2 (`+8`) check rejected every real read. WRITE's `+4` is correct (no trailing length field).
+- Sub-command byte positions for 0xAA: byte 1 = subCmd, bytes 2-3 = length. The header strip is `kFsHeaderSize = 4`.
+
+**Adding a new demo connection with FS support**:
+
+1. Pass `hasFs: true` to `DeviceInfo` in `device_provider.dart`.
+2. `setTransport(DemoFsTransport())` instead of `setTransport(DemoTransport())`.
+3. The `FilesystemExplorerScreen` (`/dev-tools/esp32-fs` route) just checks `isConnected` — works transparently for both real and demo transports.
+
 ## 11. Flatpak / Flathub Packaging
 
 ### 11.0 Tag convention

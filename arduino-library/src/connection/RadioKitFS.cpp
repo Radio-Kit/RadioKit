@@ -140,6 +140,8 @@ const char* rk_fsCmdName(uint8_t subCmd) {
         case RK_FS_CMD_UPLOAD_BEGIN:      return "FS_UPLOAD_BEGIN";
         case RK_FS_CMD_UPLOAD_CHUNK:      return "FS_UPLOAD_CHUNK";
         case RK_FS_CMD_UPLOAD_END:        return "FS_UPLOAD_END";
+        case RK_FS_CMD_PING:              return "FS_PING";
+        case RK_FS_CMD_FORMAT:            return "FS_FORMAT";
         case RK_FS_RESP_LIST_DATA:        return "FS_LIST_DATA";
         case RK_FS_RESP_READ_DATA:        return "FS_READ_DATA";
         case RK_FS_RESP_WRITE_ACK:        return "FS_WRITE_ACK";
@@ -150,6 +152,8 @@ const char* rk_fsCmdName(uint8_t subCmd) {
         case RK_FS_RESP_UPLOAD_BEGIN_ACK: return "FS_UPLOAD_BEGIN_ACK";
         case RK_FS_RESP_UPLOAD_CHUNK_ACK: return "FS_UPLOAD_CHUNK_ACK";
         case RK_FS_RESP_UPLOAD_END_ACK:   return "FS_UPLOAD_END_ACK";
+        case RK_FS_RESP_PING_ACK:         return "FS_PING_ACK";
+        case RK_FS_RESP_FORMAT_ACK:       return "FS_FORMAT_ACK";
         default:                          return "FS_UNKNOWN";
     }
 }

@@ -206,6 +206,36 @@ class _ActiveLinkSection extends StatelessWidget {
                         child: Text('OPEN_CONTROLLER', style: GoogleFonts.changa(fontWeight: FontWeight.w700, letterSpacing: 1.2, fontSize: 13)),
                       ),
                     ),
+                    if (device.hasFs) ...[
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.brandOrange,
+                            side: BorderSide(
+                              color: AppColors.brandOrange.withValues(alpha: 0.6),
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          onPressed: () {
+                            context.push('/dev-tools/esp32-fs');
+                          },
+                          icon: const Icon(Icons.folder_open_rounded, size: 18),
+                          label: Text(
+                            'FILESYSTEM',
+                            style: GoogleFonts.changa(
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.2,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

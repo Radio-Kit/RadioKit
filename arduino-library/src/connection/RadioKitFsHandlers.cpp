@@ -363,6 +363,24 @@ void handleUploadEnd(const uint8_t* payload, uint16_t len) {
     sendError(RK_FS_RESP_UPLOAD_END_ACK, RK_FS_ERR_OK);
 }
 
+/// FS_PING: replies with the current mount status. Used by the app to
+/// detect FS support on connect (no-op for non-FS builds).
+void handlePing() {
+#if RK_FS_HAS_LITTLEFS
+    uint8_t status = s_mounted ? RK_FS_ERR_OK : RK_FS_ERR_NO_FS;
+    uint8_t payload[1] = { status };
+    sendFrame(RK_FS_RESP_PING_ACK, payload, 1);
+#else
+    sendError(RK_FS_RESP_PING_ACK, RK_FS_ERR_NO_FS);
+#endif
+}
+
+/// FS_FORMAT: re-formats the default filesystem. Destructive.
+void handleFormat() {
+    bool ok = format();
+    sendError(RK_FS_RESP_FORMAT_ACK, ok ? RK_FS_ERR_OK : RK_FS_ERR_IO);
+}
+
 void dispatch(uint8_t subCmd, const uint8_t* payload, uint16_t payloadLen) {
     switch (subCmd) {
         case RK_FS_CMD_LIST:          handleList(payload, payloadLen);          break;
@@ -375,6 +393,8 @@ void dispatch(uint8_t subCmd, const uint8_t* payload, uint16_t payloadLen) {
         case RK_FS_CMD_UPLOAD_BEGIN:  handleUploadBegin(payload, payloadLen);   break;
         case RK_FS_CMD_UPLOAD_CHUNK:  handleUploadChunk(payload, payloadLen);   break;
         case RK_FS_CMD_UPLOAD_END:    handleUploadEnd(payload, payloadLen);     break;
+        case RK_FS_CMD_PING:          handlePing();                              break;
+        case RK_FS_CMD_FORMAT:        handleFormat();                            break;
         default:
             // Unknown sub-command — reply with NO_FS to keep the app unblocked.
             sendError((uint8_t)(subCmd | 0x80), RK_FS_ERR_NO_FS);

@@ -25,17 +25,30 @@ class FsOpResult {
   String toString() => success ? 'OK' : '$errorName ($message)';
 }
 
+/// Minimal transport surface required by [DeviceFsService]. Implemented
+/// by [DeviceProvider] in production; tests can supply a fake.
+abstract class FsTransport {
+  bool get isConnected;
+  Future<ParsedFsPacket?> sendFs(Uint8List frame, {Duration timeout});
+}
+
 /// High-level filesystem service that runs on top of the main
 /// [DeviceProvider] transport (BLE or Serial).
 ///
-/// Replaces the legacy text-based `EspFsService`. Uses the 0xAA
-/// bulk-FS protocol added alongside the widget protocol.
+/// Uses the 0xAA bulk-FS protocol added alongside the widget protocol.
+/// Drives [FsTransport] (a minimal `sendFs` / `isConnected` interface
+/// that [DeviceProvider] implements).
 class DeviceFsService {
-  final DeviceProvider _deviceProvider;
+  final FsTransport _transport;
 
   /// Default chunk size for reads/writes. 8 KB is a good balance between
   /// BLE per-round-trip latency and avoiding massive buffers.
   static const int _defaultChunkSize = 8192;
+
+  /// Max safe payload for a single WRITE frame. Below the 16 KB frame
+  /// limit we leave headroom for the path-length byte + offset bytes
+  /// + per-frame overhead. Larger files are chunked transparently.
+  static const int _maxWriteChunk = 12288;
 
   /// Timeout for short operations (LIST, INFO, MKDIR, etc.)
   static const Duration _shortTimeout = Duration(seconds: 5);
@@ -46,19 +59,18 @@ class DeviceFsService {
   /// Timeout for write — 60 s for large file uploads.
   static const Duration _writeTimeout = Duration(seconds: 60);
 
-  DeviceFsService(this._deviceProvider);
+  DeviceFsService(this._transport);
 
-  bool get isReady => _deviceProvider.isConnected;
+  bool get isReady => _transport.isConnected;
 
   /// Internal helper: send an FS frame and await its response.
   Future<ParsedFsPacket?> _sendFs(
     Uint8List frame, {
     Duration timeout = _shortTimeout,
   }) {
-    // Defer to DeviceProvider's transport — currently we route via a
-    // shared completer map. The provider's _sendFsRequest handles
-    // timeout and disconnect cleanup.
-    return _deviceProvider.sendFs(frame, timeout: timeout);
+    // Defer to the transport — provider's _sendFsRequest handles
+    // timeout and disconnect cleanup; tests can supply a fake.
+    return _transport.sendFs(frame, timeout: timeout);
   }
 
   // ── Public API ────────────────────────────────────────────────────────
@@ -131,6 +143,39 @@ class DeviceFsService {
     );
   }
 
+  /// Ping the FS. Returns true if the device replies with OK (mounted),
+  /// false on NO_FS / timeout / disconnect. Use for capability detection.
+  Future<bool> ping({Duration timeout = const Duration(seconds: 2)}) async {
+    final resp = await _sendFs(
+      FsProtocolService.buildPing(),
+      timeout: timeout,
+    );
+    if (resp == null) return false;
+    final code = FsProtocolService.parseAck(resp.payload) ?? kFsErrNoFs;
+    return code == kFsErrOk;
+  }
+
+  /// Format the default filesystem. Destructive — erases all data.
+  /// Returns true on success.
+  Future<FsOpResult> format() async {
+    final resp = await _sendFs(
+      FsProtocolService.buildFormat(),
+      timeout: const Duration(seconds: 30),
+    );
+    if (resp == null) {
+      return FsOpResult(
+        success: false, errorCode: -1, errorName: 'TIMEOUT',
+        message: 'No response from device',
+      );
+    }
+    final code = FsProtocolService.parseAck(resp.payload) ?? -1;
+    return FsOpResult(
+      success: code == kFsErrOk,
+      errorCode: code,
+      errorName: fsErrorName(code),
+    );
+  }
+
   /// Read the entire file at [path]. Auto-chunks at [_defaultChunkSize].
   ///
   /// [onProgress] is called with bytesRead/total periodically (best effort).
@@ -170,16 +215,19 @@ class DeviceFsService {
     return buffer.toBytes();
   }
 
-  /// Write [data] to a file at [path] (truncates if exists). Auto-chunks.
+  /// Write [data] to a file at [path] (truncates if exists). Auto-chunks
+  /// at [chunkSize] (default 8 KB; capped at [_maxWriteChunk] to leave
+  /// headroom for the FS frame header and 4-byte offset).
   Future<FsOpResult> writeFile(
     String path,
     Uint8List data, {
     int chunkSize = _defaultChunkSize,
     void Function(int bytesWritten, int totalBytes)? onProgress,
   }) async {
+    final effectiveChunk = chunkSize > _maxWriteChunk ? _maxWriteChunk : chunkSize;
     int offset = 0;
     while (offset < data.length) {
-      final end = (offset + chunkSize).clamp(0, data.length);
+      final end = (offset + effectiveChunk).clamp(0, data.length);
       final chunk = data.sublist(offset, end);
       final resp = await _sendFs(
         FsProtocolService.buildWrite(path, offset, chunk),
@@ -204,4 +252,26 @@ class DeviceFsService {
       success: true, errorCode: kFsErrOk, errorName: 'OK',
     );
   }
+}
+
+/// Convenience: build a [DeviceFsService] that routes through a
+/// [DeviceProvider]. Equivalent to `DeviceFsService(_ProviderAdapter(p))`
+/// but keeps the construction site tidy.
+DeviceFsService createDeviceFsService(DeviceProvider provider) =>
+    DeviceFsService(_ProviderAdapter(provider));
+
+/// Adapter that exposes a [DeviceProvider] as an [FsTransport].
+class _ProviderAdapter implements FsTransport {
+  final DeviceProvider _provider;
+  _ProviderAdapter(this._provider);
+
+  @override
+  bool get isConnected => _provider.isConnected;
+
+  @override
+  Future<ParsedFsPacket?> sendFs(
+    Uint8List frame, {
+    Duration timeout = const Duration(seconds: 5),
+  }) =>
+      _provider.sendFs(frame, timeout: timeout);
 }
