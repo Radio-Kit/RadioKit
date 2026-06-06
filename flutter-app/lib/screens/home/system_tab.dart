@@ -409,12 +409,6 @@ class SystemTab extends StatelessWidget {
             ),
           ),
         ),
-        if (ra.isRunning) ...[
-          Card(
-            color: Colors.white.withValues(alpha: 0.03),
-            child: ApiLogView(height: 240),
-          ),
-        ],
       ],
     );
   }

@@ -6,10 +6,10 @@
     "lastEdit": 1780753772137
   },
   "config": {
-    "name": "FS Demo",
-    "description": "Bulk filesystem protocol demonstration",
+    "name": "FS LED",
+    "description": "Bulk filesystem + BLE LED switch",
     "type": "IOT",
-    "transport": "SERIAL",
+    "transport": "BLE",
     "theme": "RK_DEFAULT",
     "password": "1234"
   },
@@ -65,17 +65,16 @@ RK_RockerSwitch slide_switch_1({
 
 // ─── Config Init ───
 static inline void initRadioKit() {
-  RadioKit.config.name        = "FS Demo";
-  RadioKit.config.description = "Bulk filesystem protocol demonstration";
+  RadioKit.config.name        = "FS LED";
+  RadioKit.config.description = "Bulk filesystem + BLE LED switch";
   RadioKit.config.type        = "IOT";
   RadioKit.config.theme       = RK_DEFAULT;
   RadioKit.config.password    = "1234";
-  RadioKit.config.baudrate    = 1000000;
 
   slide_switch_1.setLabelHidden(true);
 
   RadioKit.begin();
-  RadioKit.startSerial(Serial);
+  RadioKit.startBLE();
 }
 
 #endif // RADIOKIT_UI_H

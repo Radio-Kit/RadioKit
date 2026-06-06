@@ -1,24 +1,25 @@
 /**
- * FilesystemDemo — RadioKit Example
+ * Filesystem_LED — RadioKit Example
  *
- * Demonstrates the bulk-FS protocol (0xAA):
+ * Demonstrates BLE transport + bulk-FS protocol (0xAA):
  *   - Mounts LittleFS at startup
  *   - On first boot, creates a /demo directory and writes a README
  *   - Responds to FS_LIST, FS_READ, FS_INFO, FS_DELETE, FS_MKDIR, etc.
+ *   - Slide switch toggles LED on GPIO 40
  *
- * Pair this with the Flutter app's "DEVICE_FS" tool.
- *
- * Compatible with both BLE and Serial transports. To switch, change
- * RadioKit.config.transport below.
+ * Pair this with the Flutter app's remote filesystem tool.
  */
 
 #include <Arduino.h>
 #include "RadioKit_UI.h"
 
+static const int LED_PIN = 40;
+static bool lastSwitchState = false;
+
 void setup() {
     Serial.begin(115200);
-    pinMode(7, OUTPUT);
-    digitalWrite(7, LOW);
+    pinMode(LED_PIN, OUTPUT);
+    digitalWrite(LED_PIN, LOW);
 
     initRadioKit();
 
@@ -46,4 +47,11 @@ void setup() {
 
 void loop() {
     RadioKit.update();
+
+    bool switchNow = slide_switch_1.get();
+    if (switchNow != lastSwitchState) {
+        lastSwitchState = switchNow;
+        digitalWrite(LED_PIN, switchNow ? HIGH : LOW);
+        Serial.printf("LED: %s\n", switchNow ? "ON" : "OFF");
+    }
 }

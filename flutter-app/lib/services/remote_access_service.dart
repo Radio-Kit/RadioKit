@@ -19,6 +19,7 @@ import '../providers/settings_provider.dart';
 import '../providers/console_provider.dart';
 import '../providers/designs_provider.dart';
 import 'device_fs_service.dart';
+import 'fs_protocol_service.dart';
 
 class RemoteAccessService {
   final DeviceProvider _deviceProvider;
@@ -136,6 +137,7 @@ class RemoteAccessService {
     router.post('/api/fs/delete', _handleFsDelete);
     router.post('/api/fs/rename', _handleFsRename);
     router.post('/api/fs/format', _handleFsFormat);
+    router.post('/api/fs/probe', _handleFsProbe);
     router.get('/api/console', _handleConsole);
     router.delete('/api/console', _handleConsoleClear);
     router.post('/api/connection/demo', _handleConnectionDemo);
@@ -988,5 +990,31 @@ class RemoteAccessService {
     }
     await _designsProvider.deleteDesign(id);
     return _json({'ok': true, 'message': 'Design removed'});
+  }
+
+  // ── FS Probe ──────────────────────────────────────────────────────────────────
+
+  Future<Response> _handleFsProbe(Request request) async {
+    if (!_deviceProvider.isConnected) {
+      return _error('not_connected', 'Not connected to a device', status: 503);
+    }
+    // Force re-detect FS by temporarily bypassing the cached hasFs
+    final device = _deviceProvider.connectedDevice;
+    if (device == null) {
+      return _error('not_connected', 'No device info', status: 503);
+    }
+    // Try a direct FS read to test the transport
+    try {
+      await _deviceProvider.currentTransport.writePacket(
+          FsProtocolService.buildPing());
+      await Future.delayed(const Duration(milliseconds: 2000));
+    } catch (e) {
+      return _error('fs_probe_failed', e.toString(), status: 500);
+    }
+    final hasFs = device.hasFs;
+    return _json({
+      'ok': true,
+      'hasFs': hasFs,
+    });
   }
 }

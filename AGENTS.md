@@ -446,21 +446,22 @@ PlatformIO is installed globally via `uv tool install platformio` (v6.1.19). It 
 
 ### 13.1 Build commands
 
+Each example has its own `platformio.ini` in its directory. Build from that directory:
+
 ```bash
-pio run                          # builds default env (SerialTest)
-pio run -e BasicSwitch           # builds a specific example
-pio run -e SerialTest -t upload  # flash to board
-pio run -e SliderServo           # builds SliderServo (includes ESP32Servo dep)
+pio run                      # builds the example (default env)
+pio run -t upload            # flash to board
 ```
 
-### 13.2 Available environments
+### 13.2 Available examples
 
-Defined in `platformio.ini`:
-- `SerialTest` — default, no BLE needed
+Each directory under `arduino-library/examples/` has a self-contained `platformio.ini`:
+- `SerialTest` — Serial transport demo
 - `BasicSwitch` — BLE basic switch
 - `JoystickMotor` — BLE joystick motor
 - `SliderServo` — servo slider (adds ESP32Servo)
 - `BLE_RC_Truck` — BLE RC truck
+- `Filesystem_LED` — bulk-FS demo with LittleFS
 
 ### 13.3 Reinstallation
 

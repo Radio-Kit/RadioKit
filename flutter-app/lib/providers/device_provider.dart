@@ -919,7 +919,11 @@ class DeviceProvider extends ChangeNotifier {
   /// Incoming FS frame dispatcher. Completes a pending FS request if the
   /// sub-cmd matches one, or logs it as unsolicited.
   void _handleFsPacket(ParsedFsPacket packet) {
-    final pending = _pendingFs.remove(packet.subCmd);
+    // Try exact match first, then match with ACK-mask (responses set bit 7)
+    Completer<ParsedFsPacket>? pending = _pendingFs.remove(packet.subCmd);
+    if (pending == null) {
+      pending = _pendingFs.remove(packet.subCmd & 0x7F);
+    }
     if (pending != null && !pending.isCompleted) {
       pending.complete(packet);
     } else {
