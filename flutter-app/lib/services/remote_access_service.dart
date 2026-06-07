@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
@@ -31,6 +33,7 @@ class RemoteAccessService {
   final DesignsProvider _designsProvider;
   final void Function(ApiLogEntry) _onLog;
   final void Function(String route)? _onFollowEvent;
+  final String Function() _currentRouteGetter;
 
   HttpServer? _server;
   bool _isRunning = false;
@@ -52,6 +55,7 @@ class RemoteAccessService {
     required DesignsProvider designsProvider,
     required void Function(ApiLogEntry) onLog,
     void Function(String route)? onFollowEvent,
+    String Function() currentRouteGetter = _defaultRouteGetter,
   })  : _deviceProvider = deviceProvider,
         _bleProvider = bleProvider,
         _serialProvider = serialProvider,
@@ -60,7 +64,10 @@ class RemoteAccessService {
         _consoleProvider = consoleProvider,
         _designsProvider = designsProvider,
         _onLog = onLog,
-        _onFollowEvent = onFollowEvent;
+        _onFollowEvent = onFollowEvent,
+        _currentRouteGetter = currentRouteGetter;
+
+  static String _defaultRouteGetter() => '';
 
   // ── Middleware ──────────────────────────────────────────────────────────────
 
@@ -119,7 +126,7 @@ class RemoteAccessService {
     if (path.startsWith('/api/connection/disconnect')) return '/models';
     if (path.startsWith('/api/connection/reconnect')) return '/models';
     if (path.startsWith('/api/connection/demo')) return '/control';
-    if (path.startsWith('/api/widgets/')) return '/control';
+    if (path == '/api/widgets' || path.startsWith('/api/widgets/')) return '/control';
     if (path.startsWith('/api/fs/')) return '/dev-tools/esp32-fs';
     if (path.startsWith('/api/designs')) return '/designs';
     if (path.startsWith('/api/transport/')) return '/debug';
@@ -129,6 +136,10 @@ class RemoteAccessService {
     if (path.startsWith('/api/models')) return '/models';
     return null;
   }
+
+  /// Exposed for testing only — delegates to [_followRoute].
+  @visibleForTesting
+  static String? testOnlyFollowRoute(String path) => _followRoute(path);
 
   // ── Start / Stop ────────────────────────────────────────────────────────────
 
@@ -173,6 +184,7 @@ class RemoteAccessService {
     router.post('/api/designs', _handleDesignsSave);
     router.delete('/api/designs', _handleDesignsDeleteAll);
     router.delete('/api/designs/<id>', _handleDesignsDeleteOne);
+    router.get('/api/session/route', _handleSessionRoute);
 
     final pipeline = Pipeline()
         .addMiddleware(_corsMiddleware())
@@ -976,6 +988,14 @@ class RemoteAccessService {
     return _json({
       'ok': true,
       'message': 'Demo $demoId loaded with $count widgets',
+    });
+  }
+
+  // ── Session / Route ──────────────────────────────────────────────────────────
+
+  Future<Response> _handleSessionRoute(Request request) async {
+    return _json({
+      'route': _currentRouteGetter(),
     });
   }
 

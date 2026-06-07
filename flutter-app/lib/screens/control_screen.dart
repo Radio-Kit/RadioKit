@@ -86,11 +86,17 @@ class _ControlScreenState extends State<ControlScreen> {
             appBar: AppBar(
               automaticallyImplyLeading: false,
               centerTitle: true,
-              leadingWidth: 180,
               leading: Padding(
-                padding: const EdgeInsets.only(left: 12),
+                padding: const EdgeInsets.only(left: 4),
                 child: Row(
                   children: [
+                    // Home button — leftmost position
+                    IconButton(
+                      icon: const Icon(Icons.home_rounded),
+                      tooltip: 'Home',
+                      onPressed: () => context.go('/models'),
+                    ),
+                    const SizedBox(width: 4),
                     // Connection indicator
                     Container(
                       width: 8,
@@ -158,11 +164,6 @@ class _ControlScreenState extends State<ControlScreen> {
                     onPressed: _openDebug,
                     color: Colors.orange,
                   ),
-                IconButton(
-                  icon: const Icon(Icons.home_rounded),
-                  tooltip: 'Home',
-                  onPressed: () => context.go('/models'),
-                ),
                 IconButton(
                   icon: const Icon(Icons.dangerous_rounded),
                   onPressed: _disconnect,

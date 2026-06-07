@@ -41,9 +41,11 @@ abstract class FsTransport {
 class DeviceFsService {
   final FsTransport _transport;
 
-  /// Default chunk size for reads/writes. 8 KB is a good balance between
-  /// BLE per-round-trip latency and avoiding massive buffers.
-  static const int _defaultChunkSize = 8192;
+  /// Default chunk size for reads/writes. 4 KB avoids exceeding the BLE
+  /// controller's notify queue depth (~10 notifications at DLE 251 ×
+  /// 3 fragments = 30 of 32 buffers). Each response fits in 9 notify
+  /// chunks (vs 17 for 8 KB), keeping the queue well below capacity.
+  static const int _defaultChunkSize = 4096;
 
   /// Max safe payload for a single WRITE frame. Below the 16 KB frame
   /// limit we leave headroom for the path-length byte + offset bytes
@@ -261,6 +263,8 @@ DeviceFsService createDeviceFsService(DeviceProvider provider) =>
     DeviceFsService(_ProviderAdapter(provider));
 
 /// Adapter that exposes a [DeviceProvider] as an [FsTransport].
+/// Acquires/releases the FS busy lock around every `sendFs` call so the
+/// ping timer doesn't inject PONG frames into the FS response stream.
 class _ProviderAdapter implements FsTransport {
   final DeviceProvider _provider;
   _ProviderAdapter(this._provider);
@@ -272,6 +276,15 @@ class _ProviderAdapter implements FsTransport {
   Future<ParsedFsPacket?> sendFs(
     Uint8List frame, {
     Duration timeout = const Duration(seconds: 5),
-  }) =>
-      _provider.sendFs(frame, timeout: timeout);
+  }) async {
+    // Lock FS busy before any I/O so the ping timer can't send new PINGs
+    // that could interleave with FS response notifications.
+    _provider.setFsBusy(true);
+
+    try {
+      return await _provider.sendFs(frame, timeout: timeout);
+    } finally {
+      _provider.setFsBusy(false);
+    }
+  }
 }

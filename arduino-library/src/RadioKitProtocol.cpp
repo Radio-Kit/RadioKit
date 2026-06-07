@@ -75,6 +75,10 @@ void rk_rxReset() {
     s_rxPayloadLen  = 0;
 }
 
+bool rk_rxIsActive() {
+    return s_rxState != RX_WAIT_START;
+}
+
 bool rk_rxFeedByte(uint8_t byte,
                    uint8_t& outCmd,
                    const uint8_t*& outPayload,

@@ -77,6 +77,19 @@ class DeviceProvider extends ChangeNotifier {
   /// Active FS request per sub-cmd. The device may also send unsolic­ited
   /// FS frames (e.g. an upload begin from a server-side tool) — those
   /// are dispatched to [_handleUnsolicitedFs] instead.
+  /// FS busy flag — when true, the ping timer is suppressed to prevent
+  /// PONG responses from interleaving with FS response notifications over BLE.
+  bool _fsBusy = false;
+
+  /// Lock the FS bus — pings will be suppressed until [setFsBusy(false)].
+  /// Called by [_ProviderAdapter.sendFs] around every FS operation.
+  void setFsBusy(bool busy) { _fsBusy = busy; }
+
+  /// Whether an FS frame exchange is in progress. Used by
+  /// [FilesystemExplorerScreen] to defer its initial refresh when the
+  /// transport is busy (e.g. an HTTP API write is in flight).
+  bool get isFsBusy => _fsBusy;
+
   final Map<int, Completer<ParsedFsPacket>> _pendingFs = {};
 
   /// Cached designer-format JSON for fast UI rendering.
@@ -117,6 +130,10 @@ class DeviceProvider extends ChangeNotifier {
   TransportService      get currentTransport => _transport;
   int?                  get rssi             => _rssi;
   int?                  get latencyMs        => _latencyMs;
+
+  /// True if a PING was sent but the PONG hasn't arrived yet.
+  /// Used by [_ProviderAdapter] to decide whether a drain delay is needed.
+  bool get hasPendingPing => _pingSentAt != null;
 
   // ── Transport swap ───────────────────────────────────────────────────────────
 
@@ -584,6 +601,10 @@ class DeviceProvider extends ChangeNotifier {
 
     _pingTimer = Timer.periodic(kPingInterval, (_) async {
       if (!_transport.isConnected) return;
+
+      // Skip ping during FS operations to prevent PONG responses from
+      // interleaving with FS response notifications and corrupting data.
+      if (_fsBusy) return;
       
       final now = DateTime.now();
       // Heartbeat optimization: Only ping if no packets sent OR received recently.
@@ -919,6 +940,7 @@ class DeviceProvider extends ChangeNotifier {
   /// Incoming FS frame dispatcher. Completes a pending FS request if the
   /// sub-cmd matches one, or logs it as unsolicited.
   void _handleFsPacket(ParsedFsPacket packet) {
+    _lastRxAt = DateTime.now(); // FS traffic also counts as activity
     // Try exact match first, then match with ACK-mask (responses set bit 7)
     Completer<ParsedFsPacket>? pending = _pendingFs.remove(packet.subCmd);
     if (pending == null) {
@@ -977,6 +999,8 @@ class DeviceProvider extends ChangeNotifier {
   }) {
     return _sendFsRequest(frame, timeout: timeout);
   }
+
+
 
   void _handleConnectionLost(String reason) {
     _cancelAllPendingUpdates();

@@ -42,6 +42,10 @@ void rk_fsRxReset() {
     s_fsPayloadLen  = 0;
 }
 
+bool rk_fsRxIsActive() {
+    return s_fsRxState != FS_RX_WAIT_START;
+}
+
 bool rk_fsRxFeedByte(uint8_t byte,
                      uint8_t& outSubCmd,
                      const uint8_t*& outPayload,

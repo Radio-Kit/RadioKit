@@ -115,6 +115,12 @@ typedef void (*RK_FsPacketCallback)(uint8_t subCmd,
 void rk_fsRxReset();
 
 /**
+ * Returns true if the FS parser is currently accumulating a frame
+ * (i.e., has received a start byte but not yet completed the frame).
+ */
+bool rk_fsRxIsActive();
+
+/**
  * Feed a single byte into the FS state machine.
  * Returns true when a complete frame is available. Caller must consume
  * outSubCmd / outPayload / outPayloadLen on the same call before the next

@@ -158,7 +158,12 @@ class _RadioKitAppState extends State<RadioKitApp> {
                             },
                             child: Focus(
                               autofocus: true,
-                              child: ConnectionListener(child: child!),
+                              child: ConnectionListener(
+                                child: _FollowModeWrapper(
+                                  router: _router,
+                                  child: child!,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -171,6 +176,205 @@ class _RadioKitAppState extends State<RadioKitApp> {
           );
         },
       ),
+    );
+  }
+}
+
+/// App-level follow-mode overlay.
+///
+/// Wraps every route with:
+/// 1. Follow navigation listener (navigates when followNavigationTarget fires)
+/// 2. Edge glow halo (pulses blue then fades to yellow on navigation)
+/// 3. [AbsorbPointer] on all routes EXCEPT `/control` (user interacts with
+///    the controller even in follow mode)
+/// 4. Red STOP button to exit follow mode
+///
+/// Uses [GoRouter] directly (passed from parent) instead of
+/// [GoRouter.of(context)] because the InheritedWidget is inside the
+/// Navigator and not accessible from this widget's build context.
+class _FollowModeWrapper extends StatefulWidget {
+  final GoRouter router;
+  final Widget child;
+  const _FollowModeWrapper({
+    required this.router,
+    required this.child,
+  });
+
+  @override
+  State<_FollowModeWrapper> createState() => _FollowModeWrapperState();
+}
+
+class _FollowModeWrapperState extends State<_FollowModeWrapper> {
+  String _currentLocation = '';
+
+  @override
+  void initState() {
+    super.initState();
+    final ra = context.read<RemoteAccessProvider>();
+    ra.followNavigationTarget.addListener(_onFollow);
+
+    // Defer initial location sync and listener registration to post-frame
+    // so the router delegate is fully initialized.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _syncLocation();
+      // RouterDelegate extends Listenable — exposes addListener/removeListener.
+      widget.router.routerDelegate.addListener(_onRouteChanged);
+    });
+  }
+
+  @override
+  void dispose() {
+    context
+        .read<RemoteAccessProvider>()
+        .followNavigationTarget
+        .removeListener(_onFollow);
+    widget.router.routerDelegate.removeListener(_onRouteChanged);
+    super.dispose();
+  }
+
+  void _onRouteChanged() {
+    _syncLocation();
+  }
+
+  void _syncLocation() {
+    if (!mounted) return;
+    try {
+      final config = widget.router.routerDelegate.currentConfiguration;
+      if (config == null) return;
+      final loc = config.uri.toString();
+      if (loc != _currentLocation) {
+        setState(() => _currentLocation = loc);
+      }
+      // Expose current route to the remote API session endpoint.
+      context.read<RemoteAccessProvider>().updateCurrentRoute(loc);
+    } catch (e) {
+      debugPrint('FollowMode: _syncLocation error: $e');
+    }
+  }
+
+  void _onFollow() {
+    final ra = context.read<RemoteAccessProvider>();
+    final settings = context.read<SettingsProvider>();
+    if (!settings.followRemoteAccess) return;
+    final route = ra.consumeFollowTarget();
+    if (route == null) return;
+    // Skip re-navigation if already on this route — avoids recreating
+    // screens and triggering redundant FS operations during transfers.
+    if (_currentLocation == route) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        widget.router.go(route);
+      } catch (e) {
+        debugPrint('FollowRemote: go($route) failed: $e');
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ra = context.watch<RemoteAccessProvider>();
+    final settings = context.watch<SettingsProvider>();
+    final follow = settings.followRemoteAccess;
+
+    if (!follow) return widget.child;
+
+    final isControlScreen = _currentLocation == '/control' ||
+        _currentLocation.startsWith('/control?');
+
+    Widget body = widget.child;
+    if (!isControlScreen) {
+      body = AbsorbPointer(child: body);
+    }
+
+    return Stack(
+      children: [
+        body,
+        // Edge glow that pulses on navigation
+        Positioned.fill(
+          child: IgnorePointer(
+            child: ValueListenableBuilder<Color>(
+              valueListenable: ra.glowColor,
+              builder: (_, color, __) => Stack(
+                children: [
+                  Positioned(
+                    top: 0, left: 0, right: 0, height: 20,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            color.withValues(alpha: 0.25),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0, left: 0, right: 0, height: 20,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [
+                            color.withValues(alpha: 0.25),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 0, bottom: 0, left: 0, width: 20,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                          colors: [
+                            color.withValues(alpha: 0.25),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 0, bottom: 0, right: 0, width: 20,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.centerRight,
+                          end: Alignment.centerLeft,
+                          colors: [
+                            color.withValues(alpha: 0.25),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        // Red STOP button
+        Positioned(
+          right: 20,
+          bottom: 20,
+          child: FloatingActionButton(
+            heroTag: 'follow_stop',
+            backgroundColor: Colors.redAccent,
+            onPressed: () => settings.setFollowRemoteAccess(false),
+            child: const Icon(Icons.stop_rounded, color: Colors.white),
+          ),
+        ),
+      ],
     );
   }
 }

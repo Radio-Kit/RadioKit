@@ -80,4 +80,12 @@ bool rk_rxFeedByte(uint8_t byte, uint8_t &outCmd, const uint8_t *&outPayload,
 
 void rk_rxReset();
 
+/**
+ * Returns true if the widget protocol parser is currently accumulating a
+ * frame (i.e., has seen 0x55 but hasn't completed CRC validation yet).
+ * Used by the transport's byte feeder to avoid feeding widget frame bytes
+ * into the FS (0xAA) parser, which would corrupt the FS frame payload.
+ */
+bool rk_rxIsActive();
+
 #endif // RADIOKIT_PROTOCOL_H

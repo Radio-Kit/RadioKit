@@ -37,6 +37,9 @@ class RemoteAccessProvider extends ChangeNotifier {
   final ValueNotifier<String?> followNavigationTarget = ValueNotifier(null);
   final ValueNotifier<Color> glowColor = ValueNotifier(Colors.yellowAccent);
 
+  /// Current route tracked by _FollowModeWrapper, exposed via /api/session/route.
+  String _currentRoute = '';
+
   bool get isRunning => _isRunning;
   String get lastError => _lastError;
   String get localIp => _localIp;
@@ -44,6 +47,13 @@ class RemoteAccessProvider extends ChangeNotifier {
   String get actualUrl =>
       _isRunning ? 'http://$_localIp:$_actualPort' : '';
   List<ApiLogEntry> get logs => List.unmodifiable(_logs);
+  String get currentRoute => _currentRoute;
+
+  /// Called by _FollowModeWrapper whenever the route changes.
+  void updateCurrentRoute(String route) {
+    _currentRoute = route;
+    notifyListeners();
+  }
 
   RemoteAccessProvider({
     required SettingsProvider settingsProvider,
@@ -78,6 +88,7 @@ class RemoteAccessProvider extends ChangeNotifier {
       designsProvider: _designsProvider,
       onLog: _addLogEntry,
       onFollowEvent: _onFollowEvent,
+      currentRouteGetter: () => _currentRoute,
     );
 
     final error = await _service!.start();

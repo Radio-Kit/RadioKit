@@ -42,6 +42,10 @@ class _FilesystemExplorerScreenState
   String? _statusMessage;
   String? _errorMessage;
   double? _progress;
+  DateTime? _transferStartTime;
+  int _currentTransferBytes = 0;
+
+  bool get _isTransferring => _transferStartTime != null;
 
   bool _isMultiSelect = false;
   final Set<String> _selectedPaths = <String>{};
@@ -58,6 +62,14 @@ class _FilesystemExplorerScreenState
     final dp = context.read<DeviceProvider>();
     if (!dp.isConnected) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _initialRefresh());
+      return;
+    }
+    // Defer if an FS frame exchange (e.g. HTTP API write/read) is in
+    // progress. Retry after a short delay to avoid transport contention.
+    if (dp.isFsBusy) {
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (mounted) _initialRefresh();
+      });
       return;
     }
     _initTriggered = true;
@@ -115,8 +127,7 @@ class _FilesystemExplorerScreenState
                   tooltip: 'Delete selected',
                   onPressed: _selectedPaths.isEmpty ? null : _deleteSelected,
                 ),
-              ]
-            : [
+              ]              : [
                 IconButton(
                   icon: const Icon(Icons.refresh_rounded),
                   tooltip: 'Refresh',
@@ -160,7 +171,14 @@ class _FilesystemExplorerScreenState
 
     return Column(
       children: [
-        FsInfoStrip(info: _fsInfo, loading: _loading && _fsInfo == null),
+        FsInfoStrip(
+          info: _fsInfo,
+          loading: _loading && _fsInfo == null,
+          speedBytesPerSec: _isTransferring && _transferStartTime != null
+              ? _currentTransferBytes /
+                  (DateTime.now().difference(_transferStartTime!).inMilliseconds / 1000.0)
+              : null,
+        ),
         FsBreadcrumbs(
           currentPath: _currentPath,
           onJumpTo: (idx) {
@@ -327,6 +345,49 @@ class _FilesystemExplorerScreenState
                     onPressed: () => setState(() => _errorMessage = null),
                   ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Speed chip in AppBar ──────────────────────────────────────────────
+
+  Widget _buildSpeedChip() {
+    final elapsed = DateTime.now().difference(_transferStartTime!).inMilliseconds / 1000.0;
+    final speed = (elapsed > 0 && _currentTransferBytes > 0) ? _currentTransferBytes / elapsed : 0.0;
+    final speedText = _formatSpeed(speed);
+    final scheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: scheme.primaryContainer.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: scheme.primary.withValues(alpha: 0.3), width: 0.5),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 10, height: 10,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: scheme.primary,
+              ),
+            ),
+            const SizedBox(width: 5),
+            Text(
+              speedText,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: scheme.primary,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
             ),
           ],
         ),
@@ -529,12 +590,24 @@ class _FilesystemExplorerScreenState
 
   // ─── File operations ──────────────────────────────────────────────────
 
+  /// Format a transfer speed as a human-readable string.
+  String _formatSpeed(double bytesPerSec) {
+    if (bytesPerSec >= 1024 * 1024) {
+      return '${(bytesPerSec / (1024 * 1024)).toStringAsFixed(1)} MB/s';
+    } else if (bytesPerSec >= 1024) {
+      return '${(bytesPerSec / 1024).toStringAsFixed(0)} KB/s';
+    } else {
+      return '${bytesPerSec.toStringAsFixed(0)} B/s';
+    }
+  }
+
   Future<void> _uploadFile() async {
     if (_fs == null) return;
     try {
       final picked = await pickUploadFile(context);
       if (picked == null || !mounted) return;
       final remotePath = joinPath(_currentPath, picked.name);
+      _transferStartTime = DateTime.now();
       setState(() {
         _statusMessage = 'Uploading ${picked.name}…';
         _progress = 0;
@@ -545,19 +618,24 @@ class _FilesystemExplorerScreenState
         onProgress: (w, t) {
           if (!mounted) return;
           setState(() {
+            _currentTransferBytes = w;
             _progress = t == 0 ? null : w / t;
             _statusMessage =
-                'Uploading ${picked.name} ${formatBytes(w)} / ${formatBytes(t)}';
+                'Uploading ${picked.name}  ${formatBytes(w)} / ${formatBytes(t)}';
           });
         },
       );
       if (!mounted) return;
       if (res.success) {
+        _transferStartTime = null;
+        _currentTransferBytes = 0;
         setState(() {
           _statusMessage = 'Uploaded ${picked.name}';
           _progress = null;
         });
       } else {
+        _transferStartTime = null;
+        _currentTransferBytes = 0;
         setState(() {
           _errorMessage = 'Upload failed: ${res.errorName}';
           _statusMessage = null;
@@ -568,6 +646,8 @@ class _FilesystemExplorerScreenState
       await _refresh();
     } catch (e) {
       if (!mounted) return;
+      _transferStartTime = null;
+      _currentTransferBytes = 0;
       setState(() {
         _errorMessage = 'Upload error: $e';
         _progress = null;
@@ -578,6 +658,7 @@ class _FilesystemExplorerScreenState
 
   Future<void> _downloadFile(FsEntry entry, String path) async {
     if (_fs == null) return;
+    _transferStartTime = DateTime.now();
     setState(() {
       _statusMessage = 'Reading ${entry.name}…';
       _progress = 0;
@@ -588,14 +669,17 @@ class _FilesystemExplorerScreenState
         onProgress: (r, t) {
           if (!mounted) return;
           setState(() {
+            _currentTransferBytes = r;
             _progress = t == 0 ? null : r / t;
             _statusMessage =
-                'Reading ${entry.name} ${formatBytes(r)} / ${formatBytes(t)}';
+                'Reading ${entry.name}  ${formatBytes(r)} / ${formatBytes(t)}';
           });
         },
       );
       if (!mounted) return;
       if (bytes == null) {
+        _transferStartTime = null;
+        _currentTransferBytes = 0;
         setState(() {
           _errorMessage = 'Download failed';
           _progress = null;
@@ -603,6 +687,7 @@ class _FilesystemExplorerScreenState
         _showError('Download failed');
         return;
       }
+      _transferStartTime = null;
       final savePath = await promptSaveFile(context,
           fileName: entry.name, bytes: bytes);
       if (!mounted) return;
@@ -614,6 +699,8 @@ class _FilesystemExplorerScreenState
       });
     } catch (e) {
       if (!mounted) return;
+      _transferStartTime = null;
+      _currentTransferBytes = 0;
       setState(() {
         _errorMessage = 'Download error: $e';
         _progress = null;

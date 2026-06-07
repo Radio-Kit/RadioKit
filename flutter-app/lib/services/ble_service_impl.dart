@@ -58,6 +58,10 @@ class BleService implements TransportService {
   bool _isMockConnected = false;
   final List<int> _receiveBuffer = [];
 
+  /// Negotiated BLE MTU (default 23). Updated after MTU exchange completes.
+  /// Used by [writePacket] to fragment large payloads into MTU-sized chunks.
+  int _mtu = 23;
+
   StreamController<DeviceInfo>? _scanController;
   final _availabilityController = StreamController<AvailabilityState>.broadcast();
   Stream<AvailabilityState> get availabilityStream => _availabilityController.stream;
@@ -246,12 +250,19 @@ class BleService implements TransportService {
       await UniversalBle.connect(deviceId);
       _connectedDeviceId = deviceId;
 
-      // Try to request a larger MTU (default is 23, we want at least 128 for 102 byte payloads)
+      // Try to request a larger MTU (default is 23, we want at least 512 for max throughput)
       try {
-        _log('Requesting MTU of 256...');
-        await UniversalBle.requestMtu(deviceId, 256);
+        _log('Requesting MTU of 512...');
+        final negotiated = await UniversalBle.requestMtu(deviceId, 512);
+        _log('MTU requestMtu returned: $negotiated');
+        // Use a 3-byte safety margin below the negotiated value to account
+        // for any platform-specific ATT header overhead.
+        // This is safer than trusting the raw return value blindly.
+        _mtu = (negotiated - 3).clamp(23, 600);
+        _log('Using effective MTU: $_mtu (max BLE write payload: ${_mtu - 3})');
       } catch (e) {
-        _log('MTU request failed (ignoring): $e');
+        _log('MTU request failed, using default 23: $e');
+        _mtu = 23;
       }
 
       // Discover services
@@ -318,6 +329,7 @@ class BleService implements TransportService {
     _connectedDeviceId = null;
     _isMockConnected = false;
     _receiveBuffer.clear();
+    _mtu = 23;
     onConnectionLost?.call(reason);
   }
 
@@ -335,13 +347,42 @@ class BleService implements TransportService {
     final deviceId = _connectedDeviceId;
     if (deviceId == null) throw StateError('Not connected');
 
-    await UniversalBle.write(
-      deviceId,
-      kRadioKitServiceUuid.toLowerCase(),
-      kRadioKitCharUuid.toLowerCase(),
-      data,
-      withoutResponse: true,
-    );
+    final serviceId = kRadioKitServiceUuid.toLowerCase();
+    final charId = kRadioKitCharUuid.toLowerCase();
+
+    // Calculate the maximum payload per BLE write command.
+    // MTU minus 3 bytes for ATT header overhead.
+    final chunkSize = (_mtu - 3).clamp(20, _mtu - 3);
+
+    if (data.length <= chunkSize) {
+      // Single write for small payloads
+      await UniversalBle.write(
+        deviceId,
+        serviceId,
+        charId,
+        data,
+        withoutResponse: true,
+      );
+      return;
+    }
+
+    // Chunked write for payloads larger than MTU-3.
+    // universal_ble does NOT auto-fragment writes, so we must do it here.
+    // Each chunk is sent as a separate Write-No-Response command.
+    // No pacing delay between chunks — the ESP32 NimBLE stack handles
+    // the incoming data without queue overflow at these chunk sizes.
+    for (int i = 0; i < data.length; i += chunkSize) {
+      final end = (i + chunkSize).clamp(0, data.length);
+      final chunk = Uint8List.sublistView(data, i, end);
+
+      await UniversalBle.write(
+        deviceId,
+        serviceId,
+        charId,
+        chunk,
+        withoutResponse: true,
+      );
+    }
   }
 
   @override
