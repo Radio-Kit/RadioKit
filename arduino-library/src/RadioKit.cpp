@@ -172,6 +172,7 @@ void RadioKitClass::_onPacket(uint8_t cmd,
         case RK_CMD_ACK:       s_instance->_handleAck(payload, payloadLen);       break;
         case RK_CMD_VAR_UPDATE:s_instance->_handleVarUpdate(payload, payloadLen); break;
         case RK_CMD_META_UPDATE:s_instance->_handleMetaUpdate(payload, payloadLen);break;
+        case RK_CMD_BLE_INFO:  s_instance->_handleBleInfo();                       break;
         default: 
             Serial.printf("RK: Unknown CMD %s (0x%02X)\n", rk_cmdName(cmd), cmd);
             break;
@@ -181,6 +182,25 @@ void RadioKitClass::_onPacket(uint8_t cmd,
 int8_t RadioKitClass::getRssi() {
     if (_transport) return _transport->getRssi();
     return 0;
+}
+
+void RadioKitClass::_handleBleInfo() {
+    if (!_transport) return;
+    
+    // Payload: [connIntervalMs(2 LE)] [negotiatedMtu(2 LE)] [rssi(1)]
+    uint8_t payload[5];
+    uint16_t interval = RadioKitBLEInstance.getConnIntervalMs();
+    uint16_t mtu = RadioKitBLEInstance.getNegotiatedMtu();
+    int r = getRssi();
+    
+    payload[0] = interval & 0xFF;
+    payload[1] = (interval >> 8) & 0xFF;
+    payload[2] = mtu & 0xFF;
+    payload[3] = (mtu >> 8) & 0xFF;
+    payload[4] = (uint8_t)r;
+    
+    uint16_t len = rk_buildPacket(_txBuf, RK_CMD_BLE_INFO_DATA, payload, 5);
+    _sendPacket(len);
 }
 
 void RadioKitClass::_handleGetTelemetry() {

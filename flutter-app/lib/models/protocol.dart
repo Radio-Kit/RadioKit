@@ -23,6 +23,8 @@ const int kCmdMetaUpdate  = 0x0B;
 const int kCmdSetInput    = 0x0C;
 const int kCmdGetTelemetry = 0x0D;
 const int kCmdTelemetryData = 0x0E;
+const int kCmdBleInfo = 0x14;
+const int kCmdBleInfoData = 0x0F;
 
 // ── Filesystem bulk protocol ─────────────────────────────────────────────────
 // Uses a different start byte (0xAA) and has its own sub-command namespace.

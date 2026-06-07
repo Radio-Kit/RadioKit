@@ -68,6 +68,7 @@ class DeviceProvider extends ChangeNotifier {
   DateTime?                _lastTxAt;
   final DebugLogSink?            _debugSink;
   Completer<void>?         _confCompleter;
+  Completer<Map<String, int>>? _bleInfoCompleter;
   DateTime?                _pingSentAt;
 
   final Map<int, _PendingUpdate> _pendingUpdates = {};
@@ -104,7 +105,11 @@ class DeviceProvider extends ChangeNotifier {
   /// transport is busy (e.g. an HTTP API write is in flight).
   bool get isFsBusy => _fsBusy;
 
-  final Map<int, Completer<ParsedFsPacket>> _pendingFs = {};
+  /// Pending FS responses per sub-cmd. Uses a List (queue) per sub-cmd so
+  /// pipelined requests (e.g. readFile sending the next READ before the
+  /// previous response arrives) don't overwrite each other's completers.
+  /// Responses are matched to requests in FIFO order.
+  final Map<int, List<Completer<ParsedFsPacket>>> _pendingFs = {};
 
   /// Cached designer-format JSON for fast UI rendering.
   /// Populated from device CONF_DATA or demo assets.
@@ -749,6 +754,7 @@ class DeviceProvider extends ChangeNotifier {
       case kCmdAck:       _handleAck(packet.payload);       break;
       case kCmdPong:      _handlePong();                    break;
       case kCmdTelemetryData: _handleTelemetryData(packet.payload); break;
+      case kCmdBleInfoData: _handleBleInfoData(packet.payload); break;
       default:
         debugPrint('RadioKit: Unknown cmd 0x${packet.cmd.toRadixString(16)}');
     }
@@ -760,6 +766,48 @@ class DeviceProvider extends ChangeNotifier {
       _latencyMs = now.difference(_pingSentAt!).inMilliseconds;
       _pingSentAt = null;
       notifyListeners();
+    }
+  }
+
+  void _handleBleInfoData(List<int> payload) {
+    if (payload.length < 5) return;
+    final connIntervalMs = payload[0] | (payload[1] << 8);
+    final negotiatedMtu = payload[2] | (payload[3] << 8);
+    final rawRssi = payload[4];
+    final rssi = rawRssi > 127 ? rawRssi - 256 : rawRssi;
+    debugPrint('RadioKit: BLE_INFO_DATA interval=${connIntervalMs}ms MTU=$negotiatedMtu RSSI=$rssi');
+    final completer = _bleInfoCompleter;
+    if (completer != null && !completer.isCompleted) {
+      completer.complete({
+        'connIntervalMs': connIntervalMs,
+        'negotiatedMtu': negotiatedMtu,
+        'rssi': rssi,
+      });
+    }
+  }
+
+  /// Send a GET_BLE_INFO command to the device and wait for the response.
+  /// Returns a map with connIntervalMs, negotiatedMtu, rssi, or null on timeout.
+  Future<Map<String, int>?> sendGetBleInfo() async {
+    if (!_transport.isConnected) return null;
+    final completer = Completer<Map<String, int>>();
+    _bleInfoCompleter = completer;
+    try {
+      await _writePacket(ProtocolService.buildBleInfo());
+    } catch (e) {
+      _bleInfoCompleter = null;
+      return null;
+    }
+    try {
+      final result = await completer.future.timeout(const Duration(seconds: 3));
+      _bleInfoCompleter = null;
+      return result;
+    } on TimeoutException catch (_) {
+      _bleInfoCompleter = null;
+      return null;
+    } catch (_) {
+      _bleInfoCompleter = null;
+      return null;
     }
   }
 
@@ -953,12 +1001,24 @@ class DeviceProvider extends ChangeNotifier {
 
   /// Incoming FS frame dispatcher. Completes a pending FS request if the
   /// sub-cmd matches one, or logs it as unsolicited.
+  /// Supports pipelined requests via FIFO queue per sub-cmd.
   void _handleFsPacket(ParsedFsPacket packet) {
     _lastRxAt = DateTime.now(); // FS traffic also counts as activity
+    
     // Try exact match first, then match with ACK-mask (responses set bit 7)
-    Completer<ParsedFsPacket>? pending = _pendingFs.remove(packet.subCmd);
+    Completer<ParsedFsPacket>? pending;
+    final queue = _pendingFs[packet.subCmd];
+    if (queue != null && queue.isNotEmpty) {
+      pending = queue.removeAt(0);
+      if (queue.isEmpty) _pendingFs.remove(packet.subCmd);
+    }
     if (pending == null) {
-      pending = _pendingFs.remove(packet.subCmd & 0x7F);
+      final altCmd = packet.subCmd & 0x7F;
+      final altQueue = _pendingFs[altCmd];
+      if (altQueue != null && altQueue.isNotEmpty) {
+        pending = altQueue.removeAt(0);
+        if (altQueue.isEmpty) _pendingFs.remove(altCmd);
+      }
     }
     if (pending != null && !pending.isCompleted) {
       pending.complete(packet);
@@ -978,12 +1038,12 @@ class DeviceProvider extends ChangeNotifier {
     final subCmd = frame[1];
 
     final completer = Completer<ParsedFsPacket>();
-    _pendingFs[subCmd] = completer;
+    _pendingFs.putIfAbsent(subCmd, () => []).add(completer);
 
     try {
       await _writePacket(frame);
     } catch (e) {
-      _pendingFs.remove(subCmd);
+      _pendingFs[subCmd]?.remove(completer);
       return null;
     }
 
@@ -994,13 +1054,18 @@ class DeviceProvider extends ChangeNotifier {
         .then<ParsedFsPacket?>((p) => p)
         .timeout(timeout, onTimeout: () => null)
         .catchError((_) => null as ParsedFsPacket?);
-    if (timedOut == null) _pendingFs.remove(subCmd);
+    if (timedOut == null) {
+      _pendingFs[subCmd]?.remove(completer);
+      if (_pendingFs[subCmd]?.isEmpty == true) _pendingFs.remove(subCmd);
+    }
     return timedOut;
   }
 
   void _cancelAllPendingFs() {
-    for (final c in _pendingFs.values) {
-      if (!c.isCompleted) c.completeError(Exception('Disconnected'));
+    for (final list in _pendingFs.values) {
+      for (final c in list) {
+        if (!c.isCompleted) c.completeError(Exception('Disconnected'));
+      }
     }
     _pendingFs.clear();
   }

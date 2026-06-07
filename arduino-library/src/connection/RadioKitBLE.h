@@ -26,6 +26,10 @@ class RadioKitBLE : public RadioKitTransport {
 public:
     RadioKitBLE();
 
+    // Public getters for connection parameters (used by RadioKit::_handleBleInfo)
+    uint16_t getConnIntervalMs() const { return _connIntervalMs; }
+    uint16_t getNegotiatedMtu() const { return _negotiatedMtu; }
+
     void begin(const char* deviceName, RK_PacketCallback cb) override;
     void setFsCallback(RK_FsPacketCallback cb) override;
     void update()                                            override;

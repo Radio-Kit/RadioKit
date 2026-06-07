@@ -39,6 +39,8 @@
 #define RK_CMD_SET_INPUT 0x0C   // Arduino → App: force sync input widget
 #define RK_CMD_GET_TELEMETRY 0x0D // App → Arduino: request RSSI/Latency
 #define RK_CMD_TELEMETRY_DATA 0x0E // Arduino → App: telemetry values
+#define RK_CMD_BLE_INFO     0x14   // App → Arduino: request BLE connection params
+#define RK_CMD_BLE_INFO_DATA 0x0F  // Arduino → App: BLE connection param values
 
 // ─────────────────────────────────────────────
 //  Protocol version (v3)

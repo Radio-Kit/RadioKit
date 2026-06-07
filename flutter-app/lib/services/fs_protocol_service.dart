@@ -108,6 +108,40 @@ class FsProtocolService {
     return buildFrame(kFsCmdWrite, p);
   }
 
+  // ── Upload protocol (CRC32-verified bulk writes) ────────────────────────
+
+  /// Build an UPLOAD_BEGIN frame. Payload: [PATH] + TOTAL_SIZE(4 LE).
+  /// Tells the device to create/truncate [path] for a [totalSize]-byte upload.
+  static Uint8List buildUploadBegin(String path, int totalSize) {
+    final p = _pathPayload(path);
+    p.add(totalSize & 0xFF);
+    p.add((totalSize >> 8) & 0xFF);
+    p.add((totalSize >> 16) & 0xFF);
+    p.add((totalSize >> 24) & 0xFF);
+    return buildFrame(kFsCmdUploadBegin, p);
+  }
+
+  /// Build an UPLOAD_CHUNK frame. Payload: [OFFSET(4 LE)][DATA(N)].
+  /// [offset] must match the device's expected byte position (sequential).
+  static Uint8List buildUploadChunk(int offset, List<int> data) {
+    final p = <int>[offset & 0xFF, (offset >> 8) & 0xFF,
+                    (offset >> 16) & 0xFF, (offset >> 24) & 0xFF];
+    p.addAll(data);
+    return buildFrame(kFsCmdUploadChunk, p);
+  }
+
+  /// Build an UPLOAD_END frame. Payload: [CRC32(4 LE)].
+  /// The device recomputes CRC32 over all received bytes and deletes the
+  /// file if the CRC doesn't match, preventing silent corruption.
+  static Uint8List buildUploadEnd(int crc32) {
+    return buildFrame(kFsCmdUploadEnd, [
+      crc32 & 0xFF,
+      (crc32 >> 8) & 0xFF,
+      (crc32 >> 16) & 0xFF,
+      (crc32 >> 24) & 0xFF,
+    ]);
+  }
+
   // ── Packet parsing ──────────────────────────────────────────────────────
 
   /// Parse a complete FS frame extracted from the rx buffer. The caller

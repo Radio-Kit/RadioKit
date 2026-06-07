@@ -204,13 +204,13 @@ void RadioKitBLE::sendPacket(const uint8_t* buf, uint16_t len) {
         offset += chunk;
         
         if (offset < len) {
-            delay(1);  // Minimal yield — lets the NimBLE host task process TX
-                      // completion events so the controller queue drains.
-                      // Longer delays (connInterval × 3 = 36ms) blocked the
-                      // host task, preventing TX completions and causing the
-                      // controller queue to stall (>8 notifications per chunk
-                      // hung the ESP32). The retry backoff below handles
-                      // actual backpressure.
+            delay(5);  // Yield 5ms between notifications so the NimBLE host
+                      // task can process TX completion events from the
+                      // controller. 1ms was too short for 16-notification
+                      // bursts (8KB chunks) — the host couldn't drain the
+                      // 10-slot TX queue fast enough. 5ms gives the host
+                      // adequate time per notification while still being
+                      // 12× faster than the original 60ms pacing.
         }
     }
     
@@ -250,13 +250,13 @@ void RadioKitBLE::_onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) {
 
     // ── Post-connection optimizations ─────────────────────────────
 
-    // 1. Update connection parameters for low latency
-    //    minInterval = 6 * 1.25ms = 7.5ms
-    //    maxInterval = 12 * 1.25ms = 15ms
+    // 1. Update connection parameters for lowest possible latency
+    //    minInterval = 6 * 1.25ms = 7.5ms  (BLE minimum)
+    //    maxInterval = 8 * 1.25ms = 10ms   (flexible — phone more likely to accept)
     //    latency = 0 (no slave latency)
     //    timeout = 400 * 10ms = 4s
-    pServer->updateConnParams(_connHandle, 6, 12, 0, 400);
-    Serial.println("BLE: Requested connection params (7.5ms-15ms, lat=0, timeout=4s)");
+    pServer->updateConnParams(_connHandle, 6, 8, 0, 400);
+    Serial.println("BLE: Requested connection params (7.5-10ms, lat=0, timeout=4s)");
 
     // 2. Enable Data Length Extension for 251-byte payloads
     //    This is the max BLE 4.2+ DLE size.

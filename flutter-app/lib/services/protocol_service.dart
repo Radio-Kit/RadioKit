@@ -65,6 +65,7 @@ class ProtocolService {
   static Uint8List buildPing()     => buildPacket(kCmdPing);
   static Uint8List buildGetMeta()  => buildPacket(kCmdGetMeta);
   static Uint8List buildGetTelemetry() => buildPacket(kCmdGetTelemetry);
+  static Uint8List buildBleInfo() => buildPacket(kCmdBleInfo);
 
   /// Build an ACK packet acknowledging a VAR_UPDATE with [seq].
   static Uint8List buildAck(int seq) => buildPacket(kCmdAck, [seq & 0xFF]);

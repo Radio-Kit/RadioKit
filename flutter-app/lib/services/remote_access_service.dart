@@ -156,6 +156,7 @@ class RemoteAccessService {
     router.get('/api/pair/devices', _handlePairDevices);
     router.post('/api/pair/scan', _handlePairScan);
     router.get('/api/connection', _handleConnection);
+    router.get('/api/connection/params', _handleConnectionParams);
     router.post('/api/connection/connect', _handleConnect);
     router.post('/api/connection/disconnect', _handleDisconnect);
     router.post('/api/connection/reconnect', _handleReconnect);
@@ -172,6 +173,7 @@ class RemoteAccessService {
     router.get('/api/fs/info', _handleFsInfo);
     router.get('/api/fs/read', _handleFsRead);
     router.post('/api/fs/write', _handleFsWrite);
+    router.post('/api/fs/upload', _handleFsUpload);
     router.post('/api/fs/mkdir', _handleFsMkdir);
     router.post('/api/fs/delete', _handleFsDelete);
     router.post('/api/fs/rename', _handleFsRename);
@@ -472,6 +474,24 @@ class RemoteAccessService {
       'latencyMs': _deviceProvider.latencyMs,
       'rssi': _deviceProvider.rssi,
       'orientation': orientation,
+    });
+  }
+
+  Future<Response> _handleConnectionParams(Request request) async {
+    final device = _deviceProvider.connectedDevice;
+    if (!_deviceProvider.isConnected || device == null) {
+      return _error('not_connected', 'Not connected to a device', status: 503);
+    }
+    
+    // Try to get BLE info from the device (may timeout or fail)
+    final bleInfo = await _deviceProvider.sendGetBleInfo();
+    
+    return _json({
+      'connIntervalMs': bleInfo?['connIntervalMs'],
+      'negotiatedMtu': bleInfo?['negotiatedMtu'],
+      'rssi': _deviceProvider.rssi ?? bleInfo?['rssi'],
+      'latencyMs': _deviceProvider.latencyMs,
+      'deviceRssi': bleInfo?['rssi'],
     });
   }
 
@@ -821,6 +841,41 @@ class RemoteAccessService {
         'size': data.length,
         'encoding': 'base64',
         'data': base64Encode(data),
+      });
+    } catch (e) {
+      return _error('fs_error', e.toString(), status: 500);
+    } finally {
+      _deviceProvider.setFsBusy(false);
+    }
+  }
+
+  Future<Response> _handleFsUpload(Request request) async {
+    if (!_checkFs(request)) {
+      return _error('not_connected', 'Not connected or device has no FS',
+          status: 503);
+    }
+    final body = await _parseBody(request);
+    final path = body['path'] as String?;
+    final dataB64 = body['data'] as String?;
+    final chunkSize = body['chunkSize'] as int? ?? 0;
+    if (path == null || dataB64 == null) {
+      return _error('invalid_params', 'path and data are required');
+    }
+    _deviceProvider.setFsBusy(true);
+    try {
+      final data = base64Decode(dataB64);
+      final result = chunkSize > 0
+          ? await _fsService().writeFileUpload(path, data, chunkSize: chunkSize)
+          : await _fsService().writeFileUpload(path, data);
+      if (!result.success) {
+        return _error('fs_error',
+            '${result.errorName}: ${result.message}',
+            status: 500);
+      }
+      return _json({
+        'ok': true,
+        'path': path,
+        'bytesWritten': data.length,
       });
     } catch (e) {
       return _error('fs_error', e.toString(), status: 500);

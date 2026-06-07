@@ -17,6 +17,45 @@ static SenderFn s_sender = nullptr;
 static bool     s_mounted = false;
 static char     s_cwd[128] = "/";
 
+// ── CRC32 ───────────────────────────────────────────────────────────────────
+
+// Standard CRC-32 (IEEE 802.3) with polynomial 0xEDB88320.
+static uint32_t s_crc32Table[256];
+static bool     s_crc32Ready = false;
+
+static void _initCrc32() {
+    for (uint32_t i = 0; i < 256; i++) {
+        uint32_t crc = i;
+        for (int j = 0; j < 8; j++) {
+            crc = (crc >> 1) ^ ((crc & 1) ? 0xEDB88320UL : 0);
+        }
+        s_crc32Table[i] = crc;
+    }
+    s_crc32Ready = true;
+}
+
+/// Update a running CRC32 with [len] bytes. Call with 0xFFFFFFFF to start.
+static uint32_t _crc32Update(uint32_t crc, const uint8_t* data, size_t len) {
+    if (!s_crc32Ready) _initCrc32();
+    for (size_t i = 0; i < len; i++) {
+        crc = s_crc32Table[(crc ^ data[i]) & 0xFF] ^ (crc >> 8);
+    }
+    return crc;
+}
+
+/// Finalize CRC32 (XOR with 0xFFFFFFFF).
+static uint32_t _crc32Final(uint32_t crc) { return crc ^ 0xFFFFFFFFUL; }
+
+// ── Upload state (persisted across UPLOAD_BEGIN / CHUNK / END) ──────────────
+
+static struct {
+    bool     active;
+    char     path[128];
+    uint32_t totalSize;
+    uint32_t bytesReceived;
+    uint32_t runningCrc;  // Running CRC32 (before final XOR)
+} s_upload;
+
 // ── Internal helpers ────────────────────────────────────────────────────────
 
 static void sendFrame(uint8_t subCmd, const uint8_t* payload, uint16_t payloadLen) {
@@ -352,19 +391,120 @@ void handleRename(const uint8_t* payload, uint16_t len) {
 }
 
 void handleUploadBegin(const uint8_t* payload, uint16_t len) {
+#if RK_FS_HAS_LITTLEFS
+    if (!s_mounted) { sendError(RK_FS_RESP_UPLOAD_BEGIN_ACK, RK_FS_ERR_NO_FS); return; }
+
+    // Close any stale upload (shouldn't happen, but be safe)
+    if (s_upload.active) {
+        s_upload.active = false;
+    }
+
+    uint16_t offset = 0;
+    char path[128];
+    uint16_t pathLen = 0;
+    readString(payload, len, offset, path, sizeof(path), pathLen);
+
+    if (offset + 4 > len) { sendError(RK_FS_RESP_UPLOAD_BEGIN_ACK, RK_FS_ERR_INVALID_PATH); return; }
+    uint32_t totalSize = readU32LE(&payload[offset]); offset += 4;
+
+    if (totalSize > RK_FS_MAX_PAYLOAD * 256) { // sanity: max ~4 MB
+        sendError(RK_FS_RESP_UPLOAD_BEGIN_ACK, RK_FS_ERR_INVALID_PATH);
+        return;
+    }
+
+    char resolved[160];
+    resolvePath(path, resolved, sizeof(resolved));
+
+    File f = LittleFS.open(resolved, "w");
+    if (!f) { sendError(RK_FS_RESP_UPLOAD_BEGIN_ACK, RK_FS_ERR_IO); return; }
+    f.close();
+
+    // Store upload state
+    strncpy(s_upload.path, resolved, sizeof(s_upload.path) - 1);
+    s_upload.path[sizeof(s_upload.path) - 1] = '\0';
+    s_upload.totalSize = totalSize;
+    s_upload.bytesReceived = 0;
+    s_upload.runningCrc = 0xFFFFFFFFUL;
+    s_upload.active = true;
+
     sendError(RK_FS_RESP_UPLOAD_BEGIN_ACK, RK_FS_ERR_OK);
+#else
+    sendError(RK_FS_RESP_UPLOAD_BEGIN_ACK, RK_FS_ERR_NO_FS);
+#endif
 }
 
 void handleUploadChunk(const uint8_t* payload, uint16_t len) {
+#if RK_FS_HAS_LITTLEFS
+    if (!s_mounted || !s_upload.active) {
+        sendError(RK_FS_RESP_UPLOAD_CHUNK_ACK, RK_FS_ERR_INVALID_STATE);
+        return;
+    }
+
+    if (len < 4) { sendError(RK_FS_RESP_UPLOAD_CHUNK_ACK, RK_FS_ERR_INVALID_PATH); return; }
+
+    uint32_t chunkOffset = readU32LE(&payload[0]);
+    uint16_t dataLen = len - 4;
+
+    if (chunkOffset != s_upload.bytesReceived) {
+        sendError(RK_FS_RESP_UPLOAD_CHUNK_ACK, RK_FS_ERR_INVALID_STATE);
+        return;
+    }
+
+    // Open and append
+    File f = LittleFS.open(s_upload.path, "a");
+    if (!f) {
+        s_upload.active = false;
+        sendError(RK_FS_RESP_UPLOAD_CHUNK_ACK, RK_FS_ERR_IO);
+        return;
+    }
+
+    uint16_t written = (uint16_t)f.write(&payload[4], dataLen);
+    f.close();
+
+    if (written != dataLen) {
+        s_upload.active = false;
+        LittleFS.remove(s_upload.path);
+        sendError(RK_FS_RESP_UPLOAD_CHUNK_ACK, RK_FS_ERR_IO);
+        return;
+    }
+
+    // Update running CRC32
+    s_upload.runningCrc = _crc32Update(s_upload.runningCrc, &payload[4], dataLen);
+    s_upload.bytesReceived += dataLen;
+
     sendError(RK_FS_RESP_UPLOAD_CHUNK_ACK, RK_FS_ERR_OK);
+#else
+    sendError(RK_FS_RESP_UPLOAD_CHUNK_ACK, RK_FS_ERR_NO_FS);
+#endif
 }
 
 void handleUploadEnd(const uint8_t* payload, uint16_t len) {
-    sendError(RK_FS_RESP_UPLOAD_END_ACK, RK_FS_ERR_OK);
+#if RK_FS_HAS_LITTLEFS
+    if (!s_mounted || !s_upload.active) {
+        sendError(RK_FS_RESP_UPLOAD_END_ACK, RK_FS_ERR_INVALID_STATE);
+        return;
+    }
+
+    uint32_t expectedCrc = (len >= 4) ? readU32LE(&payload[0]) : 0;
+
+    // Finalize the running CRC
+    uint32_t actualCrc = _crc32Final(s_upload.runningCrc);
+
+    bool ok = (expectedCrc == actualCrc && s_upload.bytesReceived == s_upload.totalSize);
+
+    if (!ok) {
+        // CRC mismatch or size mismatch — delete corrupt file
+        LittleFS.remove(s_upload.path);
+    }
+
+    s_upload.active = false;
+
+    sendError(RK_FS_RESP_UPLOAD_END_ACK, ok ? RK_FS_ERR_OK : RK_FS_ERR_IO);
+#else
+    sendError(RK_FS_RESP_UPLOAD_END_ACK, RK_FS_ERR_NO_FS);
+#endif
 }
 
-/// FS_PING: replies with the current mount status. Used by the app to
-/// detect FS support on connect (no-op for non-FS builds).
 void handlePing() {
 #if RK_FS_HAS_LITTLEFS
     uint8_t status = s_mounted ? RK_FS_ERR_OK : RK_FS_ERR_NO_FS;
@@ -377,6 +517,7 @@ void handlePing() {
 
 /// FS_FORMAT: re-formats the default filesystem. Destructive.
 void handleFormat() {
+    if (s_upload.active) s_upload.active = false;
     bool ok = format();
     sendError(RK_FS_RESP_FORMAT_ACK, ok ? RK_FS_ERR_OK : RK_FS_ERR_IO);
 }
