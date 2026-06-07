@@ -79,11 +79,25 @@ class DeviceProvider extends ChangeNotifier {
   /// are dispatched to [_handleUnsolicitedFs] instead.
   /// FS busy flag — when true, the ping timer is suppressed to prevent
   /// PONG responses from interleaving with FS response notifications over BLE.
+  /// Uses a reference count so multi-chunk operations (HTTP readFile/writeFile)
+  /// can hold the lock for their entire duration while per-chunk callers
+  /// (["_ProviderAdapter.sendFs"]) also acquire/release without prematurely
+  /// releasing an outer lock.
+  int _fsBusyCount = 0;
   bool _fsBusy = false;
 
-  /// Lock the FS bus — pings will be suppressed until [setFsBusy(false)].
-  /// Called by [_ProviderAdapter.sendFs] around every FS operation.
-  void setFsBusy(bool busy) { _fsBusy = busy; }
+  /// Lock the FS bus — pings will be suppressed until all callers have
+  /// called [setFsBusy(false)] an equal number of times.
+  /// Called by [_ProviderAdapter.sendFs] around every FS operation, and by
+  /// the HTTP handlers around entire multi-chunk read/write operations.
+  void setFsBusy(bool busy) {
+    if (busy) {
+      _fsBusyCount++;
+    } else {
+      if (_fsBusyCount > 0) _fsBusyCount--;
+    }
+    _fsBusy = _fsBusyCount > 0;
+  }
 
   /// Whether an FS frame exchange is in progress. Used by
   /// [FilesystemExplorerScreen] to defer its initial refresh when the

@@ -51,10 +51,16 @@ private:
     uint16_t              _connHandle;        // Cached connection handle
     uint16_t              _connIntervalMs;    // Connection interval in ms (0 = unknown)
 
+    // Dedicated send buffer: the caller's buffer (rk_fsTxBuf) can be
+    // overwritten by handleRead during delay() yields, so we copy the frame
+    // here at the start of sendPacket and send from this safe copy.
+    // Size = FS header(4) + FS max payload(16384) = 16388.
+    static const uint16_t kSendBufSize = 16388;
+    uint8_t               _sendBuf[kSendBufSize];
+
     // Pending-send buffer: when sendPacket is re-entered (e.g. an incoming
     // BLE write is processed during a delay() in the send loop), the
     // outgoing frame is queued here and sent after the current send completes.
-    // Size = FS header(4) + FS max payload(16384) = 16388.
     static const uint16_t kPendingBufSize = 16388;
     uint8_t               _pendingBuf[kPendingBufSize];
     uint16_t              _pendingLen;

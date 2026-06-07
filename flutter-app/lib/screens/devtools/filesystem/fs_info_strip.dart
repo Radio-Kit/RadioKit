@@ -6,15 +6,24 @@ import 'fs_helpers.dart';
 ///
 /// Displays a [Card.filled] containing a [LinearProgressIndicator] plus
 /// "X used of Y" labels and the filesystem type chip.
+/// When [speedBytesPerSec] is non-null, a compact speed indicator is shown
+/// on the right side of the header row (replacing the usage text).
 class FsInfoStrip extends StatelessWidget {
   final FsInfo? info;
   final bool loading;
+  final double? speedBytesPerSec;
 
-  const FsInfoStrip({super.key, required this.info, required this.loading});
+  const FsInfoStrip({
+    super.key,
+    required this.info,
+    required this.loading,
+    this.speedBytesPerSec,
+  });
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final isTransferring = speedBytesPerSec != null;
 
     return Card.filled(
       margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
@@ -57,6 +66,7 @@ class FsInfoStrip extends StatelessWidget {
                       color: scheme.primary,
                     ),
                   ),
+                if (isTransferring) ...[const SizedBox(width: 8), _SpeedChip(bytesPerSec: speedBytesPerSec!)],
               ],
             ),
             const SizedBox(height: 10),
@@ -91,6 +101,63 @@ class FsInfoStrip extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Compact speed indicator pill shown in the header row during transfers.
+class _SpeedChip extends StatelessWidget {
+  final double bytesPerSec;
+  const _SpeedChip({required this.bytesPerSec});
+
+  String _format(double bps) {
+    if (bps >= 1024 * 1024) {
+      return '${(bps / (1024 * 1024)).toStringAsFixed(1)} MB/s';
+    } else if (bps >= 1024) {
+      return '${(bps / 1024).toStringAsFixed(0)} KB/s';
+    } else {
+      return '${bps.toStringAsFixed(0)} B/s';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final speedText = _format(bytesPerSec);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: scheme.primary.withValues(alpha: 0.3),
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 10,
+            height: 10,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.5,
+              color: scheme.primary,
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            speedText,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: scheme.primary,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
       ),
     );
   }

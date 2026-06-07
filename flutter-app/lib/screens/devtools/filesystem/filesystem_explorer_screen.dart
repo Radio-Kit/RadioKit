@@ -352,49 +352,6 @@ class _FilesystemExplorerScreenState
     );
   }
 
-  // ─── Speed chip in AppBar ──────────────────────────────────────────────
-
-  Widget _buildSpeedChip() {
-    final elapsed = DateTime.now().difference(_transferStartTime!).inMilliseconds / 1000.0;
-    final speed = (elapsed > 0 && _currentTransferBytes > 0) ? _currentTransferBytes / elapsed : 0.0;
-    final speedText = _formatSpeed(speed);
-    final scheme = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.only(right: 4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: scheme.primaryContainer.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: scheme.primary.withValues(alpha: 0.3), width: 0.5),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 10, height: 10,
-              child: CircularProgressIndicator(
-                strokeWidth: 1.5,
-                color: scheme.primary,
-              ),
-            ),
-            const SizedBox(width: 5),
-            Text(
-              speedText,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: scheme.primary,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   // ─── FAB ───────────────────────────────────────────────────────────────
 
   Widget _buildFab() {
@@ -589,17 +546,6 @@ class _FilesystemExplorerScreenState
   }
 
   // ─── File operations ──────────────────────────────────────────────────
-
-  /// Format a transfer speed as a human-readable string.
-  String _formatSpeed(double bytesPerSec) {
-    if (bytesPerSec >= 1024 * 1024) {
-      return '${(bytesPerSec / (1024 * 1024)).toStringAsFixed(1)} MB/s';
-    } else if (bytesPerSec >= 1024) {
-      return '${(bytesPerSec / 1024).toStringAsFixed(0)} KB/s';
-    } else {
-      return '${bytesPerSec.toStringAsFixed(0)} B/s';
-    }
-  }
 
   Future<void> _uploadFile() async {
     if (_fs == null) return;

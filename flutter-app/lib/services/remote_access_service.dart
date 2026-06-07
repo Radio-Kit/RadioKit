@@ -807,6 +807,10 @@ class RemoteAccessService {
     if (path == null || path.isEmpty) {
       return _error('invalid_params', 'path query parameter is required');
     }
+    // Hold the FS busy lock for the entire multi-chunk read to prevent
+    // the Follow Mode FS screen from interleaving its own FS operations
+    // (listDir/getInfo) between chunks and corrupting the response stream.
+    _deviceProvider.setFsBusy(true);
     try {
       final data = await _fsService().readFile(path);
       if (data == null) {
@@ -820,6 +824,8 @@ class RemoteAccessService {
       });
     } catch (e) {
       return _error('fs_error', e.toString(), status: 500);
+    } finally {
+      _deviceProvider.setFsBusy(false);
     }
   }
 
@@ -834,6 +840,9 @@ class RemoteAccessService {
     if (path == null || dataB64 == null) {
       return _error('invalid_params', 'path and data are required');
     }
+    // Hold the FS busy lock for the entire multi-chunk write to prevent
+    // the Follow Mode FS screen from interleaving its own FS operations.
+    _deviceProvider.setFsBusy(true);
     try {
       final data = base64Decode(dataB64);
       final result = await _fsService().writeFile(path, data);
@@ -849,6 +858,8 @@ class RemoteAccessService {
       });
     } catch (e) {
       return _error('fs_error', e.toString(), status: 500);
+    } finally {
+      _deviceProvider.setFsBusy(false);
     }
   }
 

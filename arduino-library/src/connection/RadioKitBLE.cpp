@@ -149,7 +149,16 @@ void RadioKitBLE::sendPacket(const uint8_t* buf, uint16_t len) {
         return;
     }
     _sending = true;
-    
+
+    // Copy the frame to the dedicated send buffer so handler callbacks
+    // (e.g. handleRead writing to rk_fsTxBuf) cannot corrupt in-flight
+    // data during delay() yields between notifications.
+    const uint8_t* safeBuf = buf;
+    if (len <= sizeof(_sendBuf)) {
+        memcpy(_sendBuf, buf, len);
+        safeBuf = _sendBuf;
+    }
+
     uint16_t mtu = _negotiatedMtu;
     if (mtu < 23) mtu = 23;
     mtu -= 3;
@@ -178,7 +187,7 @@ void RadioKitBLE::sendPacket(const uint8_t* buf, uint16_t len) {
                 return;
             }
             
-            success = _characteristic->notify(buf + offset, chunk);
+            success = _characteristic->notify(safeBuf + offset, chunk);
             if (!success) {
                 delay(backoff);
                 if (backoff < 250) backoff += 10;
@@ -195,7 +204,13 @@ void RadioKitBLE::sendPacket(const uint8_t* buf, uint16_t len) {
         offset += chunk;
         
         if (offset < len) {
-            delay(_connIntervalMs * 5);
+            delay(1);  // Minimal yield — lets the NimBLE host task process TX
+                      // completion events so the controller queue drains.
+                      // Longer delays (connInterval × 3 = 36ms) blocked the
+                      // host task, preventing TX completions and causing the
+                      // controller queue to stall (>8 notifications per chunk
+                      // hung the ESP32). The retry backoff below handles
+                      // actual backpressure.
         }
     }
     

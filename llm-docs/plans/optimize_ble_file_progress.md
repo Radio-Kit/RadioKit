@@ -60,12 +60,41 @@
 - **Read 404 with follow mode**: Fixed by `isFsBusy` defer in `FilesystemExplorerScreen._initialRefresh()` — reads pass integrity with follow mode ON ✅
 - **Route tracking**: `/api/session/route` correctly shows `/system` → `/dev-tools/esp32-fs` ✅
 
-### ⏳ Pending: Improve read throughput
-- Increase `_defaultChunkSize` from 4KB to 8KB in `device_fs_service.dart` to halve the number of read chunks
-- Or implement read-ahead buffering on the Arduino side
+### ✅ Complete: ESP32 hang fix (Root cause #3 — NimBLE TX queue stall)
+- **Bug**: `delay(_connIntervalMs * 3)` blocked the NimBLE host task from processing TX completion events from the BLE controller. With >8 notifications per chunk, the controller's 10-slot TX queue stalled and never drained.
+- **Fix**: Changed pacing to `delay(1)` — a minimal yield that allows the host task to process "Number of Completed Packets" events between notifications. The retry backoff (`delay(10..250ms)`) handles actual TX queue backpressure.
+- **Result**: ESP32 no longer hangs on large read responses.
+
+### ✅ Complete: Data corruption fix (Root cause #4 — Shared tx buffer overwrite)
+- **Bug**: `sendPacket` sent from `rk_fsTxBuf()` (shared tx buffer). During `delay(1)` yields, incoming BLE writes triggered `handleRead`, which overwrote `rk_fsTxBuf()` with new frame data, corrupting the in-flight send.
+- **Fix**: Added dedicated `_sendBuf[16388]` to `RadioKitBLE`. `sendPacket` copies the frame to `_sendBuf` at the start of each send, then sends from the safe copy. `_pendingBuf` remains for re-entrant queuing.
+- **Fix**: Changed `memcpy` → `memmove` in `rk_fsBuildFrame` for safety (source/destination may overlap).
+- **Verified**: 10KB and 50KB reads pass integrity checks.
+
+### ✅ Complete: Follow Mode interference fix (Reference-counted fsBusy)
+- **Bug**: `_ProviderAdapter.sendFs()` released `_fsBusy` between chunks, allowing the Follow Mode FS screen to interleave its own listDir/getInfo operations during multi-chunk HTTP API reads.
+- **Fix**: Changed `_fsBusy` from boolean to reference-counted integer. HTTP handlers (`_handleFsRead`/`_handleFsWrite`) hold an outer lock for the entire multi-chunk operation. `_ProviderAdapter.sendFs` holds per-chunk locks that don't prematurely release the outer lock.
+- **Verified**: 10KB and 50KB read/write pass with Follow Mode ON ✅
+
+### ✅ Complete: Timeout reductions
+- Reduced `_shortTimeout` from 5s to 3s, `_readChunkTimeout` from 30s to 15s, `_writeTimeout` from 60s to 30s, format timeout from 30s to 10s.
+
+### ✅ Complete: Improved read speed (via pacing fix)
+- **Before**: Read was ~2 KB/s (with old pacing `delay(connInterval * 5)` = 60ms between notifications).
+- **After**: Read is ~28-39 KB/s (with `delay(1)` yield between notifications). The retry backoff handles actual TX queue pressure efficiently.
+- **Improvement**: ~14-20× faster reads.
+
+#### Updated test results (with all fixes)
+
+| File | Write time | Write speed | Read time | Read speed | Follow mode | Integrity |
+|------|-----------|-------------|-----------|------------|-------------|-----------|
+| 10KB | 0.62s | 16.1 KB/s | 0.36s | 27.7 KB/s | ON | PASS ✅ |
+| 50KB | 3.27s | 15.3 KB/s | 1.28s | 39.1 KB/s | ON | PASS ✅ |
+
+**Notable**: Read speeds now EXCEED write speeds (39 KB/s read vs 15 KB/s write for 50KB). This is because the `delay(1)` pacing lets the NimBLE stack transmit at its natural rate, while the retry backoff only kicks in when the TX queue is actually full.
 
 ### ⏳ Pending: Full integrity test suite
-- 1MB read integrity test (blocked by fragment reuse issue)
+- 1MB read test (requires ESP32 reset and follow mode fixes verified on larger files)
 - Pattern/alt/random data patterns across all sizes
 
 ### ⏳ Pending: Create PR with all changes - Note: Dont create PR, only create a commit.
@@ -74,19 +103,14 @@
 
 | File | Change | Status |
 |------|--------|--------|
-| `arduino-library/src/connection/RadioKitBLE.cpp` | Chunk size: MTU-3, retry: 200 attempts, 30s timeout, dynamic pacing | ✅ |
-| `arduino-library/src/connection/RadioKitBLE.h` | `volatile _connected` flag | ✅ |
-| `flutter-app/lib/services/device_fs_service.dart` | `_fsBusy` + ping guard | ✅ |
-| `flutter-app/lib/providers/device_provider.dart` | `_fsBusy` + `_lastRxAt` tracking | ✅ |
+| `arduino-library/src/connection/RadioKitBLE.cpp` | Chunk size: MTU-3, retry: 200 attempts, 30s timeout, `delay(1)` pacing | ✅ |
+| `arduino-library/src/connection/RadioKitBLE.h` | `volatile _connected`, `_sendBuf[16388]` + `_pendingBuf[16388]` | ✅ |
+| `arduino-library/src/connection/RadioKitFS.cpp` | `memcpy` → `memmove` in `rk_fsBuildFrame` | ✅ |
+| `flutter-app/lib/services/device_fs_service.dart` | 4KB chunks, shorter timeouts, `_fsBusy` ping guard | ✅ |
+| `flutter-app/lib/providers/device_provider.dart` | Refcounted `_fsBusy`, `_lastRxAt` tracking | ✅ |
+| `flutter-app/lib/services/remote_access_service.dart` | `_handleFsRead`/`_handleFsWrite` lock wrapping | ✅ |
 | `flutter-app/lib/app.dart` | `_FollowModeWrapper` with GoRouter param, route sync to provider | ✅ |
 | `flutter-app/lib/providers/remote_access_provider.dart` | `_currentRoute` field with getter and `updateCurrentRoute()` | ✅ |
-| `flutter-app/lib/services/remote_access_service.dart` | `_currentRouteGetter` + `GET /api/session/route` handler | ✅ |
-| `flutter-app/lib/screens/control_screen.dart` | Home button to left leading position | ✅ |
-| `flutter-app/lib/screens/devtools/filesystem/filesystem_explorer_screen.dart` | Speed chip in AppBar, `_currentTransferBytes` tracking | ✅ |
+| `flutter-app/lib/screens/devtools/filesystem/filesystem_explorer_screen.dart` | Speed chip in AppBar, `_currentTransferBytes` tracking, `isFsBusy` defer | ✅ |
 | `flutter-app/lib/screens/home/home_screen.dart` | Removed follow overlay/listener/dead code | ✅ |
-| `flutter-app/lib/screens/devtools/filesystem/filesystem_explorer_screen.dart` | `isFsBusy` defer in `_initialRefresh()` | ✅ |
-| `flutter-app/lib/providers/device_provider.dart` | `bool get isFsBusy` getter | ✅ |
-| `flutter-app/lib/services/remote_access_service.dart` | `@visibleForTesting testOnlyFollowRoute`, fixed `/api/widgets` path match | ✅ |
 | `flutter-app/test/session_route_test.dart` | 11 tests for `/api/session/route` + `_followRoute` | ✅ |
-| `arduino-library/src/connection/RadioKitBLE.h` | `_pendingBuf[16388]` + `_pendingLen` for re-entrant send queue | ✅ |
-| `arduino-library/src/connection/RadioKitBLE.cpp` | Queue pending sends instead of dropping; drain after send | ✅ |

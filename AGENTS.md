@@ -435,12 +435,109 @@ The `.github/workflows/release.yml` has a `flatpak` job that runs after the Andr
 - Place the **generated** `com.rambros3d.radiokit.yml`, `.desktop`, `metainfo.xml`, and `flathub.json` at `flatpak/applications/com.rambros3d.radiokit/`
 - Open a PR — Flathub bot builds and verifies
 
-## 12. No need for Backward Compatibility
+## 12. Follow Mode (Remote Access Navigation)
+
+### 12.1 App-level wrapper (`_FollowModeWrapper`)
+
+- **Location**: `flutter-app/lib/app.dart` — wraps all routes above the Navigator.
+- **Constructor param**: Takes `GoRouter router` as a required parameter (NOT `GoRouter.of(context)` — that fails from `MaterialApp.router` builder context because the GoRouter InheritedWidget is inside the Navigator).
+- **Route change tracking**: Uses `router.routerDelegate.addListener(_onRouteChanged)` — `RouterDelegate` extends `Listenable` so `addListener`/`removeListener` work directly.
+- **Initialization**: Register the listener in a `addPostFrameCallback` so the router delegate is fully initialized before we try to read `currentConfiguration`.
+- **Location sync**: `_syncLocation()` reads `widget.router.routerDelegate.currentConfiguration.uri.toString()` with null-safe checks (`if (config == null) return;`).
+- **Skip re-navigation**: The `_onFollow` handler checks `if (_currentLocation == route) return;` before calling `widget.router.go(route)`. This prevents recreating screens (and triggering redundant FS operations) when the target route is already active.
+- **AbsorbPointer**: `AbsorbPointer` wraps all routes EXCEPT `/control` (the control screen must remain interactive during follow mode).
+
+### 12.2 Route mapping (`_followRoute`)
+
+- **Location**: `flutter-app/lib/services/remote_access_service.dart` — `static String? _followRoute(String path)`.
+- **Mapping**: API request path prefixes → follow-mode route targets (uses `startsWith` internally):
+  ```
+  path.startsWith('/api/pair/')        → /pair
+  path.startsWith('/api/connection/connect') → /control
+  path.startsWith('/api/connection/disconnect') → /models
+  path == '/api/widgets' || startsWith('/api/widgets/') → /control
+  path.startsWith('/api/fs/')          → /dev-tools/esp32-fs
+  path.startsWith('/api/designs')      → /designs
+  path.startsWith('/api/transport/')   → /debug
+  path.startsWith('/api/settings')     → /system
+  path.startsWith('/api/console')     → /system
+  path.startsWith('/api/log')         → /system
+  path.startsWith('/api/models')      → /models
+  ```
+- **Testing**: Use `RemoteAccessService.testOnlyFollowRoute(path)` (annotated `@visibleForTesting`) for unit tests.
+- **Path matching nuance**: For routes registered as both bare (`/api/widgets`) and parameterized (`/api/widgets/<id>`), the `startsWith` check MUST handle both: `path == '/api/widgets' || path.startsWith('/api/widgets/')`.
+
+### 12.3 `/api/session/route` endpoint
+
+- **Purpose**: Returns the current GoRouter location so automated tests can verify follow mode navigation.
+- **Response**: `{"route": "/dev-tools/esp32-fs"}` — returns `''` if no route has been synced yet.
+- **Implementation**: `RemoteAccessProvider._currentRoute` field updated by `_FollowModeWrapper._syncLocation()`. Passed as `String Function()` getter to `RemoteAccessService` constructor via `currentRouteGetter` parameter.
+
+### 12.4 FS screen interference defer
+
+- **Problem**: When follow mode navigates to `/dev-tools/esp32-fs` during an ongoing FS operation (e.g., an HTTP API write), the screen's `initState` → `_initialRefresh` → `_refresh()` starts its own `listDir()` and `getInfo()` calls that collide with the ongoing transfer.
+- **Fix**: `FilesystemExplorerScreen._initialRefresh()` checks `DeviceProvider.isFsBusy` and defers with a 600ms retry if the transport is busy. The `_initTriggered` flag is NOT set during retries, so the chain keeps trying until the FS is idle.
+- **Getter**: `DeviceProvider.isFsBusy` exposes the private `_fsBusy` flag (set by `_ProviderAdapter` around every `sendFs` call).
+
+## 13. BLE Filesystem Write Reliability
+
+### 13.1 Re-entrant send packet queue
+
+- **Problem**: `RadioKitBLE::sendPacket()` has a `_sending` re-entrancy guard to prevent interleaving data from different BLE streams. During file transfers, an incoming BLE write (from the phone) could arrive during a `delay()` call in `sendPacket()` (used for retry backoff and inter-chunk pacing). The incoming write triggers `_onWrite()` → `handleWrite()` → `sendPacket()`, which sees `_sending = true` and **drops** the outgoing ACK. The phone times out waiting for the ACK, stalling transfers at ~156KB.
+- **Fix**: Instead of dropping the re-entrant call, queue the outgoing frame in `_pendingBuf[16388]` (FS header + max payload) and set `_pendingLen`. After the current send completes (`_sending = false`), drain the pending buffer via recursion: `sendPacket(_pendingBuf, qLen)`.
+- **Buffer size**: `kPendingBufSize = 16388` — large enough for any FS frame (4-byte header + 16384-byte max payload).
+- **Memory impact**: ~16KB static allocation on the singleton `RadioKitBLE` instance (~3% of ESP32-S3 512KB RAM).
+- **Disconnect safety**: `_sending` is `volatile bool` — correct for cross-task access (NimBLE host task vs main loop).
+
+### 13.2 Notify chunk size and pacing
+
+- **Chunk size**: `_negotiatedMtu - 3` (MTU minus 3 bytes for ATT notification overhead).
+- **Retry**: 10 retries with linear backoff from 10ms to 250ms.
+- **Pacing**: `delay(_connIntervalMs * 5)` between multi-notification chunks.
+- **Timeout**: 30s hard timeout per `sendPacket()` call.
+
+## 14. Filesystem Explorer Speed Indicator
+
+- **Location**: The transfer speed indicator lives in `FsInfoStrip` (the Capacity Usage card), not the AppBar.
+- **Placement**: Right side of the card header row, after the "X used of Y" usage text (both visible simultaneously). Separated by an 8px gap.
+- **Parameters**: `FsInfoStrip` accepts `double? speedBytesPerSec`. When non-null, the `_SpeedChip` widget (compact pill with spinning `CircularProgressIndicator` + formatted speed text) is rendered in the header row.
+- **Speed formatting**: `_SpeedChip._format()` handles B/s, KB/s, MB/s formats. Tabular figures (`FontFeature.tabularFigures()`) for stable width during updates.
+- **Updates**: The parent screen computes `_currentTransferBytes / elapsed` on each `setState()` from progress callbacks.
+
+## 15. Testing Patterns
+
+### 15.1 Testing private static methods
+
+- Use `@visibleForTesting` annotation from `package:flutter/foundation.dart`:
+  ```dart
+  @visibleForTesting
+  static String? testOnlyFollowRoute(String path) => _followRoute(path);
+  ```
+- Tests import the production class and call the `testOnly*` method directly.
+
+### 15.2 Unit tests for shelf HTTP handlers
+
+- Use `shelf` and `shelf_router` directly in tests to create standalone `Router` instances with the same handler logic. This validates the response format and status codes.
+- For testing the actual production `_followRoute` mapping logic, use `RemoteAccessService.testOnlyFollowRoute()` (see 15.1).
+- Example:
+  ```dart
+  final router = Router();
+  router.get('/api/session/route', (request) async {
+    return Response.ok(
+      jsonEncode({'route': currentRoute}),
+      headers: {'content-type': 'application/json'},
+    );
+  });
+  final request = Request('GET', Uri.parse('http://test/api/session/route'));
+  final response = await router(request);
+  ```
+
+## 16. No need for Backward Compatibility
 
 - **Rule**: Only work on the current request, it's okay if it breaks backward compatibility. We can break the API whenever needed.
 - **Rule**: We don't need to support old versions of the library. We can drop support for old versions whenever needed.
 
-## 13. PlatformIO (Arduino Build)
+## 17. PlatformIO (Arduino Build)
 
 PlatformIO is installed globally via `uv tool install platformio` (v6.1.19). It is available as the `pio` command from anywhere.
 

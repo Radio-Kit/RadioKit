@@ -41,10 +41,13 @@ abstract class FsTransport {
 class DeviceFsService {
   final FsTransport _transport;
 
-  /// Default chunk size for reads/writes. 4 KB avoids exceeding the BLE
-  /// controller's notify queue depth (~10 notifications at DLE 251 ×
-  /// 3 fragments = 30 of 32 buffers). Each response fits in 9 notify
-  /// chunks (vs 17 for 8 KB), keeping the queue well below capacity.
+  /// Default chunk size for reads/writes. 4 KB keeps BLE notifications per
+  /// chunk at ~8 (MTU 512 - 3 = 509 bytes/chunk). Larger chunks (>4 KB)
+  /// produce >8 notifications which can stall the NimBLE controller's TX
+  /// queue because delay() in sendPacket blocks the host task from processing
+  /// completion events (esp. notable with the ESP32-S3's 10-slot TX queue).
+  /// The 200-retry notify backoff handles transient queue overflow, but
+  /// keeping per-chunk notifications low avoids sustained stalls.
   static const int _defaultChunkSize = 4096;
 
   /// Max safe payload for a single WRITE frame. Below the 16 KB frame
@@ -52,14 +55,16 @@ class DeviceFsService {
   /// + per-frame overhead. Larger files are chunked transparently.
   static const int _maxWriteChunk = 12288;
 
-  /// Timeout for short operations (LIST, INFO, MKDIR, etc.)
-  static const Duration _shortTimeout = Duration(seconds: 5);
+  /// Timeout for short operations (LIST, INFO, MKDIR, PING, etc.)
+  static const Duration _shortTimeout = Duration(seconds: 3);
 
-  /// Timeout for a single read chunk — 30 s to accommodate slow connections.
-  static const Duration _readChunkTimeout = Duration(seconds: 30);
+  /// Timeout for a single read chunk — 15 s (10 KB/s at 4 KB chunks = ~2
+  /// chunks = ~1s, so 15s is generous even for slow connections).
+  static const Duration _readChunkTimeout = Duration(seconds: 15);
 
-  /// Timeout for write — 60 s for large file uploads.
-  static const Duration _writeTimeout = Duration(seconds: 60);
+  /// Timeout for write — 30 s (at 18 KB/s this covers ~540 KB per chunk;
+  /// larger files are multi-chunked so the per-chunk timeout is sufficient).
+  static const Duration _writeTimeout = Duration(seconds: 30);
 
   DeviceFsService(this._transport);
 
@@ -162,7 +167,7 @@ class DeviceFsService {
   Future<FsOpResult> format() async {
     final resp = await _sendFs(
       FsProtocolService.buildFormat(),
-      timeout: const Duration(seconds: 30),
+      timeout: const Duration(seconds: 10),
     );
     if (resp == null) {
       return FsOpResult(

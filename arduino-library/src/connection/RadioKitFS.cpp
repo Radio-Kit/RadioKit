@@ -120,7 +120,7 @@ uint16_t rk_fsBuildFrame(uint8_t* outBuf,
     outBuf[2] = (uint8_t)(totalLen & 0xFF);
     outBuf[3] = (uint8_t)((totalLen >> 8) & 0xFF);
     if (payload && payloadLen > 0) {
-        memcpy(&outBuf[RK_FS_HEADER_SIZE], payload, payloadLen);
+        memmove(&outBuf[RK_FS_HEADER_SIZE], payload, payloadLen);
     }
     return totalLen;
 }
