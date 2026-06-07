@@ -57,6 +57,8 @@ class _FilesystemExplorerScreenState
   }
 
   /// Kick off a listing once the FS service is ready, but only once.
+  /// Uses cached data (if available) for instant rendering, then does
+  /// a background refresh to get the latest state.
   void _initialRefresh() {
     if (!mounted || _initTriggered) return;
     final dp = context.read<DeviceProvider>();
@@ -75,6 +77,17 @@ class _FilesystemExplorerScreenState
     _initTriggered = true;
     if (_fs == null) {
       _fs = createDeviceFsService(dp);
+    }
+    // Use cached root listing for instant display, then refresh
+    // in background (stale-while-revalidate pattern).
+    if (dp.fsCacheReady) {
+      final cached = dp.fsTreeCache!['/']!;
+      setState(() {
+        _entries = cached;
+        _loading = false;
+        _statusMessage = '${cached.length} entries (cached)';
+      });
+      // _refresh() calls _fetchInfo internally, no need for a separate call
     }
     _refresh();
   }

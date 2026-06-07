@@ -17,6 +17,7 @@ import '../providers/console_provider.dart';
 import '../providers/skin_provider.dart';
 import '../providers/debug_provider.dart';
 import '../models/console_entry.dart';
+import '../models/fs_entry.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 
 enum DeviceConnectionState {
@@ -110,6 +111,57 @@ class DeviceProvider extends ChangeNotifier {
   /// previous response arrives) don't overwrite each other's completers.
   /// Responses are matched to requests in FIFO order.
   final Map<int, List<Completer<ParsedFsPacket>>> _pendingFs = {};
+
+  /// Cached FS tree: maps directory path to its listing (FsEntry list).
+  /// Populated by [prefetchFsTree] after FS detection, so the filesystem
+  /// explorer screen can render immediately without a network round-trip.
+  /// Cleared on disconnect.
+  Map<String, List<FsEntry>>? _fsTreeCache;
+
+  /// Whether the root listing ("/") has been cached. Use this to show
+  /// cached data instantly while a background refresh runs.
+  bool get fsCacheReady =>
+      _fsTreeCache != null && _fsTreeCache!.containsKey('/');
+
+  /// The cached FS tree, or null if not yet populated.
+  Map<String, List<FsEntry>>? get fsTreeCache => _fsTreeCache;
+
+  /// Pre-fetch the root directory listing and cache it for instant
+  /// filesystem explorer loading. Runs in the background (fire-and-forget).
+  /// Starts after a short delay so the control screen has priority.
+  /// Uses [sendFs] directly (via [FsProtocolService]) to avoid circular
+  /// dependency with [DeviceFsService].
+  ///
+  /// NOTE: uses [_transport.isConnected] instead of [isConnected] because
+  /// [isConnected] requires the full config load to complete, while the
+  /// prefetch runs immediately after FS detection (config may still be
+  /// loading).
+  Future<void> prefetchFsTree() async {
+    if (_connectedDevice == null || !_connectedDevice!.hasFs) return;
+    if (!_transport.isConnected) return;
+    // Brief delay: if the user tapped OPEN_CONTROLLER, let that render
+    // before we consume BLE bandwidth with FS operations.
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (_connectedDevice == null) return;
+    if (!_transport.isConnected) return;
+    try {
+      setFsBusy(true);
+      final resp = await sendFs(FsProtocolService.buildList('/'),
+          timeout: const Duration(seconds: 3));
+      if (resp == null) return;
+      final entries = FsProtocolService.parseListData(resp.payload);
+      if (entries == null) return;
+      _fsTreeCache = {'/': entries};
+      _log('FS tree cached: ${entries.length} entries at /',
+          level: ConsoleLogLevel.success);
+      notifyListeners();
+    } catch (e) {
+      _log('FS tree prefetch failed: $e', level: ConsoleLogLevel.info);
+      // Non-critical; explorer will fetch on demand
+    } finally {
+      setFsBusy(false);
+    }
+  }
 
   /// Cached designer-format JSON for fast UI rendering.
   /// Populated from device CONF_DATA or demo assets.
@@ -257,6 +309,8 @@ class DeviceProvider extends ChangeNotifier {
         _log('FS_PING OK — filesystem detected (${_connectedDevice!.name})',
             level: ConsoleLogLevel.success);
         notifyListeners();
+        // Start background FS tree prefetch for instant explorer loading
+        unawaited(prefetchFsTree());
         return;
       }
     }
@@ -1224,6 +1278,7 @@ class DeviceProvider extends ChangeNotifier {
     _widgetState      = null;
     _description      = null;
     _deviceConfigJson = null;
+    _fsTreeCache      = null;
     _errorMessage     = null;
     notifyListeners();
   }
