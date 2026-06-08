@@ -14,6 +14,7 @@ import '../../providers/settings_provider.dart';
 import '../../providers/ble_provider.dart';
 import '../../providers/serial_provider.dart';
 import '../../providers/console_provider.dart';
+import '../../services/secure_storage_service.dart';
 import '../../models/console_entry.dart';
 import '../../models/device_info.dart';
 import '../../models/fs_entry.dart';
@@ -1606,6 +1607,72 @@ class _FirmwareTabContentState extends State<_FirmwareTabContent> {
   }
 }
 
+// ── Auth Countdown Widget ──────────────────────────────────────────────────
+
+class _AuthCountdown extends StatefulWidget {
+  @override
+  State<_AuthCountdown> createState() => _AuthCountdownState();
+}
+
+class _AuthCountdownState extends State<_AuthCountdown> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Rebuild every second to update the countdown display
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dp = context.watch<DeviceProvider>();
+    final remaining = dp.remainingAuthTime;
+    if (remaining.isNegative || remaining > const Duration(seconds: 55)) {
+      // Don't show countdown in the first 5 seconds
+      return const SizedBox.shrink();
+    }
+    final secs = remaining.inSeconds.clamp(0, 60);
+    final urgent = secs <= 10;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: (urgent ? Colors.redAccent : Colors.orange)
+            .withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: (urgent ? Colors.redAccent : Colors.orange)
+              .withValues(alpha: 0.4),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.timer_outlined,
+              size: 12,
+              color: urgent ? Colors.redAccent : Colors.orange),
+          const SizedBox(width: 4),
+          Text('${secs}s',
+              style: TextStyle(
+                color: urgent ? Colors.redAccent : Colors.orange,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                fontFamily: 'monospace',
+              )),
+        ],
+      ),
+    );
+  }
+}
+
 // ── Password Gate Widget ──────────────────────────────────────────────────
 
 class _PasswordGate extends StatefulWidget {
@@ -1621,6 +1688,13 @@ class _PasswordGateState extends State<_PasswordGate> {
   bool _loading = false;
   String? _error;
   bool _obscure = true;
+  bool _remember = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedPassword();
+  }
 
   @override
   void dispose() {
@@ -1628,10 +1702,23 @@ class _PasswordGateState extends State<_PasswordGate> {
     super.dispose();
   }
 
+  Future<void> _loadSavedPassword() async {
+    final saved = await SecureStorageService.loadPassword(widget.device.id);
+    if (!mounted) return;
+    if (saved != null && saved.isNotEmpty) {
+      _pwdCtrl.text = saved;
+      // Auto-login with saved password
+      _authenticate();
+    }
+  }
+
   Future<void> _authenticate() async {
     final pwd = _pwdCtrl.text.trim();
     if (pwd.isEmpty) {
-      setState(() => _error = 'Please enter a password');
+      setState(() {
+        _error = 'Please enter a password';
+        _loading = false;
+      });
       return;
     }
     setState(() {
@@ -1643,7 +1730,12 @@ class _PasswordGateState extends State<_PasswordGate> {
     if (!mounted) return;
     setState(() => _loading = false);
     if (!ok) {
-      setState(() => _error = 'Incorrect password');
+      setState(() {
+        _error = 'Incorrect password';
+      });
+    } else if (_remember) {
+      // Save password to secure storage on successful auth
+      SecureStorageService.savePassword(widget.device.id, pwd);
     }
     // If ok, state change triggers rebuild and gate disappears
   }
@@ -1676,12 +1768,16 @@ class _PasswordGateState extends State<_PasswordGate> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('PASSWORD REQUIRED',
-                        style: GoogleFonts.inter(
-                            color: Colors.orange,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 10,
-                            letterSpacing: 1)),
+                    Row(children: [
+                      Text('PASSWORD REQUIRED',
+                          style: GoogleFonts.inter(
+                              color: Colors.orange,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 10,
+                              letterSpacing: 1)),
+                      const Spacer(),
+                      _AuthCountdown(),
+                    ]),
                     const SizedBox(height: 4),
                     Text(device.displayName.toUpperCase(),
                         style: GoogleFonts.exo2(
@@ -1758,6 +1854,30 @@ class _PasswordGateState extends State<_PasswordGate> {
                         fontWeight: FontWeight.w500)),
               ]),
             ],
+            const SizedBox(height: 12),
+            // ── Remember password toggle ─────────────────────
+            Row(children: [
+              SizedBox(
+                height: 32,
+                width: 32,
+                child: Checkbox(
+                  value: _remember,
+                  onChanged: (v) => setState(() => _remember = v ?? true),
+                  activeColor: AppColors.brandOrange,
+                  checkColor: Colors.black,
+                  side: const BorderSide(color: Colors.white24),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => setState(() => _remember = !_remember),
+                child: const Text('Remember password',
+                    style: TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500)),
+              ),
+            ]),
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,

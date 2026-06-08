@@ -54,6 +54,7 @@ dependencies:
   # HTTP API server for remote access / test automation
   shelf: ^1.4.2
   shelf_router: ^1.1.4
+  flutter_secure_storage: ^10.3.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

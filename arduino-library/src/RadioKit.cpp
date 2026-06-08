@@ -1063,8 +1063,15 @@ void RadioKitClass::_handleSetConf(const uint8_t* payload, uint16_t len) {
     uint16_t ackLen = rk_buildPacket(_txBuf, RK_CMD_ACK, (uint8_t*)&statusMask, 1);
     _sendPacket(ackLen);
 
-    // Re-broadcast CONF_DATA so the app can refresh
+    // Re-broadcast CONF_DATA so the app can refresh config name/desc
     _handleGetConf();
+
+    // If the password was changed, re-broadcast features so the app updates
+    // its hasPassword bitmask. This is critical when the password is cleared
+    // (set to empty) — the app needs to know it can skip the auth gate.
+    if (fieldMask & RK_SET_CONF_PWD) {
+        _handleGetFeatures();
+    }
 
     Serial.printf("NVS: CMD_SET_CONF applied mask=0x%04X\n", fieldMask);
 }

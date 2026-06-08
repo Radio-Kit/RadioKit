@@ -77,6 +77,17 @@ class DeviceProvider extends ChangeNotifier {
   Completer<void>? _chipInfoCompleter;
   Completer<int>? _otaCompleter;
   Completer<int>? _authCompleter;  // For CMD_PWD_AUTH response
+  Timer? _authTimeoutTimer;
+  static const Duration _authTimeout = Duration(seconds: 60);
+  DateTime? _connectedAt;
+  DateTime? _authenticatedAt;
+  DateTime? get authTimeoutAt =>
+      _connectedAt != null ? _connectedAt!.add(_authTimeout) : null;
+  Duration get remainingAuthTime {
+    if (_authenticated || _connectedAt == null) return Duration.zero;
+    final remaining = _authTimeout - DateTime.now().difference(_connectedAt!);
+    return remaining.isNegative ? Duration.zero : remaining;
+  }
   DateTime? _pingSentAt;
 
   final Map<int, _PendingUpdate> _pendingUpdates = {};
@@ -225,6 +236,26 @@ class DeviceProvider extends ChangeNotifier {
   /// Current authentication state.
   bool get isAuthenticated => _authenticated;
 
+  /// Start the 60s auth timeout — auto-disconnect if not authenticated.
+  void _startAuthTimeout() {
+    _authTimeoutTimer?.cancel();
+    _connectedAt = DateTime.now();
+    _authenticatedAt = null;
+    _authTimeoutTimer = Timer(_authTimeout, () {
+      if (!_authenticated && _transport.isConnected) {
+        _log('Auth timeout — disconnecting (not authenticated within 60s)',
+            level: ConsoleLogLevel.warning);
+        disconnect();
+      }
+    });
+  }
+
+  /// Cancel the auth timeout (called on successful auth or disconnect).
+  void _cancelAuthTimeout() {
+    _authTimeoutTimer?.cancel();
+    _authTimeoutTimer = null;
+  }
+
   // ── NVS Config API (CMD_SET_CONF / CMD_PWD_AUTH) ─────────────────────────
 
   bool _authenticated = false;
@@ -291,9 +322,11 @@ class DeviceProvider extends ChangeNotifier {
       try {
         final status = await completer.future.timeout(const Duration(seconds: 5));
         if (status == kPwdAuthOk) {
-          _authenticated = true;
-          notifyListeners();
-          return true;
+        _authenticated = true;
+        _authenticatedAt = DateTime.now();
+        _cancelAuthTimeout();
+        notifyListeners();
+        return true;
         }
         return false;
       } on TimeoutException catch (_) {
@@ -364,6 +397,8 @@ class DeviceProvider extends ChangeNotifier {
     _connectionState = DeviceConnectionState.connecting;
     _connectedDevice = device;
     _errorMessage    = null;
+    _authenticated   = false;
+    _authCompleter   = null;
     notifyListeners();
 
     _log('CONNECTING TO: ${device.name} (${device.id})');
@@ -389,6 +424,7 @@ class DeviceProvider extends ChangeNotifier {
     await _requestConfig();
 
     // Request features after config loads — fire-and-forget
+    // Auth timeout is started in _handleFeaturesData() when hasPassword is detected.
     unawaited(_requestFeatures());
 
     // Request chip info — will be fetched on first display
@@ -955,8 +991,14 @@ class DeviceProvider extends ChangeNotifier {
     if (payload.isEmpty) return;
     _deviceFeatures = payload[0];
     _log('Features bitmask: 0x${_deviceFeatures.toRadixString(16)} '
-        '(OTA=${hasOta})',
+        '(OTA=${hasOta}, hasPassword=${hasPassword})',
         level: ConsoleLogLevel.success);
+    
+    // Start auth timeout if device has a password and we're not yet authenticated
+    if (hasPassword && !_authenticated && _connectionState == DeviceConnectionState.connected) {
+      _startAuthTimeout();
+    }
+    
     notifyListeners();
     final completer = _featuresCompleter;
     if (completer != null && !completer.isCompleted) {
@@ -1670,7 +1712,12 @@ class DeviceProvider extends ChangeNotifier {
     _cancelAllPendingUpdates();
     _cancelAllPendingFs();
     _stopPolling();
+    _cancelAuthTimeout();
     _connectionState = DeviceConnectionState.disconnected;
+    _authenticated   = false;
+    _authCompleter   = null;
+    _connectedAt     = null;
+    _authenticatedAt = null;
     _errorMessage    = reason;
     notifyListeners();
   }
@@ -1814,8 +1861,13 @@ class DeviceProvider extends ChangeNotifier {
     _chipInfo         = null;
     _authCompleter    = null;
     _authenticated    = false;
+    _cancelAuthTimeout();
+    _connectedAt      = null;
+    _authenticatedAt  = null;
     _otaCancelled     = false;
     _errorMessage     = null;
+    // Note: saved password is NOT cleared on disconnect so it persists
+    // for reconnection. Clear only on factory reset or explicit unpair.
     notifyListeners();
   }
 
