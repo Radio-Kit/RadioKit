@@ -458,3 +458,24 @@ int8_t RadioKitBLE::getRssi() {
     }
     return 0;
 }
+
+void RadioKitBLE::updateAdvertisingName(const char* name) {
+    if (!name) return;
+    
+    Serial.printf("BLE: Updating advertising name to '%s'\n", name);
+    
+    // Update at the NimBLE device level so that after disconnection the
+    // re-start of advertising (triggered by _needRestartAdv -> update())
+    // picks up the new name rather than the original name from ::init().
+    NimBLEDevice::setDeviceName(name);
+    
+    // Also update on the advertising object for the current advertising run.
+    NimBLEAdvertising* pAdv = NimBLEDevice::getAdvertising();
+    if (pAdv) {
+        pAdv->stop();
+        pAdv->setName(name);
+        pAdv->start();
+    }
+    
+    Serial.println("BLE: Advertising re-started with new name");
+}

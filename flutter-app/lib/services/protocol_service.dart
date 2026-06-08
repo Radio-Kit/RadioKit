@@ -70,6 +70,74 @@ class ProtocolService {
   static Uint8List buildGetFeatures() => buildPacket(kCmdGetFeatures);
   static Uint8List buildGetChipInfo() => buildPacket(kCmdGetChipInfo);
 
+  // ── NVS SET_CONF / PWD_AUTH ──────────────────────────────────────────────
+
+  /// Build a CMD_SET_CONF (0x19) packet to write config to NVS.
+  /// Pass null for fields you don't want to change.
+  static Uint8List buildSetConf({
+    String? name,
+    String? description,
+    String? password,
+  }) {
+    final payload = <int>[];
+    int fieldMask = 0;
+
+    if (name != null) {
+      fieldMask |= kSetConfName;
+    }
+    if (description != null) {
+      fieldMask |= kSetConfDesc;
+    }
+    if (password != null) {
+      fieldMask |= kSetConfPwd;
+    }
+
+    // Field mask (2 bytes LE)
+    payload.add(fieldMask & 0xFF);
+    payload.add((fieldMask >> 8) & 0xFF);
+
+    if (name != null) {
+      final encoded = utf8.encode(name);
+      final len = encoded.length.clamp(0, kMaxConfigName);
+      payload.add(len);
+      payload.addAll(encoded.take(len));
+    }
+
+    if (description != null) {
+      final encoded = utf8.encode(description);
+      final len = encoded.length.clamp(0, kMaxConfigDesc);
+      payload.add(len);
+      payload.addAll(encoded.take(len));
+    }
+
+    if (password != null) {
+      final encoded = utf8.encode(password);
+      final len = encoded.length.clamp(0, kMaxConfigPwd);
+      payload.add(len);
+      payload.addAll(encoded.take(len));
+    }
+
+    return buildPacket(kCmdSetConf, payload);
+  }
+
+  /// Build a CMD_PWD_AUTH (0x1A) packet.
+  static Uint8List buildPwdAuth(String password) {
+    final encoded = utf8.encode(password);
+    final len = encoded.length.clamp(0, kMaxConfigPwd);
+    final payload = [len, ...encoded.take(len)];
+    return buildPacket(kCmdPwdAuth, payload);
+  }
+
+  /// Parse a PWD_AUTH response from an ACK payload byte.
+  /// Returns null if the payload can't be parsed.
+  static int? parsePwdAuthResponse(List<int> payload) {
+    if (payload.isEmpty) return null;
+    return payload[0];
+  }
+
+  /// Build a CMD_FACTORY_RESET (0x1B) packet — erase NVS config and reboot.
+  static Uint8List buildFactoryReset() => buildPacket(kCmdFactoryReset);
+
   /// Build an ACK packet acknowledging a VAR_UPDATE with [seq].
   static Uint8List buildAck(int seq) => buildPacket(kCmdAck, [seq & 0xFF]);
 
@@ -189,13 +257,16 @@ class ProtocolService {
     return null;
   }
 
-  // ── CONF_DATA parsing (protocol v3) ─────────────────────────────────────
+  // ── CONF_DATA parsing (protocol v3/v4) ──────────────────────────────────
   //
-  // Global header (variable length):
+  // v4 global header (variable length, NO password field):
   //   [VERSION(1)] [ORIENTATION(1)] [NUM_WIDGETS(1)]
   //   [NAME_LEN(1)] [NAME(NAME_LEN)]
-  //   [PWD_LEN(1)]  [PWD(PWD_LEN)]
+  //   [DESC_LEN(1)] [DESC(DESC_LEN)]
   //   [THEME_LEN(1)] [THEME(THEME_LEN)]
+  //
+  // v3 global header (WITH password field between DESC and THEME):
+  //   ... [PWD_LEN(1)] [PWD(PWD_LEN)] then [THEME_LEN(1)] [THEME(THEME_LEN)]
   //
   // Per widget — 10 fixed bytes:
   //   [TYPE(1)] [ID(1)] [X(1)] [Y(1)] [SCALE(1)] [ASPECT(1)]
@@ -210,14 +281,16 @@ class ProtocolService {
       return null;
     }
 
-    if (payload[0] != kProtocolVersion) {
+    final version = payload[0];
+    if (version != kProtocolVersionV3 && version != kProtocolVersionV4) {
       debugPrint(
           'RadioKit CONF_DATA: version mismatch '
-          '(got 0x${payload[0].toRadixString(16)}, '
-          'expected 0x${kProtocolVersion.toRadixString(16)})');
+          '(got 0x${version.toRadixString(16)}, '
+          'expected 0x$kProtocolVersionV4 or 0x$kProtocolVersionV3)');
       return null;
     }
 
+    final isV4 = version == kProtocolVersionV4;
     final orientation = payload[1];
     final numWidgets  = payload[2];
     int offset        = 3;
@@ -250,17 +323,21 @@ class ProtocolService {
         allowMalformed: true);
     offset += descLen;
 
-    // Skip password
-    if (offset >= payload.length) {
-      debugPrint('RadioKit CONF_DATA: truncated before PWD_LEN');
-      return null;
+    if (isV4) {
+      // v4: no password field, go straight to theme
+    } else {
+      // v3: skip password field
+      if (offset >= payload.length) {
+        debugPrint('RadioKit CONF_DATA: truncated before PWD_LEN');
+        return null;
+      }
+      final pwdLen = payload[offset++];
+      if (offset + pwdLen > payload.length) {
+        debugPrint('RadioKit CONF_DATA: truncated in PWD field');
+        return null;
+      }
+      offset += pwdLen;
     }
-    final pwdLen = payload[offset++];
-    if (offset + pwdLen > payload.length) {
-      debugPrint('RadioKit CONF_DATA: truncated in PWD field');
-      return null;
-    }
-    offset += pwdLen;
 
     // Parse theme string
     if (offset >= payload.length) {

@@ -20,6 +20,7 @@
 #include "connection/RadioKitFS.h"
 #include "connection/RadioKitFsHandlers.h"
 #include "connection/RadioKitOTA.h"
+#include "connection/RadioKitNVS.h"
 
 class RadioKit_Widget;
 
@@ -84,6 +85,24 @@ public:
      */
     void pushMetaUpdate(uint8_t widgetId);
 
+    // ── NVS config editing ───────────────────────────────────────
+    /**
+     * Update device name, description, and/or password at runtime.
+     * Writes to NVS, updates BLE advertisement name if changed,
+     * and re-broadcasts CONF_DATA.
+     * Pass nullptr for fields you don't want to change.
+     */
+    void setConfig(const char* name, const char* description, const char* password);
+
+    /**
+     * Authenticate with the device password.
+     * Returns 0x00 (OK), 0x01 (mismatch), 0x02 (already authed).
+     */
+    uint8_t authenticate(const char* password);
+
+    /// True if authentication has succeeded (or no password is set).
+    bool isAuthenticated() const { return _authenticated; }
+
     // ── Status ───────────────────────────────────────────────
     bool    isConnected() const;
     int8_t  getRssi();
@@ -145,6 +164,9 @@ private:
     void _handleBleInfo();
     void _handleGetFeatures();
     void _handleGetChipInfo();
+    void _handleSetConf(const uint8_t* payload, uint16_t len);
+    void _handlePwdAuth(const uint8_t* payload, uint16_t len);
+    void _handleFactoryReset();
     void _sendPacket(const uint8_t* buf, uint16_t len);
     void _sendPacket(uint16_t len);
 
@@ -157,6 +179,17 @@ private:
     void _handleOtaEnd(const uint8_t* payload, uint16_t len);
     void _handleOtaAbort();
     void _sendOtaFrame(const uint8_t* buf, uint16_t len);
+
+    // NVS-backed buffers (override compile-time RK_Config values)
+    char _nvsName[RADIOKIT_MAX_NAME + 1];
+    char _nvsDesc[RADIOKIT_MAX_DESC + 1];
+    char _nvsPwd[RADIOKIT_MAX_PWD + 1];
+    bool _nvsActive;        ///< True once NVS values have been loaded
+    bool _authenticated;    ///< Auth gate flag (for password-protected devices)
+
+    // Internal helpers
+    void _syncNvsToBuffers();
+    void _setBleAdvertisingName(const char* name);
 
     uint16_t _buildConfPayload(uint8_t* buf, uint16_t bufSize);
     uint16_t _buildVarPayload(uint8_t* buf, uint16_t bufSize);

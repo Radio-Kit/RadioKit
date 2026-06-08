@@ -47,6 +47,13 @@ public:
     bool isConnected() const                                override { return _connected; }
     int8_t getRssi()                                        override;
 
+    /**
+     * Update the BLE advertising name and re-start advertising.
+     * Called when the device name is changed via CMD_SET_CONF.
+     * Does nothing if not connected (name takes effect on next start).
+     */
+    void updateAdvertisingName(const char* name);
+
     // Internal callbacks invoked by NimBLE event handlers
     void _onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo);
     void _onDisconnect();

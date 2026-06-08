@@ -79,42 +79,51 @@ class _ActiveLinkSection extends StatelessWidget {
     if (!isConnected) return const SizedBox.shrink();
 
     final device = deviceProvider.connectedDevice!;
+    final needAuth = deviceProvider.hasPassword && !deviceProvider.isAuthenticated;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionTag(context, 'ACTIVE_LINKS'),
-        Card(
-          clipBehavior: Clip.antiAlias,
-          color: Colors.white.withValues(alpha: 0.05),
-          child: Stack(
-            children: [
-              Positioned(
-                right: -20,
-                bottom: -20,
-                child: Icon(Icons.local_shipping_rounded,
-                    size: 160, color: Colors.white.withValues(alpha: 0.03)),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _headerRow(device),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Divider(height: 1, color: Colors.white12),
-                    ),
-                    _telemetryRow(deviceProvider, device),
-                    const SizedBox(height: 24),
-                    _buildActionRow(context, deviceProvider, device),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
+        if (needAuth)
+          _PasswordGate(device: device)
+        else
+          _buildConnectedCard(context, deviceProvider, device),
       ],
+    );
+  }
+
+  Widget _buildConnectedCard(
+      BuildContext context, DeviceProvider dp, DeviceInfo device) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      color: Colors.white.withValues(alpha: 0.05),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -20,
+            bottom: -20,
+            child: Icon(Icons.local_shipping_rounded,
+                size: 160, color: Colors.white.withValues(alpha: 0.03)),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _headerRow(device),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Divider(height: 1, color: Colors.white12),
+                ),
+                _telemetryRow(dp, device),
+                const SizedBox(height: 24),
+                _buildActionRow(context, dp, device),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -215,85 +224,72 @@ class _ActiveLinkSection extends StatelessWidget {
 
   Widget _buildActionRow(
       BuildContext context, DeviceProvider dp, DeviceInfo device) {
-    const segmentHeight = 52.0;
-    const borderColor = Colors.white24;
+    const buttonHeight = 52.0;
+    const borderRadius = 6.0;
 
-    return Container(
-      height: segmentHeight,
-      decoration: BoxDecoration(
-        border: Border.all(color: borderColor),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        children: [
-          _buildSegment(
-              icon: Icons.tune_rounded,
-              onTap: () => _showDeviceInfoSheet(context, dp, device),
-              isFirst: true,
-              height: segmentHeight),
-          _verticalDivider(segmentHeight),
-          Expanded(
-            child: _buildSegment(
-                label: 'OPEN_CONTROLLER',
-                onTap: () => context.go('/control'),
-                height: segmentHeight),
+    return Row(
+      children: [
+        // Config button (icon only)
+        _buildButton(
+          icon: Icons.tune_rounded,
+          onTap: () => _showDeviceInfoSheet(context, dp, device),
+          height: buttonHeight,
+          borderRadius: borderRadius,
+        ),
+        const SizedBox(width: 8),
+        // Open Controller button (text, fills remaining space)
+        Expanded(
+          child: _buildButton(
+            label: 'OPEN_CONTROLLER',
+            onTap: () => context.go('/control'),
+            height: buttonHeight,
+            borderRadius: borderRadius,
           ),
-          _verticalDivider(segmentHeight),
-          _buildSegment(
-              icon: Icons.link_off_rounded,
-              onTap: () => dp.disconnect(),
-              isLast: true,
-              height: segmentHeight),
-        ],
-      ),
+        ),
+        const SizedBox(width: 8),
+        // Disconnect button (icon only)
+        _buildButton(
+          icon: Icons.link_off_rounded,
+          onTap: () => dp.disconnect(),
+          height: buttonHeight,
+          borderRadius: borderRadius,
+        ),
+      ],
     );
   }
 
-  Widget _buildSegment({
+  Widget _buildButton({
     IconData? icon,
     String? label,
-    VoidCallback? onTap,
-    bool isFirst = false,
-    bool isLast = false,
+    required VoidCallback? onTap,
     required double height,
+    required double borderRadius,
   }) {
+    final isDisconnect = icon == Icons.link_off_rounded;
     return SizedBox(
       height: height,
-      child: Material(
-        color: const Color(0xFF2A2A2A),
-        borderRadius: BorderRadius.only(
-          topLeft: isFirst ? const Radius.circular(5) : Radius.zero,
-          bottomLeft: isFirst ? const Radius.circular(5) : Radius.zero,
-          topRight: isLast ? const Radius.circular(5) : Radius.zero,
-          bottomRight: isLast ? const Radius.circular(5) : Radius.zero,
-        ),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.only(
-            topLeft: isFirst ? const Radius.circular(5) : Radius.zero,
-            bottomLeft: isFirst ? const Radius.circular(5) : Radius.zero,
-            topRight: isLast ? const Radius.circular(5) : Radius.zero,
-            bottomRight: isLast ? const Radius.circular(5) : Radius.zero,
+      width: icon != null && label == null ? height : null,
+      child: FilledButton(
+        style: FilledButton.styleFrom(
+          backgroundColor:
+              isDisconnect ? Colors.redAccent : AppColors.brandOrange,
+          foregroundColor: isDisconnect ? Colors.white : Colors.black,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(borderRadius),
           ),
-          hoverColor: AppColors.brandOrange.withValues(alpha: 0.15),
-          highlightColor: AppColors.brandOrange.withValues(alpha: 0.25),
-          child: Center(
-            child: icon != null
-                ? Icon(icon, color: Colors.white, size: 20)
-                : Text(label ?? '',
-                    style: GoogleFonts.changa(
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.2,
-                        fontSize: 13,
-                        color: Colors.white)),
-          ),
+          padding: EdgeInsets.zero,
         ),
+        onPressed: onTap,
+        child: icon != null
+            ? Icon(icon, size: 20)
+            : Text(label ?? '',
+                style: GoogleFonts.changa(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                    fontSize: 13,
+                    color: isDisconnect ? Colors.white : Colors.black)),
       ),
     );
-  }
-
-  Container _verticalDivider(double height) {
-    return Container(width: 1, height: height, color: Colors.white12);
   }
 
   void _showDeviceInfoSheet(
@@ -516,6 +512,11 @@ class _InfoTabContent extends StatelessWidget {
               style: const TextStyle(color: Colors.white54, fontSize: 11),
             ),
           ],
+          const SizedBox(height: 24),
+          const Divider(height: 1, color: Colors.white12),
+          const SizedBox(height: 24),
+          // ── Device Settings (NVS-editable) ──────────────────
+          _DeviceSettingsSection(device: device),
           const SizedBox(height: 24),
           const Divider(height: 1, color: Colors.white12),
           const SizedBox(height: 24),
@@ -1510,10 +1511,10 @@ class _FirmwareTabContentState extends State<_FirmwareTabContent> {
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
-              child: OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.redAccent,
-                  side: const BorderSide(color: Colors.redAccent),
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(6)),
                 ),
@@ -1602,6 +1603,458 @@ class _FirmwareTabContentState extends State<_FirmwareTabContent> {
         ],
       ),
     );
+  }
+}
+
+// ── Password Gate Widget ──────────────────────────────────────────────────
+
+class _PasswordGate extends StatefulWidget {
+  final DeviceInfo device;
+  const _PasswordGate({required this.device});
+
+  @override
+  State<_PasswordGate> createState() => _PasswordGateState();
+}
+
+class _PasswordGateState extends State<_PasswordGate> {
+  final _pwdCtrl = TextEditingController();
+  bool _loading = false;
+  String? _error;
+  bool _obscure = true;
+
+  @override
+  void dispose() {
+    _pwdCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _authenticate() async {
+    final pwd = _pwdCtrl.text.trim();
+    if (pwd.isEmpty) {
+      setState(() => _error = 'Please enter a password');
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    final dp = context.read<DeviceProvider>();
+    final ok = await dp.authenticate(pwd);
+    if (!mounted) return;
+    setState(() => _loading = false);
+    if (!ok) {
+      setState(() => _error = 'Incorrect password');
+    }
+    // If ok, state change triggers rebuild and gate disappears
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final device = widget.device;
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      color: Colors.white.withValues(alpha: 0.05),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Icon(Icons.lock_rounded,
+                    color: Colors.orange, size: 28),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('PASSWORD REQUIRED',
+                        style: GoogleFonts.inter(
+                            color: Colors.orange,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
+                            letterSpacing: 1)),
+                    const SizedBox(height: 4),
+                    Text(device.displayName.toUpperCase(),
+                        style: GoogleFonts.exo2(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.5,
+                            color: Colors.white)),
+                  ],
+                ),
+              ),
+            ]),
+            const SizedBox(height: 24),
+            const Divider(height: 1, color: Colors.white12),
+            const SizedBox(height: 24),
+            // Password field
+            TextField(
+              controller: _pwdCtrl,
+              obscureText: _obscure,
+              autofocus: true,
+              style: GoogleFonts.jetBrainsMono(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.white.withValues(alpha: 0.05),
+                hintText: 'Enter device password',
+                hintStyle: const TextStyle(color: Colors.white24),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                      _obscure
+                          ? Icons.visibility_off_rounded
+                          : Icons.visibility_rounded,
+                      size: 20,
+                      color: Colors.white38),
+                  onPressed: () => setState(() => _obscure = !_obscure),
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: BorderSide(
+                      color: _error != null
+                          ? Colors.redAccent
+                          : Colors.white12),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: BorderSide(
+                      color: _error != null
+                          ? Colors.redAccent
+                          : Colors.white12),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: BorderSide(
+                      color: _error != null
+                          ? Colors.redAccent
+                          : AppColors.brandOrange.withValues(alpha: 0.5)),
+                ),
+              ),
+              onSubmitted: (_) => _authenticate(),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Row(children: [
+                const Icon(Icons.error_outline_rounded,
+                    size: 14, color: Colors.redAccent),
+                const SizedBox(width: 6),
+                Text(_error!,
+                    style: const TextStyle(
+                        color: Colors.redAccent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500)),
+              ]),
+            ],
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.brandOrange,
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6)),
+                ),
+                icon: _loading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.black))
+                    : const Icon(Icons.lock_open_rounded, size: 20),
+                label: Text('UNLOCK',
+                    style: GoogleFonts.changa(
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2,
+                        fontSize: 14)),
+                onPressed: _loading ? null : _authenticate,
+              ),
+            ),
+            const SizedBox(height: 4),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () => context.read<DeviceProvider>().disconnect(),
+                child: const Text('DISCONNECT',
+                    style: TextStyle(color: Colors.white38, fontSize: 11)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Device Settings Section (NVS-editable name/desc/password) ────────────
+
+class _DeviceSettingsSection extends StatefulWidget {
+  final DeviceInfo device;
+  const _DeviceSettingsSection({required this.device});
+
+  @override
+  State<_DeviceSettingsSection> createState() => _DeviceSettingsSectionState();
+}
+
+class _DeviceSettingsSectionState extends State<_DeviceSettingsSection> {
+  late TextEditingController _nameCtrl;
+  late TextEditingController _descCtrl;
+  late TextEditingController _pwdCtrl;
+  bool _saving = false;
+  bool _pwdVisible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final dp = context.read<DeviceProvider>();
+    _nameCtrl = TextEditingController(text: dp.configName ?? '');
+    _descCtrl = TextEditingController(text: dp.description ?? '');
+    _pwdCtrl = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _descCtrl.dispose();
+    _pwdCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dp = context.watch<DeviceProvider>();
+    final isDemo = widget.device.id.startsWith('demo_');      if (isDemo) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('DEVICE SETTINGS',
+            style: TextStyle(
+                color: AppColors.brandOrange,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1,
+                fontFamily: 'monospace')),
+        const SizedBox(height: 12),
+        _settingsField('NAME', _nameCtrl),
+        const SizedBox(height: 8),
+        _settingsField('DESCRIPTION', _descCtrl, maxLines: 2),
+        const SizedBox(height: 8),
+        _pwdField(),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          height: 44,
+          child: FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.brandOrange,
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6)),
+            ),
+            onPressed: _saving ? null : _save,
+            child: _saving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.black))
+                : Text('SAVE',
+                    style: GoogleFonts.changa(
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1,
+                        fontSize: 12)),
+          ),
+        ),
+        const SizedBox(height: 12),
+        // ── Factory Reset ────────────────────────────────────────
+        SizedBox(
+          width: double.infinity,
+          height: 44,
+          child: OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.redAccent,
+              side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.5)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6)),
+            ),
+            onPressed: _factoryReset,
+            child: Text('FACTORY RESET',
+                style: GoogleFonts.changa(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                    fontSize: 12)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _settingsField(String label, TextEditingController ctrl,
+      {int maxLines = 1}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style:
+                const TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        TextField(
+          controller: ctrl,
+          maxLines: maxLines,
+          style: GoogleFonts.jetBrainsMono(
+              color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.05),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: const BorderSide(color: Colors.white12),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: const BorderSide(color: Colors.white12),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: BorderSide(color: AppColors.brandOrange.withValues(alpha: 0.5)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _pwdField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('PASSWORD (leave empty to clear)',
+            style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        TextField(
+          controller: _pwdCtrl,
+          obscureText: !_pwdVisible,
+          style: GoogleFonts.jetBrainsMono(
+              color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.05),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            suffixIcon: IconButton(
+              icon: Icon(
+                  _pwdVisible ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                  size: 18,
+                  color: Colors.white38),
+              onPressed: () => setState(() => _pwdVisible = !_pwdVisible),
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: const BorderSide(color: Colors.white12),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: const BorderSide(color: Colors.white12),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: BorderSide(color: AppColors.brandOrange.withValues(alpha: 0.5)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _save() async {
+    final dp = context.read<DeviceProvider>();
+    setState(() => _saving = true);
+
+    final name = _nameCtrl.text.trim();
+    final desc = _descCtrl.text.trim();
+    final pwd = _pwdCtrl.text.trim();
+
+    final ok = await dp.sendSetConf(
+      name: name.isNotEmpty ? name : null,
+      description: desc.isNotEmpty ? desc : null,
+      password: pwd,
+    );
+
+    if (!mounted) return;
+    setState(() => _saving = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok ? 'Settings saved to device' : 'Failed to save settings'),
+        backgroundColor: ok ? Colors.greenAccent : Colors.redAccent,
+      ),
+    );
+  }
+
+  Future<void> _factoryReset() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.warning_rounded, color: Colors.redAccent, size: 32),
+        title: const Text('Factory Reset?'),
+        content: const Text(
+          'This will erase all device settings (name, description, password) '
+          'and reboot the device.\n\n'
+          'After reboot, compile-time defaults will be restored.'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton.tonal(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.redAccent.withValues(alpha: 0.2),
+              foregroundColor: Colors.redAccent,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('ERASE & REBOOT'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final dp = context.read<DeviceProvider>();
+    final ok = await dp.sendFactoryReset();
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok
+            ? 'Factory reset sent — device rebooting...'
+            : 'Failed to send factory reset'),
+        backgroundColor: ok ? Colors.orangeAccent : Colors.redAccent,
+      ),
+    );
+
+    if (ok) {
+      // Device will reboot; disconnect locally
+      dp.disconnect();
+    }
   }
 }
 

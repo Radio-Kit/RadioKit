@@ -45,15 +45,30 @@
 #define RK_CMD_FEATURES_DATA    0x16  // Arduino → App: feature bitmask [bitmask(1)]
 #define RK_CMD_GET_CHIP_INFO    0x17  // App → Arduino: request chip info
 #define RK_CMD_CHIP_INFO_DATA   0x18  // Arduino → App: chip info payload
+#define RK_CMD_SET_CONF         0x19  // App → Arduino: write name/desc/password to NVS
+#define RK_CMD_PWD_AUTH         0x1A  // App → Arduino: authenticate with password
+#define RK_CMD_FACTORY_RESET    0x1B  // App → Arduino: erase NVS config and reboot
 
 // ── Feature bitmask bits (FEATURES_DATA payload) ────────────────────────────
 #define RK_FEATURE_OTA          (1 << 0)  ///< OTA firmware update supported
 #define RK_FEATURE_FILESYSTEM   (1 << 1)  ///< LittleFS filesystem supported
+#define RK_FEATURE_HAS_PASSWORD (1 << 2)  ///< Device has a non-empty password set
+
+// ── PWD_AUTH response codes ─────────────────────────────────────────────────
+#define RK_PWD_AUTH_OK          0x00  ///< Authentication successful
+#define RK_PWD_AUTH_MISMATCH    0x01  ///< Password does not match
+#define RK_PWD_AUTH_ALREADY     0x02  ///< Already authenticated
+
+// ── SET_CONF field mask bits ────────────────────────────────────────────────
+#define RK_SET_CONF_NAME        (1 << 0)  ///< Name field present
+#define RK_SET_CONF_DESC        (1 << 1)  ///< Description field present
+#define RK_SET_CONF_PWD         (1 << 2)  ///< Password field present
+#define RK_SET_CONF_ERROR       (1 << 7)  ///< ACK: error during NVS write
 
 // ─────────────────────────────────────────────
-//  Protocol version (v3)
+//  Protocol version (v4 — NVS-backed config)
 // ─────────────────────────────────────────────
-#define RK_PROTOCOL_VERSION 0x03
+#define RK_PROTOCOL_VERSION 0x04
 
 // ─────────────────────────────────────────────
 //  VAR_UPDATE reliability parameters

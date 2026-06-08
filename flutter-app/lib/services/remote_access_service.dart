@@ -154,6 +154,10 @@ class RemoteAccessService {
     router.delete('/api/log', _handleLogClear);
     router.get('/api/settings', _handleSettings);
     router.put('/api/settings', _handleSettingsUpdate);
+    router.get('/api/settings/nvs', _handleNvsGet);
+    router.post('/api/settings/nvs', _handleNvsSet);
+    router.post('/api/settings/nvs/authenticate', _handleNvsAuthenticate);
+    router.post('/api/settings/nvs/factory-reset', _handleNvsFactoryReset);
     router.get('/api/pair/devices', _handlePairDevices);
     router.post('/api/pair/scan', _handlePairScan);
     router.get('/api/connection', _handleConnection);
@@ -1072,6 +1076,128 @@ class RemoteAccessService {
       'ok': true,
       'message': 'Demo $demoId loaded with $count widgets',
     });
+  }
+  // ── NVS Config / Settings / Device Info ──────────────────────────────────────
+
+  /// Handle GET /api/settings/nvs — returns current NVS config values
+  /// (name, description) and whether a password is set.
+  Future<Response> _handleNvsGet(Request request) async {
+    final device = _deviceProvider.connectedDevice;
+    if (!_deviceProvider.isConnected || device == null) {
+      return _error('not_connected', 'Not connected to a device', status: 503);
+    }
+    return _json({
+      'name': _deviceProvider.configName ?? '',
+      'description': _deviceProvider.description ?? '',
+      'hasPassword': _deviceProvider.hasPassword,
+      'isAuthenticated': _deviceProvider.isAuthenticated,
+    });
+  }
+
+  /// Handle POST /api/settings/nvs — writes new config values to NVS.
+  /// Accepts optional fields: name, description, password.
+  /// Only fields provided in the body will be updated.
+  Future<Response> _handleNvsSet(Request request) async {
+    if (!_deviceProvider.isConnected) {
+      return _error('not_connected', 'Not connected to a device', status: 503);
+    }
+    final body = await _parseBody(request);
+    final name = body['name'] as String?;
+    final description = body['description'] as String?;
+    final password = body['password'] as String?;
+
+    if (name == null && description == null && password == null) {
+      return _error(
+          'invalid_params', 'At least one of: name, description, password');
+    }
+
+    if (name != null && (name.length < 1 || name.length > kMaxConfigName)) {
+      return _error('invalid_name',
+          'Name must be 1-${kMaxConfigName} characters');
+    }
+    if (description != null && description.length > kMaxConfigDesc) {
+      return _error('invalid_description',
+          'Description must be at most ${kMaxConfigDesc} characters');
+    }
+    if (password != null && password.length > kMaxConfigPwd) {
+      return _error('invalid_password',
+          'Password must be at most ${kMaxConfigPwd} characters');
+    }
+
+    try {
+      final ok = await _deviceProvider.sendSetConf(
+        name: name,
+        description: description,
+        password: password,
+      );
+      if (ok) {
+        return _json({'ok': true, 'message': 'Config saved to NVS'});
+      }
+      return _error('nvs_error', 'Failed to write config to NVS', status: 500);
+    } catch (e) {
+      return _error('nvs_error', e.toString(), status: 500);
+    }
+  }
+
+  /// Handle POST /api/settings/nvs/authenticate — authenticate with
+  /// the device password.
+  Future<Response> _handleNvsAuthenticate(Request request) async {
+    if (!_deviceProvider.isConnected) {
+      return _error('not_connected', 'Not connected to a device', status: 503);
+    }
+    final body = await _parseBody(request);
+    final password = body['password'] as String?;
+
+    if (password == null || password.isEmpty) {
+      return _error('invalid_params', 'password is required');
+    }
+
+    try {
+      final ok = await _deviceProvider.authenticate(password);
+      if (ok) {
+        return _json({
+          'ok': true,
+          'message': 'Authenticated successfully',
+        });
+      }
+      return _error('auth_failed', 'Password mismatch or timeout', status: 401);
+    } catch (e) {
+      return _error('auth_error', e.toString(), status: 500);
+    }
+  }
+
+  /// Handle POST /api/settings/nvs/factory-reset — erases NVS config and
+  /// reboots the device. This cannot be undone.
+  Future<Response> _handleNvsFactoryReset(Request request) async {
+    if (!_deviceProvider.isConnected) {
+      return _error('not_connected', 'Not connected to a device', status: 503);
+    }
+
+    // Require confirmation parameter for safety
+    final body = await _parseBody(request);
+    final confirm = body['confirm'] as bool? ?? false;
+    if (!confirm) {
+      return _error(
+          'confirmation_required',
+          'Set confirm: true to proceed with factory reset. '
+          'This will erase all config and reboot the device.',
+          status: 400);
+    }
+
+    try {
+      final ok = await _deviceProvider.sendFactoryReset();
+      if (ok) {
+        // The device will process the command and reboot, disconnecting
+        // the BLE connection naturally — no need to disconnect locally.
+        return _json({
+          'ok': true,
+          'message': 'Factory reset sent — device will reboot',
+        });
+      }
+      return _error('nvs_error', 'Failed to send factory reset', status: 500);
+    } catch (e) {
+      return _error('nvs_error', e.toString(), status: 500);
+    }
   }
 
   // ── Session / Route ──────────────────────────────────────────────────────────

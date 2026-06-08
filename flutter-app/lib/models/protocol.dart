@@ -31,10 +31,30 @@ const int kCmdGetFeatures = 0x15;
 const int kCmdFeaturesData = 0x16;
 const int kCmdGetChipInfo = 0x17;
 const int kCmdChipInfoData = 0x18;
+const int kCmdSetConf = 0x19;
+const int kCmdPwdAuth = 0x1A;
+const int kCmdFactoryReset = 0x1B;
+
+// ── NVS SET_CONF field mask bits ────────────────────────────────────────────
+const int kSetConfName = 1 << 0;
+const int kSetConfDesc = 1 << 1;
+const int kSetConfPwd  = 1 << 2;
+const int kSetConfError = 1 << 7;
+
+// ── PWD_AUTH response codes ─────────────────────────────────────────────────
+const int kPwdAuthOk       = 0x00;
+const int kPwdAuthMismatch = 0x01;
+const int kPwdAuthAlready  = 0x02;
 
 // ── Feature bitmask bits (FEATURES_DATA payload) ──────────────────────────
 const int kFeatureOta = 1 << 0;
 const int kFeatureFilesystem = 1 << 1;
+const int kFeatureHasPassword = 1 << 2;
+
+// ── NVS config limits (must match RadioKitConfig.h) ─────────────────────────
+const int kMaxConfigName = 32;
+const int kMaxConfigDesc = 128;
+const int kMaxConfigPwd  = 32;
 
 // ── OTA protocol constants ─────────────────────────────────────────────────
 const int kOtaStartByte = 0xBB;
@@ -175,8 +195,10 @@ const Map<int, int> kWidgetOutputSize = {
   kWidgetKnob:        0,
 };
 
-// Protocol version
-const int kProtocolVersion = 0x03;
+// Protocol version (v4 — NVS-backed config)
+const int kProtocolVersion = 0x04;
+const int kProtocolVersionV3 = 0x03;
+const int kProtocolVersionV4 = 0x04;
 
 // Orientation wire values
 const int kOrientationLandscape = 0x00;

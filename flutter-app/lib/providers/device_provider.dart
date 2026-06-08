@@ -76,6 +76,7 @@ class DeviceProvider extends ChangeNotifier {
   Map<String, dynamic>? _chipInfo;
   Completer<void>? _chipInfoCompleter;
   Completer<int>? _otaCompleter;
+  Completer<int>? _authCompleter;  // For CMD_PWD_AUTH response
   DateTime? _pingSentAt;
 
   final Map<int, _PendingUpdate> _pendingUpdates = {};
@@ -217,6 +218,94 @@ class DeviceProvider extends ChangeNotifier {
 
   /// Cached chip info from the device, or null if not yet fetched.
   Map<String, dynamic>? get chipInfo => _chipInfo;
+
+  /// Whether the device has a password set (detected via features bitmask).
+  bool get hasPassword => (_deviceFeatures & kFeatureHasPassword) != 0;
+
+  /// Current authentication state.
+  bool get isAuthenticated => _authenticated;
+
+  // ── NVS Config API (CMD_SET_CONF / CMD_PWD_AUTH) ─────────────────────────
+
+  bool _authenticated = false;
+
+  /// Send factory reset command — erases NVS config and reboots the device.
+  /// Returns true if the command was sent successfully (device will reboot).
+  Future<bool> sendFactoryReset() async {
+    if (!_transport.isConnected) return false;
+    try {
+      await _writePacket(ProtocolService.buildFactoryReset());
+      return true;
+    } catch (e) {
+      _log('sendFactoryReset failed: $e', level: ConsoleLogLevel.error);
+      return false;
+    }
+  }
+
+  /// Send updated config values to the device's NVS.
+  /// Pass null for fields you don't want to change.
+  /// Returns true on success, false on timeout/error.
+  Future<bool> sendSetConf({
+    String? name,
+    String? description,
+    String? password,
+  }) async {
+    if (!_transport.isConnected) return false;
+    try {
+      final pkt = ProtocolService.buildSetConf(
+        name: name,
+        description: description,
+        password: password,
+      );
+      await _writePacket(pkt);
+      // Wait for the re-broadcasted CONF_DATA to confirm the change
+      final completer = Completer<void>();
+      _confCompleter = completer;
+      try {
+        await completer.future.timeout(const Duration(seconds: 5));
+        return true;
+      } on TimeoutException catch (_) {
+        return false;
+      } finally {
+        if (_confCompleter == completer) {
+          _confCompleter = null;
+        }
+      }
+    } catch (e) {
+      _log('sendSetConf failed: $e', level: ConsoleLogLevel.error);
+      return false;
+    }
+  }
+
+  /// Authenticate with the device password.
+  /// Returns true on success, false on mismatch or error.
+  Future<bool> authenticate(String password) async {
+    if (!_transport.isConnected) return false;
+    if (_authenticated) return true;
+    try {
+      final pkt = ProtocolService.buildPwdAuth(password);
+      await _writePacket(pkt);
+      // Wait for ACK with auth status
+      final completer = Completer<int>();
+      _authCompleter = completer;
+      try {
+        final status = await completer.future.timeout(const Duration(seconds: 5));
+        if (status == kPwdAuthOk) {
+          _authenticated = true;
+          notifyListeners();
+          return true;
+        }
+        return false;
+      } on TimeoutException catch (_) {
+        return false;
+      } finally {
+        _authCompleter = null;
+      }
+    } catch (e) {
+      _log('authenticate failed: $e', level: ConsoleLogLevel.error);
+      return false;
+    }
+  }
 
   // ── Transport swap ───────────────────────────────────────────────────────────
 
@@ -830,6 +919,7 @@ class DeviceProvider extends ChangeNotifier {
       case kCmdBleInfoData: _handleBleInfoData(packet.payload); break;
       case kCmdFeaturesData: _handleFeaturesData(packet.payload); break;
       case kCmdChipInfoData: _handleChipInfoData(packet.payload); break;
+      case kCmdSetConf:  _handleConfData(packet.payload); break;  // Re-broadcasted CONF_DATA after SET_CONF
       default:
         debugPrint('RadioKit: Unknown cmd 0x${packet.cmd.toRadixString(16)}');
     }
@@ -1206,6 +1296,13 @@ class DeviceProvider extends ChangeNotifier {
 
   void _handleAck(List<int> payload) {
     if (payload.isEmpty) return;
+    
+    // Check if this is an auth response (authCompleter active)
+    if (_authCompleter != null && !_authCompleter!.isCompleted) {
+      _authCompleter!.complete(payload[0]);
+      return;
+    }
+    
     final seq     = payload[0];
     final pending = _pendingUpdates.remove(seq);
     pending?.timer?.cancel();
@@ -1715,6 +1812,8 @@ class DeviceProvider extends ChangeNotifier {
     _fsTreeCache      = null;
     _deviceFeatures   = 0;
     _chipInfo         = null;
+    _authCompleter    = null;
+    _authenticated    = false;
     _otaCancelled     = false;
     _errorMessage     = null;
     notifyListeners();

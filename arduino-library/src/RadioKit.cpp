@@ -43,10 +43,15 @@ RadioKitClass::RadioKitClass()
     , _varUpdateSeq(0)
     , _pendingMetaMask(0)
     , _metaUpdateSeq(0)
+    , _nvsActive(false)
+    , _authenticated(false)
 {
     memset(_widgets, 0, sizeof(_widgets));
     memset(_txBuf,   0, sizeof(_txBuf));
     memset(_shadowInput, 0, sizeof(_shadowInput));
+    memset(_nvsName, 0, sizeof(_nvsName));
+    memset(_nvsDesc, 0, sizeof(_nvsDesc));
+    memset(_nvsPwd,  0, sizeof(_nvsPwd));
     s_instance = this;
 }
 
@@ -63,6 +68,34 @@ void RadioKitClass::begin() {
     RKFs::setSender(&RadioKitClass::_sendFsFrame);
     rk_fsSetCallback(&RadioKitClass::_onFsPacket);
     RKFs::begin();
+
+    // ── Initialise NVS and load config ──────────────────────────────
+    _nvsActive = RKNvs::init();
+
+    if (_nvsActive) {
+        // Check if NVS already has our config keys
+        char testName[RADIOKIT_MAX_NAME + 1];
+        bool hasExisting = RKNvs::readString(RK_NVS_KEY_NAME, testName, sizeof(testName));
+
+        if (!hasExisting) {
+            // First boot — write compile-time defaults to NVS
+            RKNvs::writeString(RK_NVS_KEY_NAME, config.name ? config.name : "");
+            RKNvs::writeString(RK_NVS_KEY_DESC, config.description ? config.description : "");
+            RKNvs::writeString(RK_NVS_KEY_PWD,  config.password ? config.password : "");
+            RKNvs::commit();
+        }
+
+        // Load NVS values into internal buffers (these override RK_Config)
+        _syncNvsToBuffers();
+    } else {
+        // NVS not available — copy compile-time defaults as fallback
+        strncpy(_nvsName, config.name ? config.name : "", sizeof(_nvsName) - 1);
+        strncpy(_nvsDesc, config.description ? config.description : "", sizeof(_nvsDesc) - 1);
+        strncpy(_nvsPwd,  config.password ? config.password : "", sizeof(_nvsPwd) - 1);
+    }
+
+    // Reset auth state on boot
+    _authenticated = (_nvsPwd[0] == '\0');  // No password = pre-authenticated
 }
 
 void RadioKitClass::pushUpdate(uint8_t widgetId) {
@@ -78,7 +111,15 @@ void RadioKitClass::pushMetaUpdate(uint8_t widgetId) {
 }
 
 void RadioKitClass::startBLE(const char* deviceName) {
-    const char* baseName = (deviceName && deviceName[0] != '\0') ? deviceName : config.name;
+    // Use NVS-backed name if available, else fall back to provided name or config.name
+    const char* baseName;
+    if (_nvsActive && _nvsName[0] != '\0') {
+        baseName = _nvsName;
+    } else if (deviceName && deviceName[0] != '\0') {
+        baseName = deviceName;
+    } else {
+        baseName = config.name;
+    }
     // Prefix "RK_" to the BLE broadcast name so the app can reliably filter
     // by name prefix. The config.name (without prefix) is sent in CONF_DATA
     // and displayed in the app UI.
@@ -101,6 +142,17 @@ void RadioKitClass::startSerial(Stream& stream) {
 
 void RadioKitClass::update() {
     if (_transport) _transport->update();
+
+    // Track connection state to reset auth on disconnect
+    static bool s_lastConnected = false;
+    if (_transport) {
+        bool nowConnected = _transport->isConnected();
+        if (s_lastConnected && !nowConnected) {
+            // Connection was lost — reset auth so new client must re-authenticate
+            _authenticated = (_nvsPwd[0] == '\0');  // No pwd = pre-authed
+        }
+        s_lastConnected = nowConnected;
+    }
 
     if (_transport && _transport->isConnected()) {
         for (uint8_t i = 0; i < _widgetCount; i++) {
@@ -175,20 +227,37 @@ void RadioKitClass::_onPacket(uint8_t cmd,
                               uint16_t payloadLen)
 {
     if (!s_instance) return;
+
+    // ── Auth gate ───────────────────────────────────────────────────
+    // If a password is set and the session is not yet authenticated,
+    // only allow CMD_PWD_AUTH, CMD_GET_CONF, and CMD_GET_FEATURES.
+    if (!s_instance->_authenticated && s_instance->_nvsPwd[0] != '\0') {
+        if (cmd != RK_CMD_PWD_AUTH && cmd != RK_CMD_GET_CONF && cmd != RK_CMD_GET_FEATURES) {
+            Serial.printf("RK: Rejected CMD 0x%02X — not authenticated\n", cmd);
+            uint8_t err = RK_PWD_AUTH_MISMATCH;
+            uint16_t len = rk_buildPacket(s_instance->_txBuf, RK_CMD_ACK, &err, 1);
+            s_instance->_sendPacket(len);
+            return;
+        }
+    }
+
     RK_DEBUG_PRINT("RK: Dispatching CMD %s (0x%02X), len %d\n", rk_cmdName(cmd), cmd, payloadLen);
     switch (cmd) {
-        case RK_CMD_GET_CONF:  s_instance->_handleGetConf();                      break;
-        case RK_CMD_GET_VARS:  s_instance->_handleGetVars();                      break;
-        case RK_CMD_GET_META:  s_instance->_handleGetMeta();                      break;
-        case RK_CMD_SET_INPUT: s_instance->_handleSetInput(payload, payloadLen);  break;
-        case RK_CMD_GET_TELEMETRY: s_instance->_handleGetTelemetry();             break;
-        case RK_CMD_PING:      s_instance->_handlePing();                         break;
-        case RK_CMD_ACK:       s_instance->_handleAck(payload, payloadLen);       break;
-        case RK_CMD_VAR_UPDATE:s_instance->_handleVarUpdate(payload, payloadLen); break;
-        case RK_CMD_META_UPDATE:s_instance->_handleMetaUpdate(payload, payloadLen);break;
-        case RK_CMD_BLE_INFO:  s_instance->_handleBleInfo();                       break;
-        case RK_CMD_GET_FEATURES: s_instance->_handleGetFeatures();                  break;
-        case RK_CMD_GET_CHIP_INFO: s_instance->_handleGetChipInfo();                  break;
+        case RK_CMD_GET_CONF:   s_instance->_handleGetConf();                       break;
+        case RK_CMD_GET_VARS:   s_instance->_handleGetVars();                       break;
+        case RK_CMD_GET_META:   s_instance->_handleGetMeta();                       break;
+        case RK_CMD_SET_INPUT:  s_instance->_handleSetInput(payload, payloadLen);   break;
+        case RK_CMD_GET_TELEMETRY: s_instance->_handleGetTelemetry();                break;
+        case RK_CMD_PING:       s_instance->_handlePing();                          break;
+        case RK_CMD_ACK:        s_instance->_handleAck(payload, payloadLen);        break;
+        case RK_CMD_VAR_UPDATE: s_instance->_handleVarUpdate(payload, payloadLen);  break;
+        case RK_CMD_META_UPDATE:s_instance->_handleMetaUpdate(payload, payloadLen); break;
+        case RK_CMD_BLE_INFO:   s_instance->_handleBleInfo();                        break;
+        case RK_CMD_GET_FEATURES: s_instance->_handleGetFeatures();                   break;
+        case RK_CMD_GET_CHIP_INFO: s_instance->_handleGetChipInfo();                   break;
+        case RK_CMD_SET_CONF:   s_instance->_handleSetConf(payload, payloadLen);    break;
+        case RK_CMD_PWD_AUTH:   s_instance->_handlePwdAuth(payload, payloadLen);    break;
+        case RK_CMD_FACTORY_RESET: s_instance->_handleFactoryReset();                 break;
         default: 
             Serial.printf("RK: Unknown CMD %s (0x%02X)\n", rk_cmdName(cmd), cmd);
             break;
@@ -231,6 +300,11 @@ void RadioKitClass::_handleGetFeatures() {
 #if RK_FS_HAS_LITTLEFS
     bitmask |= RK_FEATURE_FILESYSTEM;
 #endif
+    
+    // Report if a non-empty password is set in NVS
+    if (_nvsActive && _nvsPwd[0] != '\0') {
+        bitmask |= RK_FEATURE_HAS_PASSWORD;
+    }
     
     RK_DEBUG_PRINT("RK: Reporting features bitmask: 0x%02X\n", bitmask);
     uint16_t len = rk_buildPacket(_txBuf, RK_CMD_FEATURES_DATA, &bitmask, 1);
@@ -372,26 +446,24 @@ void RadioKitClass::_handleMetaUpdate(const uint8_t* payload, uint16_t len) {
 uint16_t RadioKitClass::_buildConfPayload(uint8_t* buf, uint16_t bufSize) {
     uint16_t out = 0;
 
-    const char* name    = config.name        ? config.name        : "";
-    const char* desc    = config.description ? config.description : "";
-    const char* pwd     = config.password    ? config.password    : "";
-    const char* themeStr = config.theme      ? config.theme       : RK_DEFAULT;
+    // Use NVS-backed buffers if available, else fall back to RK_Config
+    const char* name    = _nvsActive && _nvsName[0] ? _nvsName : (config.name ? config.name : "");
+    const char* desc    = _nvsActive && _nvsDesc[0] ? _nvsDesc : (config.description ? config.description : "");
+    const char* themeStr = config.theme            ? config.theme       : RK_DEFAULT;
     uint8_t nameLen  = (uint8_t)strnlen(name,     RADIOKIT_MAX_NAME);
     uint8_t descLen  = (uint8_t)strnlen(desc,     RADIOKIT_MAX_DESC);
-    uint8_t pwdLen   = (uint8_t)strnlen(pwd,      RADIOKIT_MAX_PWD);
     uint8_t themeLen = (uint8_t)strnlen(themeStr, 64);
 
-    if (out + 8 + nameLen + descLen + pwdLen + themeLen > bufSize) return 0;
+    // v0x04: no password field (pwd removed from CONF_DATA)
+    if (out + 7 + nameLen + descLen + themeLen > bufSize) return 0;
 
-    buf[out++] = RK_PROTOCOL_VERSION;
+    buf[out++] = RK_PROTOCOL_VERSION;  // 0x04
     buf[out++] = config.orientation;
     buf[out++] = _widgetCount;
     buf[out++] = nameLen;
     memcpy(&buf[out], name, nameLen); out += nameLen;
     buf[out++] = descLen;
     memcpy(&buf[out], desc, descLen); out += descLen;
-    buf[out++] = pwdLen;
-    memcpy(&buf[out], pwd, pwdLen);   out += pwdLen;
     buf[out++] = themeLen;
     memcpy(&buf[out], themeStr, themeLen); out += themeLen;
 
@@ -804,4 +876,240 @@ void RadioKitClass::_handleOtaAbort() {
 #else
     Serial.println("OTA: Abort ignored — OTA not supported");
 #endif
+}
+
+// ── Factory Reset ───────────────────────────────────────────────────────────
+
+void RadioKitClass::_handleFactoryReset() {
+    Serial.println("FACTORY RESET: Erasing NVS config and rebooting...");
+    
+    if (_nvsActive) {
+        RKNvs::eraseAll();
+        RKNvs::commit();
+    }
+    
+    // Small delay to let the ACK frame be sent before reboot
+    delay(100);
+#if defined(ESP32)
+    esp_restart();
+#else
+    Serial.println("FACTORY RESET: Reboot not supported on this platform");
+#endif
+}
+
+// ── NVS Config Helpers ──────────────────────────────────────────────────────
+
+void RadioKitClass::_syncNvsToBuffers() {
+    // Clear buffers first
+    memset(_nvsName, 0, sizeof(_nvsName));
+    memset(_nvsDesc, 0, sizeof(_nvsDesc));
+    memset(_nvsPwd,  0, sizeof(_nvsPwd));
+
+    if (!_nvsActive) {
+        // Fall back to compile-time defaults
+        strncpy(_nvsName, config.name ? config.name : "", sizeof(_nvsName) - 1);
+        strncpy(_nvsDesc, config.description ? config.description : "", sizeof(_nvsDesc) - 1);
+        strncpy(_nvsPwd,  config.password ? config.password : "", sizeof(_nvsPwd) - 1);
+        return;
+    }
+
+    // Read from NVS — if a key doesn't exist, use compile-time default
+    if (!RKNvs::readString(RK_NVS_KEY_NAME, _nvsName, sizeof(_nvsName))) {
+        strncpy(_nvsName, config.name ? config.name : "", sizeof(_nvsName) - 1);
+    }
+    if (!RKNvs::readString(RK_NVS_KEY_DESC, _nvsDesc, sizeof(_nvsDesc))) {
+        strncpy(_nvsDesc, config.description ? config.description : "", sizeof(_nvsDesc) - 1);
+    }
+    if (!RKNvs::readString(RK_NVS_KEY_PWD, _nvsPwd, sizeof(_nvsPwd))) {
+        strncpy(_nvsPwd, config.password ? config.password : "", sizeof(_nvsPwd) - 1);
+    }
+
+    RK_DEBUG_PRINT("NVS: Loaded name='%s', desc='%s', pwd=%s\n",
+        _nvsName, _nvsDesc, _nvsPwd[0] ? "***" : "(none)");
+}
+
+void RadioKitClass::_setBleAdvertisingName(const char* name) {
+#if defined(ESP32)
+    // Re-start BLE advertising with the new name.
+    // NimBLE allows updating the advertiser's name and re-starting.
+    extern RadioKitBLE RadioKitBLEInstance;
+    if (_transport == &RadioKitBLEInstance && RadioKitBLEInstance.isConnected()) {
+        static char bleAdvName[RADIOKIT_MAX_NAME + 4];
+        snprintf(bleAdvName, sizeof(bleAdvName), "RK_%s", name ? name : "RadioKit");
+        RadioKitBLEInstance.updateAdvertisingName(bleAdvName);
+        Serial.printf("NVS: BLE advertising name updated to '%s'\n", bleAdvName);
+    }
+#else
+    (void)name;
+#endif
+}
+
+// ── Public NVS config API ───────────────────────────────────────────────────
+
+void RadioKitClass::setConfig(const char* name, const char* description, const char* password) {
+    if (!_nvsActive) {
+        Serial.println("NVS: Cannot set config — NVS not available");
+        return;
+    }
+
+    bool changed = false;
+
+    if (name && name[0] != '\0' && strncmp(name, _nvsName, RADIOKIT_MAX_NAME) != 0) {
+        strncpy(_nvsName, name, sizeof(_nvsName) - 1);
+        RKNvs::writeString(RK_NVS_KEY_NAME, _nvsName);
+        changed = true;
+        // Update BLE advertisement name
+        _setBleAdvertisingName(_nvsName);
+    }
+
+    if (description && description[0] != '\0' && strncmp(description, _nvsDesc, RADIOKIT_MAX_DESC) != 0) {
+        strncpy(_nvsDesc, description, sizeof(_nvsDesc) - 1);
+        RKNvs::writeString(RK_NVS_KEY_DESC, _nvsDesc);
+        changed = true;
+    }
+
+    if (password && strncmp(password, _nvsPwd, RADIOKIT_MAX_PWD) != 0) {
+        strncpy(_nvsPwd, password, sizeof(_nvsPwd) - 1);
+        RKNvs::writeString(RK_NVS_KEY_PWD, _nvsPwd);
+        changed = true;
+        // If password was cleared, mark as pre-authenticated
+        if (_nvsPwd[0] == '\0') {
+            _authenticated = true;
+        } else {
+            _authenticated = false;  // New password set — re-auth required
+        }
+    }
+
+    if (changed) {
+        RKNvs::commit();
+        Serial.println("NVS: Config updated and committed");
+    }
+}
+
+uint8_t RadioKitClass::authenticate(const char* password) {
+    if (!password) return RK_PWD_AUTH_MISMATCH;
+    if (_authenticated) return RK_PWD_AUTH_ALREADY;
+    if (_nvsPwd[0] == '\0') {
+        // No password set — auth is automatic
+        _authenticated = true;
+        return RK_PWD_AUTH_OK;
+    }
+    if (strncmp(password, _nvsPwd, RADIOKIT_MAX_PWD) == 0) {
+        _authenticated = true;
+        return RK_PWD_AUTH_OK;
+    }
+    return RK_PWD_AUTH_MISMATCH;
+}
+
+// ── CMD_SET_CONF handler (0x19) ─────────────────────────────────────────────
+
+void RadioKitClass::_handleSetConf(const uint8_t* payload, uint16_t len) {
+    if (!_nvsActive || len < 2) {
+        Serial.println("NVS: CMD_SET_CONF ignored — NVS not available or payload too short");
+        return;
+    }
+
+    uint16_t fieldMask = (uint16_t)payload[0] | ((uint16_t)payload[1] << 8);
+    uint16_t offset = 2;
+    uint8_t statusMask = fieldMask & 0x7F;  // Clear error bit
+
+    // Name
+    if (fieldMask & RK_SET_CONF_NAME) {
+        if (offset < len) {
+            uint8_t strLen = payload[offset++];
+            if (strLen > RADIOKIT_MAX_NAME) strLen = RADIOKIT_MAX_NAME;
+            if (offset + strLen <= len) {
+                memcpy(_nvsName, &payload[offset], strLen);
+                _nvsName[strLen] = '\0';
+                RKNvs::writeString(RK_NVS_KEY_NAME, _nvsName);
+                _setBleAdvertisingName(_nvsName);
+            }
+            offset += strLen;
+        }
+    }
+
+    // Description
+    if (fieldMask & RK_SET_CONF_DESC) {
+        if (offset < len) {
+            uint8_t strLen = payload[offset++];
+            if (strLen > RADIOKIT_MAX_DESC) strLen = RADIOKIT_MAX_DESC;
+            if (offset + strLen <= len) {
+                memcpy(_nvsDesc, &payload[offset], strLen);
+                _nvsDesc[strLen] = '\0';
+                RKNvs::writeString(RK_NVS_KEY_DESC, _nvsDesc);
+            }
+            offset += strLen;
+        }
+    }
+
+    // Password
+    if (fieldMask & RK_SET_CONF_PWD) {
+        if (offset < len) {
+            uint8_t strLen = payload[offset++];
+            if (strLen > RADIOKIT_MAX_PWD) strLen = RADIOKIT_MAX_PWD;
+            if (offset + strLen <= len) {
+                memcpy(_nvsPwd, &payload[offset], strLen);
+                _nvsPwd[strLen] = '\0';
+                RKNvs::writeString(RK_NVS_KEY_PWD, _nvsPwd);
+            }
+            offset += strLen;
+        }
+    }
+
+    // Commit all writes to NVS
+    RKNvs::commit();
+
+    // Send ACK with echoed field mask
+    uint16_t ackLen = rk_buildPacket(_txBuf, RK_CMD_ACK, (uint8_t*)&statusMask, 1);
+    _sendPacket(ackLen);
+
+    // Re-broadcast CONF_DATA so the app can refresh
+    _handleGetConf();
+
+    Serial.printf("NVS: CMD_SET_CONF applied mask=0x%04X\n", fieldMask);
+}
+
+// ── CMD_PWD_AUTH handler (0x1A) ─────────────────────────────────────────────
+
+void RadioKitClass::_handlePwdAuth(const uint8_t* payload, uint16_t len) {
+    if (len < 1) {
+        uint8_t status = RK_PWD_AUTH_MISMATCH;
+        uint16_t pkt = rk_buildPacket(_txBuf, RK_CMD_ACK, &status, 1);
+        _sendPacket(pkt);
+        return;
+    }
+
+    uint8_t pwdLen = payload[0];
+    if (pwdLen > RADIOKIT_MAX_PWD) pwdLen = RADIOKIT_MAX_PWD;
+
+    // If already authenticated
+    if (_authenticated) {
+        uint8_t status = RK_PWD_AUTH_ALREADY;
+        uint16_t pkt = rk_buildPacket(_txBuf, RK_CMD_ACK, &status, 1);
+        _sendPacket(pkt);
+        return;
+    }
+
+    // No password on device = auto-success
+    if (_nvsPwd[0] == '\0') {
+        _authenticated = true;
+        uint8_t status = RK_PWD_AUTH_OK;
+        uint16_t pkt = rk_buildPacket(_txBuf, RK_CMD_ACK, &status, 1);
+        _sendPacket(pkt);
+        return;
+    }
+
+    // Compare passwords
+    if (len >= 1 + pwdLen && strncmp((const char*)&payload[1], _nvsPwd, pwdLen) == 0) {
+        _authenticated = true;
+        uint8_t status = RK_PWD_AUTH_OK;
+        uint16_t pkt = rk_buildPacket(_txBuf, RK_CMD_ACK, &status, 1);
+        _sendPacket(pkt);
+        Serial.println("NVS: Authentication successful");
+    } else {
+        uint8_t status = RK_PWD_AUTH_MISMATCH;
+        uint16_t pkt = rk_buildPacket(_txBuf, RK_CMD_ACK, &status, 1);
+        _sendPacket(pkt);
+        Serial.println("NVS: Authentication failed — password mismatch");
+    }
 }
