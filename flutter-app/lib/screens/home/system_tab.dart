@@ -101,12 +101,12 @@ class SystemTab extends StatelessWidget {
           _buildSkinPacksCard(context),
 
           const SizedBox(height: 32),
-          _buildSectionTag(context, '03. HARDWARE_METRICS'),
-          _buildAboutCard(context),
+          _buildSectionTag(context, '03. ADVANCED_OPTIONS'),
+          _buildAdvancedOptionsCard(context),
 
           const SizedBox(height: 32),
-          _buildSectionTag(context, '04. REMOTE_ACCESS'),
-          _buildRemoteAccessCard(context),
+          _buildSectionTag(context, '04. HARDWARE_METRICS'),
+          _buildAboutCard(context),
 
           const SizedBox(height: 48),
           _buildDangerZone(context),
@@ -279,22 +279,6 @@ class SystemTab extends StatelessWidget {
                 ),
               ],
             ),
-            const Divider(height: 32, color: Colors.white10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Expanded(
-                  child: _SettingLabel(label: 'ENABLE_DEV_TOOLS', value: 'Show Dev Tools tab'),
-                ),
-                Consumer<SettingsProvider>(
-                  builder: (context, settings, _) => Switch(
-                    value: settings.enableDevTools,
-                    onChanged: (v) => settings.setEnableDevTools(v),
-                    activeThumbColor: AppColors.brandOrange,
-                  ),
-                ),
-              ],
-            ),
           ],
         ),
       ),
@@ -313,6 +297,38 @@ class SystemTab extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildAdvancedOptionsCard(BuildContext context) {
+    return Column(
+      children: [
+        // ── Dev Tools toggle ────────────────────────────────────
+        Card(
+          color: Colors.white.withValues(alpha: 0.05),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Expanded(
+                  child: _SettingLabel(label: 'ENABLE_DEV_TOOLS', value: 'Show Dev Tools tab'),
+                ),
+                Consumer<SettingsProvider>(
+                  builder: (context, settings, _) => Switch(
+                    value: settings.enableDevTools,
+                    onChanged: (v) => settings.setEnableDevTools(v),
+                    activeThumbColor: AppColors.brandOrange,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        // ── Remote Access card ──────────────────────────────────
+        _buildRemoteAccessCard(context),
+      ],
     );
   }
 

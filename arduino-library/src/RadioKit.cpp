@@ -188,6 +188,7 @@ void RadioKitClass::_onPacket(uint8_t cmd,
         case RK_CMD_META_UPDATE:s_instance->_handleMetaUpdate(payload, payloadLen);break;
         case RK_CMD_BLE_INFO:  s_instance->_handleBleInfo();                       break;
         case RK_CMD_GET_FEATURES: s_instance->_handleGetFeatures();                  break;
+        case RK_CMD_GET_CHIP_INFO: s_instance->_handleGetChipInfo();                  break;
         default: 
             Serial.printf("RK: Unknown CMD %s (0x%02X)\n", rk_cmdName(cmd), cmd);
             break;
@@ -496,6 +497,70 @@ void RadioKitClass::_onFsPacket(uint8_t subCmd,
     RK_DEBUG_PRINT("RK: Dispatching FS %s (0x%02X), len %d\n",
                    rk_fsCmdName(subCmd), subCmd, payloadLen);
     RKFs::dispatch(subCmd, payload, payloadLen);
+}
+
+// ── CHIP_INFO handler ─────────────────────────────────────────────────────
+
+void RadioKitClass::_handleGetChipInfo() {
+#if defined(ESP32)
+    uint8_t payload[64];
+    uint16_t offset = 0;
+
+    // 1. Chip model string (use Arduino ESP32 built-in)
+    String modelStr = ESP.getChipModel();
+    uint8_t modelLen = modelStr.length();
+    if (modelLen > 20) modelLen = 20;
+    payload[offset++] = modelLen;
+    memcpy(&payload[offset], modelStr.c_str(), modelLen);
+    offset += modelLen;
+
+    // 2. Chip revision
+    payload[offset++] = ESP.getChipRevision();
+
+    // 3. Number of cores
+    payload[offset++] = ESP.getChipCores();
+
+    // 4. Flash size (bytes, LE)
+    uint32_t flashSize = ESP.getFlashChipSize();
+    payload[offset++] = flashSize & 0xFF;
+    payload[offset++] = (flashSize >> 8) & 0xFF;
+    payload[offset++] = (flashSize >> 16) & 0xFF;
+    payload[offset++] = (flashSize >> 24) & 0xFF;
+
+    // 5. PSRAM size (bytes, LE; 0 if none)
+    uint32_t psramSize = ESP.getPsramSize();
+    payload[offset++] = psramSize & 0xFF;
+    payload[offset++] = (psramSize >> 8) & 0xFF;
+    payload[offset++] = (psramSize >> 16) & 0xFF;
+    payload[offset++] = (psramSize >> 24) & 0xFF;
+
+    // 6. SDK version string
+    String sdkVer = ESP.getSdkVersion();
+    uint8_t sdkLen = sdkVer.length();
+    if (sdkLen > 30) sdkLen = 30;
+    payload[offset++] = sdkLen;
+    memcpy(&payload[offset], sdkVer.c_str(), sdkLen);
+    offset += sdkLen;
+
+    // 7. MAC address (6 bytes from uint64_t)
+    uint64_t macInt = ESP.getEfuseMac();
+    uint8_t mac[6];
+    mac[0] = (uint8_t)(macInt & 0xFF);
+    mac[1] = (uint8_t)((macInt >> 8) & 0xFF);
+    mac[2] = (uint8_t)((macInt >> 16) & 0xFF);
+    mac[3] = (uint8_t)((macInt >> 24) & 0xFF);
+    mac[4] = (uint8_t)((macInt >> 32) & 0xFF);
+    mac[5] = (uint8_t)((macInt >> 40) & 0xFF);
+    memcpy(&payload[offset], mac, 6);
+    offset += 6;
+
+    uint16_t len = rk_buildPacket(_txBuf, RK_CMD_CHIP_INFO_DATA, payload, offset);
+    _sendPacket(len);
+#else
+    // Non-ESP32: send empty payload to signal "not available"
+    uint16_t len = rk_buildPacket(_txBuf, RK_CMD_CHIP_INFO_DATA, nullptr, 0);
+    _sendPacket(len);
+#endif
 }
 
 // ── OTA protocol ────────────────────────────────────────────────────────────

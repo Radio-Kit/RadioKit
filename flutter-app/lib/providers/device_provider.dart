@@ -73,6 +73,8 @@ class DeviceProvider extends ChangeNotifier {
   Completer<void>?         _confCompleter;  Completer<Map<String, int>>? _bleInfoCompleter;
   int _deviceFeatures = 0;
   Completer<int>? _featuresCompleter;
+  Map<String, dynamic>? _chipInfo;
+  Completer<void>? _chipInfoCompleter;
   Completer<int>? _otaCompleter;
   DateTime? _pingSentAt;
 
@@ -213,6 +215,9 @@ class DeviceProvider extends ChangeNotifier {
   /// Whether the connected device supports OTA firmware updates.
   bool get hasOta => (_deviceFeatures & kFeatureOta) != 0;
 
+  /// Cached chip info from the device, or null if not yet fetched.
+  Map<String, dynamic>? get chipInfo => _chipInfo;
+
   // ── Transport swap ───────────────────────────────────────────────────────────
 
   void setTransport(TransportService transport) {
@@ -296,6 +301,9 @@ class DeviceProvider extends ChangeNotifier {
 
     // Request features after config loads — fire-and-forget
     unawaited(_requestFeatures());
+
+    // Request chip info — will be fetched on first display
+    unawaited(_requestChipInfo());
   }
 
   /// Send a few FS_PING frames and set [connectedDevice.hasFs] based on
@@ -821,6 +829,7 @@ class DeviceProvider extends ChangeNotifier {
       case kCmdTelemetryData: _handleTelemetryData(packet.payload); break;
       case kCmdBleInfoData: _handleBleInfoData(packet.payload); break;
       case kCmdFeaturesData: _handleFeaturesData(packet.payload); break;
+      case kCmdChipInfoData: _handleChipInfoData(packet.payload); break;
       default:
         debugPrint('RadioKit: Unknown cmd 0x${packet.cmd.toRadixString(16)}');
     }
@@ -865,6 +874,81 @@ class DeviceProvider extends ChangeNotifier {
     }
   }
 
+  void _handleChipInfoData(List<int> payload) {
+    if (payload.isEmpty) return;
+    int offset = 0;
+
+    // 1. Chip model string
+    if (offset >= payload.length) return;
+    final modelLen = payload[offset++];
+    String chipModel = '';
+    if (offset + modelLen <= payload.length) {
+      chipModel = utf8Decode(payload.sublist(offset, offset + modelLen));
+      offset += modelLen;
+    }
+
+    // 2. Chip revision
+    if (offset >= payload.length) return;
+    final chipRevision = payload[offset++];
+
+    // 3. Cores
+    if (offset >= payload.length) return;
+    final chipCores = payload[offset++];
+
+    // 4. Flash size (4 bytes LE)
+    if (offset + 4 > payload.length) return;
+    final flashSize = payload[offset] |
+        (payload[offset + 1] << 8) |
+        (payload[offset + 2] << 16) |
+        (payload[offset + 3] << 24);
+    offset += 4;
+
+    // 5. PSRAM size (4 bytes LE)
+    if (offset + 4 > payload.length) return;
+    final psramSize = payload[offset] |
+        (payload[offset + 1] << 8) |
+        (payload[offset + 2] << 16) |
+        (payload[offset + 3] << 24);
+    offset += 4;
+
+    // 6. SDK version string
+    if (offset >= payload.length) return;
+    final sdkLen = payload[offset++];
+    String sdkVersion = '';
+    if (offset + sdkLen <= payload.length) {
+      sdkVersion = utf8Decode(payload.sublist(offset, offset + sdkLen));
+      offset += sdkLen;
+    }
+
+    // 7. MAC address (6 bytes)
+    String chipId = '';
+    if (offset + 6 <= payload.length) {
+      final parts = <String>[];
+      for (int i = 0; i < 6; i++) {
+        parts.add(payload[offset + i].toRadixString(16).padLeft(2, '0'));
+      }
+      chipId = parts.join(':');
+    }
+
+    _chipInfo = {
+      'chipModel': chipModel,
+      'chipRevision': chipRevision,
+      'chipCores': chipCores,
+      'flashSize': flashSize,
+      'psramSize': psramSize,
+      'sdkVersion': sdkVersion,
+      'chipId': chipId,
+    };
+
+    _log('Chip info received: $_chipInfo', level: ConsoleLogLevel.success);
+    notifyListeners();
+
+    final completer = _chipInfoCompleter;
+    if (completer != null && !completer.isCompleted) {
+      completer.complete();
+    }
+  }
+
   /// Request features from the device. Fire-and-forget — don't block connection.
   Future<void> _requestFeatures() async {
     if (!_transport.isConnected) return;
@@ -885,6 +969,35 @@ class DeviceProvider extends ChangeNotifier {
     } finally {
       _featuresCompleter = null;
     }
+  }
+
+  /// Request chip info from the device. Fire-and-forget — cached for UI.
+  Future<void> _requestChipInfo() async {
+    if (!_transport.isConnected) return;
+    final completer = Completer<void>();
+    _chipInfoCompleter = completer;
+    try {
+      await _writePacket(ProtocolService.buildGetChipInfo());
+    } catch (_) {
+      _chipInfoCompleter = null;
+      return;
+    }
+    try {
+      await completer.future.timeout(const Duration(seconds: 3));
+    } on TimeoutException catch (_) {
+      // Device may be running older firmware — chip info stays null
+    } catch (_) {
+      // Ignore
+    } finally {
+      _chipInfoCompleter = null;
+    }
+  }
+
+  /// Public: request chip info on demand (e.g. when bottom sheet opens).
+  /// Returns immediately if already cached, else fetches fresh.
+  Future<void> requestChipInfo() async {
+    if (_chipInfo != null) return;
+    await _requestChipInfo();
   }
 
   /// Send a GET_BLE_INFO command to the device and wait for the response.
@@ -1601,6 +1714,7 @@ class DeviceProvider extends ChangeNotifier {
     _deviceConfigJson = null;
     _fsTreeCache      = null;
     _deviceFeatures   = 0;
+    _chipInfo         = null;
     _otaCancelled     = false;
     _errorMessage     = null;
     notifyListeners();

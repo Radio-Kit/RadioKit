@@ -29,6 +29,8 @@ const int kCmdBleInfo = 0x14;
 const int kCmdBleInfoData = 0x0F;
 const int kCmdGetFeatures = 0x15;
 const int kCmdFeaturesData = 0x16;
+const int kCmdGetChipInfo = 0x17;
+const int kCmdChipInfoData = 0x18;
 
 // ── Feature bitmask bits (FEATURES_DATA payload) ──────────────────────────
 const int kFeatureOta = 1 << 0;

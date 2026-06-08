@@ -144,6 +144,7 @@ private:
     void _handleGetTelemetry();
     void _handleBleInfo();
     void _handleGetFeatures();
+    void _handleGetChipInfo();
     void _sendPacket(const uint8_t* buf, uint16_t len);
     void _sendPacket(uint16_t len);
 

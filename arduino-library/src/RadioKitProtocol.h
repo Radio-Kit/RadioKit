@@ -43,6 +43,8 @@
 #define RK_CMD_BLE_INFO_DATA 0x0F  // Arduino → App: BLE connection param values
 #define RK_CMD_GET_FEATURES     0x15  // App → Arduino: request feature bitmask
 #define RK_CMD_FEATURES_DATA    0x16  // Arduino → App: feature bitmask [bitmask(1)]
+#define RK_CMD_GET_CHIP_INFO    0x17  // App → Arduino: request chip info
+#define RK_CMD_CHIP_INFO_DATA   0x18  // Arduino → App: chip info payload
 
 // ── Feature bitmask bits (FEATURES_DATA payload) ────────────────────────────
 #define RK_FEATURE_OTA          (1 << 0)  ///< OTA firmware update supported
