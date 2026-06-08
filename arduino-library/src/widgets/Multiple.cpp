@@ -1,5 +1,5 @@
 #include "Multiple.h"
-#include "../RadioKit.h"
+#include "../RadioKitLib.h"
 #include <string.h>
 
 void RadioKit_Multiple::_initFromProps(const RK_MultipleProps& p, uint8_t tid) {

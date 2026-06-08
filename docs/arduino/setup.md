@@ -19,7 +19,7 @@
 Every RadioKit sketch follows a simple three-part pattern. 
 
 ```cpp
-#include <RadioKit.h>
+#include <RadioKitLib.h>
 
 // ── 1. Widget declarations (global scope) ────────────────────────────────
 // Each widget self-registers on construction

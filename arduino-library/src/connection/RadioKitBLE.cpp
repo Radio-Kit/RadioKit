@@ -16,7 +16,7 @@
 
 #include "RadioKitBLE.h"
 #include "../RadioKitProtocol.h"
-#include "../RadioKit.h"
+#include "../RadioKitLib.h"
 #include "RadioKitFS.h"
 #include "RadioKitOTA.h"
 #include <NimBLEDevice.h>

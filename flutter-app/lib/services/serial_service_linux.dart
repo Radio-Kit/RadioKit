@@ -90,13 +90,26 @@ class LinuxSerialService implements TransportService {
       throw Exception('Failed to open $deviceId: $err');
     }
 
+    // Set DTR/RTS low immediately to prevent ESP32-S3 USB CDC reset.
+    // ESP32-S3 interprets DTR assertion as a chip reset signal.
+    // Must set these BEFORE any flow control configuration that might
+    // override them.
     final config = SerialPortConfig()
       ..baudRate = baudRate
       ..bits = 8
       ..stopBits = 1
       ..parity = SerialPortParity.none
+      ..dtr = 0
+      ..rts = 0
       ..setFlowControl(SerialPortFlowControl.none);
     port.config = config;
+    
+    // Re-apply DTR/RTS after setFlowControl since it may have overwritten them.
+    // Some ESP32-S3 boards need DTR=0,RTS=0 to avoid hardware reset on connect.
+    final adj = port.config;
+    adj.dtr = 0;
+    adj.rts = 0;
+    port.config = adj;
 
     _port = port;
     _receiveBuffer.clear();

@@ -1,5 +1,5 @@
 /**
- * RadioKit.h
+ * RadioKitLib.h
  * Main user-facing header for the RadioKit Arduino library (v2.0).
  *
  * Sketch pattern:
@@ -87,21 +87,31 @@ public:
 
     // ── NVS config editing ───────────────────────────────────────
     /**
-     * Update device name, description, and/or password at runtime.
+     * Update device name, description, and/or passwords at runtime.
      * Writes to NVS, updates BLE advertisement name if changed,
      * and re-broadcasts CONF_DATA.
      * Pass nullptr for fields you don't want to change.
+     * @param password       Connection password (user mode). Empty string clears it.
+     * @param adminPassword  Admin password (admin mode). Empty string clears it.
      */
-    void setConfig(const char* name, const char* description, const char* password);
+    void setConfig(const char* name, const char* description,
+                   const char* password = nullptr,
+                   const char* adminPassword = nullptr);
 
     /**
      * Authenticate with the device password.
+     * @param password   The password to authenticate with.
+     * @param asAdmin    If true, authenticate as admin (against admin password).
+     *                   If false, authenticate as user (against connection password).
      * Returns 0x00 (OK), 0x01 (mismatch), 0x02 (already authed).
      */
-    uint8_t authenticate(const char* password);
+    uint8_t authenticate(const char* password, bool asAdmin = false);
 
-    /// True if authentication has succeeded (or no password is set).
-    bool isAuthenticated() const { return _authenticated; }
+    /// True if user-mode authentication has succeeded (or no password is set).
+    bool isAuthenticated() const { return _authenticated || _authenticatedAdmin; }
+
+    /// True if admin-mode authentication has succeeded.
+    bool isAdmin() const { return _authenticatedAdmin || _nvsAdminPwd[0] == '\0'; }
 
     // ── Status ───────────────────────────────────────────────
     bool    isConnected() const;
@@ -184,8 +194,10 @@ private:
     char _nvsName[RADIOKIT_MAX_NAME + 1];
     char _nvsDesc[RADIOKIT_MAX_DESC + 1];
     char _nvsPwd[RADIOKIT_MAX_PWD + 1];
+    char _nvsAdminPwd[RADIOKIT_MAX_ADMIN_PWD + 1];
     bool _nvsActive;        ///< True once NVS values have been loaded
-    bool _authenticated;    ///< Auth gate flag (for password-protected devices)
+    bool _authenticated;    ///< User-mode auth flag
+    bool _authenticatedAdmin;  ///< Admin-mode auth flag
 
     // Internal helpers
     void _syncNvsToBuffers();

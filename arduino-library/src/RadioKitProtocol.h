@@ -50,19 +50,27 @@
 #define RK_CMD_FACTORY_RESET    0x1B  // App → Arduino: erase NVS config and reboot
 
 // ── Feature bitmask bits (FEATURES_DATA payload) ────────────────────────────
-#define RK_FEATURE_OTA          (1 << 0)  ///< OTA firmware update supported
-#define RK_FEATURE_FILESYSTEM   (1 << 1)  ///< LittleFS filesystem supported
-#define RK_FEATURE_HAS_PASSWORD (1 << 2)  ///< Device has a non-empty password set
+#define RK_FEATURE_OTA             (1 << 0)  ///< OTA firmware update supported
+#define RK_FEATURE_FILESYSTEM      (1 << 1)  ///< LittleFS filesystem supported
+#define RK_FEATURE_HAS_CONN_PWD    (1 << 2)  ///< Device has a non-empty connection password
+#define RK_FEATURE_HAS_ADMIN_PWD   (1 << 3)  ///< Device has a non-empty admin password
+
+// Legacy alias
+#define RK_FEATURE_HAS_PASSWORD RK_FEATURE_HAS_CONN_PWD
 
 // ── PWD_AUTH response codes ─────────────────────────────────────────────────
 #define RK_PWD_AUTH_OK          0x00  ///< Authentication successful
 #define RK_PWD_AUTH_MISMATCH    0x01  ///< Password does not match
 #define RK_PWD_AUTH_ALREADY     0x02  ///< Already authenticated
 
+// ── PWD_AUTH flags byte ─────────────────────────────────────────────────────
+#define RK_PWD_AUTH_FLAG_ADMIN   (1 << 0)  ///< Authenticate as admin
+
 // ── SET_CONF field mask bits ────────────────────────────────────────────────
 #define RK_SET_CONF_NAME        (1 << 0)  ///< Name field present
 #define RK_SET_CONF_DESC        (1 << 1)  ///< Description field present
-#define RK_SET_CONF_PWD         (1 << 2)  ///< Password field present
+#define RK_SET_CONF_PWD         (1 << 2)  ///< Connection password field present
+#define RK_SET_CONF_ADMIN_PWD   (1 << 3)  ///< Admin password field present
 #define RK_SET_CONF_ERROR       (1 << 7)  ///< ACK: error during NVS write
 
 // ─────────────────────────────────────────────

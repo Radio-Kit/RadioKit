@@ -44,7 +44,7 @@ lib_deps =
 ## Quick Start Example
 
 ```cpp
-#include <RadioKit.h>
+#include <RadioKitLib.h>
 
 // ── Widget declarations (global scope) ────────────────────────────────
 RK_PushButton fireBtn({.x=20, .y=60, .height=20, .width=0, .rotation=0, .icon="flame", .label="Fire", .active=false});

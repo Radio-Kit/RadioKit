@@ -71,25 +71,58 @@ class ModelsTab extends StatelessWidget {
 
 // ── Active Link Section ──────────────────────────────────────────────────────
 
-class _ActiveLinkSection extends StatelessWidget {
+class _ActiveLinkSection extends StatefulWidget {
+  @override
+  State<_ActiveLinkSection> createState() => _ActiveLinkSectionState();
+}
+
+class _ActiveLinkSectionState extends State<_ActiveLinkSection> {
+  bool _authDialogShown = false;
+
   @override
   Widget build(BuildContext context) {
     final deviceProvider = context.watch<DeviceProvider>();
     final isConnected = deviceProvider.isConnected;
 
-    if (!isConnected) return const SizedBox.shrink();
+    if (!isConnected) {
+      // Reset flag when disconnected so it can re-trigger on next connection
+      if (_authDialogShown) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() => _authDialogShown = false);
+        });
+      }
+      return const SizedBox.shrink();
+    }
 
     final device = deviceProvider.connectedDevice!;
     final needAuth = deviceProvider.hasPassword && !deviceProvider.isAuthenticated;
+
+    // If auth is needed and dialog hasn't been shown yet, trigger it
+    if (needAuth && !_authDialogShown) {
+      _authDialogShown = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        final ok = await _showAuthDialog(context, device);
+        if (!mounted) return;
+        if (!ok) {
+          // Defer disconnect to next frame to allow dialog route
+          // elements (e.g. _AuthCountdown watching DeviceProvider)
+          // to fully dispose before notifyListeners fires.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) deviceProvider.disconnect();
+          });
+        }
+      });
+    }
+
+    // Don't show anything if auth is needed (dialog handles it)
+    if (needAuth) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionTag(context, 'ACTIVE_LINKS'),
-        if (needAuth)
-          _PasswordGate(device: device)
-        else
-          _buildConnectedCard(context, deviceProvider, device),
+        _buildConnectedCard(context, deviceProvider, device),
       ],
     );
   }
@@ -335,11 +368,13 @@ class _DeviceInfoTabsState extends State<_DeviceInfoTabs>
 
   void _initTabs() {
     final dp = context.read<DeviceProvider>();
+    final isUserMode = dp.isUserMode;
     final hasFs = widget.device.hasFs;
     final hasOta = dp.hasOta;
     _tabCount = 1; // Info always present
-    if (hasFs) _tabCount++;
-    if (hasOta) _tabCount++;
+    // Hide FS/OTA tabs in user mode — admin required
+    if (hasFs && !isUserMode) _tabCount++;
+    if (hasOta && !isUserMode) _tabCount++;
     if (_tabCount > 1) {
       _tabController = TabController(length: _tabCount, vsync: this);
     }
@@ -368,8 +403,10 @@ class _DeviceInfoTabsState extends State<_DeviceInfoTabs>
     final hasOta = dp.hasOta;
     final showTabs = hasFs || hasOta;
 
-    if (!showTabs) {
-      // Only Info — no tabs
+    final isUserMode = dp.isUserMode;
+    
+    if (!showTabs || isUserMode) {
+      // Only Info when in user mode (or no FS/OTA at all)
       return _InfoTabContent(
         device: device,
         bleInfo: _bleInfo,
@@ -377,7 +414,7 @@ class _DeviceInfoTabsState extends State<_DeviceInfoTabs>
       );
     }
 
-    // Build tabs list
+    // Build tabs list (admin mode — show all available tabs)
     final tabs = <Tab>[];
     final tabWidgets = <Widget>[];
 
@@ -517,10 +554,28 @@ class _InfoTabContent extends StatelessWidget {
           const Divider(height: 1, color: Colors.white12),
           const SizedBox(height: 24),
           // ── Device Settings (NVS-editable) ──────────────────
-          _DeviceSettingsSection(device: device),
-          const SizedBox(height: 24),
-          const Divider(height: 1, color: Colors.white12),
-          const SizedBox(height: 24),
+          // Device Settings is admin-only — hide in user mode
+          if (dp.isUserMode) ...[
+            _AdminRequiredPlaceholder(
+              message: 'Admin access required to edit device settings',
+            ),
+          ] else ...[
+            _DeviceSettingsSection(device: device),
+          ],
+          // ── Authenticate + Remove Device (user mode only) ──
+          if (dp.isUserMode && !isDemo) ...[
+            _AdminAccessButton(device: device),
+            const SizedBox(height: 24),
+            const Divider(height: 1, color: Colors.white12),
+            const SizedBox(height: 24),
+            _RemoveDeviceButton(device: device),
+            const SizedBox(height: 24),
+            const Divider(height: 1, color: Colors.white12),
+            const SizedBox(height: 24),
+          ] else ...[
+            const Divider(height: 1, color: Colors.white12),
+            const SizedBox(height: 24),
+          ],
           // ── Chip Info ───────────────────────────────────────
           Text('CHIP INFO',
               style: TextStyle(
@@ -1607,22 +1662,427 @@ class _FirmwareTabContentState extends State<_FirmwareTabContent> {
   }
 }
 
+// ── Shared Auth Dialog ─────────────────────────────────────────────────────
+
+/// Shows a reusable authentication dialog for both connection (password gate)
+/// and admin (admin upgrade) authentication.
+/// 
+/// [isAdminAuth]: false → connection auth via [DeviceProvider.authenticate],
+///                 true  → admin auth via [DeviceProvider.authenticateAdmin].
+/// Both modes support "Remember password" via [SecureStorageService].
+/// Returns true if auth succeeded, false if cancelled or failed.
+Future<bool> _showAuthDialog(
+    BuildContext context, DeviceInfo device, {
+  bool isAdminAuth = false,
+}) async {
+  final dp = context.read<DeviceProvider>();
+  final pwdCtrl = TextEditingController();
+  bool obscure = true;
+  bool loading = false;
+  bool remember = isAdminAuth ? false : true;
+  String? error;
+
+  // Load saved password
+  final saved = isAdminAuth
+      ? await SecureStorageService.loadAdminPassword(device.id)
+      : await SecureStorageService.loadPassword(device.id);
+  if (saved != null && saved.isNotEmpty && context.mounted) {
+    pwdCtrl.text = saved;
+  }
+
+  if (!context.mounted) {
+    pwdCtrl.dispose();
+    return false;
+  }
+
+  final success = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (ctx) {
+      return StatefulBuilder(
+        builder: (context, setDialogState) {
+          // Shared submit handler — declared before AlertDialog return so
+          // onSubmitted and onPressed can reference it without forward ref errors.
+          Future<void> submit() async {
+            if (loading) return;
+            setDialogState(() {
+              loading = true;
+              error = null;
+            });
+            final pwd = pwdCtrl.text.trim();
+            if (pwd.isEmpty) {
+              setDialogState(() {
+                loading = false;
+                error = 'Please enter a password';
+              });
+              return;
+            }
+            final ok = isAdminAuth
+                ? await dp.authenticateAdmin(pwd)
+                : await dp.authenticate(pwd);
+            if (!context.mounted) return;
+            if (ok) {
+              if (remember) {
+                if (isAdminAuth) {
+                  SecureStorageService.saveAdminPassword(device.id, pwd);
+                } else {
+                  SecureStorageService.savePassword(device.id, pwd);
+                }
+              }
+              Navigator.of(ctx).pop(true);
+            } else {
+              setDialogState(() {
+                loading = false;
+                error = 'Incorrect password';
+              });
+            }
+          }
+
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1A1A1A),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+            title: Row(children: [
+              Icon(
+                isAdminAuth
+                    ? Icons.admin_panel_settings_outlined
+                    : Icons.lock_rounded,
+                color: AppColors.brandOrange,
+                size: 22,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                isAdminAuth ? 'ADMIN AUTH' : 'PASSWORD REQUIRED',
+                style: GoogleFonts.changa(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                    fontSize: 14,
+                    color: Colors.white),
+              ),
+              if (!isAdminAuth) ...[const Spacer(), _AuthCountdown(initialRemaining: dp.remainingAuthTime)],
+            ]),
+            content: SizedBox(
+              width: 300,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isAdminAuth
+                        ? 'Enter admin password to unlock full access.'
+                        : 'Enter the device password to connect.',
+                    style:
+                        const TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.03),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.devices_rounded,
+                            size: 16, color: AppColors.brandOrange),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(device.displayName.toUpperCase(),
+                                  style: GoogleFonts.exo2(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                  )),
+                              Text(
+                                device.id.startsWith('demo_')
+                                    ? 'DEMO'
+                                    : device.id.startsWith('COM') ||
+                                            device.id.contains('serial')
+                                        ? 'SERIAL'
+                                        : 'BLUETOOTH LE',
+                                style: const TextStyle(
+                                    color: Colors.white38, fontSize: 10),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: pwdCtrl,
+                    obscureText: obscure,
+                    autofocus: true,
+                    style: GoogleFonts.jetBrainsMono(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.05),
+                      hintText: isAdminAuth
+                          ? 'Enter admin password'
+                          : 'Enter device password',
+                      hintStyle: const TextStyle(color: Colors.white24),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 12),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                            obscure
+                                ? Icons.visibility_off_rounded
+                                : Icons.visibility_rounded,
+                            size: 18,
+                            color: Colors.white38),
+                        onPressed: () =>
+                            setDialogState(() => obscure = !obscure),
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide(
+                            color: error != null
+                                ? Colors.redAccent
+                                : Colors.white12),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide(
+                            color: error != null
+                                ? Colors.redAccent
+                                : Colors.white12),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide(
+                            color: error != null
+                                ? Colors.redAccent
+                                : AppColors.brandOrange
+                                    .withValues(alpha: 0.5)),
+                      ),
+                    ),
+                    onSubmitted: (_) => submit(),
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: 8),
+                    Row(children: [
+                      const Icon(Icons.error_outline_rounded,
+                          size: 14, color: Colors.redAccent),
+                      const SizedBox(width: 6),
+                      Text(error!,
+                          style: const TextStyle(
+                              color: Colors.redAccent,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500)),
+                    ]),
+                  ],
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    SizedBox(
+                      height: 28,
+                      width: 28,
+                      child: Checkbox(
+                        value: remember,
+                        onChanged: (v) => setDialogState(
+                            () => remember = v ?? false),
+                        activeColor: AppColors.brandOrange,
+                        checkColor: Colors.black,
+                        side: const BorderSide(color: Colors.white24),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () => setDialogState(
+                          () => remember = !remember),
+                      child: const Text('Remember password',
+                          style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500)),
+                    ),
+                  ]),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('CANCEL',
+                    style: TextStyle(color: Colors.white54)),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.brandOrange,
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6)),
+                ),
+                onPressed: loading ? null : () => submit(),
+                child: loading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.black))
+                    : const Text('AUTHENTICATE'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+
+  pwdCtrl.dispose();
+  return success ?? false;
+}
+
+// ── Admin Access Button (opens shared auth dialog in admin mode) ───────────
+
+class _AdminAccessButton extends StatelessWidget {
+  final DeviceInfo device;
+  const _AdminAccessButton({required this.device});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: FilledButton.icon(
+        style: FilledButton.styleFrom(
+          backgroundColor: Colors.orange.withValues(alpha: 0.15),
+          foregroundColor: Colors.orange,
+          side: BorderSide(color: Colors.orange.withValues(alpha: 0.4)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(6)),
+        ),
+        icon: const Icon(Icons.admin_panel_settings_outlined, size: 20),
+        label: Text('AUTHENTICATE AS ADMIN',
+            style: GoogleFonts.changa(
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1,
+                fontSize: 12)),
+        onPressed: () => _showAuthDialog(context, device, isAdminAuth: true),
+      ),
+    );
+  }
+}
+
+// ── Remove Device Button ──────────────────────────────────────────────────
+
+class _RemoveDeviceButton extends StatelessWidget {
+  final DeviceInfo device;
+  const _RemoveDeviceButton({required this.device});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 44,
+      child: OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.redAccent,
+          side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.4)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(6)),
+        ),
+        icon: const Icon(Icons.delete_outline_rounded, size: 18),
+        label: Text('REMOVE DEVICE',
+            style: GoogleFonts.changa(
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1,
+                fontSize: 12)),
+        onPressed: () => _confirmRemove(context),
+      ),
+    );
+  }
+
+  Future<void> _confirmRemove(BuildContext context) async {
+    final dp = context.read<DeviceProvider>();
+    final history = context.read<HistoryProvider>();
+    final deviceId = device.id;
+    final deviceName = device.displayName;
+
+    // Confirm dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        icon: const Icon(Icons.warning_rounded,
+            color: Colors.redAccent, size: 32),
+        title: const Text('Remove Device?',
+            style: TextStyle(color: Colors.white)),
+        content: Text('Disconnect and remove "$deviceName" from paired devices.',
+            style: const TextStyle(color: Colors.white54, fontSize: 13)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('CANCEL',
+                style: TextStyle(color: Colors.white54)),
+          ),
+          FilledButton.tonal(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.redAccent.withValues(alpha: 0.2),
+              foregroundColor: Colors.redAccent,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('REMOVE'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    // Disconnect
+    await dp.disconnect();
+    
+    // Remove from paired devices
+    history.removeDevice(deviceId);
+    
+    // Close the bottom sheet
+    if (context.mounted) {
+      Navigator.of(context).maybePop();
+    }
+  }
+}
+
 // ── Auth Countdown Widget ──────────────────────────────────────────────────
 
+/// Self-contained countdown timer for the auth dialog.
+/// Takes an [initialRemaining] snapshot so it doesn't need to
+/// watch [DeviceProvider] — avoiding dependent-registration races
+/// when the dialog route is dismissed.
 class _AuthCountdown extends StatefulWidget {
+  final Duration initialRemaining;
+  const _AuthCountdown({required this.initialRemaining});
+
   @override
   State<_AuthCountdown> createState() => _AuthCountdownState();
 }
 
 class _AuthCountdownState extends State<_AuthCountdown> {
   Timer? _timer;
+  late int _secondsRemaining;
 
   @override
   void initState() {
     super.initState();
-    // Rebuild every second to update the countdown display
+    _secondsRemaining = widget.initialRemaining.inSeconds.clamp(0, 60);
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
+      if (!mounted) return;
+      setState(() {
+        _secondsRemaining = (_secondsRemaining - 1).clamp(0, 60);
+      });
+      if (_secondsRemaining <= 0) {
+        _timer?.cancel();
+        _timer = null;
+      }
     });
   }
 
@@ -1634,14 +2094,11 @@ class _AuthCountdownState extends State<_AuthCountdown> {
 
   @override
   Widget build(BuildContext context) {
-    final dp = context.watch<DeviceProvider>();
-    final remaining = dp.remainingAuthTime;
-    if (remaining.isNegative || remaining > const Duration(seconds: 55)) {
-      // Don't show countdown in the first 5 seconds
+    if (_secondsRemaining > 55) {
+      // Don't show in the first 5 seconds
       return const SizedBox.shrink();
     }
-    final secs = remaining.inSeconds.clamp(0, 60);
-    final urgent = secs <= 10;
+    final urgent = _secondsRemaining <= 10;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -1660,7 +2117,7 @@ class _AuthCountdownState extends State<_AuthCountdown> {
               size: 12,
               color: urgent ? Colors.redAccent : Colors.orange),
           const SizedBox(width: 4),
-          Text('${secs}s',
+          Text('${_secondsRemaining}s',
               style: TextStyle(
                 color: urgent ? Colors.redAccent : Colors.orange,
                 fontSize: 11,
@@ -1673,249 +2130,30 @@ class _AuthCountdownState extends State<_AuthCountdown> {
   }
 }
 
-// ── Password Gate Widget ──────────────────────────────────────────────────
+// ── Admin Required Placeholder ──────────────────────────────────────────────
 
-class _PasswordGate extends StatefulWidget {
-  final DeviceInfo device;
-  const _PasswordGate({required this.device});
-
-  @override
-  State<_PasswordGate> createState() => _PasswordGateState();
-}
-
-class _PasswordGateState extends State<_PasswordGate> {
-  final _pwdCtrl = TextEditingController();
-  bool _loading = false;
-  String? _error;
-  bool _obscure = true;
-  bool _remember = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadSavedPassword();
-  }
-
-  @override
-  void dispose() {
-    _pwdCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadSavedPassword() async {
-    final saved = await SecureStorageService.loadPassword(widget.device.id);
-    if (!mounted) return;
-    if (saved != null && saved.isNotEmpty) {
-      _pwdCtrl.text = saved;
-      // Auto-login with saved password
-      _authenticate();
-    }
-  }
-
-  Future<void> _authenticate() async {
-    final pwd = _pwdCtrl.text.trim();
-    if (pwd.isEmpty) {
-      setState(() {
-        _error = 'Please enter a password';
-        _loading = false;
-      });
-      return;
-    }
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    final dp = context.read<DeviceProvider>();
-    final ok = await dp.authenticate(pwd);
-    if (!mounted) return;
-    setState(() => _loading = false);
-    if (!ok) {
-      setState(() {
-        _error = 'Incorrect password';
-      });
-    } else if (_remember) {
-      // Save password to secure storage on successful auth
-      SecureStorageService.savePassword(widget.device.id, pwd);
-    }
-    // If ok, state change triggers rebuild and gate disappears
-  }
+class _AdminRequiredPlaceholder extends StatelessWidget {
+  final String message;
+  const _AdminRequiredPlaceholder({required this.message});
 
   @override
   Widget build(BuildContext context) {
-    final device = widget.device;
-
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      color: Colors.white.withValues(alpha: 0.05),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Row(children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Icon(Icons.lock_rounded,
-                    color: Colors.orange, size: 28),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(children: [
-                      Text('PASSWORD REQUIRED',
-                          style: GoogleFonts.inter(
-                              color: Colors.orange,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 10,
-                              letterSpacing: 1)),
-                      const Spacer(),
-                      _AuthCountdown(),
-                    ]),
-                    const SizedBox(height: 4),
-                    Text(device.displayName.toUpperCase(),
-                        style: GoogleFonts.exo2(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.5,
-                            color: Colors.white)),
-                  ],
-                ),
-              ),
-            ]),
-            const SizedBox(height: 24),
-            const Divider(height: 1, color: Colors.white12),
-            const SizedBox(height: 24),
-            // Password field
-            TextField(
-              controller: _pwdCtrl,
-              obscureText: _obscure,
-              autofocus: true,
-              style: GoogleFonts.jetBrainsMono(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: Colors.white.withValues(alpha: 0.05),
-                hintText: 'Enter device password',
-                hintStyle: const TextStyle(color: Colors.white24),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                suffixIcon: IconButton(
-                  icon: Icon(
-                      _obscure
-                          ? Icons.visibility_off_rounded
-                          : Icons.visibility_rounded,
-                      size: 20,
-                      color: Colors.white38),
-                  onPressed: () => setState(() => _obscure = !_obscure),
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: BorderSide(
-                      color: _error != null
-                          ? Colors.redAccent
-                          : Colors.white12),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: BorderSide(
-                      color: _error != null
-                          ? Colors.redAccent
-                          : Colors.white12),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: BorderSide(
-                      color: _error != null
-                          ? Colors.redAccent
-                          : AppColors.brandOrange.withValues(alpha: 0.5)),
-                ),
-              ),
-              onSubmitted: (_) => _authenticate(),
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 8),
-              Row(children: [
-                const Icon(Icons.error_outline_rounded,
-                    size: 14, color: Colors.redAccent),
-                const SizedBox(width: 6),
-                Text(_error!,
-                    style: const TextStyle(
-                        color: Colors.redAccent,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500)),
-              ]),
-            ],
-            const SizedBox(height: 12),
-            // ── Remember password toggle ─────────────────────
-            Row(children: [
-              SizedBox(
-                height: 32,
-                width: 32,
-                child: Checkbox(
-                  value: _remember,
-                  onChanged: (v) => setState(() => _remember = v ?? true),
-                  activeColor: AppColors.brandOrange,
-                  checkColor: Colors.black,
-                  side: const BorderSide(color: Colors.white24),
-                ),
-              ),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: () => setState(() => _remember = !_remember),
-                child: const Text('Remember password',
-                    style: TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500)),
-              ),
-            ]),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.brandOrange,
-                  foregroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6)),
-                ),
-                icon: _loading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.black))
-                    : const Icon(Icons.lock_open_rounded, size: 20),
-                label: Text('UNLOCK',
-                    style: GoogleFonts.changa(
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.2,
-                        fontSize: 14)),
-                onPressed: _loading ? null : _authenticate,
-              ),
-            ),
-            const SizedBox(height: 4),
-            SizedBox(
-              width: double.infinity,
-              child: TextButton(
-                onPressed: () => context.read<DeviceProvider>().disconnect(),
-                child: const Text('DISCONNECT',
-                    style: TextStyle(color: Colors.white38, fontSize: 11)),
-              ),
-            ),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
+      width: double.infinity,
+      child: Row(children: [
+        Icon(Icons.lock_rounded, size: 20, color: Colors.white38),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(message,
+              style: const TextStyle(color: Colors.white38, fontSize: 12)),
+        ),
+      ]),
     );
   }
 }
@@ -1934,8 +2172,10 @@ class _DeviceSettingsSectionState extends State<_DeviceSettingsSection> {
   late TextEditingController _nameCtrl;
   late TextEditingController _descCtrl;
   late TextEditingController _pwdCtrl;
+  late TextEditingController _adminPwdCtrl;
   bool _saving = false;
   bool _pwdVisible = false;
+  bool _adminPwdVisible = false;
 
   @override
   void initState() {
@@ -1944,6 +2184,7 @@ class _DeviceSettingsSectionState extends State<_DeviceSettingsSection> {
     _nameCtrl = TextEditingController(text: dp.configName ?? '');
     _descCtrl = TextEditingController(text: dp.description ?? '');
     _pwdCtrl = TextEditingController();
+    _adminPwdCtrl = TextEditingController();
   }
 
   @override
@@ -1951,13 +2192,15 @@ class _DeviceSettingsSectionState extends State<_DeviceSettingsSection> {
     _nameCtrl.dispose();
     _descCtrl.dispose();
     _pwdCtrl.dispose();
+    _adminPwdCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final dp = context.watch<DeviceProvider>();
-    final isDemo = widget.device.id.startsWith('demo_');      if (isDemo) return const SizedBox.shrink();
+    final isDemo = widget.device.id.startsWith('demo_');
+    if (isDemo) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1975,6 +2218,8 @@ class _DeviceSettingsSectionState extends State<_DeviceSettingsSection> {
         _settingsField('DESCRIPTION', _descCtrl, maxLines: 2),
         const SizedBox(height: 8),
         _pwdField(),
+        const SizedBox(height: 8),
+        _adminPwdField(),
         const SizedBox(height: 16),
         SizedBox(
           width: double.infinity,
@@ -2001,7 +2246,6 @@ class _DeviceSettingsSectionState extends State<_DeviceSettingsSection> {
           ),
         ),
         const SizedBox(height: 12),
-        // ── Factory Reset ────────────────────────────────────────
         SizedBox(
           width: double.infinity,
           height: 44,
@@ -2030,8 +2274,8 @@ class _DeviceSettingsSectionState extends State<_DeviceSettingsSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style:
-                const TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
+            style: const TextStyle(
+                color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
         const SizedBox(height: 4),
         TextField(
           controller: ctrl,
@@ -2053,7 +2297,8 @@ class _DeviceSettingsSectionState extends State<_DeviceSettingsSection> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
-              borderSide: BorderSide(color: AppColors.brandOrange.withValues(alpha: 0.5)),
+              borderSide: BorderSide(
+                  color: AppColors.brandOrange.withValues(alpha: 0.5)),
             ),
           ),
         ),
@@ -2066,7 +2311,8 @@ class _DeviceSettingsSectionState extends State<_DeviceSettingsSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('PASSWORD (leave empty to clear)',
-            style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
+            style: TextStyle(
+                color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
         const SizedBox(height: 4),
         TextField(
           controller: _pwdCtrl,
@@ -2080,7 +2326,9 @@ class _DeviceSettingsSectionState extends State<_DeviceSettingsSection> {
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             suffixIcon: IconButton(
               icon: Icon(
-                  _pwdVisible ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                  _pwdVisible
+                      ? Icons.visibility_off_rounded
+                      : Icons.visibility_rounded,
                   size: 18,
                   color: Colors.white38),
               onPressed: () => setState(() => _pwdVisible = !_pwdVisible),
@@ -2095,7 +2343,63 @@ class _DeviceSettingsSectionState extends State<_DeviceSettingsSection> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
-              borderSide: BorderSide(color: AppColors.brandOrange.withValues(alpha: 0.5)),
+              borderSide: BorderSide(
+                  color: AppColors.brandOrange.withValues(alpha: 0.5)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _adminPwdField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          Text('ADMIN PASSWORD (leave empty to clear)',
+              style: TextStyle(
+                  color: AppColors.brandOrange.withValues(alpha: 0.7),
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold)),
+          const SizedBox(width: 6),
+          Icon(Icons.admin_panel_settings_outlined,
+              size: 12, color: AppColors.brandOrange.withValues(alpha: 0.5)),
+        ]),
+        const SizedBox(height: 4),
+        TextField(
+          controller: _adminPwdCtrl,
+          obscureText: !_adminPwdVisible,
+          style: GoogleFonts.jetBrainsMono(
+              color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.05),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            suffixIcon: IconButton(
+              icon: Icon(
+                  _adminPwdVisible
+                      ? Icons.visibility_off_rounded
+                      : Icons.visibility_rounded,
+                  size: 18,
+                  color: Colors.white38),
+              onPressed: () => setState(() => _adminPwdVisible = !_adminPwdVisible),
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: BorderSide(
+                  color: AppColors.brandOrange.withValues(alpha: 0.3)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: BorderSide(
+                  color: AppColors.brandOrange.withValues(alpha: 0.3)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: BorderSide(
+                  color: AppColors.brandOrange.withValues(alpha: 0.7)),
             ),
           ),
         ),
@@ -2110,11 +2414,13 @@ class _DeviceSettingsSectionState extends State<_DeviceSettingsSection> {
     final name = _nameCtrl.text.trim();
     final desc = _descCtrl.text.trim();
     final pwd = _pwdCtrl.text.trim();
+    final adminPwd = _adminPwdCtrl.text.trim();
 
     final ok = await dp.sendSetConf(
       name: name.isNotEmpty ? name : null,
       description: desc.isNotEmpty ? desc : null,
       password: pwd,
+      adminPassword: adminPwd,
     );
 
     if (!mounted) return;
@@ -2137,8 +2443,7 @@ class _DeviceSettingsSectionState extends State<_DeviceSettingsSection> {
         content: const Text(
           'This will erase all device settings (name, description, password) '
           'and reboot the device.\n\n'
-          'After reboot, compile-time defaults will be restored.'
-        ),
+          'After reboot, compile-time defaults will be restored.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -2172,7 +2477,6 @@ class _DeviceSettingsSectionState extends State<_DeviceSettingsSection> {
     );
 
     if (ok) {
-      // Device will reboot; disconnect locally
       dp.disconnect();
     }
   }
@@ -2211,9 +2515,7 @@ class _TelemetryItem extends StatelessWidget {
       children: [
         Text(label,
             style: const TextStyle(
-                color: Colors.white38,
-                fontSize: 9,
-                fontWeight: FontWeight.bold)),
+                color: Colors.white38, fontSize: 9, fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
         Row(
           crossAxisAlignment: CrossAxisAlignment.baseline,

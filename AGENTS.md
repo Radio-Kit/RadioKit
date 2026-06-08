@@ -168,12 +168,12 @@ Pass `showDebug: showDebug` to widgets (true only for the selected element in de
 ## 7. Code Generation Patterns
 
 - Generated Arduino code lives in `flutter-app/lib/screens/designer/codegen/`.
-- The `JsonArduinoGenerator.generate(jsonMap)` method produces complete `RadioKit_UI.h` content.
+- The `JsonArduinoGenerator.generate(jsonMap)` method produces complete `RADIOKIT.h` content.
 - The `.h` file embeds the JSON config in a comment block delimited by:
   ```
-  /*__RadioKit_UI_Designer_Config__
+  /*__RADIOKIT_Designer_Config__
   ... JSON ...
-  RadioKit_UI_Designer_Config__*/
+  RADIOKIT_Designer_Config__*/
   ```
 - The C++ code is always derived from the JSON schema (never hand-edited alongside the designer).
 - Widget names use `snake_case` identifiers (e.g., `button_1`, `slider_2`).
@@ -541,7 +541,7 @@ The `.github/workflows/release.yml` has a `flatpak` job that runs after the Andr
 
 PlatformIO is installed globally via `uv tool install platformio` (v6.1.19). It is available as the `pio` command from anywhere.
 
-### 13.1 Build commands
+### 17.1 Build commands
 
 Each example has its own `platformio.ini` in its directory. Build from that directory:
 
@@ -550,7 +550,7 @@ pio run                      # builds the example (default env)
 pio run -t upload            # flash to board
 ```
 
-### 13.2 Available examples
+### 17.2 Available examples
 
 Each directory under `arduino-library/examples/` has a self-contained `platformio.ini`:
 - `SerialTest` — Serial transport demo
@@ -560,10 +560,48 @@ Each directory under `arduino-library/examples/` has a self-contained `platformi
 - `BLE_RC_Truck` — BLE RC truck
 - `Filesystem_LED` — bulk-FS demo with LittleFS
 
-### 13.3 Reinstallation
+### 17.3 Reinstallation
 
 If `pio` is ever missing or broken:
 
 ```bash
 uv tool install platformio
 ```
+
+## 18. Models Tab Auth Dialog Flow
+
+The models tab (`models_tab.dart`) uses an auto-popup auth dialog pattern. No gate card is shown when authentication is needed.
+
+### 18.1 Connection auth flow
+
+1. Device connects with a password set (`hasPassword: true`)
+2. `_ActiveLinkSection` (StatefulWidget) detects `needAuth = hasPassword && !isAuthenticated`
+3. An auth dialog automatically opens as a modal popup via `addPostFrameCallback`
+4. If auth succeeds (`isAuthenticated: true`), the connected device card is shown in ACTIVE_LINKS
+5. If the user cancels the dialog, the device is disconnected
+6. If the auth timeout (60s) fires, the device is disconnected automatically
+
+The `_authDialogShown` flag prevents the dialog from being shown multiple times. It is reset when the device disconnects.
+
+### 18.2 Shared auth dialog (`_showAuthDialog`)
+
+- **Location**: Top-level function in `models_tab.dart`
+- **Signature**: `Future<bool> _showAuthDialog(BuildContext context, DeviceInfo device, {bool isAdminAuth = false})`
+- **Returns**: `true` if auth succeeded, `false` if cancelled
+- **Barrier dismissible**: `false` (user must either auth or cancel)
+- **Remember password**: Checkbox saves to `SecureStorageService.savePassword()` or `saveAdminPassword()`
+- **Saved passwords**: Auto-loaded into the password field on dialog open
+- **Countdown**: `_AuthCountdown` widget shown in dialog title during connection auth (not admin auth)
+
+### 18.3 Admin auth
+
+The `_AdminAccessButton` (shown in the info bottom sheet when user mode is active) calls `_showAuthDialog(context, device, isAdminAuth: true)`. The same dialog handles both connection auth and admin auth, differentiated by the `isAdminAuth` parameter.
+
+### 18.4 Widget dependencies
+
+- `_ActiveLinkSection` — `StatefulWidget` replacing the previous `StatelessWidget` gate card pattern
+- `_AuthCountdown` — `StatefulWidget` with `Timer.periodic(1s)` to display remaining auth time
+- `_AdminAccessButton` — Opens the shared dialog in admin mode
+- `_showAuthDialog` — Shared dialog function, returns `Future<bool>`
+- `DeviceProvider.authenticate()` — Connection auth (falls back to admin auth on mismatch)
+- `DeviceProvider.authenticateAdmin()` — Admin-only auth with admin flag byte

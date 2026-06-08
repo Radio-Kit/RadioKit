@@ -22,14 +22,14 @@
  * ───────────────────────────────────────────────────────────────
  *  Editing policy
  *
- *  • Widget positions / labels / transport selection → RadioKit_UI.h
+ *  • Widget positions / labels / transport selection → RADIOKIT.h
  *  • This file: hardware pins, servo driving, and loop() logic only
  * ───────────────────────────────────────────────────────────────
  */
 
 #include <Arduino.h>
 #include <ESP32Servo.h>
-#include "RadioKit_UI.h"
+#include "RADIOKIT.h"
 
 // ── Pin definitions ───────────────────────────────────────────
 #define SERVO_PIN 5
@@ -53,7 +53,7 @@ void setup()
     delay(2000);
     Serial.println("--- RadioKit SliderServo Start ---");
 
-    initRadioKit();   // all RadioKit init lives in RadioKit_UI.h
+    initRadioKit();   // all RadioKit init lives in RADIOKIT.h
 
     zoneLED.off();
     Serial.println("RK: Setup complete.");

@@ -1,5 +1,5 @@
 #include "LED.h"
-#include "../RadioKit.h"
+#include "../RadioKitLib.h"
 #include <string.h>
 
 RK_LED::RK_LED(RK_LedProps p) : props(p) {

@@ -1,5 +1,5 @@
 #include "Text.h"
-#include "../RadioKit.h"
+#include "../RadioKitLib.h"
 #include <string.h>
 
 RK_Text::RK_Text(RK_TextProps p)

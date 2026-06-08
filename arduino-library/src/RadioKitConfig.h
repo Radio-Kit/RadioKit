@@ -135,6 +135,7 @@
 #define RADIOKIT_MAX_NAME    32  ///< Device name max chars
 #define RADIOKIT_MAX_DESC   128  ///< Device description max chars
 #define RADIOKIT_MAX_PWD     32  ///< Connection password max chars
+#define RADIOKIT_MAX_ADMIN_PWD 32  ///< Admin password max chars
 #define RADIOKIT_TEXT_LEN    32  ///< Text widget content max chars
 #define RADIOKIT_MAX_ITEMS    8  ///< MultipleButton/Select item pool size
 

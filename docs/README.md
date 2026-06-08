@@ -16,7 +16,7 @@ RadioKit lets you define your UI directly in Arduino code and see it instantly i
 ### Quick Start
 
 ```cpp
-#include <RadioKit.h>
+#include <RadioKitLib.h>
 
 // Widget declarations
 RK_PushButton fireBtn({.label="Fire", .x=20, .y=50, .height=15, .icon="flame"});

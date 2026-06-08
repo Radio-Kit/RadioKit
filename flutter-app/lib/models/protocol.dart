@@ -39,6 +39,7 @@ const int kCmdFactoryReset = 0x1B;
 const int kSetConfName = 1 << 0;
 const int kSetConfDesc = 1 << 1;
 const int kSetConfPwd  = 1 << 2;
+const int kSetConfAdminPwd = 1 << 3;
 const int kSetConfError = 1 << 7;
 
 // ── PWD_AUTH response codes ─────────────────────────────────────────────────
@@ -49,7 +50,14 @@ const int kPwdAuthAlready  = 0x02;
 // ── Feature bitmask bits (FEATURES_DATA payload) ──────────────────────────
 const int kFeatureOta = 1 << 0;
 const int kFeatureFilesystem = 1 << 1;
-const int kFeatureHasPassword = 1 << 2;
+const int kFeatureHasConnPassword = 1 << 2;
+const int kFeatureHasAdminPassword = 1 << 3;
+
+// Legacy alias
+const int kFeatureHasPassword = kFeatureHasConnPassword;
+
+// ── PWD_AUTH flags byte ─────────────────────────────────────────────────────
+const int kPwdAuthFlagAdmin = 1 << 0;
 
 // ── NVS config limits (must match RadioKitConfig.h) ─────────────────────────
 const int kMaxConfigName = 32;

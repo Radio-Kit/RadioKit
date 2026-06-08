@@ -14,7 +14,7 @@ Future<HeaderFileConfig> parseHeaderFile(String filePath) async {
   final match = DesignerState.configPattern.firstMatch(content);
   if (match == null || match.group(1) == null) {
     throw FormatException(
-      'No /*__RadioKit_UI_Designer_Config__ … */ block found in $filePath',
+      'No /*__RADIOKIT_Designer_Config__ … */ block found in $filePath',
     );
   }
   final jsonStr = (match.group(1) as String).trim();

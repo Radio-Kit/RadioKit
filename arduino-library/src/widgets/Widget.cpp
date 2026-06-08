@@ -1,5 +1,5 @@
 #include "Widget.h"
-#include "../RadioKit.h"
+#include "../RadioKitLib.h"
 #include <string.h>
 
 // ── Deferred registration list ──────────────────────────────────────────────

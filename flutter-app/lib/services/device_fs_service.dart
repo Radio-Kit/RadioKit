@@ -260,7 +260,6 @@ class DeviceFsService {
       onProgress?.call(offset, totalSize);
 
       if (parsed.data.isEmpty || offset >= totalSize) break;
-      if (parsed.data.length < chunkSize) break;
 
       // Pipeline: send the next chunk's request before the current await
       // completes, so the BLE write overlaps with notification processing.

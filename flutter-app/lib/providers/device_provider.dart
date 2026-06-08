@@ -20,6 +20,7 @@ import '../providers/debug_provider.dart';
 import '../models/console_entry.dart';
 import '../models/fs_entry.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
+import '../services/secure_storage_service.dart';
 
 enum DeviceConnectionState {
   disconnected,
@@ -230,11 +231,20 @@ class DeviceProvider extends ChangeNotifier {
   /// Cached chip info from the device, or null if not yet fetched.
   Map<String, dynamic>? get chipInfo => _chipInfo;
 
-  /// Whether the device has a password set (detected via features bitmask).
-  bool get hasPassword => (_deviceFeatures & kFeatureHasPassword) != 0;
+  /// Whether the device has a connection password set (detected via features bitmask).
+  bool get hasPassword => (_deviceFeatures & kFeatureHasConnPassword) != 0;
 
-  /// Current authentication state.
+  /// Whether the device has an admin password set.
+  bool get hasAdminPassword => (_deviceFeatures & kFeatureHasAdminPassword) != 0;
+
+  /// Current authentication state (user mode).
   bool get isAuthenticated => _authenticated;
+
+  /// Whether admin mode is active (or no admin password means auto-admin).
+  bool get isAdminMode => _authenticatedAdmin || !hasAdminPassword;
+
+  /// Whether user mode is active (authenticated but not admin).
+  bool get isUserMode => _authenticated && !isAdminMode;
 
   /// Start the 60s auth timeout — auto-disconnect if not authenticated.
   void _startAuthTimeout() {
@@ -259,6 +269,7 @@ class DeviceProvider extends ChangeNotifier {
   // ── NVS Config API (CMD_SET_CONF / CMD_PWD_AUTH) ─────────────────────────
 
   bool _authenticated = false;
+  bool _authenticatedAdmin = false;
 
   /// Send factory reset command — erases NVS config and reboots the device.
   /// Returns true if the command was sent successfully (device will reboot).
@@ -280,6 +291,7 @@ class DeviceProvider extends ChangeNotifier {
     String? name,
     String? description,
     String? password,
+    String? adminPassword,
   }) async {
     if (!_transport.isConnected) return false;
     try {
@@ -287,6 +299,7 @@ class DeviceProvider extends ChangeNotifier {
         name: name,
         description: description,
         password: password,
+        adminPassword: adminPassword,
       );
       await _writePacket(pkt);
       // Wait for the re-broadcasted CONF_DATA to confirm the change
@@ -308,25 +321,36 @@ class DeviceProvider extends ChangeNotifier {
     }
   }
 
-  /// Authenticate with the device password.
+  /// Authenticate with the device password (connection auth).
+  ///
+  /// The entered password is sent as normal connection auth first.
+  /// If the device has an admin password and connection auth fails,
+  /// the password is automatically retried as admin auth (since admin
+  /// password can also be used for connection).
+  ///
   /// Returns true on success, false on mismatch or error.
   Future<bool> authenticate(String password) async {
     if (!_transport.isConnected) return false;
-    if (_authenticated) return true;
+    if (_authenticated && _authenticatedAdmin) return true;
     try {
+      // Try connection auth first
       final pkt = ProtocolService.buildPwdAuth(password);
       await _writePacket(pkt);
-      // Wait for ACK with auth status
       final completer = Completer<int>();
       _authCompleter = completer;
       try {
         final status = await completer.future.timeout(const Duration(seconds: 5));
         if (status == kPwdAuthOk) {
-        _authenticated = true;
-        _authenticatedAt = DateTime.now();
-        _cancelAuthTimeout();
-        notifyListeners();
-        return true;
+          _authenticated = true;
+          _authenticatedAt = DateTime.now();
+          _cancelAuthTimeout();
+          notifyListeners();
+          return true;
+        }
+        // Connection auth failed — retry as admin auth
+        // (admin password can also be used for connection)
+        if (hasAdminPassword) {
+          return authenticateAdmin(password);
         }
         return false;
       } on TimeoutException catch (_) {
@@ -336,6 +360,39 @@ class DeviceProvider extends ChangeNotifier {
       }
     } catch (e) {
       _log('authenticate failed: $e', level: ConsoleLogLevel.error);
+      return false;
+    }
+  }
+
+  /// Authenticate as admin with the admin password.
+  /// Uses CMD_PWD_AUTH with the admin flag byte.
+  /// Returns true on success, false on mismatch or error.
+  Future<bool> authenticateAdmin(String password) async {
+    if (!_transport.isConnected) return false;
+    if (_authenticatedAdmin) return true;
+    try {
+      final pkt = ProtocolService.buildPwdAuth(password, admin: true);
+      await _writePacket(pkt);
+      final completer = Completer<int>();
+      _authCompleter = completer;
+      try {
+        final status = await completer.future.timeout(const Duration(seconds: 5));
+        if (status == kPwdAuthOk) {
+          _authenticated = true;
+          _authenticatedAdmin = true;
+          _authenticatedAt = DateTime.now();
+          _cancelAuthTimeout();
+          notifyListeners();
+          return true;
+        }
+        return false;
+      } on TimeoutException catch (_) {
+        return false;
+      } finally {
+        _authCompleter = null;
+      }
+    } catch (e) {
+      _log('authenticateAdmin failed: $e', level: ConsoleLogLevel.error);
       return false;
     }
   }
@@ -398,6 +455,7 @@ class DeviceProvider extends ChangeNotifier {
     _connectedDevice = device;
     _errorMessage    = null;
     _authenticated   = false;
+    _authenticatedAdmin = false;
     _authCompleter   = null;
     notifyListeners();
 
@@ -991,12 +1049,17 @@ class DeviceProvider extends ChangeNotifier {
     if (payload.isEmpty) return;
     _deviceFeatures = payload[0];
     _log('Features bitmask: 0x${_deviceFeatures.toRadixString(16)} '
-        '(OTA=${hasOta}, hasPassword=${hasPassword})',
+        '(OTA=${hasOta}, connPwd=${hasPassword}, adminPwd=${hasAdminPassword})',
         level: ConsoleLogLevel.success);
     
-    // Start auth timeout if device has a password and we're not yet authenticated
+    // Start auth timeout if device has a connection password and we're not authenticated
     if (hasPassword && !_authenticated && _connectionState == DeviceConnectionState.connected) {
       _startAuthTimeout();
+    }
+    
+    // Clear stale admin password from secure storage if device no longer has admin password
+    if (!hasAdminPassword && _connectedDevice != null) {
+      SecureStorageService.deleteAdminPassword(_connectedDevice!.id);
     }
     
     notifyListeners();
@@ -1715,6 +1778,7 @@ class DeviceProvider extends ChangeNotifier {
     _cancelAuthTimeout();
     _connectionState = DeviceConnectionState.disconnected;
     _authenticated   = false;
+    _authenticatedAdmin = false;
     _authCompleter   = null;
     _connectedAt     = null;
     _authenticatedAt = null;
@@ -1861,6 +1925,7 @@ class DeviceProvider extends ChangeNotifier {
     _chipInfo         = null;
     _authCompleter    = null;
     _authenticated    = false;
+    _authenticatedAdmin = false;
     _cancelAuthTimeout();
     _connectedAt      = null;
     _authenticatedAt  = null;

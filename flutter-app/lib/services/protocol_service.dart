@@ -78,6 +78,7 @@ class ProtocolService {
     String? name,
     String? description,
     String? password,
+    String? adminPassword,
   }) {
     final payload = <int>[];
     int fieldMask = 0;
@@ -90,6 +91,9 @@ class ProtocolService {
     }
     if (password != null) {
       fieldMask |= kSetConfPwd;
+    }
+    if (adminPassword != null) {
+      fieldMask |= kSetConfAdminPwd;
     }
 
     // Field mask (2 bytes LE)
@@ -117,14 +121,25 @@ class ProtocolService {
       payload.addAll(encoded.take(len));
     }
 
+    if (adminPassword != null) {
+      final encoded = utf8.encode(adminPassword);
+      final len = encoded.length.clamp(0, kMaxConfigPwd);
+      payload.add(len);
+      payload.addAll(encoded.take(len));
+    }
+
     return buildPacket(kCmdSetConf, payload);
   }
 
   /// Build a CMD_PWD_AUTH (0x1A) packet.
-  static Uint8List buildPwdAuth(String password) {
+  /// If [admin] is true, appends the admin-request flag byte.
+  static Uint8List buildPwdAuth(String password, {bool admin = false}) {
     final encoded = utf8.encode(password);
     final len = encoded.length.clamp(0, kMaxConfigPwd);
     final payload = [len, ...encoded.take(len)];
+    if (admin) {
+      payload.add(kPwdAuthFlagAdmin);
+    }
     return buildPacket(kCmdPwdAuth, payload);
   }
 

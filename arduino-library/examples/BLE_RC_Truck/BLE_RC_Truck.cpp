@@ -12,7 +12,7 @@
  */
 
 #include <Arduino.h>
-#include "RadioKit_UI.h"
+#include "RADIOKIT.h"
 
 // ── Setup ────────────────────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
-/// Generates the complete `RadioKit_UI.h` content (minus the JSON config block)
+/// Generates the complete `RADIOKIT.h` content (minus the JSON config block)
 /// from the designer's JSON configuration map.
 ///
 /// Reads the same JSON schema that is embedded in the header comment block,
@@ -15,10 +15,10 @@ class JsonArduinoGenerator {
     buf.writeln('//__RadioKit_Generated_Code__');
     buf.writeln('//__Might_Be_Overwritten_');
     buf.writeln();
-    buf.writeln('#ifndef RADIOKIT_UI_H');
-    buf.writeln('#define RADIOKIT_UI_H');
+    buf.writeln('#ifndef RADIOKIT_H');
+    buf.writeln('#define RADIOKIT_H');
     buf.writeln();
-    buf.writeln('#include <RadioKit.h>');
+    buf.writeln('#include <RadioKitLib.h>');
     buf.writeln();
 
     // ─── Feature includes ───
@@ -80,7 +80,7 @@ class JsonArduinoGenerator {
 
     buf.writeln('}');
     buf.writeln();
-    buf.writeln('#endif // RADIOKIT_UI_H');
+    buf.writeln('#endif // RADIOKIT_H');
     buf.writeln();
 
     return buf.toString();

@@ -23,6 +23,7 @@
 #define RK_NVS_KEY_NAME     "rk_name"
 #define RK_NVS_KEY_DESC     "rk_desc"
 #define RK_NVS_KEY_PWD      "rk_pwd"
+#define RK_NVS_KEY_ADMIN_PWD  "rk_admin_pwd"
 
 // ── Max string sizes (copied from RadioKitConfig.h to avoid circular include) ─
 #define RK_NVS_MAX_NAME     32

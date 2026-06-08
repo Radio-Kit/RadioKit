@@ -8,12 +8,12 @@
  */
 
 #include <Arduino.h>
-#include "RadioKit_UI.h"
+#include "RADIOKIT.h"
 
 #define LED_PIN 7
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(1000000);
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);
 

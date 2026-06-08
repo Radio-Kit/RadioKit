@@ -3,7 +3,7 @@
  * OOP widget registry, protocol dispatch, serialization (v2.0 / Protocol v3).
  */
 
-#include "RadioKit.h"
+#include "RadioKitLib.h"
 #include "connection/RadioKitFsHandlers.h"
 #include "connection/RadioKitOTA.h"
 #include <string.h>
@@ -45,6 +45,7 @@ RadioKitClass::RadioKitClass()
     , _metaUpdateSeq(0)
     , _nvsActive(false)
     , _authenticated(false)
+    , _authenticatedAdmin(false)
 {
     memset(_widgets, 0, sizeof(_widgets));
     memset(_txBuf,   0, sizeof(_txBuf));
@@ -52,6 +53,7 @@ RadioKitClass::RadioKitClass()
     memset(_nvsName, 0, sizeof(_nvsName));
     memset(_nvsDesc, 0, sizeof(_nvsDesc));
     memset(_nvsPwd,  0, sizeof(_nvsPwd));
+    memset(_nvsAdminPwd, 0, sizeof(_nvsAdminPwd));
     s_instance = this;
 }
 
@@ -92,10 +94,14 @@ void RadioKitClass::begin() {
         strncpy(_nvsName, config.name ? config.name : "", sizeof(_nvsName) - 1);
         strncpy(_nvsDesc, config.description ? config.description : "", sizeof(_nvsDesc) - 1);
         strncpy(_nvsPwd,  config.password ? config.password : "", sizeof(_nvsPwd) - 1);
+        _nvsAdminPwd[0] = '\0';
     }
 
     // Reset auth state on boot
-    _authenticated = (_nvsPwd[0] == '\0');  // No password = pre-authenticated
+    // If no passwords set → pre-authenticated as both user and admin
+    // If no connection pwd but admin pwd set → pre-authenticated as user, not admin
+    _authenticated = (_nvsPwd[0] == '\0');       // No connection pwd = pre-authenticated user
+    _authenticatedAdmin = (_nvsAdminPwd[0] == '\0');  // No admin pwd = pre-authenticated admin
 }
 
 void RadioKitClass::pushUpdate(uint8_t widgetId) {
@@ -149,7 +155,8 @@ void RadioKitClass::update() {
         bool nowConnected = _transport->isConnected();
         if (s_lastConnected && !nowConnected) {
             // Connection was lost — reset auth so new client must re-authenticate
-            _authenticated = (_nvsPwd[0] == '\0');  // No pwd = pre-authed
+            _authenticated = (_nvsPwd[0] == '\0');          // No conn pwd = pre-authed user
+            _authenticatedAdmin = (_nvsAdminPwd[0] == '\0'); // No admin pwd = pre-authed admin
         }
         s_lastConnected = nowConnected;
     }
@@ -228,10 +235,17 @@ void RadioKitClass::_onPacket(uint8_t cmd,
 {
     if (!s_instance) return;
 
-    // ── Auth gate ───────────────────────────────────────────────────
-    // If a password is set and the session is not yet authenticated,
-    // only allow CMD_PWD_AUTH, CMD_GET_CONF, and CMD_GET_FEATURES.
-    if (!s_instance->_authenticated && s_instance->_nvsPwd[0] != '\0') {
+    // ── Auth gate (dual-auth) ────────────────────────────────────────
+    // States:
+    //   1. Not authenticated:       only CMD_PWD_AUTH, CMD_GET_CONF, CMD_GET_FEATURES
+    //   2. User-authenticated:      user-mode commands + CMD_PWD_AUTH (admin upgrade)
+    //   3. Admin-authenticated:     all commands
+    // If BOTH passwords are empty, gate doesn't block (pre-authed admin).
+    bool isUserAuthd = s_instance->_authenticated || s_instance->_nvsPwd[0] == '\0';
+    bool isAdminAuthd = s_instance->_authenticatedAdmin || s_instance->_nvsAdminPwd[0] == '\0';
+    
+    if (!isUserAuthd) {
+        // Gate 1: not authenticated at all
         if (cmd != RK_CMD_PWD_AUTH && cmd != RK_CMD_GET_CONF && cmd != RK_CMD_GET_FEATURES) {
             Serial.printf("RK: Rejected CMD 0x%02X — not authenticated\n", cmd);
             uint8_t err = RK_PWD_AUTH_MISMATCH;
@@ -239,7 +253,17 @@ void RadioKitClass::_onPacket(uint8_t cmd,
             s_instance->_sendPacket(len);
             return;
         }
+    } else if (!isAdminAuthd) {
+        // Gate 2: user-authenticated, not admin — block admin-only commands
+        if (cmd == RK_CMD_SET_CONF || cmd == RK_CMD_FACTORY_RESET) {
+            Serial.printf("RK: Rejected CMD 0x%02X — admin required\n", cmd);
+            uint8_t err = RK_PWD_AUTH_MISMATCH;
+            uint16_t len = rk_buildPacket(s_instance->_txBuf, RK_CMD_ACK, &err, 1);
+            s_instance->_sendPacket(len);
+            return;
+        }
     }
+    // Gate 3: admin-authenticated — all commands pass through
 
     RK_DEBUG_PRINT("RK: Dispatching CMD %s (0x%02X), len %d\n", rk_cmdName(cmd), cmd, payloadLen);
     switch (cmd) {
@@ -301,12 +325,20 @@ void RadioKitClass::_handleGetFeatures() {
     bitmask |= RK_FEATURE_FILESYSTEM;
 #endif
     
-    // Report if a non-empty password is set in NVS
+    // Report password presence
     if (_nvsActive && _nvsPwd[0] != '\0') {
-        bitmask |= RK_FEATURE_HAS_PASSWORD;
+        bitmask |= RK_FEATURE_HAS_CONN_PWD;
+    }
+    if (_nvsActive && _nvsAdminPwd[0] != '\0') {
+        bitmask |= RK_FEATURE_HAS_ADMIN_PWD;
     }
     
-    RK_DEBUG_PRINT("RK: Reporting features bitmask: 0x%02X\n", bitmask);
+    RK_DEBUG_PRINT("RK: Reporting features bitmask: 0x%02X (conn=%d, admin=%d, fs=%d, ota=%d)\n",
+        bitmask,
+        (bitmask & RK_FEATURE_HAS_CONN_PWD) != 0,
+        (bitmask & RK_FEATURE_HAS_ADMIN_PWD) != 0,
+        (bitmask & RK_FEATURE_FILESYSTEM) != 0,
+        (bitmask & RK_FEATURE_OTA) != 0);
     uint16_t len = rk_buildPacket(_txBuf, RK_CMD_FEATURES_DATA, &bitmask, 1);
     _sendPacket(len);
 }
@@ -566,6 +598,21 @@ void RadioKitClass::_onFsPacket(uint8_t subCmd,
                                 const uint8_t* payload,
                                 uint16_t payloadLen)
 {
+    // ── Admin gate ─────────────────────────────────────────────────────
+    // FS operations require admin auth. If only user-authenticated, reject.
+    if (s_instance) {
+        bool isAdmin = s_instance->_authenticatedAdmin || s_instance->_nvsAdminPwd[0] == '\0';
+        if (!isAdmin) {
+            RK_DEBUG_PRINT("RK: Rejected FS 0x%02X — admin required\n", subCmd);
+            // Reply with ACCESS_DENIED (0x04) for the specific sub-command
+            uint8_t err = RK_FS_ERR_ACCESS_DENIED;
+            uint8_t ackResp = subCmd | 0x80;
+            uint16_t frameLen = rk_fsBuildFrame(rk_fsTxBuf(), ackResp, &err, 1);
+            s_instance->_transport->sendPacket(rk_fsTxBuf(), frameLen);
+            return;
+        }
+    }
+    
     RK_DEBUG_PRINT("RK: Dispatching FS %s (0x%02X), len %d\n",
                    rk_fsCmdName(subCmd), subCmd, payloadLen);
     RKFs::dispatch(subCmd, payload, payloadLen);
@@ -652,6 +699,18 @@ void RadioKitClass::_onOtaPacket(uint8_t subCmd,
                                  uint16_t payloadLen)
 {
     if (!s_instance) return;
+    
+    // ── Admin gate ─────────────────────────────────────────────────────
+    // OTA operations require admin auth. If only user-authenticated, reject.
+    bool isAdmin = s_instance->_authenticatedAdmin || s_instance->_nvsAdminPwd[0] == '\0';
+    if (!isAdmin) {
+        RK_DEBUG_PRINT("RK: Rejected OTA 0x%02X — admin required\n", subCmd);
+        uint8_t err = RK_OTA_ERR_INVALID_STATE;
+        uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
+        s_instance->_sendOtaFrame(rk_otaTxBuf(), frameLen);
+        return;
+    }
+    
     RK_DEBUG_PRINT("RK: Dispatching OTA %s (0x%02X), len %d\n",
                    rk_otaCmdName(subCmd), subCmd, payloadLen);
     switch (subCmd) {
@@ -888,6 +947,14 @@ void RadioKitClass::_handleFactoryReset() {
         RKNvs::commit();
     }
     
+    // Clear buffers
+    memset(_nvsName, 0, sizeof(_nvsName));
+    memset(_nvsDesc, 0, sizeof(_nvsDesc));
+    memset(_nvsPwd,  0, sizeof(_nvsPwd));
+    memset(_nvsAdminPwd, 0, sizeof(_nvsAdminPwd));
+    _authenticated = true;
+    _authenticatedAdmin = true;
+    
     // Small delay to let the ACK frame be sent before reboot
     delay(100);
 #if defined(ESP32)
@@ -904,12 +971,14 @@ void RadioKitClass::_syncNvsToBuffers() {
     memset(_nvsName, 0, sizeof(_nvsName));
     memset(_nvsDesc, 0, sizeof(_nvsDesc));
     memset(_nvsPwd,  0, sizeof(_nvsPwd));
+    memset(_nvsAdminPwd, 0, sizeof(_nvsAdminPwd));
 
     if (!_nvsActive) {
         // Fall back to compile-time defaults
         strncpy(_nvsName, config.name ? config.name : "", sizeof(_nvsName) - 1);
         strncpy(_nvsDesc, config.description ? config.description : "", sizeof(_nvsDesc) - 1);
         strncpy(_nvsPwd,  config.password ? config.password : "", sizeof(_nvsPwd) - 1);
+        _nvsAdminPwd[0] = '\0';
         return;
     }
 
@@ -923,9 +992,14 @@ void RadioKitClass::_syncNvsToBuffers() {
     if (!RKNvs::readString(RK_NVS_KEY_PWD, _nvsPwd, sizeof(_nvsPwd))) {
         strncpy(_nvsPwd, config.password ? config.password : "", sizeof(_nvsPwd) - 1);
     }
+    if (!RKNvs::readString(RK_NVS_KEY_ADMIN_PWD, _nvsAdminPwd, sizeof(_nvsAdminPwd))) {
+        _nvsAdminPwd[0] = '\0';
+    }
 
-    RK_DEBUG_PRINT("NVS: Loaded name='%s', desc='%s', pwd=%s\n",
-        _nvsName, _nvsDesc, _nvsPwd[0] ? "***" : "(none)");
+    RK_DEBUG_PRINT("NVS: Loaded name='%s', desc='%s', conn_pwd=%s, admin_pwd=%s\n",
+        _nvsName, _nvsDesc,
+        _nvsPwd[0] ? "***" : "(none)",
+        _nvsAdminPwd[0] ? "***" : "(none)");
 }
 
 void RadioKitClass::_setBleAdvertisingName(const char* name) {
@@ -946,7 +1020,7 @@ void RadioKitClass::_setBleAdvertisingName(const char* name) {
 
 // ── Public NVS config API ───────────────────────────────────────────────────
 
-void RadioKitClass::setConfig(const char* name, const char* description, const char* password) {
+void RadioKitClass::setConfig(const char* name, const char* description, const char* password, const char* adminPassword) {
     if (!_nvsActive) {
         Serial.println("NVS: Cannot set config — NVS not available");
         return;
@@ -980,24 +1054,78 @@ void RadioKitClass::setConfig(const char* name, const char* description, const c
         }
     }
 
+    if (adminPassword && strncmp(adminPassword, _nvsAdminPwd, RADIOKIT_MAX_ADMIN_PWD) != 0) {
+        strncpy(_nvsAdminPwd, adminPassword, sizeof(_nvsAdminPwd) - 1);
+        RKNvs::writeString(RK_NVS_KEY_ADMIN_PWD, _nvsAdminPwd);
+        changed = true;
+        if (_nvsAdminPwd[0] == '\0') {
+            _authenticatedAdmin = true;
+        } else {
+            _authenticatedAdmin = false;  // New admin password set — re-auth required
+        }
+    }
+
     if (changed) {
         RKNvs::commit();
         Serial.println("NVS: Config updated and committed");
     }
 }
 
-uint8_t RadioKitClass::authenticate(const char* password) {
+uint8_t RadioKitClass::authenticate(const char* password, bool asAdmin) {
     if (!password) return RK_PWD_AUTH_MISMATCH;
-    if (_authenticated) return RK_PWD_AUTH_ALREADY;
+    
+    if (asAdmin) {
+        // ── Admin auth ────────────────────────────────────────────────
+        bool alreadyAdmin = _authenticatedAdmin || _nvsAdminPwd[0] == '\0';
+        if (alreadyAdmin) {
+            _authenticatedAdmin = true;
+            _authenticated = true;
+            return RK_PWD_AUTH_ALREADY;
+        }
+        if (_nvsAdminPwd[0] == '\0') {
+            _authenticatedAdmin = true;
+            return RK_PWD_AUTH_OK;
+        }
+        if (strncmp(password, _nvsAdminPwd, RADIOKIT_MAX_ADMIN_PWD) == 0) {
+            _authenticatedAdmin = true;
+            _authenticated = true;  // Admin implies user
+            return RK_PWD_AUTH_OK;
+        }
+        return RK_PWD_AUTH_MISMATCH;
+    }
+    
+    // ── User (connection) auth ───────────────────────────────────────
+    if (_authenticated) {
+        if (_nvsAdminPwd[0] == '\0') {
+            _authenticatedAdmin = true;  // Auto-promote to admin
+        }
+        return RK_PWD_AUTH_ALREADY;
+    }
+    
     if (_nvsPwd[0] == '\0') {
-        // No password set — auth is automatic
         _authenticated = true;
+        if (_nvsAdminPwd[0] == '\0') {
+            _authenticatedAdmin = true;  // Auto-promote to admin
+        }
         return RK_PWD_AUTH_OK;
     }
+    
+    // Try connection password
     if (strncmp(password, _nvsPwd, RADIOKIT_MAX_PWD) == 0) {
         _authenticated = true;
+        if (_nvsAdminPwd[0] == '\0') {
+            _authenticatedAdmin = true;  // Auto-promote to admin
+        }
         return RK_PWD_AUTH_OK;
     }
+    
+    // Fallback: try admin password (admin can be used for connection)
+    if (_nvsAdminPwd[0] != '\0' && strncmp(password, _nvsAdminPwd, RADIOKIT_MAX_ADMIN_PWD) == 0) {
+        _authenticated = true;
+        _authenticatedAdmin = true;
+        return RK_PWD_AUTH_OK;
+    }
+    
     return RK_PWD_AUTH_MISMATCH;
 }
 
@@ -1042,7 +1170,7 @@ void RadioKitClass::_handleSetConf(const uint8_t* payload, uint16_t len) {
         }
     }
 
-    // Password
+    // Connection password
     if (fieldMask & RK_SET_CONF_PWD) {
         if (offset < len) {
             uint8_t strLen = payload[offset++];
@@ -1056,8 +1184,38 @@ void RadioKitClass::_handleSetConf(const uint8_t* payload, uint16_t len) {
         }
     }
 
+    // Admin password
+    if (fieldMask & RK_SET_CONF_ADMIN_PWD) {
+        if (offset < len) {
+            uint8_t strLen = payload[offset++];
+            if (strLen > RADIOKIT_MAX_ADMIN_PWD) strLen = RADIOKIT_MAX_ADMIN_PWD;
+            if (offset + strLen <= len) {
+                memcpy(_nvsAdminPwd, &payload[offset], strLen);
+                _nvsAdminPwd[strLen] = '\0';
+                RKNvs::writeString(RK_NVS_KEY_ADMIN_PWD, _nvsAdminPwd);
+            }
+            offset += strLen;
+        }
+    }
+
     // Commit all writes to NVS
     RKNvs::commit();
+
+    // Update auth state based on changed passwords
+    if (fieldMask & RK_SET_CONF_PWD) {
+        if (_nvsPwd[0] == '\0') {
+            _authenticated = true;
+        } else {
+            _authenticated = false;  // New conn password set — re-auth required
+        }
+    }
+    if (fieldMask & RK_SET_CONF_ADMIN_PWD) {
+        if (_nvsAdminPwd[0] == '\0') {
+            _authenticatedAdmin = true;
+        } else {
+            _authenticatedAdmin = false;  // New admin password set — re-auth required
+        }
+    }
 
     // Send ACK with echoed field mask
     uint16_t ackLen = rk_buildPacket(_txBuf, RK_CMD_ACK, (uint8_t*)&statusMask, 1);
@@ -1066,10 +1224,9 @@ void RadioKitClass::_handleSetConf(const uint8_t* payload, uint16_t len) {
     // Re-broadcast CONF_DATA so the app can refresh config name/desc
     _handleGetConf();
 
-    // If the password was changed, re-broadcast features so the app updates
-    // its hasPassword bitmask. This is critical when the password is cleared
-    // (set to empty) — the app needs to know it can skip the auth gate.
-    if (fieldMask & RK_SET_CONF_PWD) {
+    // If any password was changed, re-broadcast features so the app updates
+    // its hasPassword bitmasks.
+    if ((fieldMask & (RK_SET_CONF_PWD | RK_SET_CONF_ADMIN_PWD)) != 0) {
         _handleGetFeatures();
     }
 
@@ -1089,34 +1246,101 @@ void RadioKitClass::_handlePwdAuth(const uint8_t* payload, uint16_t len) {
     uint8_t pwdLen = payload[0];
     if (pwdLen > RADIOKIT_MAX_PWD) pwdLen = RADIOKIT_MAX_PWD;
 
-    // If already authenticated
+    // Parse optional flags byte (present when len >= 1 + pwdLen + 1)
+    bool adminRequested = false;
+    uint8_t flags = 0;
+    if (len >= 1 + pwdLen + 1) {
+        flags = payload[1 + pwdLen];
+        adminRequested = (flags & RK_PWD_AUTH_FLAG_ADMIN) != 0;
+    }
+
+    // ── Admin auth requested ────────────────────────────────────────────
+    if (adminRequested) {
+        // Already admin? Check existing admin state
+        bool alreadyAdmin = _authenticatedAdmin || _nvsAdminPwd[0] == '\0';
+        if (alreadyAdmin) {
+            _authenticatedAdmin = true;
+            _authenticated = true;
+            uint8_t status = RK_PWD_AUTH_ALREADY;
+            uint16_t pkt = rk_buildPacket(_txBuf, RK_CMD_ACK, &status, 1);
+            _sendPacket(pkt);
+            return;
+        }
+
+        // Try admin password
+        if (len >= 1 + pwdLen && strncmp((const char*)&payload[1], _nvsAdminPwd, pwdLen) == 0) {
+            _authenticatedAdmin = true;
+            _authenticated = true;  // Admin implies user auth
+            uint8_t status = RK_PWD_AUTH_OK;
+            uint16_t pkt = rk_buildPacket(_txBuf, RK_CMD_ACK, &status, 1);
+            _sendPacket(pkt);
+            Serial.println("NVS: Admin authentication successful");
+            // Re-request features so app knows admin is active
+            _handleGetFeatures();
+        } else {
+            uint8_t status = RK_PWD_AUTH_MISMATCH;
+            uint16_t pkt = rk_buildPacket(_txBuf, RK_CMD_ACK, &status, 1);
+            _sendPacket(pkt);
+            Serial.println("NVS: Admin authentication failed — password mismatch");
+        }
+        return;
+    }
+
+    // ── Connection (user) auth ──────────────────────────────────────────
+    // If already authenticated as user, respond already
     if (_authenticated) {
+        // Check if admin is also needed — if no admin pwd, auto-promote
+        if (_nvsAdminPwd[0] == '\0') {
+            _authenticatedAdmin = true;
+        }
         uint8_t status = RK_PWD_AUTH_ALREADY;
         uint16_t pkt = rk_buildPacket(_txBuf, RK_CMD_ACK, &status, 1);
         _sendPacket(pkt);
         return;
     }
 
-    // No password on device = auto-success
+    // No connection password on device = auto-success
     if (_nvsPwd[0] == '\0') {
         _authenticated = true;
+        // If no admin password either, auto-promote to admin
+        if (_nvsAdminPwd[0] == '\0') {
+            _authenticatedAdmin = true;
+        }
         uint8_t status = RK_PWD_AUTH_OK;
         uint16_t pkt = rk_buildPacket(_txBuf, RK_CMD_ACK, &status, 1);
         _sendPacket(pkt);
         return;
     }
 
-    // Compare passwords
+    // Try connection password
     if (len >= 1 + pwdLen && strncmp((const char*)&payload[1], _nvsPwd, pwdLen) == 0) {
         _authenticated = true;
+        // Auto-promote to admin if no admin password is set
+        if (_nvsAdminPwd[0] == '\0') {
+            _authenticatedAdmin = true;
+        }
         uint8_t status = RK_PWD_AUTH_OK;
         uint16_t pkt = rk_buildPacket(_txBuf, RK_CMD_ACK, &status, 1);
         _sendPacket(pkt);
-        Serial.println("NVS: Authentication successful");
-    } else {
-        uint8_t status = RK_PWD_AUTH_MISMATCH;
+        Serial.println("NVS: Connection authentication successful");
+        return;
+    }
+
+    // Connection password didn't match — try admin password as fallback
+    // (admin password can also be used for connection authentication)
+    if (_nvsAdminPwd[0] != '\0' && len >= 1 + pwdLen && strncmp((const char*)&payload[1], _nvsAdminPwd, pwdLen) == 0) {
+        _authenticated = true;
+        _authenticatedAdmin = true;  // Admin password always grants admin
+        uint8_t status = RK_PWD_AUTH_OK;
         uint16_t pkt = rk_buildPacket(_txBuf, RK_CMD_ACK, &status, 1);
         _sendPacket(pkt);
-        Serial.println("NVS: Authentication failed — password mismatch");
+        Serial.println("NVS: Connection auth via admin password — admin mode granted");
+        _handleGetFeatures();
+        return;
     }
+
+    uint8_t status = RK_PWD_AUTH_MISMATCH;
+    uint16_t pkt = rk_buildPacket(_txBuf, RK_CMD_ACK, &status, 1);
+    _sendPacket(pkt);
+    Serial.println("NVS: Authentication failed — password mismatch");
 }

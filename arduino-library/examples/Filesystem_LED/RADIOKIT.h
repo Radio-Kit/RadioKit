@@ -1,4 +1,4 @@
-/*__RadioKit_UI_Designer_Config__
+/*__RADIOKIT_Designer_Config__
 {
   "version": 1,
   "appdata": {
@@ -9,7 +9,7 @@
     "name": "FS LED",
     "description": "Bulk filesystem + BLE LED switch",
     "type": "IOT",
-    "transport": "BLE",
+    "transport": "SERIAL",
     "theme": "RK_DEFAULT",
     "password": "1234"
   },
@@ -47,14 +47,14 @@
     }
   ]
 }
-RadioKit_UI_Designer_Config__*/
+RADIOKIT_Designer_Config__*/
 //__RadioKit_Generated_Code__
 //__Might_Be_Overwritten_
 
 #ifndef RADIOKIT_UI_H
 #define RADIOKIT_UI_H
 
-#include <RadioKit.h>
+#include <RadioKitLib.h>
 
 // ─── Widget Declarations ───
 RK_RockerSwitch slide_switch_1({
@@ -73,8 +73,10 @@ static inline void initRadioKit() {
 
   slide_switch_1.setLabelHidden(true);
 
+  RadioKit.config.baudrate = 115200;
+
   RadioKit.begin();
-  RadioKit.startBLE();
+  RadioKit.startSerial(Serial);
 }
 
 #endif // RADIOKIT_UI_H

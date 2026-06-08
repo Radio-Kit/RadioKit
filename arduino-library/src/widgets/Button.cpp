@@ -1,5 +1,5 @@
 #include "Button.h"
-#include "../RadioKit.h"
+#include "../RadioKitLib.h"
 #include <string.h>
 
 void RadioKit_Button::_initFromProps(const RK_ButtonProps& p, uint8_t tid) {

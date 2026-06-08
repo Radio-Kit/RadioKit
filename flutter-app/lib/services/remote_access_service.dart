@@ -1080,7 +1080,7 @@ class RemoteAccessService {
   // ── NVS Config / Settings / Device Info ──────────────────────────────────────
 
   /// Handle GET /api/settings/nvs — returns current NVS config values
-  /// (name, description) and whether a password is set.
+  /// (name, description) and password/authentication state.
   Future<Response> _handleNvsGet(Request request) async {
     final device = _deviceProvider.connectedDevice;
     if (!_deviceProvider.isConnected || device == null) {
@@ -1090,12 +1090,15 @@ class RemoteAccessService {
       'name': _deviceProvider.configName ?? '',
       'description': _deviceProvider.description ?? '',
       'hasPassword': _deviceProvider.hasPassword,
+      'hasAdminPassword': _deviceProvider.hasAdminPassword,
       'isAuthenticated': _deviceProvider.isAuthenticated,
+      'isAdminMode': _deviceProvider.isAdminMode,
+      'isUserMode': _deviceProvider.isUserMode,
     });
   }
 
   /// Handle POST /api/settings/nvs — writes new config values to NVS.
-  /// Accepts optional fields: name, description, password.
+  /// Accepts optional fields: name, description, password, adminPassword.
   /// Only fields provided in the body will be updated.
   Future<Response> _handleNvsSet(Request request) async {
     if (!_deviceProvider.isConnected) {
@@ -1105,10 +1108,11 @@ class RemoteAccessService {
     final name = body['name'] as String?;
     final description = body['description'] as String?;
     final password = body['password'] as String?;
+    final adminPassword = body['adminPassword'] as String?;
 
-    if (name == null && description == null && password == null) {
+    if (name == null && description == null && password == null && adminPassword == null) {
       return _error(
-          'invalid_params', 'At least one of: name, description, password');
+          'invalid_params', 'At least one of: name, description, password, adminPassword');
     }
 
     if (name != null && (name.length < 1 || name.length > kMaxConfigName)) {
@@ -1123,12 +1127,17 @@ class RemoteAccessService {
       return _error('invalid_password',
           'Password must be at most ${kMaxConfigPwd} characters');
     }
+    if (adminPassword != null && adminPassword.length > kMaxConfigPwd) {
+      return _error('invalid_admin_password',
+          'Admin password must be at most ${kMaxConfigPwd} characters');
+    }
 
     try {
       final ok = await _deviceProvider.sendSetConf(
         name: name,
         description: description,
         password: password,
+        adminPassword: adminPassword,
       );
       if (ok) {
         return _json({'ok': true, 'message': 'Config saved to NVS'});

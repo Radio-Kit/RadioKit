@@ -77,7 +77,7 @@ General server health and version info.
 
 ---
 
-## 2. Settings
+## 2. App Settings
 
 ### `GET /api/settings`
 
@@ -91,7 +91,8 @@ Returns all current app settings.
   "useFullscreen": false,
   "enableDevTools": true,
   "interfaceScale": 100,
-  "enableRemoteAccess": true
+  "enableRemoteAccess": true,
+  "followRemoteAccess": true
 }
 ```
 
@@ -113,6 +114,152 @@ Update one or more settings. Only include the fields you want to change.
 ```json
 {
   "ok": true
+}
+```
+
+### `GET /api/settings/nvs`
+
+Returns the current NVS (Non-Volatile Storage) config values from the connected device: device name, description, and authentication state.
+
+> **Guard**: Returns `503` if not connected to a device.
+
+**Response `200`:**
+
+```json
+{
+  "name": "6X6 OFF ROAD CHASSIS",
+  "description": "Unit 02",
+  "hasPassword": true,
+  "hasAdminPassword": true,
+  "isAuthenticated": false,
+  "isAdminMode": false,
+  "isUserMode": false
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Device name from NVS config |
+| `description` | string | Device description from NVS config |
+| `hasPassword` | bool | Whether a connection password is set on the device |
+| `hasAdminPassword` | bool | Whether an admin password is set on the device |
+| `isAuthenticated` | bool | Whether the current session is authenticated (connection password verified) |
+| `isAdminMode` | bool | Whether the current session has admin privileges (admin password verified, or no admin password set) |
+| `isUserMode` | bool | Whether the current session is in user-only mode (authenticated but not admin) |
+
+> **Auth tiers**: `isUserMode` = `isAuthenticated && !isAdminMode`. When no admin password exists (`hasAdminPassword` = false), admin mode is auto-granted on authentication. The 60-second auth timeout starts when a password-gated device connects; disconnect occurs automatically if not authenticated within 60s.
+
+### `POST /api/settings/nvs`
+
+Write new config values to the device's NVS. Only fields provided in the request body will be updated. Passwords can be cleared by sending an empty string.
+
+> **Guard**: Returns `503` if not connected to a device.
+
+**Request:**
+
+```json
+{
+  "name": "My Device",
+  "description": "Updated description",
+  "password": "newpass123",
+  "adminPassword": "admin456"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | no | Device name (1–32 chars) |
+| `description` | string | no | Device description (0–128 chars) |
+| `password` | string | no | Connection password (0–32 chars, empty to clear) |
+| `adminPassword` | string | no | Admin password (0–32 chars, empty to clear) |
+
+**Response `200`:**
+
+```json
+{
+  "ok": true,
+  "message": "Config saved to NVS"
+}
+```
+
+**Response `400`:**
+
+```json
+{
+  "error": "invalid_params",
+  "message": "At least one of: name, description, password, adminPassword"
+}
+```
+
+### `POST /api/settings/nvs/authenticate`
+
+Authenticate with the device password. The entered password is first tried as a connection password. If that fails and the device has an admin password, it is retried as admin authentication (admin password can also be used for connection).
+
+> **Guard**: Returns `503` if not connected to a device.
+
+**Request:**
+
+```json
+{
+  "password": "mypassword"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `password` | string | yes | Device password (connection or admin) |
+
+**Response `200`:**
+
+```json
+{
+  "ok": true,
+  "message": "Authenticated successfully"
+}
+```
+
+**Response `401`:**
+
+```json
+{
+  "error": "auth_failed",
+  "message": "Password mismatch or timeout"
+}
+```
+
+### `POST /api/settings/nvs/factory-reset`
+
+Erase all NVS config (name, description, passwords) and reboot the device. Compile-time defaults will be restored after reboot. **This cannot be undone.**
+
+> **Guard**: Returns `503` if not connected to a device.
+
+**Request:**
+
+```json
+{
+  "confirm": true
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `confirm` | bool | yes | Must be `true` to proceed (safety gate) |
+
+**Response `200`:**
+
+```json
+{
+  "ok": true,
+  "message": "Factory reset sent — device will reboot"
+}
+```
+
+**Response `400`:**
+
+```json
+{
+  "error": "confirmation_required",
+  "message": "Set confirm: true to proceed with factory reset. This will erase all config and reboot the device."
 }
 ```
 
@@ -293,7 +440,8 @@ Current connection state and telemetry.
     "type": "ble",
     "configName": "6X6 OFF ROAD CHASSIS",
     "description": "Unit 02",
-    "hasFs": true
+    "hasFs": true,
+    "hasOta": true
   },
   "configJson": {
     "version": 1,
@@ -399,6 +547,32 @@ Valid demo IDs: `WIDGETS_DEMO`, `RC_CONTROLLER`, `IOT_DASHBOARD`.
   "message": "Invalid demo ID: MY_DEMO"
 }
 ```
+
+### `GET /api/connection/params`
+
+Returns detailed BLE connection parameters. Fetches live data from the device (may timeout if the device doesn't support the BLE_INFO command).
+
+> **Guard**: Returns `503` if not connected to a device.
+
+**Response `200`:**
+
+```json
+{
+  "connIntervalMs": 12,
+  "negotiatedMtu": 512,
+  "rssi": -58,
+  "latencyMs": 24,
+  "deviceRssi": -60
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `connIntervalMs` | int? | BLE connection interval in ms |
+| `negotiatedMtu` | int? | Negotiated ATT MTU |
+| `rssi` | int? | Current RSSI from app's telemetry |
+| `latencyMs` | int? | Current ping latency |
+| `deviceRssi` | int? | RSSI reported by the device |
 
 ### `POST /api/connection/disconnect`
 
@@ -831,14 +1005,15 @@ Read the entire contents of a file. Returns base64-encoded data.
 
 ### `POST /api/fs/write`
 
-Write data to a file. Creates or truncates the file.
+Write data to a file. Creates or truncates the file. Uses chunked writes for large files (default chunk size 4096 bytes).
 
 **Request:**
 
 ```json
 {
   "path": "/demo/config.json",
-  "data": "eyJ0aGVtZSI6ICJkYXJrIn0="
+  "data": "eyJ0aGVtZSI6ICJkYXJrIn0=",
+  "chunkSize": 4096
 }
 ```
 
@@ -846,6 +1021,7 @@ Write data to a file. Creates or truncates the file.
 |-------|------|----------|-------------|
 | `path` | string | yes | File path |
 | `data` | string | yes | File content as base64 |
+| `chunkSize` | int | no | Chunk size in bytes (default 4096, for throughput profiling) |
 
 **Response `200`:**
 
@@ -854,6 +1030,36 @@ Write data to a file. Creates or truncates the file.
   "ok": true,
   "path": "/demo/config.json",
   "bytesWritten": 256
+}
+```
+
+### `POST /api/fs/upload`
+
+Upload a file using the chunked upload protocol (FS_UPLOAD_BEGIN / UPLOAD_CHUNK / UPLOAD_END). Supports a `chunkSize` parameter for throughput profiling. This is the recommended endpoint for large files.
+
+**Request:**
+
+```json
+{
+  "path": "/demo/firmware.bin",
+  "data": "<base64-encoded content>",
+  "chunkSize": 16384
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `path` | string | yes | File path |
+| `data` | string | yes | File content as base64 |
+| `chunkSize` | int | no | Upload chunk size in bytes (for profiling) |
+
+**Response `200`:**
+
+```json
+{
+  "ok": true,
+  "path": "/demo/firmware.bin",
+  "bytesWritten": 1048576
 }
 ```
 
@@ -938,6 +1144,21 @@ Format the filesystem (destructive).
 {
   "ok": true,
   "message": "Filesystem formatted"
+}
+```
+
+### `POST /api/fs/probe`
+
+Probe the connected device to check filesystem support. Sends an FS_PING frame and waits for a response. Useful for testing FS detection without waiting for the automatic probe.
+
+> **Guard**: Returns `503` if not connected.
+
+**Response `200`:**
+
+```json
+{
+  "ok": true,
+  "hasFs": true
 }
 ```
 
@@ -1043,7 +1264,118 @@ Delete a single design by its ID.
 
 ---
 
-## 12. Error Reference
+## 12. OTA Firmware Update (requires connection)
+
+> **Guard**: All OTA endpoints return `503` if not connected. `POST /api/ota/upload` returns `400` if the device doesn't support OTA (`hasOta` is false).
+
+### `POST /api/ota/upload`
+
+Upload firmware to the connected device via OTA. The firmware binary is sent as base64-encoded data. The upload proceeds in chunks with ACK/retry logic. On success, the device reboots with the new firmware.
+
+**Request:**
+
+```json
+{
+  "data": "<base64-encoded firmware binary>"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `data` | string | yes | Base64-encoded firmware binary (.bin file) |
+
+**Response `200`:**
+
+```json
+{
+  "ok": true,
+  "size": 1048576,
+  "message": "Firmware uploaded successfully — device rebooting"
+}
+```
+
+**Response `400` if OTA not supported:**
+
+```json
+{
+  "error": "ota_not_supported",
+  "message": "Connected device does not support OTA"
+}
+```
+
+**Response on failure:**
+
+```json
+{
+  "error": "ota_failed",
+  "message": "OTA_CHUNK failed at offset 4096: FLASH_ERROR"
+}
+```
+
+> **Timing**: The upload is synchronous and may take 10–60 seconds depending on firmware size. Poll `GET /api/ota/progress` for real-time progress during upload.
+
+### `GET /api/ota/progress`
+
+Returns the current OTA upload progress. Returns `active: false` when no upload is in progress.
+
+**Response `200` (idle):**
+
+```json
+{
+  "active": false,
+  "received": 0,
+  "total": 0,
+  "status": "idle"
+}
+```
+
+**Response `200` (uploading):**
+
+```json
+{
+  "active": true,
+  "received": 524288,
+  "total": 1048576,
+  "status": "uploading",
+  "percentage": 50
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `active` | bool | Whether an OTA upload is in progress |
+| `received` | int | Bytes received so far |
+| `total` | int | Total firmware size in bytes |
+| `status` | string | `"starting"`, `"uploading"`, `"rebooting"`, or `"idle"` |
+| `percentage` | int | Progress percentage (0–100) |
+
+---
+
+## 13. Session / Route
+
+### `GET /api/session/route`
+
+Returns the current app route (GoRouter location). Used by follow-mode to synchronize screen navigation across devices.
+
+**Response `200`:**
+
+```json
+{
+  "route": "/control"
+}
+```
+
+Returns an empty string if no route has been synced yet:
+
+```json
+{
+  "route": ""
+}
+```
+
+---
+
+## 14. Error Reference
 
 | `error` | Meaning |
 |---------|---------|
@@ -1060,3 +1392,13 @@ Delete a single design by its ID.
 | `timeout` | Device did not respond |
 | `fs_error` | Filesystem operation failed (check `message` for details) |
 | `internal_error` | Unexpected server error |
+| `auth_failed` | Password mismatch or auth timeout |
+| `auth_error` | Internal authentication error |
+| `nvs_error` | Failed to read/write NVS config |
+| `confirmation_required` | Factory reset requires `confirm: true` |
+| `ota_not_supported` | Device doesn't support OTA firmware update |
+| `ota_failed` | OTA upload failed (check `message` for details) |
+| `invalid_name` | Name exceeds max length |
+| `invalid_description` | Description exceeds max length |
+| `invalid_password` | Password exceeds max length |
+| `invalid_admin_password` | Admin password exceeds max length |

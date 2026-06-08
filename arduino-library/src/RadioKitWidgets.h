@@ -1,7 +1,7 @@
 /**
  * RadioKitWidgets.h
  * Convenience header — includes all RadioKit widget classes.
- * Automatically included by RadioKit.h.
+ * Automatically included by RadioKitLib.h.
  */
 
 #ifndef RADIOKIT_WIDGETS_H

@@ -1,7 +1,7 @@
 /**
  * Filesystem_LED — RadioKit Example
  *
- * Demonstrates BLE transport + bulk-FS protocol (0xAA):
+ * Demonstrates USB Serial transport + bulk-FS protocol (0xAA):
  *   - Mounts LittleFS at startup
  *   - On first boot, creates a /demo directory and writes a README
  *   - Responds to FS_LIST, FS_READ, FS_INFO, FS_DELETE, FS_MKDIR, etc.
@@ -11,13 +11,14 @@
  */
 
 #include <Arduino.h>
-#include "RadioKit_UI.h"
+#include "RADIOKIT.h"
 
 static const int LED_PIN = 40;
 static bool lastSwitchState = false;
 
 void setup() {
     Serial.begin(115200);
+    delay(2000);  // Give time for USB Serial to connect
     pinMode(LED_PIN, OUTPUT);
     digitalWrite(LED_PIN, LOW);
 

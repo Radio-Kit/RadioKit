@@ -9,7 +9,7 @@ class ArduinoGenerator {
     final cw = state.canvasWidth;
     final ch = state.canvasHeight;
 
-    buf.writeln('#include <RadioKit.h>');
+    buf.writeln('#include <RadioKitLib.h>');
     buf.writeln();
     buf.writeln('// UI Layout: ${cw}x$ch ($orient)');
     buf.writeln('// Widget positions use the virtual canvas coordinate system');

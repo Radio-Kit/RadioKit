@@ -35,6 +35,7 @@ build/
 compile_commands.json
 build_log.txt
 .clangd
+*.bin
 
 # Flutter
 .dart_tool/

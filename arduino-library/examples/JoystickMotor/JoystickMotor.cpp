@@ -23,7 +23,7 @@
  */
 
 #include <Arduino.h>
-#include "RadioKit_UI.h"
+#include "RADIOKIT.h"
 
 // ── Pin definitions ───────────────────────────────────────────
 #define PWM_LEFT_PIN  25

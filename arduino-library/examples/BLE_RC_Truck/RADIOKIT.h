@@ -1,4 +1,4 @@
-/*__RadioKit_UI_Designer_Config__
+/*__RADIOKIT_Designer_Config__
 {
   "version": 1,
   "config": {
@@ -75,7 +75,7 @@
     }
   ]
 }
-RadioKit_UI_Designer_Config__*/
+RADIOKIT_Designer_Config__*/
 
 //__RadioKit_Generated_Code__
 //__Might_Be_Overwritten_
@@ -83,7 +83,7 @@ RadioKit_UI_Designer_Config__*/
 #ifndef RADIOKIT_UI_H
 #define RADIOKIT_UI_H
 
-#include <RadioKit.h>
+#include <RadioKitLib.h>
 
 // ─── Widget Declarations ───
 RK_GasPedal gasPedal({
