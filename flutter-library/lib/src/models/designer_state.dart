@@ -19,6 +19,7 @@ class DesignerState extends ChangeNotifier {
   String _modelDescription = '';
   String _connectionPassword = '';
   String _screenSize = '200 x 100';
+  Map<String, dynamic> _features = {'ota': false, 'filesystem': false};
 
   // appdata (metadata from the JSON block, not user-configurable)
   int? _lastEdit;
@@ -63,6 +64,9 @@ class DesignerState extends ChangeNotifier {
   String? get appVersion => _appVersion;
   bool get canUndo => _undoStack.isNotEmpty;
   bool get canRedo => _redoStack.isNotEmpty;
+
+  bool get featureOta => (_features['ota'] as bool?) ?? false;
+  bool get featureFilesystem => (_features['filesystem'] as bool?) ?? false;
 
   DesignerElement? get selectedElement {
     if (_selectedElementId == null) return null;
@@ -377,6 +381,18 @@ class DesignerState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setFeatureOta(bool v) {
+    _features['ota'] = v;
+    _mutationCount++;
+    notifyListeners();
+  }
+
+  void setFeatureFilesystem(bool v) {
+    _features['filesystem'] = v;
+    _mutationCount++;
+    notifyListeners();
+  }
+
   void setAppData({int? lastEdit, String? appVersion}) {
     if (lastEdit != null) _lastEdit = lastEdit;
     if (appVersion != null) _appVersion = appVersion;
@@ -532,6 +548,11 @@ class DesignerState extends ChangeNotifier {
       _appVersion = appData['appVersion'] as String?;
     }
 
+    // features
+    if (decoded['features'] is Map) {
+      _features = Map<String, dynamic>.from(decoded['features'] as Map);
+    }
+
     _selectedElementId = null;
     notifyListeners();
   }
@@ -661,6 +682,7 @@ class DesignerState extends ChangeNotifier {
           'grid': _gridStyle.name,
           'skin': _activeSkin,
         },
+        'features': Map<String, dynamic>.from(_features),
         'widgets': _elements.map((e) => e.toJson()).toList(),
       };
 }

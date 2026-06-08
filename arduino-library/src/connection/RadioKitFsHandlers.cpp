@@ -127,6 +127,12 @@ static void resolvePath(const char* in, char* out, size_t outCap) {
     out[outCap - 1] = '\0';
 }
 
+// ── Debug: read-integrity logging ───────────────────────────────────────────
+// Set to 1 to log the first 32 bytes and CRC32 of every chunk read from
+// LittleFS. The app can then compare these against the expected content to
+// determine whether corruption happens inside LittleFS or during BLE tx.
+#define RK_FS_DEBUG_READ 0
+
 // ── Public API ──────────────────────────────────────────────────────────────
 
 void setSender(SenderFn fn) { s_sender = fn; }
@@ -263,6 +269,19 @@ void handleRead(const uint8_t* payload, uint16_t len) {
     uint16_t actualRead = (uint16_t)f.read(&tx[8], toRead);
     f.close();
 
+#if RK_FS_DEBUG_READ
+    // Log chunk integrity data so the app can compare against expected content.
+    // Format: [offset] [size] [crc32] [hex_first_32_bytes]
+    uint32_t chunkCrc = _crc32Final(_crc32Update(0xFFFFFFFFUL, &tx[8], actualRead));    char hexBuf[65];
+    uint16_t hexLen = (actualRead < 32) ? actualRead : 32;
+    for (uint16_t i = 0; i < hexLen; i++) {
+        sprintf(hexBuf + i * 2, "%02X", tx[8 + i]);
+    }
+    hexBuf[hexLen * 2] = '\0';
+    Serial.printf("FS_READ: offset=%u size=%u crc=0x%08X data=%s\n",
+                  (unsigned)fileOffset, (unsigned)actualRead, (unsigned)chunkCrc, hexBuf);
+#endif
+
     sendFrame(RK_FS_RESP_READ_DATA, tx, 8 + actualRead);
 #else
     sendError(RK_FS_RESP_READ_DATA, RK_FS_ERR_NO_FS);
@@ -296,12 +315,18 @@ void handleWrite(const uint8_t* payload, uint16_t len) {
             return;
         }
     }
-    if (!f) { sendError(RK_FS_RESP_WRITE_ACK, RK_FS_ERR_IO); return; }
+    if (!f) { 
+        sendError(RK_FS_RESP_WRITE_ACK, RK_FS_ERR_IO); 
+        return; 
+    }
 
     uint16_t toWrite = len - offset;
     uint16_t written = (uint16_t)f.write(&payload[offset], toWrite);
     f.close();
-    if (written != toWrite) { sendError(RK_FS_RESP_WRITE_ACK, RK_FS_ERR_IO); return; }
+    if (written != toWrite) { 
+        sendError(RK_FS_RESP_WRITE_ACK, RK_FS_ERR_IO); 
+        return; 
+    }
     sendError(RK_FS_RESP_WRITE_ACK, RK_FS_ERR_OK);
 #else
     sendError(RK_FS_RESP_WRITE_ACK, RK_FS_ERR_NO_FS);
@@ -506,6 +531,14 @@ void handleUploadEnd(const uint8_t* payload, uint16_t len) {
 }
 
 void handlePing() {
+    // Reset any stale upload state — the upload protocol leaves
+    // s_upload.active=true if a previous upload was interrupted
+    // (e.g. timeout, disconnect, or app crash mid-transfer).
+    // Since PING is a common health-check operation, it's the
+    // safest place to ensure clean state for the next upload.
+    if (s_upload.active) {
+        s_upload.active = false;
+    }
 #if RK_FS_HAS_LITTLEFS
     uint8_t status = s_mounted ? RK_FS_ERR_OK : RK_FS_ERR_NO_FS;
     uint8_t payload[1] = { status };

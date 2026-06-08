@@ -2,6 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../providers/device_provider.dart';
 import '../../providers/history_provider.dart';
 import '../../providers/settings_provider.dart';
@@ -54,6 +61,230 @@ class ModelsTab extends StatelessWidget {
     );
   }
 
+}
+
+/// Start the OTA firmware update flow: pick a .bin file, upload, show progress.
+void _startOtaUpdate(BuildContext context, DeviceProvider dp) async {
+  final result = await FilePicker.pickFiles(
+    type: FileType.any,
+    allowMultiple: false,
+  );
+
+  if (result == null || result.files.isEmpty) return;
+
+  final file = result.files.first;
+  if (file.path == null) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not access the selected file.')),
+      );
+    }
+    return;
+  }
+
+  // Read firmware bytes
+  Uint8List firmware;
+  try {
+    firmware = await File(file.path!).readAsBytes();
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to read file: $e')),
+      );
+    }
+    return;
+  }
+
+  if (!context.mounted) return;
+
+  // Show progress dialog
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (ctx) => _OtaProgressDialog(
+      firmware: firmware,
+      dp: dp,
+    ),
+  );
+}
+
+/// OTA progress dialog with LinearProgressIndicator + speed + cancel.
+class _OtaProgressDialog extends StatefulWidget {
+  final Uint8List firmware;
+  final DeviceProvider dp;
+
+  const _OtaProgressDialog({
+    required this.firmware,
+    required this.dp,
+  });
+
+  @override
+  State<_OtaProgressDialog> createState() => _OtaProgressDialogState();
+}
+
+class _OtaProgressDialogState extends State<_OtaProgressDialog> {
+  int _received = 0;
+  int _total = 0;
+  String _status = 'Initializing...';
+  bool _complete = false;
+  bool _error = false;
+  bool _cancelled = false;
+  String? _errorMessage;
+  DateTime? _started;
+
+  @override
+  void initState() {
+    super.initState();
+    _startOta();
+  }
+
+  Future<void> _startOta() async {
+    _started = DateTime.now();
+    try {
+      await widget.dp.uploadFirmware(
+        widget.firmware,
+        onProgress: (received, total) {
+          if (!mounted || _cancelled) return;
+          setState(() {
+            _received = received;
+            _total = total;
+            _status = _formatSpeed(received, total);
+          });
+        },
+      );
+      if (!mounted) return;
+      setState(() {
+        _status = 'Verifying...';
+      });
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (!mounted) return;
+      setState(() {
+        _complete = true;
+        _status = 'Update complete — device rebooting...';
+      });
+      // Wait a moment then close
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = true;
+        _status = 'Update failed';
+        _errorMessage = 'Error: $e';
+      });
+    }
+  }
+
+  String _formatSpeed(int received, int total) {
+    final elapsed = DateTime.now().difference(_started ?? DateTime.now());
+    final ms = elapsed.inMilliseconds;
+    final speed = ms > 0 ? (received / ms * 1000 / 1024).toStringAsFixed(1) : '0';
+    final pct = total > 0 ? (received * 100 / total).toStringAsFixed(0) : '0';
+    return 'Uploading... $pct% ($speed KB/s)';
+  }
+
+  Future<void> _cancel() async {
+    _cancelled = true;
+    try {
+      await widget.dp.abortOta();
+    } catch (_) {}
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      content: SizedBox(
+        width: 320,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  _error ? Icons.error_rounded :
+                  _complete ? Icons.check_circle_rounded :
+                  Icons.system_update_alt_rounded,
+                  color: _error ? Colors.redAccent :
+                         _complete ? Colors.greenAccent :
+                         AppColors.brandOrange,
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  _error ? 'OTA FAILED' :
+                  _complete ? 'OTA COMPLETE' :
+                  'FIRMWARE UPDATE',
+                  style: GoogleFonts.changa(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                    fontSize: 13,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            if (!_complete && !_error) ...[
+              LinearProgressIndicator(
+                value: _total > 0 ? _received / _total : null,
+                backgroundColor: Colors.white12,
+                valueColor: const AlwaysStoppedAnimation(AppColors.brandOrange),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _status,
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: _cancelled ? null : _cancel,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.redAccent,
+                    side: const BorderSide(color: Colors.redAccent),
+                  ),
+                  child: const Text('CANCEL'),
+                ),
+              ),
+            ],
+            if (_error) ...[
+              Text(
+                _errorMessage ?? 'Unknown error',
+                style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('CLOSE'),
+                ),
+              ),
+            ],
+            if (_complete) ...[
+              const Text(
+                'Device is rebooting with new firmware.',
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('CLOSE'),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _ActiveLinkSection extends StatelessWidget {
@@ -227,6 +458,34 @@ class _ActiveLinkSection extends StatelessWidget {
                           icon: const Icon(Icons.folder_open_rounded, size: 18),
                           label: Text(
                             'FILESYSTEM',
+                            style: GoogleFonts.changa(
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.2,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (deviceProvider.hasOta) ...[
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.brandOrange,
+                            side: BorderSide(
+                              color: AppColors.brandOrange.withValues(alpha: 0.6),
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          onPressed: () => _startOtaUpdate(context, deviceProvider),
+                          icon: const Icon(Icons.system_update_alt_rounded, size: 18),
+                          label: Text(
+                            'UPDATE FIRMWARE',
                             style: GoogleFonts.changa(
                               fontWeight: FontWeight.w700,
                               letterSpacing: 1.2,

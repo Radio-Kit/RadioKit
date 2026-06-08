@@ -5,7 +5,17 @@
 
 #include "RadioKit.h"
 #include "connection/RadioKitFsHandlers.h"
+#include "connection/RadioKitOTA.h"
 #include <string.h>
+
+// ── OTA support (ESP32 Update.h + esp_ota_ops) ──────────────────────────────
+#if defined(ESP32)
+#include <Update.h>
+#include <esp_ota_ops.h>
+#define RK_HAS_OTA 1
+#else
+#define RK_HAS_OTA 0
+#endif
 
 // ── Debug logging (enabled by default for debugging) ────────────────────
 // Set to 1 to enable verbose debug output
@@ -77,12 +87,16 @@ void RadioKitClass::startBLE(const char* deviceName) {
     _transport = &RadioKitBLEInstance;
     _transport->begin(bleAdvName, RadioKitClass::_onPacket);
     _transport->setFsCallback(RadioKitClass::_onFsPacket);
+    rk_otaSetCallback(RadioKitClass::_onOtaPacket);
+    _transport->setOtaCallback(RadioKitClass::_onOtaPacket);
 }
 
 void RadioKitClass::startSerial(Stream& stream) {
     _transport = &RadioKitSerialInstance;
     RadioKitSerialInstance.begin(stream, RadioKitClass::_onPacket);
     RadioKitSerialInstance.setFsCallback(RadioKitClass::_onFsPacket);
+    rk_otaSetCallback(RadioKitClass::_onOtaPacket);
+    RadioKitSerialInstance.setOtaCallback(RadioKitClass::_onOtaPacket);
 }
 
 void RadioKitClass::update() {
@@ -173,6 +187,7 @@ void RadioKitClass::_onPacket(uint8_t cmd,
         case RK_CMD_VAR_UPDATE:s_instance->_handleVarUpdate(payload, payloadLen); break;
         case RK_CMD_META_UPDATE:s_instance->_handleMetaUpdate(payload, payloadLen);break;
         case RK_CMD_BLE_INFO:  s_instance->_handleBleInfo();                       break;
+        case RK_CMD_GET_FEATURES: s_instance->_handleGetFeatures();                  break;
         default: 
             Serial.printf("RK: Unknown CMD %s (0x%02X)\n", rk_cmdName(cmd), cmd);
             break;
@@ -200,6 +215,24 @@ void RadioKitClass::_handleBleInfo() {
     payload[4] = (uint8_t)r;
     
     uint16_t len = rk_buildPacket(_txBuf, RK_CMD_BLE_INFO_DATA, payload, 5);
+    _sendPacket(len);
+}
+
+void RadioKitClass::_handleGetFeatures() {
+    if (!_transport) return;
+    
+    uint8_t bitmask = 0;
+    
+#if RK_HAS_OTA
+    bitmask |= RK_FEATURE_OTA;
+#endif
+    
+#if RK_FS_HAS_LITTLEFS
+    bitmask |= RK_FEATURE_FILESYSTEM;
+#endif
+    
+    RK_DEBUG_PRINT("RK: Reporting features bitmask: 0x%02X\n", bitmask);
+    uint16_t len = rk_buildPacket(_txBuf, RK_CMD_FEATURES_DATA, &bitmask, 1);
     _sendPacket(len);
 }
 
@@ -463,4 +496,237 @@ void RadioKitClass::_onFsPacket(uint8_t subCmd,
     RK_DEBUG_PRINT("RK: Dispatching FS %s (0x%02X), len %d\n",
                    rk_fsCmdName(subCmd), subCmd, payloadLen);
     RKFs::dispatch(subCmd, payload, payloadLen);
+}
+
+// ── OTA protocol ────────────────────────────────────────────────────────────
+
+// Progress tracking for OTA — persisted across Begin/Chunk calls
+static uint32_t s_otaLastProgressPct = 0;
+static uint32_t s_otaLastProgressChunk = 0;
+static uint32_t s_otaChunkCount = 0;
+
+void RadioKitClass::_onOtaPacket(uint8_t subCmd,
+                                 const uint8_t* payload,
+                                 uint16_t payloadLen)
+{
+    if (!s_instance) return;
+    RK_DEBUG_PRINT("RK: Dispatching OTA %s (0x%02X), len %d\n",
+                   rk_otaCmdName(subCmd), subCmd, payloadLen);
+    switch (subCmd) {
+        case RK_OTA_CMD_BEGIN:  s_instance->_handleOtaBegin(payload, payloadLen); break;
+        case RK_OTA_CMD_CHUNK:  s_instance->_handleOtaChunk(payload, payloadLen); break;
+        case RK_OTA_CMD_END:    s_instance->_handleOtaEnd(payload, payloadLen);   break;
+        case RK_OTA_CMD_ABORT:  s_instance->_handleOtaAbort();                    break;
+        default:
+            Serial.printf("RK: Unknown OTA sub-command 0x%02X\n", subCmd);
+            break;
+    }
+}
+
+void RadioKitClass::_sendOtaFrame(const uint8_t* buf, uint16_t len) {
+    if (s_instance && s_instance->_transport) {
+        s_instance->_transport->sendPacket(buf, len);
+    }
+}
+
+void RadioKitClass::_handleOtaBegin(const uint8_t* payload, uint16_t len) {
+#if RK_HAS_OTA
+    if (len < 4) {
+        uint8_t err = RK_OTA_ERR_INVALID_STATE;
+        uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
+        _sendOtaFrame(rk_otaTxBuf(), frameLen);
+        return;
+    }
+
+    uint32_t firmwareSize = (uint32_t)payload[0] |
+                           ((uint32_t)payload[1] << 8) |
+                           ((uint32_t)payload[2] << 16) |
+                           ((uint32_t)payload[3] << 24);
+
+    RK_DEBUG_PRINT("OTA: Begin firmware update, size=%u\n", firmwareSize);
+
+    // Reset progress tracking for fresh OTA session
+    s_otaLastProgressPct = 0;
+    s_otaLastProgressChunk = 0;
+    s_otaChunkCount = 0;
+
+    // Abort any stale OTA in progress
+    Update.abort();
+
+    if (!Update.begin(firmwareSize)) {
+        uint8_t err = RK_OTA_ERR_NO_SPACE;
+        uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
+        _sendOtaFrame(rk_otaTxBuf(), frameLen);
+        Serial.printf("OTA: Update.begin failed (no space?)\n");
+        return;
+    }
+
+    uint8_t err = RK_OTA_ERR_OK;
+    uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
+    _sendOtaFrame(rk_otaTxBuf(), frameLen);
+#else
+    uint8_t err = RK_OTA_ERR_NOT_SUPPORTED;
+    uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
+    _sendOtaFrame(rk_otaTxBuf(), frameLen);
+    (void)payload; (void)len;
+#endif
+}
+
+void RadioKitClass::_handleOtaChunk(const uint8_t* payload, uint16_t len) {
+#if RK_HAS_OTA
+    if (len < 4) {
+        uint8_t err = RK_OTA_ERR_INVALID_STATE;
+        uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
+        _sendOtaFrame(rk_otaTxBuf(), frameLen);
+        return;
+    }
+
+    if (!Update.isRunning()) {
+        uint8_t err = RK_OTA_ERR_INVALID_STATE;
+        uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
+        _sendOtaFrame(rk_otaTxBuf(), frameLen);
+        return;
+    }
+
+    uint32_t chunkOffset = (uint32_t)payload[0] |
+                          ((uint32_t)payload[1] << 8) |
+                          ((uint32_t)payload[2] << 16) |
+                          ((uint32_t)payload[3] << 24);
+    uint16_t dataLen = len - 4;
+
+    // Validate offset matches expected
+    if (chunkOffset != (uint32_t)Update.progress()) {
+        Serial.printf("OTA: Offset mismatch — got %u, expected %u\n",
+            chunkOffset, (uint32_t)Update.progress());
+        uint8_t err = RK_OTA_ERR_SEQ;
+        uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
+        _sendOtaFrame(rk_otaTxBuf(), frameLen);
+        return;
+    }
+
+    size_t written = Update.write((uint8_t*)(&payload[4]), dataLen);
+    if (written != dataLen) {
+        Serial.printf("OTA: Write error — wrote %u of %u bytes\n", written, dataLen);
+        uint8_t err = RK_OTA_ERR_FLASH;
+        uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
+        _sendOtaFrame(rk_otaTxBuf(), frameLen);
+        return;
+    }
+    RK_DEBUG_PRINT("OTA: Write OK — progress now=%u\n", (uint32_t)Update.progress());
+
+    // Send ACK
+    uint8_t err = RK_OTA_ERR_OK;
+    uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
+    _sendOtaFrame(rk_otaTxBuf(), frameLen);
+
+    // Send periodic progress notification (every ~5% or every 50 chunks)
+    uint32_t total = Update.size();
+    uint32_t received = Update.progress();
+    if (total > 0) {
+        uint32_t pct = (received * 100) / total;
+        s_otaChunkCount++;
+        if (pct >= s_otaLastProgressPct + 5 || s_otaChunkCount - s_otaLastProgressChunk >= 50) {
+            s_otaLastProgressPct = pct;
+            s_otaLastProgressChunk = s_otaChunkCount;
+            uint8_t progBuf[8];
+            progBuf[0] = (uint8_t)(received & 0xFF);
+            progBuf[1] = (uint8_t)((received >> 8) & 0xFF);
+            progBuf[2] = (uint8_t)((received >> 16) & 0xFF);
+            progBuf[3] = (uint8_t)((received >> 24) & 0xFF);
+            progBuf[4] = (uint8_t)(total & 0xFF);
+            progBuf[5] = (uint8_t)((total >> 8) & 0xFF);
+            progBuf[6] = (uint8_t)((total >> 16) & 0xFF);
+            progBuf[7] = (uint8_t)((total >> 24) & 0xFF);
+            uint16_t pLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_PROGRESS, progBuf, 8);
+            _sendOtaFrame(rk_otaTxBuf(), pLen);
+        }
+    }
+#else
+    uint8_t err = RK_OTA_ERR_NOT_SUPPORTED;
+    uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
+    _sendOtaFrame(rk_otaTxBuf(), frameLen);
+    (void)payload; (void)len;
+#endif
+}
+
+void RadioKitClass::_handleOtaEnd(const uint8_t* payload, uint16_t len) {
+#if RK_HAS_OTA
+    if (len < 4) {
+        uint8_t err = RK_OTA_ERR_INVALID_STATE;
+        uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
+        _sendOtaFrame(rk_otaTxBuf(), frameLen);
+        return;
+    }
+
+    if (!Update.isRunning()) {
+        uint8_t err = RK_OTA_ERR_INVALID_STATE;
+        uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
+        _sendOtaFrame(rk_otaTxBuf(), frameLen);
+        return;
+    }
+
+    uint32_t expectedCrc = (uint32_t)payload[0] |
+                          ((uint32_t)payload[1] << 8) |
+                          ((uint32_t)payload[2] << 16) |
+                          ((uint32_t)payload[3] << 24);
+
+    RK_DEBUG_PRINT("OTA: End — expected CRC32=0x%08X\n", expectedCrc);
+
+    if (!Update.end()) {
+        // Flash write error during finalisation
+        Serial.printf("OTA: Update.end() failed\n");
+        uint8_t err = RK_OTA_ERR_FLASH;
+        uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
+        _sendOtaFrame(rk_otaTxBuf(), frameLen);
+        Update.abort();
+        return;
+    }
+
+    // Update.end() verifies its own SHA-256 digest internally.
+    // Set the boot partition to the new firmware.
+    const esp_partition_t* running = esp_ota_get_running_partition();
+    const esp_partition_t* next = esp_ota_get_next_update_partition(running);
+    if (!next) {
+        Serial.printf("OTA: No next OTA partition found\n");
+        uint8_t err = RK_OTA_ERR_FLASH;
+        uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
+        _sendOtaFrame(rk_otaTxBuf(), frameLen);
+        Update.abort();
+        return;
+    }
+
+    esp_err_t err = esp_ota_set_boot_partition(next);
+    if (err != ESP_OK) {
+        Serial.printf("OTA: esp_ota_set_boot_partition failed: %d\n", err);
+        uint8_t errCode = RK_OTA_ERR_FLASH;
+        uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &errCode, 1);
+        _sendOtaFrame(rk_otaTxBuf(), frameLen);
+        Update.abort();
+        return;
+    }
+
+    // Send success ACK before rebooting
+    uint8_t errCode = RK_OTA_ERR_OK;
+    uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &errCode, 1);
+    _sendOtaFrame(rk_otaTxBuf(), frameLen);
+
+    RK_DEBUG_PRINT("OTA: Complete — rebooting in 100ms...\n");
+    delay(100);
+    esp_restart();
+#else
+    uint8_t err = RK_OTA_ERR_NOT_SUPPORTED;
+    uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
+    _sendOtaFrame(rk_otaTxBuf(), frameLen);
+    (void)payload; (void)len;
+#endif
+}
+
+void RadioKitClass::_handleOtaAbort() {
+#if RK_HAS_OTA
+    RK_DEBUG_PRINT("OTA: Abort requested\n");
+    Update.abort();
+    Serial.println("OTA: Aborted — partition released, ready for new OTA");
+#else
+    Serial.println("OTA: Abort ignored — OTA not supported");
+#endif
 }

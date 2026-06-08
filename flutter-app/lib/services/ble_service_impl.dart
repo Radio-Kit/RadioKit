@@ -9,14 +9,20 @@ import '../models/protocol.dart';
 import '../models/device_info.dart';
 import 'protocol_service.dart';
 import 'transport_service.dart';
+import 'ota_protocol_service.dart';
 
 // Conditionally import JS bridge for Web Mock
 import 'ble_js_bridge_stub.dart' if (dart.library.js) 'ble_js_bridge_web.dart';
 
 /// Unified BLE service using universal_ble.
 ///
-/// Handles scanning, connection, and UART-style data transfer across
-/// Web, Android, iOS, Windows, macOS, and Linux.
+/// Three dedicated BLE characteristics prevent notification interleaving:
+///   0xFFE1 — Widget protocol (0x55 frames)
+///   0xFFE2 — Filesystem protocol (0xAA frames)
+///   0xFFE3 — OTA protocol (0xBB frames)
+///
+/// Each characteristic has its own receive buffer, so one protocol's
+/// notifications can never corrupt another's data stream on the phone side.
 class BleService implements TransportService {
   BleService() {
     if (_dbusAvailable() || !Platform.isLinux) {
@@ -43,6 +49,8 @@ class BleService implements TransportService {
   @override
   FsPacketReceivedCallback? onFsPacketReceived;
   @override
+  OtaPacketReceivedCallback? onOtaPacketReceived;
+  @override
   ConnectionLostCallback? onConnectionLost;
 
   final _logController = StreamController<String>.broadcast();
@@ -56,7 +64,16 @@ class BleService implements TransportService {
 
   String? _connectedDeviceId;
   bool _isMockConnected = false;
-  final List<int> _receiveBuffer = [];
+
+  // Per-protocol receive buffers — separate buffers prevent interleaving
+  final List<int> _receiveBuffer = [];    // Widget (0x55)
+  final List<int> _receiveFsBuffer = [];  // FS (0xAA)
+  final List<int> _receiveOtaBuffer = []; // OTA (0xBB)
+
+  // Discovered characteristic UUIDs (actual, from BLE discovery)
+  String? _charWidgetId;
+  String? _charFsId;
+  String? _charOtaId;
 
   /// Negotiated BLE MTU (default 23). Updated after MTU exchange completes.
   /// Used by [writePacket] to fragment large payloads into MTU-sized chunks.
@@ -90,9 +107,6 @@ class BleService implements TransportService {
   /// Returns true if Location Services are enabled (required for Android < 12).
   Future<bool> get isLocationServiceEnabled async {
     if (defaultTargetPlatform == TargetPlatform.android) {
-      // Only require location services for Android < 12 (SDK < 31)
-      // On Android 12+, BLUETOOTH_SCAN permission with neverForLocation flag
-      // does not require location services to be enabled
       final androidInfo = await DeviceInfoPlugin().androidInfo;
       if (androidInfo.version.sdkInt < 31) {
         return await Geolocator.isLocationServiceEnabled();
@@ -118,7 +132,7 @@ class BleService implements TransportService {
     try {
       debugPrint('BLE_SERVICE: Requesting permissions...');
       await UniversalBle.requestPermissions(
-        withAndroidFineLocation: true, // Required for reliable BLE scanning on many Android devices
+        withAndroidFineLocation: true,
       );
       debugPrint('BLE_SERVICE: Permissions request completed.');
     } catch (e) {
@@ -159,17 +173,30 @@ class BleService implements TransportService {
       }
     };
 
+    // Per-characteristic notification handler — routes to the correct buffer.
     UniversalBle.onValueChange = (String deviceId, String characteristicId, Uint8List value, int? timestamp) {
+      if (deviceId != _connectedDeviceId) return;
+
       final charId = characteristicId.toLowerCase();
-      final targetId = kRadioKitCharUuid.toLowerCase();
-      
-      // Log ALL incoming data from ANY characteristic
+
+      // Verbose hex logging for debugging
       _log('RAW MCU from $characteristicId: ${value.map((b) => b.toRadixString(16).padLeft(2, "0")).join(" ")}');
 
-      if (deviceId == _connectedDeviceId && charId.contains(targetId)) {
-        _log('MATCH! Appending ${value.length} bytes to buffer.');
+      // Determine which protocol this characteristic belongs to
+      if (_charFsId != null && charId == _charFsId!.toLowerCase()) {
+        _receiveFsBuffer.addAll(value);
+        _processFsBuffer();
+      } else if (_charOtaId != null && charId == _charOtaId!.toLowerCase()) {
+        _receiveOtaBuffer.addAll(value);
+        _processOtaBuffer();
+      } else if (_charWidgetId != null && charId == _charWidgetId!.toLowerCase()) {
         _receiveBuffer.addAll(value);
-        _processBuffer();
+        _processWidgetBuffer();
+      } else {
+        // Unknown characteristic — try widget as fallback
+        _log('Unknown char $characteristicId, routing to widget buffer');
+        _receiveBuffer.addAll(value);
+        _processWidgetBuffer();
       }
     };
   }
@@ -189,13 +216,10 @@ class BleService implements TransportService {
       final id = result.deviceId;
       final rawName = result.name ?? '';
 
-      // All RadioKit devices advertise with the "RK_" prefix.
-      // Filter by that prefix — no hardcoded device names needed.
       if (!rawName.startsWith('RK_')) return;
 
       if (!seen.contains(id)) {
         seen.add(id);
-        // Strip the "RK_" prefix for display in the app UI.
         final displayName = rawName.substring(3);
         debugPrint('BLE_SERVICE: Found RadioKit device: $displayName ($id)');
         final info = DeviceInfo(
@@ -209,10 +233,6 @@ class BleService implements TransportService {
       }
     };
 
-    // Scan all devices — filtering is done by name prefix above.
-    // A hardware ScanFilter(withServices:) would be ideal but can miss devices
-    // on some Android versions when the service UUID is in the scan response
-    // rather than the primary advertisement packet.
     UniversalBle.startScan(
       scanFilter: ScanFilter(),
     ).then((_) {
@@ -250,14 +270,11 @@ class BleService implements TransportService {
       await UniversalBle.connect(deviceId);
       _connectedDeviceId = deviceId;
 
-      // Try to request a larger MTU (default is 23, we want at least 512 for max throughput)
+      // Request large MTU
       try {
         _log('Requesting MTU of 512...');
         final negotiated = await UniversalBle.requestMtu(deviceId, 512);
         _log('MTU requestMtu returned: $negotiated');
-        // Use a 3-byte safety margin below the negotiated value to account
-        // for any platform-specific ATT header overhead.
-        // This is safer than trusting the raw return value blindly.
         _mtu = (negotiated - 3).clamp(23, 600);
         _log('Using effective MTU: $_mtu (max BLE write payload: ${_mtu - 3})');
       } catch (e) {
@@ -265,7 +282,7 @@ class BleService implements TransportService {
         _mtu = 23;
       }
 
-      // Discover services
+      // Discover services — find all three characteristics
       _log('Discovering services...');
       final services = await UniversalBle.discoverServices(deviceId);
       for (var s in services) {
@@ -274,35 +291,73 @@ class BleService implements TransportService {
           _log('  -> Characteristic: ${c.uuid} (Notify: ${c.properties.contains(CharacteristicProperty.notify)})');
         }
       }
-      
-      final serviceUuid = kRadioKitServiceUuid.toLowerCase();
-      final charUuid = kRadioKitCharUuid.toLowerCase();
 
-      // Find the actual service/char IDs from the discovery result to be safe
+      final serviceUuid = kRadioKitServiceUuid.toLowerCase();
+      final widgetCharUuid = kRadioKitCharWidgetUuid.toLowerCase();
+      final fsCharUuid = kRadioKitCharFsUuid.toLowerCase();
+      final otaCharUuid = kRadioKitCharOtaUuid.toLowerCase();
+
       String? actualServiceId;
-      String? actualCharId;
+      _charWidgetId = null;
+      _charFsId = null;
+      _charOtaId = null;
 
       for (var s in services) {
         if (s.uuid.toLowerCase().contains(serviceUuid)) {
           actualServiceId = s.uuid;
           for (var c in s.characteristics) {
-            if (c.uuid.toLowerCase().contains(charUuid)) {
-              actualCharId = c.uuid;
-              break;
+            final cuuid = c.uuid.toLowerCase();
+            // UUID matching: check both full UUID (e.g. "0000ffe2-...") and
+            // short 16-bit UUID (e.g. "ffe2") since BLE stacks differ by platform.
+            if (cuuid.contains(widgetCharUuid) || widgetCharUuid.contains(cuuid)) {
+              _charWidgetId = c.uuid;
+            }
+            if (cuuid.contains(fsCharUuid) || fsCharUuid.contains(cuuid)) {
+              _charFsId = c.uuid;
+            }
+            if (cuuid.contains(otaCharUuid) || otaCharUuid.contains(cuuid)) {
+              _charOtaId = c.uuid;
             }
           }
         }
       }
 
-      if (actualServiceId != null && actualCharId != null) {
-        _log('Subscribing to $actualCharId...');
-        await UniversalBle.subscribeNotifications(deviceId, actualServiceId, actualCharId);
-        _log('Subscription SUCCESS');
-      } else {
-        _log('ERROR - Could not find RadioKit characteristic in discovery!');
+      if (actualServiceId == null) {
+        _log('ERROR - Could not find RadioKit service in discovery!');
+        return;
       }
 
+      _log('Discovered chars: widget=$_charWidgetId, fs=$_charFsId, ota=$_charOtaId');
+
+      // Subscribe to all discovered characteristics
+      if (_charWidgetId != null) {
+        _log('Subscribing to widget char $_charWidgetId...');
+        await UniversalBle.subscribeNotifications(deviceId, actualServiceId, _charWidgetId!);
+        _log('Widget subscription SUCCESS');
+      } else {
+        _log('WARNING - Widget char not found (0xFFE1)');
+      }
+
+      if (_charFsId != null) {
+        _log('Subscribing to FS char $_charFsId...');
+        await UniversalBle.subscribeNotifications(deviceId, actualServiceId, _charFsId!);
+        _log('FS subscription SUCCESS');
+      } else {
+        _log('WARNING - FS char not found (0xFFE2)');
+      }
+
+      if (_charOtaId != null) {
+        _log('Subscribing to OTA char $_charOtaId...');
+        await UniversalBle.subscribeNotifications(deviceId, actualServiceId, _charOtaId!);
+        _log('OTA subscription SUCCESS');
+      } else {
+        _log('WARNING - OTA char not found (0xFFE3)');
+      }
+
+      // Clear all buffers
       _receiveBuffer.clear();
+      _receiveFsBuffer.clear();
+      _receiveOtaBuffer.clear();
     } catch (e) {
       _log('Connection ERROR: $e');
       _connectedDeviceId = null;
@@ -323,12 +378,22 @@ class BleService implements TransportService {
       _connectedDeviceId = null;
     }
     _receiveBuffer.clear();
+    _receiveFsBuffer.clear();
+    _receiveOtaBuffer.clear();
+    _charWidgetId = null;
+    _charFsId = null;
+    _charOtaId = null;
   }
 
   void _handleDisconnect(String reason) {
     _connectedDeviceId = null;
     _isMockConnected = false;
     _receiveBuffer.clear();
+    _receiveFsBuffer.clear();
+    _receiveOtaBuffer.clear();
+    _charWidgetId = null;
+    _charFsId = null;
+    _charOtaId = null;
     _mtu = 23;
     onConnectionLost?.call(reason);
   }
@@ -336,6 +401,14 @@ class BleService implements TransportService {
   // ---------------------------------------------------------------------------
   // Data Transfer
   // ---------------------------------------------------------------------------
+
+  /// Route a write to the correct characteristic based on the start byte.
+  /// Returns the characteristic UUID to use, or null if none found.
+  String? _charIdForByte(int startByte) {
+    if (startByte == kFsStartByte) return _charFsId;
+    if (startByte == kOtaStartByte) return _charOtaId;
+    return _charWidgetId; // 0x55 or unknown
+  }
 
   @override
   Future<void> writePacket(Uint8List data) async {
@@ -348,14 +421,16 @@ class BleService implements TransportService {
     if (deviceId == null) throw StateError('Not connected');
 
     final serviceId = kRadioKitServiceUuid.toLowerCase();
-    final charId = kRadioKitCharUuid.toLowerCase();
+    final charId = _charIdForByte(data.isNotEmpty ? data[0] : kStartByte);
+    if (charId == null) {
+      _log('ERROR - No characteristic found for start byte 0x${data[0].toRadixString(16)}');
+      return;
+    }
 
     // Calculate the maximum payload per BLE write command.
-    // MTU minus 3 bytes for ATT header overhead.
     final chunkSize = (_mtu - 3).clamp(20, _mtu - 3);
 
     if (data.length <= chunkSize) {
-      // Single write for small payloads
       await UniversalBle.write(
         deviceId,
         serviceId,
@@ -366,11 +441,6 @@ class BleService implements TransportService {
       return;
     }
 
-    // Chunked write for payloads larger than MTU-3.
-    // universal_ble does NOT auto-fragment writes, so we must do it here.
-    // Each chunk is sent as a separate Write-No-Response command.
-    // No pacing delay between chunks — the ESP32 NimBLE stack handles
-    // the incoming data without queue overflow at these chunk sizes.
     for (int i = 0; i < data.length; i += chunkSize) {
       final end = (i + chunkSize).clamp(0, data.length);
       final chunk = Uint8List.sublistView(data, i, end);
@@ -398,7 +468,11 @@ class BleService implements TransportService {
     }
   }
 
-  void _processBuffer() {
+  // ── Per-protocol buffer processing ────────────────────────────────────────
+  // Widget, FS, and OTA buffers are processed independently because they
+  // arrive on different BLE characteristics. No protocol interleaving possible.
+
+  void _processWidgetBuffer() {
     while (true) {
       final drained = ProtocolService.drainBuffer(_receiveBuffer);
       if (drained == null) break;
@@ -407,8 +481,47 @@ class BleService implements TransportService {
             'payloadLen=${drained.widgetPacket!.payload.length}');
         onPacketReceived?.call(drained.widgetPacket!);
       } else if (drained.kind == 'fs') {
+        // Should not happen on widget buffer, but handle gracefully
+        _log('Unexpected FS packet on widget buffer');
+        onFsPacketReceived?.call(drained.fsPacket!);
+      } else if (drained.kind == 'ota') {
+        _log('Unexpected OTA packet on widget buffer');
+        onOtaPacketReceived?.call(drained.otaPacket!);
+      }
+    }
+  }
+
+  void _processFsBuffer() {
+    while (true) {
+      final drained = ProtocolService.drainBuffer(_receiveFsBuffer);
+      if (drained == null) break;
+      if (drained.kind == 'fs') {
         _log('FS packet: sub=0x${drained.fsPacket!.subCmd.toRadixString(16)} '
             'payloadLen=${drained.fsPacket!.payload.length}');
+        onFsPacketReceived?.call(drained.fsPacket!);
+      } else if (drained.kind == 'widget') {
+        _log('Unexpected widget packet on FS buffer, forwarding');
+        onPacketReceived?.call(drained.widgetPacket!);
+      } else if (drained.kind == 'ota') {
+        _log('Unexpected OTA packet on FS buffer');
+        onOtaPacketReceived?.call(drained.otaPacket!);
+      }
+    }
+  }
+
+  void _processOtaBuffer() {
+    while (true) {
+      final drained = ProtocolService.drainBuffer(_receiveOtaBuffer);
+      if (drained == null) break;
+      if (drained.kind == 'ota') {
+        _log('OTA packet: sub=0x${drained.otaPacket!.subCmd.toRadixString(16)} '
+            'payloadLen=${drained.otaPacket!.payload.length}');
+        onOtaPacketReceived?.call(drained.otaPacket!);
+      } else if (drained.kind == 'widget') {
+        _log('Unexpected widget packet on OTA buffer, forwarding');
+        onPacketReceived?.call(drained.widgetPacket!);
+      } else if (drained.kind == 'fs') {
+        _log('Unexpected FS packet on OTA buffer');
         onFsPacketReceived?.call(drained.fsPacket!);
       }
     }

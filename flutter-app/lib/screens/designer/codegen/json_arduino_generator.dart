@@ -8,6 +8,9 @@ class JsonArduinoGenerator {
     final buf = StringBuffer();
     final config = json['config'] as Map<String, dynamic>? ?? {};
     final widgets = json['widgets'] as List? ?? [];
+    final features = json['features'] as Map<String, dynamic>? ?? {};
+    final enableOta = (features['ota'] as bool?) ?? false;
+    final enableFs = (features['filesystem'] as bool?) ?? false;
 
     buf.writeln('//__RadioKit_Generated_Code__');
     buf.writeln('//__Might_Be_Overwritten_');
@@ -17,6 +20,22 @@ class JsonArduinoGenerator {
     buf.writeln();
     buf.writeln('#include <RadioKit.h>');
     buf.writeln();
+
+    // ─── Feature includes ───
+    if (enableOta) {
+      buf.writeln('#if defined(ESP32)');
+      buf.writeln('#define RADIOKIT_FEATURE_OTA');
+      buf.writeln('#include "connection/RadioKitOTA.h"');
+      buf.writeln('#endif');
+      buf.writeln();
+    }
+    if (enableFs) {
+      buf.writeln('#if __has_include(<LittleFS.h>)');
+      buf.writeln('#define RADIOKIT_FEATURE_FS');
+      buf.writeln('#include <LittleFS.h>');
+      buf.writeln('#endif');
+      buf.writeln();
+    }
 
     final setupBuf = StringBuffer();
 
@@ -48,6 +67,17 @@ class JsonArduinoGenerator {
     } else {
       buf.writeln('  RadioKit.startSerial(Serial);');
     }
+
+    // ─── Feature initialization ───
+    // OTA/FS callback registration is handled internally by RadioKit::startBLE()
+    // / startSerial() when the feature #define flags are set.
+    if (enableFs) {
+      buf.writeln('');
+      buf.writeln('  #if __has_include(<LittleFS.h>)');
+      buf.writeln('  RKFs::begin();');
+      buf.writeln('  #endif');
+    }
+
     buf.writeln('}');
     buf.writeln();
     buf.writeln('#endif // RADIOKIT_UI_H');

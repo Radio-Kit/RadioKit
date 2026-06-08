@@ -26,6 +26,12 @@ typedef void (*RK_FsPacketCallback)(uint8_t subCmd,
                                     const uint8_t* payload,
                                     uint16_t payloadLen);
 
+/// Callback signature: called by the transport when a complete
+/// OTA-protocol (0xBB) frame has been received.
+typedef void (*RK_OtaPacketCallback)(uint8_t subCmd,
+                                     const uint8_t* payload,
+                                     uint16_t payloadLen);
+
 class RadioKitTransport {
 public:
     virtual ~RadioKitTransport() {}
@@ -40,6 +46,9 @@ public:
 
     /** Register the bulk-FS callback. Optional — only needed for FS support. */
     virtual void setFsCallback(RK_FsPacketCallback cb) { (void)cb; }
+
+    /** Register the OTA callback. Optional — only needed for OTA support. */
+    virtual void setOtaCallback(RK_OtaPacketCallback cb) { (void)cb; }
 
     /** Poll for incoming data / handle async events. Call every loop(). */
     virtual void update() = 0;

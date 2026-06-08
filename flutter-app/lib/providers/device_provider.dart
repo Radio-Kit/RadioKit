@@ -9,6 +9,7 @@ import '../models/protocol.dart';
 import '../services/transport_service.dart';
 import '../services/protocol_service.dart';
 import '../services/fs_protocol_service.dart';
+import '../services/ota_protocol_service.dart';
 import '../services/debug_transport.dart';
 import '../services/demo_transport.dart';
 import '../services/demo_fs_transport.dart';
@@ -26,6 +27,7 @@ enum DeviceConnectionState {
   fetchingConfig,
   connected,
   error,
+  otaRebooting,
 }
 
 /// Pending VAR_UPDATE entry for retry logic.
@@ -68,9 +70,11 @@ class DeviceProvider extends ChangeNotifier {
   DateTime?                _lastRxAt;
   DateTime?                _lastTxAt;
   final DebugLogSink?            _debugSink;
-  Completer<void>?         _confCompleter;
-  Completer<Map<String, int>>? _bleInfoCompleter;
-  DateTime?                _pingSentAt;
+  Completer<void>?         _confCompleter;  Completer<Map<String, int>>? _bleInfoCompleter;
+  int _deviceFeatures = 0;
+  Completer<int>? _featuresCompleter;
+  Completer<int>? _otaCompleter;
+  DateTime? _pingSentAt;
 
   final Map<int, _PendingUpdate> _pendingUpdates = {};
   int _nextSeq = 0;
@@ -206,6 +210,9 @@ class DeviceProvider extends ChangeNotifier {
   /// Used by [_ProviderAdapter] to decide whether a drain delay is needed.
   bool get hasPendingPing => _pingSentAt != null;
 
+  /// Whether the connected device supports OTA firmware updates.
+  bool get hasOta => (_deviceFeatures & kFeatureOta) != 0;
+
   // ── Transport swap ───────────────────────────────────────────────────────────
 
   void setTransport(TransportService transport) {
@@ -248,6 +255,7 @@ class DeviceProvider extends ChangeNotifier {
     // 6. Always ensure callbacks are assigned to the current transport instance
     _transport.onPacketReceived = _handlePacket;
     _transport.onFsPacketReceived = _handleFsPacket;
+    _transport.onOtaPacketReceived = _handleOtaPacket;
     _transport.onConnectionLost = _handleConnectionLost;
 
     // 7. Synchronize DebugProvider if it's our sink
@@ -285,6 +293,9 @@ class DeviceProvider extends ChangeNotifier {
     unawaited(_detectFs());
 
     await _requestConfig();
+
+    // Request features after config loads — fire-and-forget
+    unawaited(_requestFeatures());
   }
 
   /// Send a few FS_PING frames and set [connectedDevice.hasFs] based on
@@ -319,13 +330,13 @@ class DeviceProvider extends ChangeNotifier {
   }
 
   Future<void> loadDemo(String demoId) async {
-    _connectionState = DeviceConnectionState.connecting;
-    _connectedDevice = DeviceInfo(
+    _connectionState = DeviceConnectionState.connecting;      _connectedDevice = DeviceInfo(
       id: 'demo_$demoId',
       name: demoId.replaceAll('_', ' '),
       rssi: -50,
       hasFs: true,
     );
+    _deviceFeatures = 0;
     _errorMessage = null;
     notifyListeners();
 
@@ -809,6 +820,7 @@ class DeviceProvider extends ChangeNotifier {
       case kCmdPong:      _handlePong();                    break;
       case kCmdTelemetryData: _handleTelemetryData(packet.payload); break;
       case kCmdBleInfoData: _handleBleInfoData(packet.payload); break;
+      case kCmdFeaturesData: _handleFeaturesData(packet.payload); break;
       default:
         debugPrint('RadioKit: Unknown cmd 0x${packet.cmd.toRadixString(16)}');
     }
@@ -837,6 +849,41 @@ class DeviceProvider extends ChangeNotifier {
         'negotiatedMtu': negotiatedMtu,
         'rssi': rssi,
       });
+    }
+  }
+
+  void _handleFeaturesData(List<int> payload) {
+    if (payload.isEmpty) return;
+    _deviceFeatures = payload[0];
+    _log('Features bitmask: 0x${_deviceFeatures.toRadixString(16)} '
+        '(OTA=${hasOta})',
+        level: ConsoleLogLevel.success);
+    notifyListeners();
+    final completer = _featuresCompleter;
+    if (completer != null && !completer.isCompleted) {
+      completer.complete(_deviceFeatures);
+    }
+  }
+
+  /// Request features from the device. Fire-and-forget — don't block connection.
+  Future<void> _requestFeatures() async {
+    if (!_transport.isConnected) return;
+    final completer = Completer<int>();
+    _featuresCompleter = completer;
+    try {
+      await _writePacket(ProtocolService.buildGetFeatures());
+    } catch (_) {
+      return;
+    }
+    // Short timeout — if device doesn't respond, features stay at 0
+    try {
+      await completer.future.timeout(const Duration(seconds: 2));
+    } on TimeoutException catch (_) {
+      // Device may be running older firmware; features stay at 0
+    } catch (_) {
+      // Ignore
+    } finally {
+      _featuresCompleter = null;
     }
   }
 
@@ -1135,7 +1182,281 @@ class DeviceProvider extends ChangeNotifier {
 
 
 
+  // ── OTA protocol (0xBB) ─────────────────────────────────────────────
+
+  /// Pending OTA operation result.
+  Completer<int>? _otaOperationCompleter;
+  bool _otaCancelled = false;
+
+  /// Handle an incoming OTA frame from the device.
+  void _handleOtaPacket(ParsedOtaPacket packet) {
+    _lastRxAt = DateTime.now();
+    final completer = _otaOperationCompleter;
+    if (packet.subCmd == kOtaRespAck) {
+      final err = OtaProtocolService.parseAck(packet.payload) ?? kOtaErrInvalidState;
+      if (completer != null && !completer.isCompleted) {
+        completer.complete(err);
+      }
+    } else if (packet.subCmd == kOtaRespProgress) {
+      // Progress is handled by the uploadFirmware method via _otaProgressCallback
+      if (_otaProgressCallback != null) {
+        final progress = OtaProtocolService.parseProgress(packet.payload);
+        if (progress != null) {
+          _otaProgressCallback!(progress.$1, progress.$2);
+        }
+      }
+    }
+  }
+
+  /// Callback for OTA progress reports. Set by [uploadFirmware].
+  void Function(int received, int total)? _otaProgressCallback;
+
+  /// Upload firmware to the device via OTA. Returns true on success.
+  /// [firmware] contains the raw firmware binary bytes.
+  /// [onProgress] is called with (bytesSent, totalBytes) during upload.
+  /// Throws on error.
+  Future<bool> uploadFirmware(
+    List<int> firmware, {
+    required void Function(int received, int total) onProgress,
+  }) async {
+    if (!_transport.isConnected) {
+      throw Exception('Not connected');
+    }
+
+    _otaCancelled = false;
+
+    const int chunkSize = kOtaMaxPayload - 4; // 4 bytes for offset
+
+    // 1. Compute CRC32 of the full firmware
+    int crc32 = _computeCrc32(firmware);
+
+    // 2. Send OTA_BEGIN
+    final beginCompleter = Completer<int>();
+    _otaOperationCompleter = beginCompleter;
+    _otaProgressCallback = onProgress;
+
+    try {
+      await _writePacket(OtaProtocolService.buildBegin(firmware.length));
+    } catch (e) {
+      _otaOperationCompleter = null;
+      _otaProgressCallback = null;
+      throw Exception('Failed to send OTA_BEGIN: $e');
+    }
+
+    int beginResult;
+    try {
+      beginResult = await beginCompleter.future.timeout(
+        const Duration(seconds: 10));
+    } on TimeoutException catch (_) {
+      _otaOperationCompleter = null;
+      _otaProgressCallback = null;
+      throw Exception('OTA_BEGIN timed out');
+    } catch (e) {
+      _otaOperationCompleter = null;
+      _otaProgressCallback = null;
+      rethrow;
+    }
+
+    if (beginResult != kOtaErrOk) {
+      _otaOperationCompleter = null;
+      _otaProgressCallback = null;
+      throw Exception('OTA_BEGIN failed: ${otaErrorName(beginResult)}');
+    }
+
+    // 3. Send OTA_CHUNK in sequence, waiting for each ACK
+    final stopwatch = Stopwatch()..start();
+    for (int offset = 0; offset < firmware.length; offset += chunkSize) {
+      if (_otaCancelled) {
+        _otaCancelled = false;
+        throw Exception('OTA cancelled by user');
+      }
+      final end = (offset + chunkSize).clamp(0, firmware.length);
+      final chunk = firmware.sublist(offset, end);
+
+      final chunkCompleter = Completer<int>();
+      _otaOperationCompleter = chunkCompleter;
+
+      int retries = 0;
+      int chunkResult = kOtaErrFlash;
+      while (retries < 3) {
+        try {
+          await _writePacket(OtaProtocolService.buildChunk(offset, chunk));
+        } catch (e) {
+          if (retries < 2) {
+            retries++;
+            await Future.delayed(Duration(milliseconds: 100 * retries));
+            continue;
+          }            await abortOta();
+          _otaProgressCallback = null;
+          throw Exception('Failed to send OTA_CHUNK at offset $offset: $e');
+        }
+
+        try {
+          chunkResult = await chunkCompleter.future.timeout(
+            const Duration(seconds: 10));
+          if (chunkResult != kOtaErrSeq) break;
+          // Sequence error — retry
+          retries++;
+        } on TimeoutException catch (_) {
+          retries++;
+          if (retries >= 3) {
+            await abortOta();
+            _otaProgressCallback = null;
+            throw Exception('OTA_CHUNK timeout at offset $offset after 3 retries');
+          }
+        }
+      }
+
+      if (chunkResult != kOtaErrOk) {
+        await abortOta();
+        _otaProgressCallback = null;
+        throw Exception('OTA_CHUNK failed at offset $offset: ${otaErrorName(chunkResult)}');
+      }
+
+      // Report progress with speed
+      final elapsed = stopwatch.elapsedMilliseconds;
+      onProgress(offset + chunk.length, firmware.length);
+    }
+
+    // 4. Send OTA_END
+    final endCompleter = Completer<int>();
+    _otaOperationCompleter = endCompleter;
+    try {
+      await _writePacket(OtaProtocolService.buildEnd(crc32));
+    } catch (e) {
+      _otaOperationCompleter = null;
+      _otaProgressCallback = null;
+      throw Exception('Failed to send OTA_END: $e');
+    }
+
+    int endResult;
+    try {
+      endResult = await endCompleter.future.timeout(
+        const Duration(seconds: 15));
+    } on TimeoutException catch (_) {
+      _otaOperationCompleter = null;
+      _otaProgressCallback = null;
+      throw Exception('OTA_END timed out — device may be rebooting');
+    } catch (e) {
+      _otaOperationCompleter = null;
+      _otaProgressCallback = null;
+      rethrow;
+    }
+
+    _otaOperationCompleter = null;
+    _otaProgressCallback = null;
+
+    if (endResult != kOtaErrOk) {
+      throw Exception('OTA_END failed: ${otaErrorName(endResult)}');
+    }
+
+    // Post-OTA auto-reconnect (fire-and-forget, so dialog can update)
+    _log('OTA complete — device rebooting, reconnecting...',
+        level: ConsoleLogLevel.success);
+    _connectionState = DeviceConnectionState.otaRebooting;
+    notifyListeners();
+    unawaited(_reconnectAfterOta());
+    return true;
+  }
+
+  /// After OTA reboot, scan for the device and auto-reconnect.
+  Future<void> _reconnectAfterOta() async {
+    try {
+      // Brief delay to let the transport process the disconnect
+      await Future.delayed(const Duration(seconds: 1));
+
+      final originalId = _connectedDevice?.id;
+      _log('OTA: scanning for device to reconnect...',
+          level: ConsoleLogLevel.info);
+
+      final deadline = DateTime.now().add(const Duration(seconds: 30));
+      bool reconnected = false;
+
+      while (DateTime.now().isBefore(deadline)) {
+        if (_connectionState != DeviceConnectionState.otaRebooting) return;
+        if (_transport.isConnected) {
+          reconnected = true;
+          break;
+        }
+
+        // Try connecting by original ID
+        if (originalId != null) {
+          try {
+            await _transport.connect(originalId);
+            await Future.delayed(const Duration(milliseconds: 500));
+            if (_transport.isConnected) {
+              reconnected = true;
+              break;
+            }
+          } catch (_) {
+            // Connection failed, retry
+          }
+        }
+
+        await Future.delayed(const Duration(seconds: 1));
+      }
+
+      if (reconnected) {
+        _log('OTA: device reconnected successfully',
+            level: ConsoleLogLevel.success);
+        // Re-request config to verify we're talking to the same device
+        _connectionState = DeviceConnectionState.fetchingConfig;
+        notifyListeners();
+        await _requestConfig();
+        unawaited(_requestFeatures());
+      } else if (_connectionState == DeviceConnectionState.otaRebooting) {
+        _log('OTA: reconnect timeout — device not found after 30s',
+            level: ConsoleLogLevel.warning);
+        _connectionState = DeviceConnectionState.disconnected;
+        _errorMessage = 'OTA reboot timeout — device not found';
+        notifyListeners();
+      }
+    } catch (e) {
+      _log('OTA reconnect error: $e', level: ConsoleLogLevel.error);
+      if (_connectionState == DeviceConnectionState.otaRebooting) {
+        _connectionState = DeviceConnectionState.disconnected;
+        _errorMessage = 'OTA reconnect failed: $e';
+        notifyListeners();
+      }
+    }
+  }
+
+  /// Send OTA_ABORT to cancel an in-progress upload.
+  /// Public so the UI can call it from the cancel button.
+  Future<void> abortOta() async {
+    _otaCancelled = true;
+    try {
+      await _writePacket(OtaProtocolService.buildAbort());
+    } catch (_) {
+      // Best-effort
+    }
+    _otaOperationCompleter = null;
+  }
+
+  // ── CRC-32 (IEEE 802.3) ────────────────────────────────────────────────
+
+  /// Compute CRC-32 of [data]. Polynomial 0xEDB88320.
+  static int _computeCrc32(List<int> data) {
+    const poly = 0xEDB88320;
+    int crc = 0xFFFFFFFF;
+    for (final byte in data) {
+      crc ^= byte & 0xFF;
+      for (int i = 0; i < 8; i++) {
+        if ((crc & 1) != 0) {
+          crc = (crc >> 1) ^ poly;
+        } else {
+          crc >>= 1;
+        }
+      }
+    }
+    return crc ^ 0xFFFFFFFF;
+  }
+
   void _handleConnectionLost(String reason) {
+    if (_connectionState == DeviceConnectionState.otaRebooting) {
+      // Reconnect is in progress — don't clear state
+      return;
+    }
     _cancelAllPendingUpdates();
     _cancelAllPendingFs();
     _stopPolling();
@@ -1279,6 +1600,8 @@ class DeviceProvider extends ChangeNotifier {
     _description      = null;
     _deviceConfigJson = null;
     _fsTreeCache      = null;
+    _deviceFeatures   = 0;
+    _otaCancelled     = false;
     _errorMessage     = null;
     notifyListeners();
   }

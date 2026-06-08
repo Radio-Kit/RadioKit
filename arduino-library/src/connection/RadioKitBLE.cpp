@@ -2,6 +2,9 @@
  * RadioKitBLE.cpp
  * BLE transport implementation using NimBLE-Arduino.
  *
+ * Three dedicated BLE characteristics prevent notification interleaving
+ * between protocols: 0xFFE1 (widget), 0xFFE2 (FS), 0xFFE3 (OTA).
+ *
  * Optimizations applied:
  *   1. WRITE + WRITE_NR properties (reliable cross-platform writes)
  *   2. Default PHY set to 2M (double the 1M base rate)
@@ -15,10 +18,8 @@
 #include "../RadioKitProtocol.h"
 #include "../RadioKit.h"
 #include "RadioKitFS.h"
+#include "RadioKitOTA.h"
 #include <NimBLEDevice.h>
-
-#define RK_BLE_SERVICE_UUID        "0000FFE0-0000-1000-8000-00805F9B34FB"
-#define RK_BLE_CHARACTERISTIC_UUID "0000FFE1-0000-1000-8000-00805F9B34FB"
 
 // Default MTU (will be updated after negotiation)
 #define RK_BLE_MTU 20
@@ -39,33 +40,63 @@ public:
     }
 };
 
-class RKCharCallbacks : public NimBLECharacteristicCallbacks {
+// Per-characteristic write callbacks — each feeds the appropriate parser directly.
+class RKWidgetCharCallbacks : public NimBLECharacteristicCallbacks {
 public:
     void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
         NimBLEAttValue value = pChar->getValue();
         if (value.length() > 0)
-            RadioKitBLEInstance._onWrite(value.data(), value.length());
+            RadioKitBLEInstance._onWidgetWrite(value.data(), value.length());
     }
     void onSubscribe(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo, uint16_t subValue) override {
-        Serial.printf("BLE: Client subscribed (subValue=%d)\n", subValue);
+        Serial.printf("BLE: Widget char subscribed (subValue=%d)\n", subValue);
     }
 };
 
-static RKServerCallbacks s_serverCallbacks;
-static RKCharCallbacks   s_charCallbacks;
+class RKFsCharCallbacks : public NimBLECharacteristicCallbacks {
+public:
+    void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+        NimBLEAttValue value = pChar->getValue();
+        if (value.length() > 0)
+            RadioKitBLEInstance._onFsWrite(value.data(), value.length());
+    }
+    void onSubscribe(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo, uint16_t subValue) override {
+        Serial.printf("BLE: FS char subscribed (subValue=%d)\n", subValue);
+    }
+};
+
+class RKOtaCharCallbacks : public NimBLECharacteristicCallbacks {
+public:
+    void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+        NimBLEAttValue value = pChar->getValue();
+        if (value.length() > 0)
+            RadioKitBLEInstance._onOtaWrite(value.data(), value.length());
+    }
+    void onSubscribe(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo, uint16_t subValue) override {
+        Serial.printf("BLE: OTA char subscribed (subValue=%d)\n", subValue);
+    }
+};
+
+static RKServerCallbacks   s_serverCallbacks;
+static RKWidgetCharCallbacks s_widgetCharCallbacks;
+static RKFsCharCallbacks    s_fsCharCallbacks;
+static RKOtaCharCallbacks   s_otaCharCallbacks;
 
 // ─────────────────────────────────────────────
 RadioKitBLE::RadioKitBLE()
-    : _server(nullptr), _characteristic(nullptr)
+    : _server(nullptr), _charWidget(nullptr), _charFs(nullptr), _charOta(nullptr)
     , _packetCallback(nullptr), _fsPacketCallback(nullptr)
+    , _otaPacketCallback(nullptr)
     , _connected(false), _sending(false), _needRestartAdv(false)
     , _negotiatedMtu(RK_BLE_MTU), _connHandle(0xFFFF)
     , _connIntervalMs(12), _pendingLen(0)
+    , _pendingFsSubCmd(0), _pendingFsLen(0), _hasPendingFs(false)
 {}
 
 void RadioKitBLE::begin(const char* deviceName, RK_PacketCallback cb) {
     _packetCallback   = cb;
     _fsPacketCallback = nullptr;
+    _otaPacketCallback = nullptr;
     _connected        = false;
     _needRestartAdv   = false;
     _negotiatedMtu    = RK_BLE_MTU;
@@ -102,15 +133,35 @@ void RadioKitBLE::begin(const char* deviceName, RK_PacketCallback cb) {
     Serial.println("BLE: Creating service...");
     NimBLEService* pService = _server->createService(RK_BLE_SERVICE_UUID);
 
-    Serial.println("BLE: Creating characteristic...");
-    _characteristic = pService->createCharacteristic(
-        RK_BLE_CHARACTERISTIC_UUID,
-        NIMBLE_PROPERTY::WRITE   |       // Reliable writes (with response)
-        NIMBLE_PROPERTY::WRITE_NR |       // Fast writes (no response)
-        NIMBLE_PROPERTY::NOTIFY  |
-        NIMBLE_PROPERTY::INDICATE
+    // ── Three dedicated characteristics ───────────────────────────
+    // Each protocol gets its own pipe — prevents notification interleaving.
+
+    Serial.println("BLE: Creating widget char (0xFFE1)...");
+    _charWidget = pService->createCharacteristic(
+        RK_BLE_CHAR_WIDGET_UUID,
+        NIMBLE_PROPERTY::WRITE   |
+        NIMBLE_PROPERTY::WRITE_NR |
+        NIMBLE_PROPERTY::NOTIFY
     );
-    _characteristic->setCallbacks(&s_charCallbacks);
+    _charWidget->setCallbacks(&s_widgetCharCallbacks);
+
+    Serial.println("BLE: Creating FS char (0xFFE2)...");
+    _charFs = pService->createCharacteristic(
+        RK_BLE_CHAR_FS_UUID,
+        NIMBLE_PROPERTY::WRITE   |
+        NIMBLE_PROPERTY::WRITE_NR |
+        NIMBLE_PROPERTY::NOTIFY
+    );
+    _charFs->setCallbacks(&s_fsCharCallbacks);
+
+    Serial.println("BLE: Creating OTA char (0xFFE3)...");
+    _charOta = pService->createCharacteristic(
+        RK_BLE_CHAR_OTA_UUID,
+        NIMBLE_PROPERTY::WRITE   |
+        NIMBLE_PROPERTY::WRITE_NR |
+        NIMBLE_PROPERTY::NOTIFY
+    );
+    _charOta->setCallbacks(&s_otaCharCallbacks);
 
     Serial.println("BLE: Starting server...");
     _server->start();
@@ -128,9 +179,23 @@ void RadioKitBLE::begin(const char* deviceName, RK_PacketCallback cb) {
     Serial.println("BLE: System ready.");
 }
 
+/// Select the characteristic matching the frame's protocol by start byte.
+NimBLECharacteristic* RadioKitBLE::_charForBuf(const uint8_t* buf) const {
+    if (!buf) return _charWidget;
+    if (buf[0] == RK_FS_START_BYTE)  return _charFs;
+    if (buf[0] == RK_OTA_START_BYTE) return _charOta;
+    return _charWidget; // 0x55 (RK_START_BYTE) or unknown
+}
+
 void RadioKitBLE::sendPacket(const uint8_t* buf, uint16_t len) {
-    if (!_connected || !_characteristic) {
-        Serial.printf("BLE: Cannot send (connected=%d, char=%p)\n", _connected, _characteristic);
+    if (!_connected) {
+        Serial.printf("BLE: Cannot send (not connected)\n");
+        return;
+    }
+
+    NimBLECharacteristic* target = _charForBuf(buf);
+    if (!target) {
+        Serial.printf("BLE: Cannot send (no char for protocol 0x%02X)\n", buf ? buf[0] : 0);
         return;
     }
     
@@ -138,8 +203,6 @@ void RadioKitBLE::sendPacket(const uint8_t* buf, uint16_t len) {
     // incoming BLE write is processed during a delay() in the send loop
     // and triggers an outgoing ACK frame), queue the frame in [_pendingBuf]
     // for delivery after the current send completes, rather than dropping it.
-    // Dropped ACKs cause the Flutter side to time out (60s per chunk),
-    // stalling large file transfers at ~156 KB.
     if (_sending) {
         uint16_t cap = sizeof(_pendingBuf);
         if (len <= cap) {
@@ -187,7 +250,7 @@ void RadioKitBLE::sendPacket(const uint8_t* buf, uint16_t len) {
                 return;
             }
             
-            success = _characteristic->notify(safeBuf + offset, chunk);
+            success = target->notify(safeBuf + offset, chunk);
             if (!success) {
                 delay(backoff);
                 if (backoff < 250) backoff += 10;
@@ -204,13 +267,7 @@ void RadioKitBLE::sendPacket(const uint8_t* buf, uint16_t len) {
         offset += chunk;
         
         if (offset < len) {
-            delay(5);  // Yield 5ms between notifications so the NimBLE host
-                      // task can process TX completion events from the
-                      // controller. 1ms was too short for 16-notification
-                      // bursts (8KB chunks) — the host couldn't drain the
-                      // 10-slot TX queue fast enough. 5ms gives the host
-                      // adequate time per notification while still being
-                      // 12× faster than the original 60ms pacing.
+            delay(5);
         }
     }
     
@@ -220,7 +277,6 @@ void RadioKitBLE::sendPacket(const uint8_t* buf, uint16_t len) {
     if (_pendingLen > 0) {
         uint16_t qLen = _pendingLen;
         _pendingLen = 0;
-        // Recurse — _sending is now false so this call will proceed normally.
         sendPacket(_pendingBuf, qLen);
         return;
     }
@@ -232,6 +288,34 @@ void RadioKitBLE::update() {
         delay(500);
         NimBLEDevice::getAdvertising()->start();
     }
+
+    // Process any pending FS frames that were deferred from the NimBLE host
+    // task. LittleFS operations in handleWrite can trigger garbage collection
+    // (50-200ms) which would stall the BLE stack's TX queue if called from
+    // the host task. By processing here in the main loop, delay() calls
+    // inside sendPacket yield to the host task, keeping the TX queue drained.
+    if (_hasPendingFs) {
+        _processPendingFs();
+    }
+}
+
+void RadioKitBLE::_processPendingFs() {
+    // Loop instead of recursion: process at most 3 frames per update() call.
+    // The phone sends frames sequentially and waits for ACK before sending
+    // the next, so 3 is a generous upper bound. Each iteration copies the
+    // pending payload to the safe working buffer before clearing the flag.
+    for (int i = 0; i < 3 && _hasPendingFs; i++) {
+        uint8_t subCmd = _pendingFsSubCmd;
+        uint16_t plen = _pendingFsLen;
+        if (plen > 0 && plen <= kPendingFsPayloadSize) {
+            memcpy(_fsWorkBuf, _pendingFsPayload, plen);
+        }
+        _hasPendingFs = false;
+
+        if (_fsPacketCallback) {
+            _fsPacketCallback(subCmd, plen > 0 ? _fsWorkBuf : nullptr, plen);
+        }
+    }
 }
 
 void RadioKitBLE::_onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) {
@@ -239,7 +323,7 @@ void RadioKitBLE::_onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) {
     _connHandle = connInfo.getConnHandle();
 
     _connIntervalMs = (uint16_t)(connInfo.getConnInterval() * 1.25f);
-    if (_connIntervalMs < 8) _connIntervalMs = 8; // clamp minimum
+    if (_connIntervalMs < 8) _connIntervalMs = 8;
     Serial.printf("BLE: Client connected (handle=%u, interval=%ums)\n",
         _connHandle, _connIntervalMs);
 
@@ -250,20 +334,12 @@ void RadioKitBLE::_onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) {
 
     // ── Post-connection optimizations ─────────────────────────────
 
-    // 1. Update connection parameters for lowest possible latency
-    //    minInterval = 6 * 1.25ms = 7.5ms  (BLE minimum)
-    //    maxInterval = 8 * 1.25ms = 10ms   (flexible — phone more likely to accept)
-    //    latency = 0 (no slave latency)
-    //    timeout = 400 * 10ms = 4s
     pServer->updateConnParams(_connHandle, 6, 8, 0, 400);
     Serial.println("BLE: Requested connection params (7.5-10ms, lat=0, timeout=4s)");
 
-    // 2. Enable Data Length Extension for 251-byte payloads
-    //    This is the max BLE 4.2+ DLE size.
     pServer->setDataLen(_connHandle, 251);
     Serial.println("BLE: Requested data length 251 (DLE)");
 
-    // 3. Request 2M PHY if not already negotiated
     pServer->updatePhy(_connHandle, BLE_GAP_LE_PHY_2M_MASK, BLE_GAP_LE_PHY_2M_MASK, 0);
     Serial.println("BLE: Requested 2M PHY update");
 }
@@ -272,14 +348,17 @@ void RadioKitBLE::_onMTUChange(uint16_t MTU, NimBLEConnInfo& connInfo) {
     _negotiatedMtu = MTU;
     Serial.printf("BLE: MTU negotiated to %u\n", MTU);
 }
+
 void RadioKitBLE::_onDisconnect() {
     _connected = false;
     _sending = false;
+    _hasPendingFs = false;
     _connHandle = 0xFFFF;
     _negotiatedMtu = RK_BLE_MTU;
     _needRestartAdv = true;
     rk_rxReset();
     rk_fsRxReset();
+    rk_otaRxReset();
     Serial.println("BLE: Client disconnected");
 }
 
@@ -287,54 +366,46 @@ void RadioKitBLE::setFsCallback(RK_FsPacketCallback cb) {
     _fsPacketCallback = cb;
 }
 
-void RadioKitBLE::_onWrite(const uint8_t* data, size_t len) {
+void RadioKitBLE::setOtaCallback(RK_OtaPacketCallback cb) {
+    _otaPacketCallback = cb;
+}
+
+// ── Per-characteristic write handlers ─────────────────────────────────────
+// Each handler feeds bytes directly into the appropriate state-machine parser.
+// No dispatch-by-start-byte needed — the characteristic itself identifies the protocol.
+
+void RadioKitBLE::_onWidgetWrite(const uint8_t* data, size_t len) {
     uint8_t cmd; const uint8_t* payload; uint16_t payloadLen;
     for (size_t i = 0; i < len; i++) {
-        uint8_t byte = data[i];
-        
-        // Clean dispatch: each byte goes to exactly one parser based on
-        // frame ownership. Two parsers share the same byte stream:
-        //   - Widget parser: 0x55 frames (commands, PING, telemetry)
-        //   - FS parser:     0xAA frames (filesystem operations)
-        //
-        // Rules:
-        //   1. If a parser is mid-frame (owns the stream), all bytes go
-        //      exclusively to that parser until its frame completes.
-        //   2. If neither parser is active, dispatch by start byte:
-        //      0x55 → widget, 0xAA → FS, other → dropped (harmless).
-        //
-        // This fully prevents interference between the two protocols.
-        // No widget frame bytes (including PING 0x55) can reach the FS
-        // parser while a widget frame is in progress, and no FS data
-        // bytes (including binary 0x55) can reach the widget parser
-        // while an FS frame is in progress.
-        
-        bool widgetActive = rk_rxIsActive();
-        bool fsActive = rk_fsRxIsActive();
-        
-        if (widgetActive) {
-            // ── Widget parser owns the stream ──
-            if (rk_rxFeedByte(byte, cmd, payload, payloadLen)) {
-                if (_packetCallback) _packetCallback(cmd, payload, payloadLen);
+        if (rk_rxFeedByte(data[i], cmd, payload, payloadLen)) {
+            if (_packetCallback) _packetCallback(cmd, payload, payloadLen);
+        }
+    }
+}
+
+void RadioKitBLE::_onFsWrite(const uint8_t* data, size_t len) {
+    uint8_t subCmd; const uint8_t* payload; uint16_t payloadLen;
+    for (size_t i = 0; i < len; i++) {
+        if (rk_fsRxFeedByte(data[i], subCmd, payload, payloadLen)) {
+            // Defer callback to update() to avoid blocking the NimBLE host
+            // task with LittleFS operations. Copy the payload to our own
+            // buffer since rk_fsRxFeedByte's returned payload pointer is into
+            // the FS state machine's internal rx buffer (s_fsBuf).
+            _pendingFsSubCmd = subCmd;
+            _pendingFsLen = payloadLen;
+            if (payload && payloadLen > 0 && payloadLen <= kPendingFsPayloadSize) {
+                memcpy(_pendingFsPayload, payload, payloadLen);
             }
-        } else if (fsActive) {
-            // ── FS parser owns the stream ──
-            if (rk_fsRxFeedByte(byte, cmd, payload, payloadLen)) {
-                if (_fsPacketCallback) _fsPacketCallback(cmd, payload, payloadLen);
-            }
-        } else {
-            // ── Neither parser active — dispatch by start byte ──
-            if (byte == RK_START_BYTE) {
-                if (rk_rxFeedByte(byte, cmd, payload, payloadLen)) {
-                    if (_packetCallback) _packetCallback(cmd, payload, payloadLen);
-                }
-            } else if (byte == RK_FS_START_BYTE) {
-                if (rk_fsRxFeedByte(byte, cmd, payload, payloadLen)) {
-                    if (_fsPacketCallback) _fsPacketCallback(cmd, payload, payloadLen);
-                }
-            }
-            // Other bytes: not a start byte for either parser.
-            // Both parsers are in WAIT_START and would ignore them.
+            _hasPendingFs = true;
+        }
+    }
+}
+
+void RadioKitBLE::_onOtaWrite(const uint8_t* data, size_t len) {
+    uint8_t subCmd; const uint8_t* payload; uint16_t payloadLen;
+    for (size_t i = 0; i < len; i++) {
+        if (rk_otaRxFeedByte(data[i], subCmd, payload, payloadLen)) {
+            if (_otaPacketCallback) _otaPacketCallback(subCmd, payload, payloadLen);
         }
     }
 }

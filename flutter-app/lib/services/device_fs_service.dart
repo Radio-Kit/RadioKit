@@ -69,13 +69,16 @@ abstract class FsTransport {
 class DeviceFsService {
   final FsTransport _transport;
 
-  /// Default chunk size for reads. 4 KB produces ~8 BLE notifications per
-  /// chunk at MTU 512. Larger chunks (>4 KB) require more notifications
-  /// which stall when delay() in sendPacket blocks the NimBLE host task
-  /// from processing TX completions — no delay duration avoids this since
-  /// delay() inherently blocks the host task, preventing the controller's
-  /// TX queue from draining.
-  static const int _defaultChunkSize = 4096;
+  /// Default chunk size for reads. 16 KB accounts for the 8-byte response
+  /// header overhead (totalSize(4) + fileOffset(4)) that the ESP32 subtracts
+  /// from RK_FS_MAX_PAYLOAD (16384). The effective data per chunk is
+  /// RK_FS_MAX_PAYLOAD - 8 = 16376 bytes, which is >= 16384 - 8 = 16376.
+  /// This produces ~32 BLE notifications per chunk at MTU 512.
+  /// Larger chunks were previously avoided because notification interleaving
+  /// at the single-characteristic level caused data corruption at 500KB+ —
+  /// this was fixed by dedicated BLE characteristics (0xFFE1 widget, 0xFFE2
+  /// FS, 0xFFE3 OTA).
+  static const int _defaultChunkSize = 16376;
 
   /// Default chunk size for writes. 4 KB matches reads — larger chunks
   /// (8 KB) produce ~17 BLE Write-No-Response fragments per chunk, and
@@ -351,7 +354,7 @@ class DeviceFsService {
     // Phase 1: Begin
     var resp = await _sendFs(
       FsProtocolService.buildUploadBegin(path, data.length),
-      timeout: _shortTimeout,
+      timeout: _writeTimeout,
     );
     if (resp == null) {
       return FsOpResult(

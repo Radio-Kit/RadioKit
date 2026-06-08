@@ -19,6 +19,7 @@
 #include "connection/RadioKitSerial.h"
 #include "connection/RadioKitFS.h"
 #include "connection/RadioKitFsHandlers.h"
+#include "connection/RadioKitOTA.h"
 
 class RadioKit_Widget;
 
@@ -142,8 +143,19 @@ private:
     void _handleMetaUpdate(const uint8_t* payload, uint16_t len);
     void _handleGetTelemetry();
     void _handleBleInfo();
+    void _handleGetFeatures();
     void _sendPacket(const uint8_t* buf, uint16_t len);
     void _sendPacket(uint16_t len);
+
+    // ── OTA handlers ────────────────────────────────────────────────
+    static void _onOtaPacket(uint8_t subCmd,
+                              const uint8_t* payload,
+                              uint16_t payloadLen);
+    void _handleOtaBegin(const uint8_t* payload, uint16_t len);
+    void _handleOtaChunk(const uint8_t* payload, uint16_t len);
+    void _handleOtaEnd(const uint8_t* payload, uint16_t len);
+    void _handleOtaAbort();
+    void _sendOtaFrame(const uint8_t* buf, uint16_t len);
 
     uint16_t _buildConfPayload(uint8_t* buf, uint16_t bufSize);
     uint16_t _buildVarPayload(uint8_t* buf, uint16_t bufSize);

@@ -8,6 +8,7 @@ export 'transport_service.dart';
 class SerialService implements TransportService {
   @override PacketReceivedCallback? onPacketReceived;
   @override FsPacketReceivedCallback? onFsPacketReceived;
+  @override OtaPacketReceivedCallback? onOtaPacketReceived;
   @override ConnectionLostCallback? onConnectionLost;
 
   @override bool get isConnected => false;

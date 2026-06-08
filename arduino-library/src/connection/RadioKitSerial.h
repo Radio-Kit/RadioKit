@@ -38,6 +38,7 @@ public:
     void begin(const char* /*name*/, RK_PacketCallback cb) override;
 
     void setFsCallback(RK_FsPacketCallback cb) override;
+    void setOtaCallback(RK_OtaPacketCallback cb) override;
 
     void update()                                      override;
     void sendPacket(const uint8_t* buf, uint16_t len)  override;
@@ -51,6 +52,7 @@ private:
     Stream*             _stream;
     RK_PacketCallback   _cb;
     RK_FsPacketCallback _fsCb;
+    RK_OtaPacketCallback _otaCb;
     uint32_t            _lastPacketMs;
     uint32_t            _lastByteMs;
     bool                _everReceived;

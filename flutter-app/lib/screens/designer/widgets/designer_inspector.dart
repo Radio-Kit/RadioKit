@@ -443,6 +443,50 @@ class _DesignerInspectorState extends State<DesignerInspector> {
             },
           ),
         ]),
+        InspectorFieldBuilders.buildSection(tokens, 'FEATURES', [
+          // Enable OTA
+          widget.state.connectionType == 'ble'
+              ? InspectorFieldBuilders.buildBoolToggle(
+                  tokens, 'Enable OTA', widget.state.featureOta, (v) {
+                  widget.state.setFeatureOta(v);
+                })
+              : IgnorePointer(
+                  child: Opacity(
+                    opacity: 0.4,
+                    child: InspectorFieldBuilders.buildBoolToggle(
+                        tokens, 'Enable OTA', false, (_) {}),
+                  ),
+                ),
+          Padding(
+            padding: const EdgeInsets.only(left: 20, bottom: 8),
+            child: Text(
+              widget.state.connectionType == 'ble'
+                  ? 'Include OTA firmware update support'
+                  : 'Only available for BLE transport',
+              style: TextStyle(
+                color: tokens.onSurface.withValues(alpha: 0.5),
+                fontSize: 10,
+              ),
+            ),
+          ),
+          // Enable Filesystem
+          InspectorFieldBuilders.buildBoolToggle(
+            tokens,
+            'Enable Filesystem',
+            widget.state.featureFilesystem,
+            (v) => widget.state.setFeatureFilesystem(v),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 20, bottom: 8),
+            child: Text(
+              'Include LittleFS support for file management',
+              style: TextStyle(
+                color: tokens.onSurface.withValues(alpha: 0.5),
+                fontSize: 10,
+              ),
+            ),
+          ),
+        ]),
       ],
     );
   }

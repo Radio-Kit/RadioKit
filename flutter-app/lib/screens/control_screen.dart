@@ -189,6 +189,8 @@ class _ControlScreenState extends State<ControlScreen> {
             deviceProvider.errorMessage ?? 'Unknown error', deviceProvider);
       case DeviceConnectionState.connected:
         return _buildCanvas(deviceProvider);
+      case DeviceConnectionState.otaRebooting:
+        return _buildLoadingState('Device rebooting — reconnecting...');
       case DeviceConnectionState.disconnected:
         return _buildLoadingState('Disconnecting...');
       default:

@@ -21,6 +21,7 @@ class SerialService implements TransportService {
 
   @override PacketReceivedCallback? onPacketReceived;
   @override FsPacketReceivedCallback? onFsPacketReceived;
+  @override OtaPacketReceivedCallback? onOtaPacketReceived;
   @override ConnectionLostCallback? onConnectionLost;
   
   final _logController = StreamController<String>.broadcast();
@@ -124,6 +125,8 @@ class SerialService implements TransportService {
         onPacketReceived?.call(drained.widgetPacket!);
       } else if (drained.kind == 'fs') {
         onFsPacketReceived?.call(drained.fsPacket!);
+      } else if (drained.kind == 'ota') {
+        onOtaPacketReceived?.call(drained.otaPacket!);
       }
     }
   }

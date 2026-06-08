@@ -1,10 +1,12 @@
 import 'dart:typed_data';
 import 'protocol_service.dart';
 import 'fs_protocol_service.dart';
+import 'ota_protocol_service.dart';
 
 /// Callback types shared across all transport implementations.
 typedef PacketReceivedCallback = void Function(ParsedPacket packet);
 typedef FsPacketReceivedCallback = void Function(ParsedFsPacket packet);
+typedef OtaPacketReceivedCallback = void Function(ParsedOtaPacket packet);
 typedef ConnectionLostCallback = void Function(String reason);
 
 /// Abstract transport used by [DeviceProvider].
@@ -14,6 +16,7 @@ typedef ConnectionLostCallback = void Function(String reason);
 abstract class TransportService {
   PacketReceivedCallback? onPacketReceived;
   FsPacketReceivedCallback? onFsPacketReceived;
+  OtaPacketReceivedCallback? onOtaPacketReceived;
   ConnectionLostCallback? onConnectionLost;
   Stream<String> get logStream;
 

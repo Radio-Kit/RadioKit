@@ -6,6 +6,8 @@ class DemoTransport implements TransportService {
   PacketReceivedCallback? onPacketReceived;
   @override
   FsPacketReceivedCallback? onFsPacketReceived;
+  @override
+  OtaPacketReceivedCallback? onOtaPacketReceived;
 
   @override
   ConnectionLostCallback? onConnectionLost;

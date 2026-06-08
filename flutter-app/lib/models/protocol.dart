@@ -2,8 +2,10 @@
 library;
 
 // BLE Service and Characteristic UUIDs
-const String kRadioKitServiceUuid = '0000FFE0-0000-1000-8000-00805F9B34FB';
-const String kRadioKitCharUuid    = '0000FFE1-0000-1000-8000-00805F9B34FB';
+const String kRadioKitServiceUuid     = '0000FFE0-0000-1000-8000-00805F9B34FB';
+const String kRadioKitCharWidgetUuid  = '0000FFE1-0000-1000-8000-00805F9B34FB';  // Widget protocol (0x55)
+const String kRadioKitCharFsUuid      = '0000FFE2-0000-1000-8000-00805F9B34FB';  // FS protocol (0xAA)
+const String kRadioKitCharOtaUuid     = '0000FFE3-0000-1000-8000-00805F9B34FB';  // OTA protocol (0xBB)
 
 // Packet framing
 const int kStartByte = 0x55;
@@ -25,6 +27,49 @@ const int kCmdGetTelemetry = 0x0D;
 const int kCmdTelemetryData = 0x0E;
 const int kCmdBleInfo = 0x14;
 const int kCmdBleInfoData = 0x0F;
+const int kCmdGetFeatures = 0x15;
+const int kCmdFeaturesData = 0x16;
+
+// ── Feature bitmask bits (FEATURES_DATA payload) ──────────────────────────
+const int kFeatureOta = 1 << 0;
+const int kFeatureFilesystem = 1 << 1;
+
+// ── OTA protocol constants ─────────────────────────────────────────────────
+const int kOtaStartByte = 0xBB;
+const int kOtaHeaderSize = 4;
+const int kOtaMaxPayload = 4096;
+
+// OTA sub-commands (App → MCU)
+const int kOtaCmdBegin = 0x01;
+const int kOtaCmdChunk = 0x02;
+const int kOtaCmdEnd   = 0x03;
+const int kOtaCmdAbort = 0x04;
+
+// OTA sub-commands (MCU → App)
+const int kOtaRespAck      = 0x81;
+const int kOtaRespProgress = 0x82;
+
+// OTA error codes
+const int kOtaErrOk           = 0x00;
+const int kOtaErrNoSpace      = 0x01;
+const int kOtaErrCrc          = 0x02;
+const int kOtaErrFlash        = 0x03;
+const int kOtaErrSeq          = 0x04;
+const int kOtaErrInvalidState = 0x05;
+const int kOtaErrNotSupported = 0x06;
+
+String otaErrorName(int code) {
+  switch (code) {
+    case kOtaErrOk:           return 'OK';
+    case kOtaErrNoSpace:      return 'NO_SPACE';
+    case kOtaErrCrc:          return 'CRC_MISMATCH';
+    case kOtaErrFlash:        return 'FLASH_ERROR';
+    case kOtaErrSeq:          return 'SEQ_ERROR';
+    case kOtaErrInvalidState: return 'INVALID_STATE';
+    case kOtaErrNotSupported: return 'NOT_SUPPORTED';
+    default:                  return 'UNKNOWN';
+  }
+}
 
 // ── Filesystem bulk protocol ─────────────────────────────────────────────────
 // Uses a different start byte (0xAA) and has its own sub-command namespace.

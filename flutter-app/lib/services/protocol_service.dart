@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../models/protocol.dart';
 import '../models/widget_config.dart';
 import 'fs_protocol_service.dart';
+import 'ota_protocol_service.dart';
 
 /// Result of parsing a CONF_DATA payload.
 class ParsedConf {
@@ -66,6 +67,7 @@ class ProtocolService {
   static Uint8List buildGetMeta()  => buildPacket(kCmdGetMeta);
   static Uint8List buildGetTelemetry() => buildPacket(kCmdGetTelemetry);
   static Uint8List buildBleInfo() => buildPacket(kCmdBleInfo);
+  static Uint8List buildGetFeatures() => buildPacket(kCmdGetFeatures);
 
   /// Build an ACK packet acknowledging a VAR_UPDATE with [seq].
   static Uint8List buildAck(int seq) => buildPacket(kCmdAck, [seq & 0xFF]);
@@ -121,11 +123,13 @@ class ProtocolService {
 
   static DrainResult? drainBuffer(List<int> buffer) {
     while (buffer.length >= 4) {
-      // Find the first start byte of either protocol
+      // Find the first start byte of any protocol
       int? startIdx;
       int? startByte;
       for (int i = 0; i < buffer.length; i++) {
-        if (buffer[i] == kStartByte || buffer[i] == kFsStartByte) {
+        if (buffer[i] == kStartByte ||
+            buffer[i] == kFsStartByte ||
+            buffer[i] == kOtaStartByte) {
           startIdx = i;
           startByte = buffer[i];
           break;
@@ -145,6 +149,7 @@ class ProtocolService {
       // Length field position depends on the protocol:
       //   0x55 widget: [START(1)][LEN_LO(1)][LEN_HI(1)][CMD(1)]... → length at [1..2]
       //   0xAA FS:     [START(1)][SUB_CMD(1)][LEN_LO(1)][LEN_HI(1)]... → length at [2..3]
+      //   0xBB OTA:    same as FS: [START(1)][SUB_CMD(1)][LEN_LO(1)][LEN_HI(1)]... → length at [2..3]
       final int length = (startByte == kStartByte)
           ? (buffer[1] | (buffer[2] << 8))
           : (buffer[2] | (buffer[3] << 8));
@@ -165,10 +170,17 @@ class ProtocolService {
         }
         // CRC failed — discard and continue
         continue;
-      } else {
+      } else if (startByte == kFsStartByte) {
         final pkt = FsProtocolService.parseFrame(frameBytes);
         if (pkt != null) {
           return DrainResult.fs(pkt);
+        }
+        continue;
+      } else {
+        // 0xBB OTA frame
+        final pkt = OtaProtocolService.parseFrame(frameBytes);
+        if (pkt != null) {
+          return DrainResult.ota(pkt);
         }
         continue;
       }
@@ -532,14 +544,17 @@ class ParsedPacket {
       'payloadLen=${payload.length})';
 }
 
-/// Result of draining the receive buffer. Either a widget-protocol frame
-/// or a 0xAA bulk-FS frame.
+/// Result of draining the receive buffer. Either a widget-protocol frame,
+/// a 0xAA bulk-FS frame, or a 0xBB OTA frame.
 class DrainResult {
-  final String kind; // 'widget' or 'fs'
+  final String kind; // 'widget', 'fs', or 'ota'
   final ParsedPacket? widgetPacket;
   final ParsedFsPacket? fsPacket;
+  final ParsedOtaPacket? otaPacket;
   const DrainResult.widget(ParsedPacket this.widgetPacket)
-      : kind = 'widget', fsPacket = null;
+      : kind = 'widget', fsPacket = null, otaPacket = null;
   const DrainResult.fs(ParsedFsPacket this.fsPacket)
-      : kind = 'fs', widgetPacket = null;
+      : kind = 'fs', widgetPacket = null, otaPacket = null;
+  const DrainResult.ota(ParsedOtaPacket this.otaPacket)
+      : kind = 'ota', widgetPacket = null, fsPacket = null;
 }

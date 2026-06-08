@@ -128,6 +128,7 @@ class RemoteAccessService {
     if (path.startsWith('/api/connection/demo')) return '/control';
     if (path == '/api/widgets' || path.startsWith('/api/widgets/')) return '/control';
     if (path.startsWith('/api/fs/')) return '/dev-tools/esp32-fs';
+    if (path.startsWith('/api/ota/')) return '/control';
     if (path.startsWith('/api/designs')) return '/designs';
     if (path.startsWith('/api/transport/')) return '/debug';
     if (path.startsWith('/api/settings')) return '/system';
@@ -179,6 +180,8 @@ class RemoteAccessService {
     router.post('/api/fs/rename', _handleFsRename);
     router.post('/api/fs/format', _handleFsFormat);
     router.post('/api/fs/probe', _handleFsProbe);
+    router.post('/api/ota/upload', _handleOtaUpload);
+    router.get('/api/ota/progress', _handleOtaProgress);
     router.get('/api/console', _handleConsole);
     router.delete('/api/console', _handleConsoleClear);
     router.post('/api/connection/demo', _handleConnectionDemo);
@@ -349,6 +352,10 @@ class RemoteAccessService {
 
   final List<ApiLogEntry> _logEntries = [];
 
+  /// Current OTA upload progress — set by [_handleOtaUpload] during upload,
+  /// read by [_handleOtaProgress]. Reset on upload completion/error.
+  (int, int, String)? _otaProgress;
+
   // ── Route Handlers ──────────────────────────────────────────────────────────
 
   Future<Response> _handleStatus(Request request) async {
@@ -469,6 +476,7 @@ class RemoteAccessService {
         'configName': _deviceProvider.configName,
         'description': _deviceProvider.description,
         'hasFs': device.hasFs,
+        'hasOta': _deviceProvider.hasOta,
       },
       'configJson': _deviceProvider.deviceConfigJson,
       'latencyMs': _deviceProvider.latencyMs,
@@ -1113,6 +1121,85 @@ class RemoteAccessService {
     }
     await _designsProvider.deleteDesign(id);
     return _json({'ok': true, 'message': 'Design removed'});
+  }
+
+  // ── OTA Upload ────────────────────────────────────────────────────────────────
+
+  /// Handle POST /api/ota/upload — accepts base64-encoded firmware and
+  /// uploads it to the connected device via the OTA protocol.
+  Future<Response> _handleOtaUpload(Request request) async {
+    _otaProgress = null; // Clear any stale progress from previous upload
+
+    if (!_deviceProvider.isConnected) {
+      return _error('not_connected', 'Not connected to a device', status: 503);
+    }
+
+    if (!_deviceProvider.hasOta) {
+      return _error('ota_not_supported',
+          'Connected device does not support OTA',
+          status: 400);
+    }
+
+    final body = await _parseBody(request);
+    final dataB64 = body['data'] as String?;
+    if (dataB64 == null || dataB64.isEmpty) {
+      return _error('invalid_params',
+          'data (base64-encoded firmware) is required');
+    }
+
+    List<int> firmware;
+    try {
+      firmware = base64Decode(dataB64);
+    } catch (e) {
+      return _error('invalid_encoding',
+          'Failed to decode base64 data: $e',
+          status: 400);
+    }
+
+    _otaProgress = (0, firmware.length, 'starting');
+
+    try {
+      await _deviceProvider.uploadFirmware(
+        firmware,
+        onProgress: (received, total) {
+          _otaProgress = (received, total, 'uploading');
+        },
+      );
+
+      _otaProgress = (firmware.length, firmware.length, 'rebooting');
+
+      return _json({
+        'ok': true,
+        'size': firmware.length,
+        'message': 'Firmware uploaded successfully — device rebooting',
+      });
+    } catch (e) {
+      _otaProgress = null;
+      return _error('ota_failed', e.toString(), status: 500);
+    }
+  }
+
+  /// Handle GET /api/ota/progress — returns current OTA upload progress.
+  Future<Response> _handleOtaProgress(Request request) async {
+    final progress = _otaProgress;
+    if (progress == null) {
+      return _json({
+        'active': false,
+        'received': 0,
+        'total': 0,
+        'status': 'idle',
+      });
+    }
+    final r = progress.$1;
+    final t = progress.$2;
+    final s = progress.$3;
+    return _json({
+      'active': true,
+      'received': r,
+      'total': t,
+      'status': s,
+      'percentage': t > 0 ? ((r / t) * 100).round() : 0,
+    });
   }
 
   // ── FS Probe ──────────────────────────────────────────────────────────────────

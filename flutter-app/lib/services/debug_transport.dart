@@ -54,6 +54,13 @@ class DebugTransport implements TransportService {
   FsPacketReceivedCallback? get onFsPacketReceived => _inner.onFsPacketReceived;
 
   @override
+  set onOtaPacketReceived(OtaPacketReceivedCallback? cb) =>
+      _inner.onOtaPacketReceived = cb;
+
+  @override
+  OtaPacketReceivedCallback? get onOtaPacketReceived => _inner.onOtaPacketReceived;
+
+  @override
   set onConnectionLost(ConnectionLostCallback? cb) =>
       _inner.onConnectionLost = cb;
 

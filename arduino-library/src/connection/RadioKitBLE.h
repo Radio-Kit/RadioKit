@@ -2,6 +2,13 @@
  * RadioKitBLE.h
  * BLE transport for RadioKit — wraps NimBLE-Arduino.
  * Implements RadioKitTransport.
+ *
+ * Three dedicated BLE characteristics prevent notification interleaving:
+ *   0xFFE1 — Widget protocol (0x55 frames)
+ *   0xFFE2 — Filesystem protocol (0xAA frames)
+ *   0xFFE3 — OTA protocol (0xBB frames)
+ * Each characteristic has independent NOTIFY + WRITE properties,
+ * so one protocol's notifications can never interleave into another's data stream.
  */
 
 #ifndef RADIOKIT_BLE_H
@@ -15,7 +22,9 @@ class NimBLEServer;
 class NimBLECharacteristic;
 
 #define RK_BLE_SERVICE_UUID        "0000FFE0-0000-1000-8000-00805F9B34FB"
-#define RK_BLE_CHARACTERISTIC_UUID "0000FFE1-0000-1000-8000-00805F9B34FB"
+#define RK_BLE_CHAR_WIDGET_UUID    "0000FFE1-0000-1000-8000-00805F9B34FB"
+#define RK_BLE_CHAR_FS_UUID        "0000FFE2-0000-1000-8000-00805F9B34FB"
+#define RK_BLE_CHAR_OTA_UUID       "0000FFE3-0000-1000-8000-00805F9B34FB"
 
 // Default MTU (negotiated value is cached after connection)
 #define RK_BLE_MTU 20
@@ -32,6 +41,7 @@ public:
 
     void begin(const char* deviceName, RK_PacketCallback cb) override;
     void setFsCallback(RK_FsPacketCallback cb) override;
+    void setOtaCallback(RK_OtaPacketCallback cb) override;
     void update()                                            override;
     void sendPacket(const uint8_t* buf, uint16_t len)       override;
     bool isConnected() const                                override { return _connected; }
@@ -41,13 +51,19 @@ public:
     void _onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo);
     void _onDisconnect();
     void _onMTUChange(uint16_t MTU, NimBLEConnInfo& connInfo);
-    void _onWrite(const uint8_t* data, size_t len);
+    void _onWidgetWrite(const uint8_t* data, size_t len);
+    void _onFsWrite(const uint8_t* data, size_t len);
+    void _onOtaWrite(const uint8_t* data, size_t len);
+    void _processPendingFs();
 
 private:
     NimBLEServer*         _server;
-    NimBLECharacteristic* _characteristic;
+    NimBLECharacteristic* _charWidget;   // 0xFFE1 — widget protocol (0x55)
+    NimBLECharacteristic* _charFs;       // 0xFFE2 — filesystem protocol (0xAA)
+    NimBLECharacteristic* _charOta;      // 0xFFE3 — OTA protocol (0xBB)
     RK_PacketCallback     _packetCallback;
     RK_FsPacketCallback   _fsPacketCallback;
+    RK_OtaPacketCallback  _otaPacketCallback;
     volatile bool _connected;
     volatile bool         _sending;          // Re-entrancy guard for sendPacket (cross-task)
     bool                  _needRestartAdv;
@@ -68,6 +84,19 @@ private:
     static const uint16_t kPendingBufSize = 16388;
     uint8_t               _pendingBuf[kPendingBufSize];
     uint16_t              _pendingLen;
+
+    // Deferred FS frame: the NimBLE host task buffers complete FS frames
+    // here instead of calling _fsPacketCallback inline, preventing LittleFS
+    // operations from blocking the BLE stack and stalling the TX queue.
+    static const uint16_t kPendingFsPayloadSize = 16384;
+    uint8_t               _pendingFsPayload[kPendingFsPayloadSize];
+    uint8_t               _fsWorkBuf[kPendingFsPayloadSize];  // update()'s safe working copy
+    uint8_t               _pendingFsSubCmd;
+    uint16_t              _pendingFsLen;
+    volatile bool         _hasPendingFs;
+
+    // Select the characteristic matching [buf[0]]'s protocol.
+    NimBLECharacteristic* _charForBuf(const uint8_t* buf) const;
 };
 
 extern RadioKitBLE RadioKitBLEInstance;

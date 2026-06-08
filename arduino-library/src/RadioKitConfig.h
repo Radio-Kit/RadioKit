@@ -139,6 +139,13 @@
 #define RADIOKIT_MAX_ITEMS    8  ///< MultipleButton/Select item pool size
 
 // ─────────────────────────────────────────────
+//  Feature flags
+// ─────────────────────────────────────────────
+#ifndef RADIOKIT_FEATURE_FS
+#define RADIOKIT_FEATURE_FS
+#endif
+
+// ─────────────────────────────────────────────
 //  Rotation helper
 // ─────────────────────────────────────────────
 #define RK_ROT(deg) ((int16_t)(deg))

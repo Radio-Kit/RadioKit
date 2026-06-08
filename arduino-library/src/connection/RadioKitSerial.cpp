@@ -6,11 +6,12 @@
 #include "RadioKitSerial.h"
 #include "../RadioKitProtocol.h"
 #include "RadioKitFS.h"
+#include "RadioKitOTA.h"
 
 RadioKitSerialTransport RadioKitSerialInstance;
 
 RadioKitSerialTransport::RadioKitSerialTransport()
-    : _stream(nullptr), _cb(nullptr), _fsCb(nullptr)
+    : _stream(nullptr), _cb(nullptr), _fsCb(nullptr), _otaCb(nullptr)
     , _lastPacketMs(0), _lastByteMs(0), _everReceived(false)
 {}
 
@@ -18,6 +19,7 @@ void RadioKitSerialTransport::begin(Stream& stream, RK_PacketCallback cb) {
     _stream       = &stream;
     _cb           = cb;
     _fsCb         = nullptr;
+    _otaCb        = nullptr;
     _lastPacketMs = 0;
     _lastByteMs   = 0;
     _everReceived = false;
@@ -33,6 +35,10 @@ void RadioKitSerialTransport::setFsCallback(RK_FsPacketCallback cb) {
     _fsCb = cb;
 }
 
+void RadioKitSerialTransport::setOtaCallback(RK_OtaPacketCallback cb) {
+    _otaCb = cb;
+}
+
 void RadioKitSerialTransport::update() {
     if (!_stream) return;
 
@@ -44,7 +50,7 @@ void RadioKitSerialTransport::update() {
         uint8_t byte = (uint8_t)_stream->read();
         _lastByteMs = millis();
 
-        // Route to widget state machine
+        // Route to widget state machine (0x55)
         if (rk_rxFeedByte(byte, cmd, payload, payloadLen)) {
             _everReceived = true;
             _lastPacketMs = millis();
@@ -52,11 +58,19 @@ void RadioKitSerialTransport::update() {
             continue;
         }
 
-        // Route to FS state machine (parallel, separate start byte)
+        // Route to FS state machine (0xAA)
         if (rk_fsRxFeedByte(byte, cmd, payload, payloadLen)) {
             _everReceived = true;
             _lastPacketMs = millis();
             if (_fsCb) _fsCb(cmd, payload, payloadLen);
+            continue;
+        }
+
+        // Route to OTA state machine (0xBB)
+        if (rk_otaRxFeedByte(byte, cmd, payload, payloadLen)) {
+            _everReceived = true;
+            _lastPacketMs = millis();
+            if (_otaCb) _otaCb(cmd, payload, payloadLen);
         }
     }
 
@@ -64,6 +78,7 @@ void RadioKitSerialTransport::update() {
     if (_lastByteMs > 0 && (millis() - _lastByteMs) > 1000) {
         rk_rxReset();
         rk_fsRxReset();
+        rk_otaRxReset();
         _lastByteMs = 0;
     }
 }
