@@ -91,6 +91,7 @@ RadioKitBLE::RadioKitBLE()
     , _negotiatedMtu(RK_BLE_MTU), _connHandle(0xFFFF)
     , _connIntervalMs(12), _pendingLen(0)
     , _pendingFsSubCmd(0), _pendingFsLen(0), _hasPendingFs(false)
+    , _pendingOtaSubCmd(0), _pendingOtaLen(0), _hasPendingOta(false)
 {}
 
 void RadioKitBLE::begin(const char* deviceName, RK_PacketCallback cb) {
@@ -297,6 +298,12 @@ void RadioKitBLE::update() {
     if (_hasPendingFs) {
         _processPendingFs();
     }
+
+    // Process any pending OTA frames (same pattern — Update.write does flash
+    // I/O that blocks the NimBLE host task if called inline from _onOtaWrite).
+    if (_hasPendingOta) {
+        _processPendingOta();
+    }
 }
 
 void RadioKitBLE::_processPendingFs() {
@@ -314,6 +321,26 @@ void RadioKitBLE::_processPendingFs() {
 
         if (_fsPacketCallback) {
             _fsPacketCallback(subCmd, plen > 0 ? _fsWorkBuf : nullptr, plen);
+        }
+    }
+}
+
+void RadioKitBLE::_processPendingOta() {
+    // Same pattern as _processPendingFs: process at most 3 frames per
+    // update() call. Each iteration copies the pending payload to the safe
+    // working buffer before clearing the flag, so the NimBLE host task can
+    // write new data to _pendingOtaPayload without corrupting what we're
+    // processing.
+    for (int i = 0; i < 3 && _hasPendingOta; i++) {
+        uint8_t subCmd = _pendingOtaSubCmd;
+        uint16_t plen = _pendingOtaLen;
+        if (plen > 0 && plen <= kPendingOtaPayloadSize) {
+            memcpy(_otaWorkBuf, _pendingOtaPayload, plen);
+        }
+        _hasPendingOta = false;
+
+        if (_otaPacketCallback) {
+            _otaPacketCallback(subCmd, plen > 0 ? _otaWorkBuf : nullptr, plen);
         }
     }
 }
@@ -353,6 +380,7 @@ void RadioKitBLE::_onDisconnect() {
     _connected = false;
     _sending = false;
     _hasPendingFs = false;
+    _hasPendingOta = false;
     _connHandle = 0xFFFF;
     _negotiatedMtu = RK_BLE_MTU;
     _needRestartAdv = true;
@@ -405,7 +433,16 @@ void RadioKitBLE::_onOtaWrite(const uint8_t* data, size_t len) {
     uint8_t subCmd; const uint8_t* payload; uint16_t payloadLen;
     for (size_t i = 0; i < len; i++) {
         if (rk_otaRxFeedByte(data[i], subCmd, payload, payloadLen)) {
-            if (_otaPacketCallback) _otaPacketCallback(subCmd, payload, payloadLen);
+            // Defer callback to update() to avoid blocking the NimBLE host
+            // task with Update.write() flash I/O. Copy the payload to our own
+            // buffer since rk_otaRxFeedByte's returned payload pointer is into
+            // the OTA state machine's internal rx buffer (s_otaBuf).
+            _pendingOtaSubCmd = subCmd;
+            _pendingOtaLen = payloadLen;
+            if (payload && payloadLen > 0 && payloadLen <= kPendingOtaPayloadSize) {
+                memcpy(_pendingOtaPayload, payload, payloadLen);
+            }
+            _hasPendingOta = true;
         }
     }
 }

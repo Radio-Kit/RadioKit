@@ -505,6 +505,11 @@ static uint32_t s_otaLastProgressPct = 0;
 static uint32_t s_otaLastProgressChunk = 0;
 static uint32_t s_otaChunkCount = 0;
 
+// OTA bytes written counter, tracked ourselves because ESP32's
+// Update.progress() only increments when a full flash sector (4096 bytes)
+// is flushed, not after every Update.write() call with partial sectors.
+static uint32_t s_otaBytesWritten = 0;
+
 void RadioKitClass::_onOtaPacket(uint8_t subCmd,
                                  const uint8_t* payload,
                                  uint16_t payloadLen)
@@ -549,9 +554,11 @@ void RadioKitClass::_handleOtaBegin(const uint8_t* payload, uint16_t len) {
     s_otaLastProgressPct = 0;
     s_otaLastProgressChunk = 0;
     s_otaChunkCount = 0;
+    s_otaBytesWritten = 0;
 
     // Abort any stale OTA in progress
     Update.abort();
+    s_otaBytesWritten = 0;
 
     if (!Update.begin(firmwareSize)) {
         uint8_t err = RK_OTA_ERR_NO_SPACE;
@@ -594,10 +601,12 @@ void RadioKitClass::_handleOtaChunk(const uint8_t* payload, uint16_t len) {
                           ((uint32_t)payload[3] << 24);
     uint16_t dataLen = len - 4;
 
-    // Validate offset matches expected
-    if (chunkOffset != (uint32_t)Update.progress()) {
+    // Use our own progress tracking instead of Update.progress() because
+    // ESP32's Update class only increments progress when a full flash sector
+    // (4096 bytes) is flushed, not on every Update.write() call.
+    if (chunkOffset != s_otaBytesWritten) {
         Serial.printf("OTA: Offset mismatch — got %u, expected %u\n",
-            chunkOffset, (uint32_t)Update.progress());
+            chunkOffset, s_otaBytesWritten);
         uint8_t err = RK_OTA_ERR_SEQ;
         uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
         _sendOtaFrame(rk_otaTxBuf(), frameLen);
@@ -612,7 +621,7 @@ void RadioKitClass::_handleOtaChunk(const uint8_t* payload, uint16_t len) {
         _sendOtaFrame(rk_otaTxBuf(), frameLen);
         return;
     }
-    RK_DEBUG_PRINT("OTA: Write OK — progress now=%u\n", (uint32_t)Update.progress());
+    s_otaBytesWritten += written;
 
     // Send ACK
     uint8_t err = RK_OTA_ERR_OK;
@@ -621,7 +630,7 @@ void RadioKitClass::_handleOtaChunk(const uint8_t* payload, uint16_t len) {
 
     // Send periodic progress notification (every ~5% or every 50 chunks)
     uint32_t total = Update.size();
-    uint32_t received = Update.progress();
+    uint32_t received = s_otaBytesWritten;
     if (total > 0) {
         uint32_t pct = (received * 100) / total;
         s_otaChunkCount++;
@@ -725,6 +734,7 @@ void RadioKitClass::_handleOtaAbort() {
 #if RK_HAS_OTA
     RK_DEBUG_PRINT("OTA: Abort requested\n");
     Update.abort();
+    s_otaBytesWritten = 0;
     Serial.println("OTA: Aborted — partition released, ready for new OTA");
 #else
     Serial.println("OTA: Abort ignored — OTA not supported");

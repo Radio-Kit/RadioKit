@@ -95,8 +95,20 @@ private:
     uint16_t              _pendingFsLen;
     volatile bool         _hasPendingFs;
 
+    // Deferred OTA frame: same pattern as FS — OTA flash writes (Update.write)
+    // can block the NimBLE host task for 50-200ms, stalling the TX queue.
+    // Max OTA payload is RK_OTA_MAX_PAYLOAD (4096).
+    static const uint16_t kPendingOtaPayloadSize = 4096;
+    uint8_t               _pendingOtaPayload[kPendingOtaPayloadSize];
+    uint8_t               _otaWorkBuf[kPendingOtaPayloadSize];
+    uint8_t               _pendingOtaSubCmd;
+    uint16_t              _pendingOtaLen;
+    volatile bool         _hasPendingOta;
+
     // Select the characteristic matching [buf[0]]'s protocol.
     NimBLECharacteristic* _charForBuf(const uint8_t* buf) const;
+
+    void _processPendingOta();
 };
 
 extern RadioKitBLE RadioKitBLEInstance;

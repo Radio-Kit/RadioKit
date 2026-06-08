@@ -835,12 +835,17 @@ class RemoteAccessService {
     if (path == null || path.isEmpty) {
       return _error('invalid_params', 'path query parameter is required');
     }
+    // Optional chunkSize parameter (default 16376) for throughput profiling.
+    final chunkSizeParam = request.url.queryParameters['chunkSize'];
+    final chunkSize = (chunkSizeParam != null) ? int.tryParse(chunkSizeParam) : null;
     // Hold the FS busy lock for the entire multi-chunk read to prevent
     // the Follow Mode FS screen from interleaving its own FS operations
     // (listDir/getInfo) between chunks and corrupting the response stream.
     _deviceProvider.setFsBusy(true);
     try {
-      final data = await _fsService().readFile(path);
+      final data = chunkSize != null && chunkSize > 0
+          ? await _fsService().readFile(path, chunkSize: chunkSize)
+          : await _fsService().readFile(path);
       if (data == null) {
         return _error('not_found', 'File not found: $path', status: 404);
       }
@@ -903,12 +908,16 @@ class RemoteAccessService {
     if (path == null || dataB64 == null) {
       return _error('invalid_params', 'path and data are required');
     }
+    // Optional chunk_size parameter (default 4096) for throughput profiling.
+    final chunkSize = (body['chunkSize'] as num?)?.toInt() ?? 0;
     // Hold the FS busy lock for the entire multi-chunk write to prevent
     // the Follow Mode FS screen from interleaving its own FS operations.
     _deviceProvider.setFsBusy(true);
     try {
       final data = base64Decode(dataB64);
-      final result = await _fsService().writeFile(path, data);
+      final result = chunkSize > 0
+          ? await _fsService().writeFile(path, data, chunkSize: chunkSize)
+          : await _fsService().writeFile(path, data);
       if (!result.success) {
         return _error('fs_error',
             '${result.errorName}: ${result.message}',

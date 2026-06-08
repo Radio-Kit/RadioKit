@@ -85,7 +85,7 @@ class DeviceFsService {
   /// BLE Write-No-Response has no application-layer delivery guarantee.
   /// Dropped fragments cause silent data corruption detectable only on
   /// read-back integrity checks.
-  static const int _writeChunkSize = 4096;
+  static const int _writeChunkSize = 8192;
 
   /// Max safe payload for a single WRITE frame. Below the 16 KB frame
   /// limit we leave headroom for the path-length byte + offset bytes
