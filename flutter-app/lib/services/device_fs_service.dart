@@ -187,18 +187,6 @@ class DeviceFsService {
     );
   }
 
-  /// Ping the FS. Returns true if the device replies with OK (mounted),
-  /// false on NO_FS / timeout / disconnect. Use for capability detection.
-  Future<bool> ping({Duration timeout = const Duration(seconds: 2)}) async {
-    final resp = await _sendFs(
-      FsProtocolService.buildPing(),
-      timeout: timeout,
-    );
-    if (resp == null) return false;
-    final code = FsProtocolService.parseAck(resp.payload) ?? kFsErrNoFs;
-    return code == kFsErrOk;
-  }
-
   /// Format the default filesystem. Destructive — erases all data.
   /// Returns true on success.
   Future<FsOpResult> format() async {

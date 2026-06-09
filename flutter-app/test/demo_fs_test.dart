@@ -270,17 +270,6 @@ void main() {
       expect(received, isFalse);
     });
 
-    test('PING returns OK (capability detection)', () async {
-      final t = DemoFsTransport();
-      ParsedFsPacket? response;
-      t.onFsPacketReceived = (p) => response = p;
-      await t.writePacket(FsProtocolService.buildPing());
-      await Future<void>.delayed(Duration.zero);
-      expect(response, isNotNull);
-      expect(response!.subCmd, kFsRespPingAck);
-      expect(FsProtocolService.parseAck(response!.payload), kFsErrOk);
-    });
-
     test('FORMAT resets state to seeded tree', () async {
       final t = DemoFsTransport();
       final responses = <ParsedFsPacket>[];

@@ -71,7 +71,6 @@
 #define RK_FS_CMD_UPLOAD_BEGIN     0x08
 #define RK_FS_CMD_UPLOAD_CHUNK     0x09
 #define RK_FS_CMD_UPLOAD_END       0x0A
-#define RK_FS_CMD_PING             0x0B
 #define RK_FS_CMD_FORMAT           0x0C
 #define RK_FS_CMD_REPLACE          0x0D
 #define RK_FS_CMD_CRC32            0x0E
@@ -87,7 +86,6 @@
 #define RK_FS_RESP_UPLOAD_BEGIN_ACK 0x88
 #define RK_FS_RESP_UPLOAD_CHUNK_ACK 0x89
 #define RK_FS_RESP_UPLOAD_END_ACK   0x8A
-#define RK_FS_RESP_PING_ACK        0x8B
 #define RK_FS_RESP_FORMAT_ACK      0x8C
 #define RK_FS_RESP_REPLACE_ACK     0x8D
 #define RK_FS_RESP_CRC32_DATA      0x8E

@@ -623,8 +623,6 @@ class BleService implements TransportService {
             _mockTextValue = 'Val: $_mockSliderValue | Joy: $_mockJoyX,$_mockJoyY';
           }
           _respondWithAck();
-        } else if (cmd == kCmdPing) {
-          _respondWithPong();
         }
       });
     }
@@ -669,7 +667,6 @@ class BleService implements TransportService {
   }
 
   void _respondWithAck() => injectDebugPacket(ProtocolService.buildPacket(kCmdAck));
-  void _respondWithPong() => injectDebugPacket(ProtocolService.buildPacket(kCmdPong));
 
   static int _toSigned(int byte) {
     final b = byte & 0xFF;

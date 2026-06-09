@@ -293,6 +293,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── CONNECTION (with features merged in) ──────────────────────
         InspectorFieldBuilders.buildSection(tokens, 'CONNECTION', [
           InspectorFieldBuilders.buildCenterPinnedSelector(
             tokens,
@@ -306,144 +307,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
               'Password',
               widget.state.connectionPassword,
               (v) => widget.state.setConnectionPassword(v)),
-        ]),
-        InspectorFieldBuilders.buildSection(tokens, 'MODEL', [
-          InspectorFieldBuilders.buildTextField(tokens, 'Name *',
-              widget.state.modelName, (v) => widget.state.setModelName(v)),
-          InspectorFieldBuilders.buildTextField(
-              tokens,
-              'Description',
-              widget.state.modelDescription,
-              (v) => widget.state.setModelDescription(v)),
-          InspectorFieldBuilders.buildCenterPinnedSelector(
-            tokens,
-            'Type',
-            widget.state.modelType.isEmpty
-                ? 'Locomotive'
-                : widget.state.modelType,
-            ['Locomotive', 'Truck', 'Car', 'IOT'],
-            (v) => widget.state.setModelType(v),
-          ),
-        ]),
-        InspectorFieldBuilders.buildSection(tokens, 'CANVAS', [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 80,
-                  child: Text(
-                    'Orientation',
-                    style: const TextStyle(
-                      color: Color(0xFF888888),
-                      fontSize: 11,
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _buildMiniToggle(
-                          tokens,
-                          label: 'LANDSCAPE',
-                          selected: widget.state.isLandscape,
-                          onTap: () {
-                            if (!widget.state.isLandscape)
-                              widget.state.toggleOrientation();
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: _buildMiniToggle(
-                          tokens,
-                          label: 'PORTRAIT',
-                          selected: !widget.state.isLandscape,
-                          onTap: () {
-                            if (widget.state.isLandscape)
-                              widget.state.toggleOrientation();
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          InspectorFieldBuilders.buildReadOnlyField(
-            tokens,
-            'Size',
-            widget.state.isLandscape ? '200 x 100' : '100 x 200',
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 80,
-                  child: Text(
-                    'Grid',
-                    style: const TextStyle(
-                      color: Color(0xFF888888),
-                      fontSize: 11,
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _buildMiniToggle(
-                          tokens,
-                          label: 'LINES',
-                          selected: widget.state.gridStyle == GridStyle.lines,
-                          onTap: () =>
-                              widget.state.setGridStyle(GridStyle.lines),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: _buildMiniToggle(
-                          tokens,
-                          label: 'DOTS',
-                          selected: widget.state.gridStyle == GridStyle.dots,
-                          onTap: () =>
-                              widget.state.setGridStyle(GridStyle.dots),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: _buildMiniToggle(
-                          tokens,
-                          label: 'NONE',
-                          selected: widget.state.gridStyle == GridStyle.none,
-                          onTap: () =>
-                              widget.state.setGridStyle(GridStyle.none),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          InspectorFieldBuilders.buildCenterPinnedSelector(
-            tokens,
-            'Skin',
-            widget.state.activeSkin,
-            ['dragon', 'neon', 'minimal'],
-            (v) {
-              widget.state.setSkin(v);
-            },
-          ),
-        ]),
-        InspectorFieldBuilders.buildSection(tokens, 'FEATURES', [
+          const SizedBox(height: 8),
           // Enable OTA
           widget.state.connectionType == 'ble'
               ? InspectorFieldBuilders.buildBoolToggle(
@@ -487,6 +351,29 @@ class _DesignerInspectorState extends State<DesignerInspector> {
             ),
           ),
         ]),
+        // ── MODEL ────────────────────────────────────────────────────
+        InspectorFieldBuilders.buildSection(tokens, 'MODEL', [
+          InspectorFieldBuilders.buildTextField(tokens, 'Name *',
+              widget.state.modelName, (v) => widget.state.setModelName(v)),
+          InspectorFieldBuilders.buildTextField(
+              tokens,
+              'Description',
+              widget.state.modelDescription,
+              (v) => widget.state.setModelDescription(v)),
+          InspectorFieldBuilders.buildCenterPinnedSelector(
+            tokens,
+            'Type',
+            widget.state.modelType.isEmpty
+                ? 'Locomotive'
+                : widget.state.modelType,
+            ['Locomotive', 'Truck', 'Car', 'IOT'],
+            (v) => widget.state.setModelType(v),
+          ),
+        ]),
+        // ── CONTROL UI (was CANVAS) ──────────────────────────────────
+        _buildControlUISection(tokens),
+        // ── TELEMETRY ────────────────────────────────────────────────
+        _buildTelemetrySection(tokens),
       ],
     );
   }
@@ -663,6 +550,364 @@ class _DesignerInspectorState extends State<DesignerInspector> {
       ),
     );
   }
+
+  // ── CONTROL UI section (replaces CANVAS) ──────────────────────────────────
+
+  Widget _buildControlUISection(RKTokens tokens) {
+    return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Section header with toggle ────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+            child: Row(
+              children: [
+                Text(
+                  'CONTROL UI',
+                  style: TextStyle(
+                    color: tokens.primary,
+                    fontSize: 12,
+                    fontFamily: 'monospace',
+                    letterSpacing: 1,
+                  ),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () =>
+                      widget.state.setEnableControlUI(!widget.state.enableControlUI),
+                  child: Container(
+                    width: 28,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: widget.state.enableControlUI
+                          ? tokens.primary
+                          : const Color(0xFF333333),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: AnimatedAlign(
+                      duration: const Duration(milliseconds: 200),
+                      alignment: widget.state.enableControlUI
+                          ? Alignment.centerRight
+                          : Alignment.centerLeft,
+                      child: Container(
+                        width: 12,
+                        height: 12,
+                        margin: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.all(Radius.circular(6)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // ── Control UI content (only visible when enabled) ────────────
+          if (widget.state.enableControlUI) ...[
+            // Orientation
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 80,
+                    child: Text(
+                      'Orientation',
+                      style: const TextStyle(
+                        color: Color(0xFF888888),
+                        fontSize: 11,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _buildMiniToggle(
+                            tokens,
+                            label: 'LANDSCAPE',
+                            selected: widget.state.isLandscape,
+                            onTap: () {
+                              if (!widget.state.isLandscape)
+                                widget.state.toggleOrientation();
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: _buildMiniToggle(
+                            tokens,
+                            label: 'PORTRAIT',
+                            selected: !widget.state.isLandscape,
+                            onTap: () {
+                              if (widget.state.isLandscape)
+                                widget.state.toggleOrientation();
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            InspectorFieldBuilders.buildReadOnlyField(
+              tokens,
+              'Size',
+              widget.state.isLandscape ? '200 x 100' : '100 x 200',
+            ),
+            // Grid
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 80,
+                    child: Text(
+                      'Grid',
+                      style: const TextStyle(
+                        color: Color(0xFF888888),
+                        fontSize: 11,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _buildMiniToggle(
+                            tokens,
+                            label: 'LINES',
+                            selected: widget.state.gridStyle == GridStyle.lines,
+                            onTap: () =>
+                                widget.state.setGridStyle(GridStyle.lines),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: _buildMiniToggle(
+                            tokens,
+                            label: 'DOTS',
+                            selected: widget.state.gridStyle == GridStyle.dots,
+                            onTap: () =>
+                                widget.state.setGridStyle(GridStyle.dots),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: _buildMiniToggle(
+                            tokens,
+                            label: 'NONE',
+                            selected: widget.state.gridStyle == GridStyle.none,
+                            onTap: () =>
+                                widget.state.setGridStyle(GridStyle.none),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Skin
+            InspectorFieldBuilders.buildCenterPinnedSelector(
+              tokens,
+              'Skin',
+              widget.state.activeSkin,
+              ['dragon', 'neon', 'minimal'],
+              (v) {
+                widget.state.setSkin(v);
+              },
+            ),
+          ],
+          Container(height: 1, color: const Color(0xFF222222)),
+        ],
+    );
+  }
+
+  // ── TELEMETRY section ──────────────────────────────────────────────────────
+
+  Widget _buildTelemetrySection(RKTokens tokens) {
+    final telemetry = widget.state.telemetryWidgets;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+          child: Text(
+            'TELEMETRY',
+            style: TextStyle(
+              color: tokens.primary,
+              fontSize: 12,
+              fontFamily: 'monospace',
+              letterSpacing: 1,
+            ),
+          ),
+        ),
+        ...List.generate(4, (i) {
+          final tw = telemetry[i];
+          final label = (tw['label'] as String?) ?? '';
+          final iconName = tw['icon'] as String?;
+          final unit = (tw['unit'] as String?) ?? '';
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text(
+                    'WIDGET ${i + 1}',
+                    style: const TextStyle(
+                      color: Color(0xFF888888),
+                      fontSize: 9,
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+                Row(
+                  children: [
+                    // Label (C++ variable name)
+                    Expanded(
+                      flex: 3,
+                      child: Container(
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0D0D0D),
+                          border: Border.all(color: const Color(0xFF333333)),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                        child: TextField(
+                          controller: TextEditingController(text: label)
+                            ..selection = TextSelection.collapsed(
+                                offset: label.length),
+                          style: const TextStyle(
+                            color: Color(0xFFE0E0E0),
+                            fontSize: 11,
+                            fontFamily: 'monospace',
+                          ),
+                          decoration: const InputDecoration(
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            border: InputBorder.none,
+                            isDense: true,
+                            hintText: 'Label',
+                            hintStyle: TextStyle(
+                              color: Color(0xFF555555),
+                              fontSize: 11,
+                            ),
+                          ),
+                          onChanged: (v) =>
+                              widget.state.setTelemetryLabel(i, v),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    // Icon picker
+                    GestureDetector(
+                      onTap: () => IconFieldBuilder.openIconPickerDialog(
+                        context,
+                        currentIconName: iconName,
+                        onChanged: (v) => widget.state.setTelemetryIcon(i, v),
+                      ),
+                      child: Container(
+                        height: 28,
+                        width: 40,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1A1A1A),
+                          border: Border.all(color: const Color(0xFF333333)),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (iconName != null &&
+                                kDesignerIcons.containsKey(iconName))
+                              Padding(
+                                padding: const EdgeInsets.only(right: 2),
+                                child: Icon(
+                                  kDesignerIcons[iconName]!,
+                                  color: const Color(0xFFFF8C00),
+                                  size: 14,
+                                ),
+                              )
+                            else
+                              const Padding(
+                                padding: EdgeInsets.only(right: 2),
+                                child: Text(
+                                  '—',
+                                  style: TextStyle(
+                                    color: Color(0xFF555555),
+                                    fontSize: 11,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                              ),
+                            const Icon(
+                              LucideIcons.chevronDown,
+                              color: Color(0xFF666666),
+                              size: 10,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    // Unit
+                    Expanded(
+                      flex: 2,
+                      child: Container(
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0D0D0D),
+                          border: Border.all(color: const Color(0xFF333333)),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                        child: TextField(
+                          controller: TextEditingController(text: unit)
+                            ..selection = TextSelection.collapsed(
+                                offset: unit.length),
+                          style: const TextStyle(
+                            color: Color(0xFFE0E0E0),
+                            fontSize: 11,
+                            fontFamily: 'monospace',
+                          ),
+                          decoration: const InputDecoration(
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            border: InputBorder.none,
+                            isDense: true,
+                            hintText: 'Unit',
+                            hintStyle: TextStyle(
+                              color: Color(0xFF555555),
+                              fontSize: 11,
+                            ),
+                          ),
+                          onChanged: (v) =>
+                              widget.state.setTelemetryUnit(i, v),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }),
+        Container(height: 1, color: const Color(0xFF222222)),
+      ],
+    );
+  }
+
+  // ── Behavior fields helpers ──────────────────────────────────────────────
 
   List<Widget> _buildBehaviorFields(RKTokens tokens, DesignerElement el) {
     final fields = <Widget>[];

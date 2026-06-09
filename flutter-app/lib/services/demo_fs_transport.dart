@@ -71,8 +71,6 @@ class DemoFsTransport extends DemoTransport {
         return _handleMkdir(payload);
       case kFsCmdRename:
         return _handleRename(payload);
-      case kFsCmdPing:
-        return _handlePing();
       case kFsCmdFormat:
         return _handleFormat();
       case kFsCmdReplace:
@@ -92,13 +90,6 @@ class DemoFsTransport extends DemoTransport {
           payload: Uint8List.fromList([kFsErrNoFs]),
         );
     }
-  }
-
-  ParsedFsPacket _handlePing() {
-    return ParsedFsPacket(
-      subCmd: kFsRespPingAck,
-      payload: Uint8List.fromList([kFsErrOk]),
-    );
   }
 
   ParsedFsPacket _handleReplace(Uint8List payload) {

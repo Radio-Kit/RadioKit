@@ -64,7 +64,6 @@ class ProtocolService {
 
   static Uint8List buildGetConf()  => buildPacket(kCmdGetConf);
   static Uint8List buildGetVars()  => buildPacket(kCmdGetVars);
-  static Uint8List buildPing()     => buildPacket(kCmdPing);
   static Uint8List buildGetMeta()  => buildPacket(kCmdGetMeta);
   static Uint8List buildGetTelemetry() => buildPacket(kCmdGetTelemetry);
   static Uint8List buildBleInfo() => buildPacket(kCmdBleInfo);

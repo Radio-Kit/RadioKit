@@ -20,6 +20,8 @@ class DesignerState extends ChangeNotifier {
   String _connectionPassword = '';
   String _screenSize = '200 x 100';
   Map<String, dynamic> _features = {'ota': false, 'filesystem': false};
+  bool _enableControlUI = true;
+  List<Map<String, dynamic>> _telemetryWidgets = List.generate(4, (_) => <String, dynamic>{'label': '', 'icon': null, 'unit': ''});
 
   // appdata (metadata from the JSON block, not user-configurable)
   int? _lastEdit;
@@ -67,6 +69,8 @@ class DesignerState extends ChangeNotifier {
 
   bool get featureOta => (_features['ota'] as bool?) ?? false;
   bool get featureFilesystem => (_features['filesystem'] as bool?) ?? false;
+  bool get enableControlUI => _enableControlUI;
+  List<Map<String, dynamic>> get telemetryWidgets => _telemetryWidgets;
 
   DesignerElement? get selectedElement {
     if (_selectedElementId == null) return null;
@@ -393,6 +397,36 @@ class DesignerState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setEnableControlUI(bool v) {
+    _mutationCount++;
+    _enableControlUI = v;
+    notifyListeners();
+  }
+
+  void setTelemetryLabel(int index, String label) {
+    _mutationCount++;
+    final newList = List<Map<String, dynamic>>.from(_telemetryWidgets);
+    newList[index] = Map<String, dynamic>.from(newList[index])..['label'] = label;
+    _telemetryWidgets = newList;
+    notifyListeners();
+  }
+
+  void setTelemetryIcon(int index, String? icon) {
+    _mutationCount++;
+    final newList = List<Map<String, dynamic>>.from(_telemetryWidgets);
+    newList[index] = Map<String, dynamic>.from(newList[index])..['icon'] = icon;
+    _telemetryWidgets = newList;
+    notifyListeners();
+  }
+
+  void setTelemetryUnit(int index, String unit) {
+    _mutationCount++;
+    final newList = List<Map<String, dynamic>>.from(_telemetryWidgets);
+    newList[index] = Map<String, dynamic>.from(newList[index])..['unit'] = unit;
+    _telemetryWidgets = newList;
+    notifyListeners();
+  }
+
   void setAppData({int? lastEdit, String? appVersion}) {
     if (lastEdit != null) _lastEdit = lastEdit;
     if (appVersion != null) _appVersion = appVersion;
@@ -548,6 +582,19 @@ class DesignerState extends ChangeNotifier {
       _appVersion = appData['appVersion'] as String?;
     }
 
+    // enableControlUI
+    _enableControlUI = (decoded['enableControlUI'] as bool?) ?? true;
+
+    // telemetry
+    final rawTelemetry = decoded['telemetry'] as List?;
+    if (rawTelemetry != null && rawTelemetry.length == 4) {
+      _telemetryWidgets = rawTelemetry
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+    } else {
+      _telemetryWidgets = List.generate(4, (_) => <String, dynamic>{'label': '', 'icon': null, 'unit': ''});
+    }
+
     // features
     if (decoded['features'] is Map) {
       _features = Map<String, dynamic>.from(decoded['features'] as Map);
@@ -682,6 +729,8 @@ class DesignerState extends ChangeNotifier {
           'grid': _gridStyle.name,
           'skin': _activeSkin,
         },
+        'enableControlUI': _enableControlUI,
+        'telemetry': List<Map<String, dynamic>>.from(_telemetryWidgets),
         'features': Map<String, dynamic>.from(_features),
         'widgets': _elements.map((e) => e.toJson()).toList(),
       };

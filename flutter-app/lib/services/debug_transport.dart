@@ -166,8 +166,7 @@ class DebugTransport implements TransportService {
       case kCmdGetVars:  return 'GET_VARS';
       case kCmdVarData:  return 'VAR_DATA';
       case kCmdSetInput: return 'SET_INPUT';
-      case kCmdPing:     return 'PING';
-      case kCmdPong:     return 'PONG';
+      // PING/PONG removed; connection health is transport-driven.
       case kCmdAck:      return 'ACK';
       case kCmdVarUpdate: return 'VAR_UPDATE';
       case kCmdGetMeta:   return 'GET_META';

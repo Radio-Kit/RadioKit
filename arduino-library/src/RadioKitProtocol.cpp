@@ -41,10 +41,6 @@ uint16_t rk_buildPacket(uint8_t* outBuf,
     return totalLen;
 }
 
-uint16_t rk_buildPong(uint8_t* outBuf) {
-    return rk_buildPacket(outBuf, RK_CMD_PONG, nullptr, 0);
-}
-
 uint16_t rk_buildAck(uint8_t* outBuf, uint8_t seq) {
     return rk_buildPacket(outBuf, RK_CMD_ACK, &seq, 1);
 }
@@ -150,8 +146,7 @@ const char* rk_cmdName(uint8_t cmd) {
     switch (cmd) {
         case RK_CMD_GET_CONF:      return "GET_CONF";
         case RK_CMD_CONF_DATA:     return "CONF_DATA";
-        case RK_CMD_PING:          return "PING";
-        case RK_CMD_PONG:          return "PONG";
+        // PING/PONG removed; connection health is transport-driven.
         case RK_CMD_ACK:           return "ACK";
         case RK_CMD_GET_VARS:      return "GET_VARS";
         case RK_CMD_VAR_DATA:      return "VAR_DATA";

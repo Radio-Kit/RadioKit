@@ -149,7 +149,7 @@ class DebugProvider extends ChangeNotifier implements DebugLogSink {
     if (t == null || !t.isConnected) return 'Not connected';
     try {
       switch (name) {
-        case 'PING':     await t.writePacket(ProtocolService.buildPing());     break;
+        // PING removed; connection health is transport-driven.
         case 'GET_CONF': await t.writePacket(ProtocolService.buildGetConf());  break;
         case 'GET_VARS': await t.writePacket(ProtocolService.buildGetVars());  break;
         case 'GET_META': await t.writePacket(ProtocolService.buildGetMeta());  break;

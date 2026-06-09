@@ -59,7 +59,7 @@ ParsedFsPacket ack([int code = kFsErrOk]) => ParsedFsPacket(
     );
 
 void main() {
-  group('DeviceFsService.listDir / getInfo / ping', () {
+  group('DeviceFsService.listDir / getInfo', () {
     test('listDir returns parsed entries', () async {
       final t = _FakeFsTransport();
       // Build a 2-entry LIST_DATA response payload.
@@ -106,19 +106,6 @@ void main() {
       expect(info.usedBytes, 0x040000);
       expect(info.blockSize, 4096);
       expect(info.fsType, 0x01);
-    });
-
-    test('ping returns true on OK ack, false on NO_FS / timeout', () async {
-      final t1 = _FakeFsTransport()
-        ..responses.add(ack(kFsErrOk));
-      expect(await DeviceFsService(t1).ping(), isTrue);
-
-      final t2 = _FakeFsTransport()
-        ..responses.add(ack(kFsErrNoFs));
-      expect(await DeviceFsService(t2).ping(), isFalse);
-
-      final t3 = _FakeFsTransport(); // no response → timeout
-      expect(await DeviceFsService(t3).ping(), isFalse);
     });
   });
 

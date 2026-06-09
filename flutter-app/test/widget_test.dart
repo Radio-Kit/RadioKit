@@ -13,7 +13,7 @@ void main() {
       });
 
       test('builds correct minimum packet length', () {
-        final packet = ProtocolService.buildPing();
+        final packet = ProtocolService.buildGetConf();
         // Minimum: 1(start)+2(len)+1(cmd)+2(crc) = 6 bytes
         expect(packet.length, equals(6));
       });
@@ -25,15 +25,15 @@ void main() {
       });
 
       test('parses its own output correctly', () {
-        final packet = ProtocolService.buildPing();
+        final packet = ProtocolService.buildGetConf();
         final parsed = ProtocolService.parsePacket(packet);
         expect(parsed, isNotNull);
-        expect(parsed!.cmd, equals(kCmdPing));
+        expect(parsed!.cmd, equals(kCmdGetConf));
         expect(parsed.payload.length, equals(0));
       });
 
       test('returns null on CRC mismatch', () {
-        final packet = ProtocolService.buildPing().toList();
+        final packet = ProtocolService.buildGetConf().toList();
         // Corrupt a CRC byte
         packet[packet.length - 1] ^= 0xFF;
         final parsed = ProtocolService.parsePacket(packet);
@@ -46,7 +46,7 @@ void main() {
       });
 
       test('returns null on wrong start byte', () {
-        final packet = ProtocolService.buildPing().toList();
+        final packet = ProtocolService.buildGetConf().toList();
         packet[0] = 0xAA; // Wrong start byte
         final parsed = ProtocolService.parsePacket(packet);
         expect(parsed, isNull);

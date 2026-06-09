@@ -98,6 +98,7 @@
 #define RK_TYPE_MULTIPLE 0x07
 #define RK_TYPE_SLIDE_SWITCH 0x08
 #define RK_TYPE_KNOB 0x09
+#define RK_TYPE_TELEMETRY 0x0A
 
 // ─────────────────────────────────────────────
 //  Self-centering modes (Slider / Knob / Joystick variant bits)

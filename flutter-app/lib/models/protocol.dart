@@ -14,8 +14,7 @@ const int kStartByte = 0x55;
 // Command identifiers  (must match RadioKitProtocol.h exactly)
 const int kCmdGetConf     = 0x01;
 const int kCmdConfData    = 0x02;
-const int kCmdPing        = 0x03;
-const int kCmdPong        = 0x04;
+// kCmdPing/kCmdPong were 0x03/0x04 — removed; connection health is transport-driven.
 const int kCmdAck         = 0x05;
 const int kCmdGetVars     = 0x06;
 const int kCmdVarData     = 0x07;
@@ -168,7 +167,6 @@ const int kFsCmdRename        = 0x07;
 const int kFsCmdUploadBegin   = 0x08;
 const int kFsCmdUploadChunk   = 0x09;
 const int kFsCmdUploadEnd     = 0x0A;
-const int kFsCmdPing          = 0x0B;
 const int kFsCmdFormat        = 0x0C;
 const int kFsCmdReplace       = 0x0D;
 const int kFsCmdCrc32         = 0x0E;
@@ -184,7 +182,6 @@ const int kFsRespRenameAck        = 0x87;
 const int kFsRespUploadBeginAck   = 0x88;
 const int kFsRespUploadChunkAck   = 0x89;
 const int kFsRespUploadEndAck     = 0x8A;
-const int kFsRespPingAck          = 0x8B;
 const int kFsRespFormatAck        = 0x8C;
 const int kFsRespReplaceAck      = 0x8D;
 const int kFsRespCrc32Data       = 0x8E;

@@ -175,7 +175,6 @@ private:
     void _handleGetVars();
     void _handleGetMeta();
     void _handleSetInput(const uint8_t* payload, uint16_t len);
-    void _handlePing();
     void _handleAck(const uint8_t* payload, uint16_t len);
     void _handleVarUpdate(const uint8_t* payload, uint16_t len);
     void _handleMetaUpdate(const uint8_t* payload, uint16_t len);

@@ -29,6 +29,7 @@ import '../devtools/filesystem/fs_info_strip.dart';
 import '../devtools/filesystem/fs_action_sheet.dart';
 import '../devtools/filesystem/file_editor_cache.dart';
 import '../devtools/filesystem/file_editor_dialog.dart';
+import '../../widgets/device_settings_dialog.dart';
 
 class ModelsTab extends StatelessWidget {
   const ModelsTab({super.key});
@@ -156,12 +157,12 @@ class _ActiveLinkSectionState extends State<_ActiveLinkSection> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _headerRow(device),
+                _headerRow(dp, device),
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 24),
                   child: Divider(height: 1, color: Colors.white12),
                 ),
-                _telemetryRow(dp, device),
+                _telemetrySection(dp, device),
                 const SizedBox(height: 24),
                 _buildActionRow(context, dp, device),
               ],
@@ -172,7 +173,22 @@ class _ActiveLinkSectionState extends State<_ActiveLinkSection> {
     );
   }
 
-  Widget _headerRow(DeviceInfo device) {
+  Widget _headerRow(
+      DeviceProvider dp, DeviceInfo device) {
+    final transportType = device.id.startsWith('demo_')
+        ? 'DEMO'
+        : device.id.startsWith('COM') || device.id.contains('serial')
+            ? 'USB'
+            : 'BLE';
+    final transportIcon = device.id.startsWith('demo_')
+        ? Icons.wifi_tethering_rounded
+        : device.id.startsWith('COM') || device.id.contains('serial')
+            ? Icons.usb_rounded
+            : Icons.bluetooth_rounded;
+    final latencyMs = dp.latencyMs;
+    final signal = dp.rssi ?? device.rssi;
+    final description = dp.description;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -184,7 +200,7 @@ class _ActiveLinkSectionState extends State<_ActiveLinkSection> {
                 color: AppColors.brandOrange.withValues(alpha: 0.3)),
             borderRadius: BorderRadius.circular(4),
           ),
-          child: const Icon(Icons.local_shipping_rounded,
+          child: Icon(Icons.local_shipping_rounded,
               color: AppColors.brandOrange, size: 32),
         ),
         const SizedBox(width: 20),
@@ -192,9 +208,14 @@ class _ActiveLinkSectionState extends State<_ActiveLinkSection> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Transport type + latency + signal (inline)
               Row(
                 children: [
-                  Text('TELEMETRY_LIVE',
+                  Icon(transportIcon,
+                      size: 12,
+                      color: AppColors.connected),
+                  const SizedBox(width: 4),
+                  Text(transportType,
                       style: GoogleFonts.inter(
                           color: AppColors.connected,
                           fontWeight: FontWeight.bold,
@@ -207,6 +228,30 @@ class _ActiveLinkSectionState extends State<_ActiveLinkSection> {
                       decoration: const BoxDecoration(
                           color: AppColors.connected,
                           shape: BoxShape.circle)),
+                  if (latencyMs != null) ...[
+                    const SizedBox(width: 10),
+                    Icon(Icons.timer_outlined,
+                        size: 10,
+                        color: AppColors.connected.withValues(alpha: 0.6)),
+                    const SizedBox(width: 3),
+                    Text('${latencyMs}ms',
+                        style: GoogleFonts.jetBrainsMono(
+                            color: AppColors.connected.withValues(alpha: 0.8),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600)),
+                  ],
+                  if (signal != null) ...[
+                    const SizedBox(width: 10),
+                    Icon(Icons.signal_cellular_alt_rounded,
+                        size: 10,
+                        color: AppColors.connected.withValues(alpha: 0.6)),
+                    const SizedBox(width: 3),
+                    Text('${signal} dBm',
+                        style: GoogleFonts.jetBrainsMono(
+                            color: AppColors.connected.withValues(alpha: 0.8),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600)),
+                  ],
                 ],
               ),
               const SizedBox(height: 4),
@@ -215,32 +260,19 @@ class _ActiveLinkSectionState extends State<_ActiveLinkSection> {
                       fontSize: 26,
                       fontWeight: FontWeight.w900,
                       letterSpacing: -0.5)),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Text('6X6_OFF-ROAD_CHASSIS',
-                      style: TextStyle(
-                          color: AppColors.brandOrange.withValues(alpha: 0.7),
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5)),
-                  const SizedBox(width: 12),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppColors.brandOrange.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(2),
-                      border: Border.all(
-                          color: AppColors.brandOrange.withValues(alpha: 0.3)),
-                    ),
-                    child: const Text('UNIT 02',
-                        style: TextStyle(
-                            color: AppColors.brandOrange,
-                            fontSize: 8,
-                            fontWeight: FontWeight.bold)),
-                  ),
-                ],
+              const SizedBox(height: 8),
+              // Description from device, or fallback
+              Text(
+                description?.isNotEmpty == true
+                    ? description!.toUpperCase()
+                    : 'NO_DESCRIPTION',
+                style: TextStyle(
+                    color: AppColors.brandOrange.withValues(alpha: 0.7),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -249,20 +281,27 @@ class _ActiveLinkSectionState extends State<_ActiveLinkSection> {
     );
   }
 
-  Widget _telemetryRow(DeviceProvider dp, DeviceInfo device) {
+  Widget _telemetrySection(DeviceProvider dp, DeviceInfo device) {
+    // User telemetry placeholders — replace with live data from the device
+    final battery = 85;
+    final speed = 42;
+    final temp = 23;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
         _TelemetryItem(
-            label: 'LATENCY',
-            value: dp.latencyMs?.toString() ?? '--',
-            unit: 'ms'),
+            label: 'BATTERY',
+            value: '$battery',
+            unit: '%'),
         _TelemetryItem(
-            label: 'SIGNAL',
-            value: (dp.rssi ?? device.rssi) != 0
-                ? '${dp.rssi ?? device.rssi}'
-                : '--',
-            unit: 'dBm'),
+            label: 'SPEED',
+            value: '$speed',
+            unit: 'km/h'),
+        _TelemetryItem(
+            label: 'TEMP',
+            value: '$temp',
+            unit: '°C'),
       ],
     );
   }
@@ -561,22 +600,61 @@ class _InfoTabContent extends StatelessWidget {
           const SizedBox(height: 24),
           const Divider(height: 1, color: Colors.white12),
           const SizedBox(height: 24),
-          // ── Device Settings (NVS-editable) ──────────────────
-          // Device Settings is admin-only — hide in user mode
-          if (dp.isUserMode) ...[
-            _AdminRequiredPlaceholder(
-              message: 'Admin access required to edit device settings',
-            ),
-          ] else ...[
-            _DeviceSettingsSection(device: device),
-          ],
-          // ── Authenticate (user mode only) + Remove Device ──
-          if (dp.isUserMode && !isDemo) ...[
-            _AdminAccessButton(device: device),
-            const SizedBox(height: 24),
-          ],
+          // ── Device Action Buttons ────────────────────────────
           if (!isDemo) ...[
-            _RemoveDeviceButton(device: device),
+            Row(
+              children: [
+                // Device Settings button
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor:
+                            AppColors.brandOrange.withValues(alpha: 0.15),
+                        foregroundColor: AppColors.brandOrange,
+                        side: BorderSide(
+                          color: AppColors.brandOrange.withValues(alpha: 0.4),
+                        ),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6)),
+                      ),
+                      icon: const Icon(Icons.tune_rounded, size: 18),
+                      label: Text('DEVICE',
+                          style: GoogleFonts.changa(
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1,
+                              fontSize: 12)),
+                      onPressed: () => DeviceSettingsDialog.show(context),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Remove device button
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.redAccent,
+                        side: BorderSide(
+                            color: Colors.redAccent.withValues(alpha: 0.4)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6)),
+                      ),
+                      icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                      label: Text('REMOVE DEVICE',
+                          style: GoogleFonts.changa(
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1,
+                              fontSize: 12)),
+                      onPressed: () =>
+                        _confirmRemoveDevice(context, device, dp),
+                    ),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 24),
           ],
           const Divider(height: 1, color: Colors.white12),
@@ -2157,117 +2235,6 @@ Future<bool> _showAuthDialog(
   return success ?? false;
 }
 
-// ── Admin Access Button (opens shared auth dialog in admin mode) ───────────
-
-class _AdminAccessButton extends StatelessWidget {
-  final DeviceInfo device;
-  const _AdminAccessButton({required this.device});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 52,
-      child: FilledButton.icon(
-        style: FilledButton.styleFrom(
-          backgroundColor: Colors.orange.withValues(alpha: 0.15),
-          foregroundColor: Colors.orange,
-          side: BorderSide(color: Colors.orange.withValues(alpha: 0.4)),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6)),
-        ),
-        icon: const Icon(Icons.admin_panel_settings_outlined, size: 20),
-        label: Text('AUTHENTICATE AS ADMIN',
-            style: GoogleFonts.changa(
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1,
-                fontSize: 12)),
-        onPressed: () => _showAuthDialog(context, device, isAdminAuth: true),
-      ),
-    );
-  }
-}
-
-// ── Remove Device Button ──────────────────────────────────────────────────
-
-class _RemoveDeviceButton extends StatelessWidget {
-  final DeviceInfo device;
-  const _RemoveDeviceButton({required this.device});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 44,
-      child: OutlinedButton.icon(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.redAccent,
-          side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.4)),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6)),
-        ),
-        icon: const Icon(Icons.delete_outline_rounded, size: 18),
-        label: Text('REMOVE DEVICE',
-            style: GoogleFonts.changa(
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1,
-                fontSize: 12)),
-        onPressed: () => _confirmRemove(context),
-      ),
-    );
-  }
-
-  Future<void> _confirmRemove(BuildContext context) async {
-    final dp = context.read<DeviceProvider>();
-    final history = context.read<HistoryProvider>();
-    final deviceId = device.id;
-    final deviceName = device.displayName;
-
-    // Confirm dialog
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        icon: const Icon(Icons.warning_rounded,
-            color: Colors.redAccent, size: 32),
-        title: const Text('Remove Device?',
-            style: TextStyle(color: Colors.white)),
-        content: Text('Disconnect and remove "$deviceName" from paired devices.',
-            style: const TextStyle(color: Colors.white54, fontSize: 13)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('CANCEL',
-                style: TextStyle(color: Colors.white54)),
-          ),
-          FilledButton.tonal(
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.redAccent.withValues(alpha: 0.2),
-              foregroundColor: Colors.redAccent,
-            ),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('REMOVE'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !context.mounted) return;
-
-    // Disconnect
-    await dp.disconnect();
-    
-    // Remove from paired devices
-    history.removeDevice(deviceId);
-    
-    // Close the bottom sheet
-    if (context.mounted) {
-      Navigator.of(context).maybePop();
-    }
-  }
-}
-
 // ── Auth Countdown Widget ──────────────────────────────────────────────────
 
 /// Live countdown timer for the auth dialog.
@@ -2350,355 +2317,52 @@ class _AuthCountdownState extends State<_AuthCountdown> {
   }
 }
 
-// ── Admin Required Placeholder ──────────────────────────────────────────────
+// ── Remove Device Confirmation ───────────────────────────────────────────────
 
-class _AdminRequiredPlaceholder extends StatelessWidget {
-  final String message;
-  const _AdminRequiredPlaceholder({required this.message});
+/// Standalone confirmation function for removing a device.
+/// Disconnects, removes from paired history, and closes the bottom sheet.
+Future<void> _confirmRemoveDevice(
+    BuildContext context, DeviceInfo device, DeviceProvider dp) async {
+  final history = context.read<HistoryProvider>();
+  final deviceId = device.id;
+  final deviceName = device.displayName;
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      width: double.infinity,
-      child: Row(children: [
-        Icon(Icons.lock_rounded, size: 20, color: Colors.white38),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(message,
-              style: const TextStyle(color: Colors.white38, fontSize: 12)),
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      icon: const Icon(Icons.warning_rounded,
+          color: Colors.redAccent, size: 32),
+      title: const Text('Remove Device?',
+          style: TextStyle(color: Colors.white)),
+      content: Text('Disconnect and remove "$deviceName" from paired devices.',
+          style: const TextStyle(color: Colors.white54, fontSize: 13)),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: const Text('CANCEL',
+              style: TextStyle(color: Colors.white54)),
         ),
-      ]),
-    );
-  }
-}
-
-// ── Device Settings Section (NVS-editable name/desc/password) ────────────
-
-class _DeviceSettingsSection extends StatefulWidget {
-  final DeviceInfo device;
-  const _DeviceSettingsSection({required this.device});
-
-  @override
-  State<_DeviceSettingsSection> createState() => _DeviceSettingsSectionState();
-}
-
-class _DeviceSettingsSectionState extends State<_DeviceSettingsSection> {
-  late TextEditingController _nameCtrl;
-  late TextEditingController _descCtrl;
-  late TextEditingController _pwdCtrl;
-  late TextEditingController _adminPwdCtrl;
-  bool _saving = false;
-  bool _pwdVisible = false;
-  bool _adminPwdVisible = false;
-
-  @override
-  void initState() {
-    super.initState();
-    final dp = context.read<DeviceProvider>();
-    _nameCtrl = TextEditingController(text: dp.configName ?? '');
-    _descCtrl = TextEditingController(text: dp.description ?? '');
-    _pwdCtrl = TextEditingController();
-    _adminPwdCtrl = TextEditingController();
-  }
-
-  @override
-  void dispose() {
-    _nameCtrl.dispose();
-    _descCtrl.dispose();
-    _pwdCtrl.dispose();
-    _adminPwdCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final dp = context.watch<DeviceProvider>();
-    final isDemo = widget.device.id.startsWith('demo_');
-    if (isDemo) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('DEVICE SETTINGS',
-            style: TextStyle(
-                color: AppColors.brandOrange,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1,
-                fontFamily: 'monospace')),
-        const SizedBox(height: 12),
-        _settingsField('NAME', _nameCtrl),
-        const SizedBox(height: 8),
-        _settingsField('DESCRIPTION', _descCtrl, maxLines: 2),
-        const SizedBox(height: 8),
-        _pwdField(),
-        const SizedBox(height: 8),
-        _adminPwdField(),
-        const SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity,
-          height: 44,
-          child: FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.brandOrange,
-              foregroundColor: Colors.black,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6)),
-            ),
-            onPressed: _saving ? null : _save,
-            child: _saving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.black))
-                : Text('SAVE',
-                    style: GoogleFonts.changa(
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1,
-                        fontSize: 12)),
+        FilledButton.tonal(
+          style: FilledButton.styleFrom(
+            backgroundColor: Colors.redAccent.withValues(alpha: 0.2),
+            foregroundColor: Colors.redAccent,
           ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          height: 44,
-          child: OutlinedButton(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.redAccent,
-              side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.5)),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6)),
-            ),
-            onPressed: _factoryReset,
-            child: Text('FACTORY RESET',
-                style: GoogleFonts.changa(
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1,
-                    fontSize: 12)),
-          ),
+          onPressed: () => Navigator.of(ctx).pop(true),
+          child: const Text('REMOVE'),
         ),
       ],
-    );
-  }
+    ),
+  );
 
-  Widget _settingsField(String label, TextEditingController ctrl,
-      {int maxLines = 1}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label,
-            style: const TextStyle(
-                color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        TextField(
-          controller: ctrl,
-          maxLines: maxLines,
-          style: GoogleFonts.jetBrainsMono(
-              color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: Colors.white.withValues(alpha: 0.05),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: Colors.white12),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: Colors.white12),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: BorderSide(
-                  color: AppColors.brandOrange.withValues(alpha: 0.5)),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  if (confirmed != true || !context.mounted) return;
 
-  Widget _pwdField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('PASSWORD (leave empty to clear)',
-            style: TextStyle(
-                color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        TextField(
-          controller: _pwdCtrl,
-          obscureText: !_pwdVisible,
-          style: GoogleFonts.jetBrainsMono(
-              color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: Colors.white.withValues(alpha: 0.05),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            suffixIcon: IconButton(
-              icon: Icon(
-                  _pwdVisible
-                      ? Icons.visibility_off_rounded
-                      : Icons.visibility_rounded,
-                  size: 18,
-                  color: Colors.white38),
-              onPressed: () => setState(() => _pwdVisible = !_pwdVisible),
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: Colors.white12),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: Colors.white12),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: BorderSide(
-                  color: AppColors.brandOrange.withValues(alpha: 0.5)),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _adminPwdField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(children: [
-          Text('ADMIN PASSWORD (leave empty to clear)',
-              style: TextStyle(
-                  color: AppColors.brandOrange.withValues(alpha: 0.7),
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold)),
-          const SizedBox(width: 6),
-          Icon(Icons.admin_panel_settings_outlined,
-              size: 12, color: AppColors.brandOrange.withValues(alpha: 0.5)),
-        ]),
-        const SizedBox(height: 4),
-        TextField(
-          controller: _adminPwdCtrl,
-          obscureText: !_adminPwdVisible,
-          style: GoogleFonts.jetBrainsMono(
-              color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: Colors.white.withValues(alpha: 0.05),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            suffixIcon: IconButton(
-              icon: Icon(
-                  _adminPwdVisible
-                      ? Icons.visibility_off_rounded
-                      : Icons.visibility_rounded,
-                  size: 18,
-                  color: Colors.white38),
-              onPressed: () => setState(() => _adminPwdVisible = !_adminPwdVisible),
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: BorderSide(
-                  color: AppColors.brandOrange.withValues(alpha: 0.3)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: BorderSide(
-                  color: AppColors.brandOrange.withValues(alpha: 0.3)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: BorderSide(
-                  color: AppColors.brandOrange.withValues(alpha: 0.7)),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _save() async {
-    final dp = context.read<DeviceProvider>();
-    setState(() => _saving = true);
-
-    final name = _nameCtrl.text.trim();
-    final desc = _descCtrl.text.trim();
-    final pwd = _pwdCtrl.text.trim();
-    final adminPwd = _adminPwdCtrl.text.trim();
-
-    final ok = await dp.sendSetConf(
-      name: name.isNotEmpty ? name : null,
-      description: desc.isNotEmpty ? desc : null,
-      password: pwd,
-      adminPassword: adminPwd,
-    );
-
-    if (!mounted) return;
-    setState(() => _saving = false);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(ok ? 'Settings saved to device' : 'Failed to save settings'),
-        backgroundColor: ok ? Colors.greenAccent : Colors.redAccent,
-      ),
-    );
-  }
-
-  Future<void> _factoryReset() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.warning_rounded, color: Colors.redAccent, size: 32),
-        title: const Text('Factory Reset?'),
-        content: const Text(
-          'This will erase all device settings (name, description, password) '
-          'and reboot the device.\n\n'
-          'After reboot, compile-time defaults will be restored.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('CANCEL'),
-          ),
-          FilledButton.tonal(
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.redAccent.withValues(alpha: 0.2),
-              foregroundColor: Colors.redAccent,
-            ),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('ERASE & REBOOT'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !mounted) return;
-
-    final dp = context.read<DeviceProvider>();
-    final ok = await dp.sendFactoryReset();
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(ok
-            ? 'Factory reset sent — device rebooting...'
-            : 'Failed to send factory reset'),
-        backgroundColor: ok ? Colors.orangeAccent : Colors.redAccent,
-      ),
-    );
-
-    if (ok) {
-      dp.disconnect();
-    }
+  await dp.disconnect();
+  history.removeDevice(deviceId);
+  
+  if (context.mounted) {
+    Navigator.of(context).maybePop();
   }
 }
 

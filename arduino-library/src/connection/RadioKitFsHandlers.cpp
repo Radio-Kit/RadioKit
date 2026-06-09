@@ -530,24 +530,6 @@ void handleUploadEnd(const uint8_t* payload, uint16_t len) {
 #endif
 }
 
-void handlePing() {
-    // Reset any stale upload state — the upload protocol leaves
-    // s_upload.active=true if a previous upload was interrupted
-    // (e.g. timeout, disconnect, or app crash mid-transfer).
-    // Since PING is a common health-check operation, it's the
-    // safest place to ensure clean state for the next upload.
-    if (s_upload.active) {
-        s_upload.active = false;
-    }
-#if RK_FS_HAS_LITTLEFS
-    uint8_t status = s_mounted ? RK_FS_ERR_OK : RK_FS_ERR_NO_FS;
-    uint8_t payload[1] = { status };
-    sendFrame(RK_FS_RESP_PING_ACK, payload, 1);
-#else
-    sendError(RK_FS_RESP_PING_ACK, RK_FS_ERR_NO_FS);
-#endif
-}
-
 /// FS_FORMAT: re-formats the default filesystem. Destructive.
 void handleFormat() {
     if (s_upload.active) s_upload.active = false;
@@ -691,7 +673,6 @@ void dispatch(uint8_t subCmd, const uint8_t* payload, uint16_t payloadLen) {
         case RK_FS_CMD_UPLOAD_BEGIN:  handleUploadBegin(payload, payloadLen);   break;
         case RK_FS_CMD_UPLOAD_CHUNK:  handleUploadChunk(payload, payloadLen);   break;
         case RK_FS_CMD_UPLOAD_END:    handleUploadEnd(payload, payloadLen);     break;
-        case RK_FS_CMD_PING:          handlePing();                              break;
         case RK_FS_CMD_FORMAT:        handleFormat();                            break;
         case RK_FS_CMD_REPLACE:       handleReplace(payload, payloadLen);       break;
         case RK_FS_CMD_CRC32:         handleCrc32(payload, payloadLen);         break;

@@ -66,7 +66,6 @@ class DeviceProvider extends ChangeNotifier {
   int?                     _latencyMs;
 
 
-  Timer?                   _pingTimer;
   Timer?                   _telemetryTimer;
   Timer?                   _confTimeoutTimer;
   DateTime?                _lastRxAt;
@@ -89,10 +88,7 @@ class DeviceProvider extends ChangeNotifier {
     if (_authenticated || _connectedAt == null) return Duration.zero;
     final remaining = _authTimeout - DateTime.now().difference(_connectedAt!);
     return remaining.isNegative ? Duration.zero : remaining;
-  }
-  DateTime? _pingSentAt;
-
-  final Map<int, _PendingUpdate> _pendingUpdates = {};
+  }  final Map<int, _PendingUpdate> _pendingUpdates = {};
   int _nextSeq = 0;
 
   // ── FS (bulk protocol) ────────────────────────────────────────────────
@@ -221,10 +217,6 @@ class DeviceProvider extends ChangeNotifier {
   TransportService      get currentTransport => _transport;
   int?                  get rssi             => _rssi;
   int?                  get latencyMs        => _latencyMs;
-
-  /// True if a PING was sent but the PONG hasn't arrived yet.
-  /// Used by [_ProviderAdapter] to decide whether a drain delay is needed.
-  bool get hasPendingPing => _pingSentAt != null;
 
   /// Whether the connected device supports OTA firmware updates.
   bool get hasOta => (_deviceFeatures & kFeatureOta) != 0;
@@ -480,14 +472,9 @@ class DeviceProvider extends ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 3500));
     if (_connectionState == DeviceConnectionState.disconnected) return;
 
-    // FS_PING handshake — runs in parallel with config fetch.
-    // Sets hasFs=true only if the device actually responds.
-    unawaited(_detectFs());
-
     await _requestConfig();
 
-    // Request device info (name, description, proto version) via settings protocol
-    unawaited(_requestDeviceInfo());
+    // Request device info (name, description, proto version) via settings protocol        unawaited(_requestDeviceInfo());
 
     // Request features after config loads — fire-and-forget
     // Auth timeout is started in _handleFeaturesData() when hasPassword is detected.
@@ -495,10 +482,13 @@ class DeviceProvider extends ChangeNotifier {
 
     // Request chip info — will be fetched on first display
     unawaited(_requestChipInfo());
+
+    // Start FS detection in parallel — uses INFO instead of PING
+    unawaited(_detectFs());
   }
 
-  /// Send a few FS_PING frames and set [connectedDevice.hasFs] based on
-  /// the response. Resilient to no-FS boards and transport jitter.
+  /// Detect filesystem support using FS_INFO (instead of the old FS_PING).
+  /// Resilient to no-FS boards and transport jitter.
   Future<void> _detectFs() async {
     if (_connectedDevice == null) return;
     if (_connectedDevice!.hasFs) return; // already true (e.g. demos)
@@ -506,17 +496,18 @@ class DeviceProvider extends ChangeNotifier {
       if (_connectionState == DeviceConnectionState.disconnected) return;
       if (!_transport.isConnected) return;
       final resp = await sendFs(
-        FsProtocolService.buildPing(),
+        FsProtocolService.buildInfo(),
         timeout: const Duration(milliseconds: 1500),
       );
       if (resp == null) {
         await Future.delayed(const Duration(milliseconds: 250));
         continue;
       }
-      final code = FsProtocolService.parseAck(resp.payload) ?? kFsErrNoFs;
-      if (code == kFsErrOk) {
+      // INFO returns 11 bytes when mounted, or a 1-byte error code (NO_FS) when not.
+      final info = FsProtocolService.parseInfoData(resp.payload);
+      if (info != null) {
         _connectedDevice = _connectedDevice!.copyWith(hasFs: true);
-        _log('FS_PING OK — filesystem detected (${_connectedDevice!.name})',
+        _log('FS_INFO OK — filesystem detected (${_connectedDevice!.name})',
             level: ConsoleLogLevel.success);
         notifyListeners();
         // Start background FS tree prefetch for instant explorer loading
@@ -524,7 +515,7 @@ class DeviceProvider extends ChangeNotifier {
         return;
       }
     }
-    _log('FS_PING: no response after 3 attempts — assuming no FS',
+    _log('FS_INFO: no response after 3 attempts — assuming no FS',
         level: ConsoleLogLevel.info);
   }
 
@@ -863,9 +854,7 @@ class DeviceProvider extends ChangeNotifier {
 
   void _startPolling() {
     // Always cancel existing timers before creating new ones.
-    _pingTimer?.cancel();
     _telemetryTimer?.cancel();
-    _pingTimer = null;
     _telemetryTimer = null;
     _demoTimer?.cancel();
     _demoTimer = null;
@@ -882,30 +871,6 @@ class DeviceProvider extends ChangeNotifier {
       _writePacket(ProtocolService.buildGetVars()).catchError((_) {});
     }
 
-    _pingTimer = Timer.periodic(kPingInterval, (_) async {
-      if (!_transport.isConnected) return;
-
-      // Skip ping during FS operations to prevent PONG responses from
-      // interleaving with FS response notifications and corrupting data.
-      if (_fsBusy) return;
-      
-      final now = DateTime.now();
-      // Heartbeat optimization: Only ping if no packets sent OR received recently.
-      if (_lastRxAt != null) {
-        final idleRx = now.difference(_lastRxAt!);
-        if (idleRx < kPingInterval) return;
-      }
-      if (_lastTxAt != null) {
-        final idleTx = now.difference(_lastTxAt!);
-        if (idleTx < kPingInterval) return;
-      }
-
-      try {
-        _pingSentAt = now;
-        await _writePacket(ProtocolService.buildPing());
-      } catch (_) {}
-    });
-
     _telemetryTimer = Timer.periodic(kTelemetryInterval, (_) async {
       try {
         await _writePacket(SettingsProtocolService.buildGetTelemetry());
@@ -914,7 +879,6 @@ class DeviceProvider extends ChangeNotifier {
   }
 
   void _stopPolling() {
-    _pingTimer?.cancel(); _pingTimer = null;
     _telemetryTimer?.cancel(); _telemetryTimer = null;
     _demoTimer?.cancel(); _demoTimer = null;
   }
@@ -1016,21 +980,10 @@ class DeviceProvider extends ChangeNotifier {
       case kCmdMetaData:  _handleMetaData(packet.payload);  break;
       case kCmdMetaUpdate: _handleMetaUpdate(packet.payload); break;
       case kCmdAck:       _handleAck(packet.payload);       break;
-      case kCmdPong:      _handlePong();                    break;
       default:
         debugPrint('RadioKit: Unknown cmd 0x${packet.cmd.toRadixString(16)}');
     }
   }
-
-  void _handlePong() {
-    if (_pingSentAt != null) {
-      final now = DateTime.now();
-      _latencyMs = now.difference(_pingSentAt!).inMilliseconds;
-      _pingSentAt = null;
-      notifyListeners();
-    }
-  }
-
 
   void _handleChipInfoData(List<int> payload) {
     if (payload.isEmpty) return;

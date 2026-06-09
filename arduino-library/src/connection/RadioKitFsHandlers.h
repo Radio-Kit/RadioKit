@@ -52,7 +52,6 @@ void handleRename   (const uint8_t* payload, uint16_t len);
 void handleUploadBegin (const uint8_t* payload, uint16_t len);
 void handleUploadChunk (const uint8_t* payload, uint16_t len);
 void handleUploadEnd   (const uint8_t* payload, uint16_t len);
-void handlePing     ();
 void handleFormat   ();
 
 /// Top-level dispatcher — matches [subCmd] to the appropriate handler.

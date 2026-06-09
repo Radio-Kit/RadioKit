@@ -27,8 +27,7 @@
 // ─────────────────────────────────────────────
 #define RK_CMD_GET_CONF 0x01    // App → Arduino: request widget config
 #define RK_CMD_CONF_DATA 0x02   // Arduino → App: widget config payload (UI only)
-#define RK_CMD_PING 0x03        // App → Arduino: keep-alive ping
-#define RK_CMD_PONG 0x04        // Arduino → App: pong
+// RK_CMD_PING/PONG were 0x03/0x04 — removed in v4.2; connection health is transport-driven.
 #define RK_CMD_ACK 0x05         // Both: acknowledge SET_INPUT or VAR_UPDATE
 #define RK_CMD_GET_VARS 0x06    // App → Arduino: request all variables
 #define RK_CMD_VAR_DATA 0x07    // Arduino → App: variable values (full sync)
@@ -72,7 +71,6 @@ const char* rk_cmdName(uint8_t cmd);
 uint16_t rk_buildPacket(uint8_t *outBuf, uint8_t cmd, const uint8_t *payload,
                         uint16_t payloadLen);
 
-uint16_t rk_buildPong(uint8_t *outBuf);
 uint16_t rk_buildAck(uint8_t *outBuf, uint8_t seq);
 
 // ─────────────────────────────────────────────

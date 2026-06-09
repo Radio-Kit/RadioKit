@@ -16,5 +16,6 @@
 #include "widgets/LED.h"
 #include "widgets/Text.h"
 #include "widgets/Multiple.h"
+#include "widgets/Telemetry.h"
 
 #endif // RADIOKIT_WIDGETS_H

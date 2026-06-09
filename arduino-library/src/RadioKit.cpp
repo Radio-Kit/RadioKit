@@ -257,7 +257,6 @@ void RadioKitClass::_onPacket(uint8_t cmd,
         case RK_CMD_GET_VARS:   s_instance->_handleGetVars();                       break;
         case RK_CMD_GET_META:   s_instance->_handleGetMeta();                       break;
         case RK_CMD_SET_INPUT:  s_instance->_handleSetInput(payload, payloadLen);   break;
-        case RK_CMD_PING:       s_instance->_handlePing();                          break;
         case RK_CMD_ACK:        s_instance->_handleAck(payload, payloadLen);        break;
         case RK_CMD_VAR_UPDATE: s_instance->_handleVarUpdate(payload, payloadLen);  break;
         case RK_CMD_META_UPDATE:s_instance->_handleMetaUpdate(payload, payloadLen); break;
@@ -496,11 +495,6 @@ void RadioKitClass::_handleSetInput(const uint8_t* payload, uint16_t len) {
     }
     uint8_t seq = 0;
     uint16_t pkt = rk_buildPacket(_txBuf, RK_CMD_ACK, &seq, 1);
-    _sendPacket(pkt);
-}
-
-void RadioKitClass::_handlePing() {
-    uint16_t pkt = rk_buildPong(_txBuf);
     _sendPacket(pkt);
 }
 

@@ -29,13 +29,6 @@ void main() {
       expect(f.length, 4); // header only
     });
 
-    test('buildFrame: PING has empty payload, subCmd 0x0B', () {
-      final f = FsProtocolService.buildPing();
-      expect(f[0], kFsStartByte);
-      expect(f[1], kFsCmdPing);
-      expect(f.length, 4); // header only
-    });
-
     test('buildFrame: FORMAT has empty payload, subCmd 0x0C', () {
       final f = FsProtocolService.buildFormat();
       expect(f[0], kFsStartByte);
@@ -137,13 +130,13 @@ void main() {
   group('ProtocolService.drainBuffer', () {
     test('extracts a widget packet (0x55)', () {
       // Build a real widget packet: 0x55 + length + cmd + payload + CRC.
-      final pkt = ProtocolService.buildPacket(kCmdPing);
+      final pkt = ProtocolService.buildGetConf();
       // Wrap it in a buffer with leading junk.
       final buf = <int>[0x00, 0x00, ...pkt];
       final r = ProtocolService.drainBuffer(buf);
       expect(r, isNotNull);
       expect(r!.kind, 'widget');
-      expect(r.widgetPacket!.cmd, kCmdPing);
+      expect(r.widgetPacket!.cmd, kCmdGetConf);
     });
 
     test('extracts an FS packet (0xAA)', () {
@@ -161,7 +154,7 @@ void main() {
     });
 
     test('drops junk bytes before start byte', () {
-      final pkt = ProtocolService.buildPacket(kCmdPing);
+      final pkt = ProtocolService.buildGetConf();
       final buf = <int>[0x12, 0x34, 0x56, 0x78, ...pkt];
       final r = ProtocolService.drainBuffer(buf);
       expect(r, isNotNull);
@@ -169,7 +162,7 @@ void main() {
     });
 
     test('mixed stream: widget then FS', () {
-      final widgetPkt = ProtocolService.buildPacket(kCmdPing);
+      final widgetPkt = ProtocolService.buildGetConf();
       final fsPkt = FsProtocolService.buildInfo();
       final buf = <int>[...widgetPkt, ...fsPkt];
       final r1 = ProtocolService.drainBuffer(buf);

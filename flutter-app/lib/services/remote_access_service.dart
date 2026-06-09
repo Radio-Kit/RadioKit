@@ -662,16 +662,12 @@ class RemoteAccessService {
   }
 
   Future<Response> _handleTransportPing(Request request) async {
+    // PING removed — connection health is transport-driven.
+    // Endpoint kept for API compatibility; returns ok when connected.
     if (!_deviceProvider.isConnected) {
       return _error('not_connected', 'Not connected to a device', status: 503);
     }
-    try {
-      await _deviceProvider.currentTransport
-          .writePacket(ProtocolService.buildPing());
-      return _json({'ok': true});
-    } catch (e) {
-      return _error('send_failed', e.toString(), status: 500);
-    }
+    return _json({'ok': true});
   }
 
   Future<Response> _handleTransportQuick(Request request, String cmd) async {
@@ -683,7 +679,7 @@ class RemoteAccessService {
     try {
       switch (cmd) {
         case 'ping':
-          await transport.writePacket(ProtocolService.buildPing());
+          break; // PING removed — connection health is transport-driven.
         case 'get_conf':
           await transport.writePacket(ProtocolService.buildGetConf());
         case 'get_vars':
@@ -1358,10 +1354,10 @@ class RemoteAccessService {
     if (device == null) {
       return _error('not_connected', 'No device info', status: 503);
     }
-    // Try a direct FS read to test the transport
+    // Try a direct FS info to test the transport (PING was removed)
     try {
       await _deviceProvider.currentTransport.writePacket(
-          FsProtocolService.buildPing());
+          FsProtocolService.buildInfo());
       await Future.delayed(const Duration(milliseconds: 2000));
     } catch (e) {
       return _error('fs_probe_failed', e.toString(), status: 500);

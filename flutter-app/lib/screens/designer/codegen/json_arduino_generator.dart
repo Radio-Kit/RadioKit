@@ -49,6 +49,33 @@ class JsonArduinoGenerator {
       }
     }
 
+    // ─── Telemetry Widgets ───
+    final telemetry = json['telemetry'] as List? ?? [];
+    final hasTelemetry = telemetry.any((t) {
+      final label = (t is Map ? t['label'] : null) as String?;
+      return label?.isNotEmpty == true;
+    });
+    if (hasTelemetry) {
+      buf.writeln('// ─── Telemetry Widgets ───');
+      for (int i = 0; i < telemetry.length; i++) {
+        final t = telemetry[i];
+        if (t is! Map<String, dynamic>) continue;
+        final label = (t['label'] as String?) ?? '';
+        if (label.isEmpty) continue;
+        final sanitized = _sanitizeName(label);
+        final unit = (t['unit'] as String?) ?? '';
+        final iconName = (t['icon'] as String?) ?? '';
+        
+        final cppName = 'telemetry_$sanitized';
+        final iconArg = iconName.isNotEmpty ? '"$iconName"' : 'nullptr';
+        final unitArg = unit.isNotEmpty ? ', "$unit"' : '';
+        buf.writeln('RK_Telemetry $cppName("$sanitized", $iconArg$unitArg);');
+        
+        setupBuf.writeln('  $cppName.set("--");');
+      }
+      buf.writeln();
+    }
+
     // ─── Config Init ───
     buf.writeln('// ─── Config Init ───');
     buf.writeln('static inline void initRadioKit() {');
