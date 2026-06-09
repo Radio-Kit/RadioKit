@@ -66,6 +66,7 @@ class DeviceProvider extends ChangeNotifier {
   int?                     _latencyMs;
 
 
+
   Timer?                   _telemetryTimer;
   Timer?                   _confTimeoutTimer;
   DateTime?                _lastRxAt;
@@ -77,6 +78,8 @@ class DeviceProvider extends ChangeNotifier {
   Map<String, dynamic>? _chipInfo;
   Completer<void>? _chipInfoCompleter;
   Completer<int>? _otaCompleter;
+  Completer<({int status, int? value})>? _nvsRawReadCompleter;
+  Completer<int>? _nvsRawWriteCompleter;
   Completer<int>? _authCompleter;  // For CMD_PWD_AUTH response
   Timer? _authTimeoutTimer;
   static const Duration _authTimeout = Duration(seconds: 60);
@@ -263,6 +266,57 @@ class DeviceProvider extends ChangeNotifier {
 
   bool _authenticated = false;
   bool _authenticatedAdmin = false;
+
+  /// Read a raw NVS uint8 key from the device via settings protocol.
+  /// Returns (status, value) where status=0 (ok) or 1 (error).
+  /// Value is null on error or timeout.
+  Future<({int status, int? value})> readNvsRawKey(String key) async {
+    if (!_transport.isConnected) {
+      return (status: kSettingsNvsRawError, value: null);
+    }
+    final completer = Completer<({int status, int? value})>();
+    _nvsRawReadCompleter = completer;
+    try {
+      await _writePacket(SettingsProtocolService.buildNvsRawRead(key));
+    } catch (e) {
+      _nvsRawReadCompleter = null;
+      _log('readNvsRawKey failed: $e', level: ConsoleLogLevel.error);
+      return (status: kSettingsNvsRawError, value: null);
+    }
+    try {
+      return await completer.future.timeout(const Duration(seconds: 5));
+    } on TimeoutException catch (_) {
+      _nvsRawReadCompleter = null;
+      return (status: kSettingsNvsRawError, value: null);
+    } catch (_) {
+      _nvsRawReadCompleter = null;
+      return (status: kSettingsNvsRawError, value: null);
+    }
+  }
+
+  /// Write a raw uint8 value to an NVS key on the device via settings protocol.
+  /// Returns 0 (ok) or 1 (error) on success/timeout.
+  Future<int> writeNvsRawKey(String key, int value) async {
+    if (!_transport.isConnected) return kSettingsNvsRawError;
+    final completer = Completer<int>();
+    _nvsRawWriteCompleter = completer;
+    try {
+      await _writePacket(SettingsProtocolService.buildNvsRawWrite(key, value));
+    } catch (e) {
+      _nvsRawWriteCompleter = null;
+      _log('writeNvsRawKey failed: $e', level: ConsoleLogLevel.error);
+      return kSettingsNvsRawError;
+    }
+    try {
+      return await completer.future.timeout(const Duration(seconds: 5));
+    } on TimeoutException catch (_) {
+      _nvsRawWriteCompleter = null;
+      return kSettingsNvsRawError;
+    } catch (_) {
+      _nvsRawWriteCompleter = null;
+      return kSettingsNvsRawError;
+    }
+  }
 
   /// Send factory reset command via settings protocol — erases NVS config and reboots.
   /// Returns true if the command was sent successfully (device will reboot).
@@ -451,6 +505,8 @@ class DeviceProvider extends ChangeNotifier {
     _connectionState = DeviceConnectionState.connecting;
     _connectedDevice = device;
     _errorMessage    = null;
+    _configName      = null;
+    _description     = null;
     _authenticated   = false;
     _authenticatedAdmin = false;
     _authCompleter   = null;
@@ -865,16 +921,21 @@ class DeviceProvider extends ChangeNotifier {
       _startDemoSimulation();
     }
 
+    // Helper to send GET_TELEMETRY with a 2-byte LE timestamp for RTT measurement
+    void sendTelemetry() {
+      final ts = DateTime.now().millisecondsSinceEpoch & 0xFFFF;
+      _writePacket(SettingsProtocolService.buildGetTelemetry(ts))
+          .catchError((_) {});
+    }
+
     // Request initial telemetry and variables immediately on connection
     if (_transport.isConnected) {
-      _writePacket(SettingsProtocolService.buildGetTelemetry()).catchError((_) {});
+      sendTelemetry();
       _writePacket(ProtocolService.buildGetVars()).catchError((_) {});
     }
 
     _telemetryTimer = Timer.periodic(kTelemetryInterval, (_) async {
-      try {
-        await _writePacket(SettingsProtocolService.buildGetTelemetry());
-      } catch (_) {}
+      sendTelemetry();
     });
   }
 
@@ -1091,6 +1152,12 @@ class DeviceProvider extends ChangeNotifier {
       case kSettingsRespDeviceInfoData:
         _handleSettingsDeviceInfoData(packet.payload);
         break;
+      case kSettingsRespNvsRawReadData:
+        _handleSettingsNvsRawReadData(packet.payload);
+        break;
+      case kSettingsRespNvsRawWriteAck:
+        _handleSettingsNvsRawWriteAck(packet.payload);
+        break;
       default:
         _log('Unknown settings sub-cmd 0x${packet.subCmd.toRadixString(16)}',
             level: ConsoleLogLevel.info);
@@ -1105,8 +1172,18 @@ class DeviceProvider extends ChangeNotifier {
     final parsed = SettingsProtocolService.parseTelemetryData(payload.toList());
     if (parsed == null) return;
     _rssi = parsed.rssi;
-    _latencyMs = parsed.latency;
-    debugPrint('RadioKit: SETTINGS_TELEMETRY_DATA rssi=$_rssi latency=$_latencyMs');
+    // Compute true round-trip latency using echoed 2-byte timestamp.
+    // payload[0] = RSSI, payload[1] = device-side latency,
+    // payload[2..3] = echoed request timestamp (LE).
+    if (payload.length >= 4) {
+      final echoed = payload[2] | (payload[3] << 8);
+      final now = DateTime.now().millisecondsSinceEpoch & 0xFFFF;
+      final rtt = (now - echoed) & 0xFFFF;
+      _latencyMs = rtt > 30000 ? null : rtt; // sanity: reject > 30s
+    } else {
+      _latencyMs = parsed.latency; // fallback to device-side latency
+    }
+    debugPrint('RadioKit: SETTINGS_TELEMETRY_DATA rssi=$_rssi rtt=$_latencyMs');
     notifyListeners();
   }
 
@@ -1151,6 +1228,41 @@ class DeviceProvider extends ChangeNotifier {
     if (status == null) return;
     if (_authCompleter != null && !_authCompleter!.isCompleted) {
       _authCompleter!.complete(status);
+    }
+  }
+
+  void _handleSettingsNvsRawReadData(Uint8List payload) {
+    final parsed = SettingsProtocolService.parseNvsRawReadData(payload.toList());
+    if (parsed == null) {
+      _log('NVS_RAW_READ_DATA parse failed', level: ConsoleLogLevel.error);
+      final completer = _nvsRawReadCompleter;
+      if (completer != null && !completer.isCompleted) {
+        completer.complete((status: kSettingsNvsRawError, value: null));
+      }
+      return;
+    }
+    _log('NVS raw read: status=${parsed.status} value=${parsed.value}',
+        level: ConsoleLogLevel.info);
+    final completer = _nvsRawReadCompleter;
+    if (completer != null && !completer.isCompleted) {
+      completer.complete(parsed);
+    }
+  }
+
+  void _handleSettingsNvsRawWriteAck(Uint8List payload) {
+    final status = SettingsProtocolService.parseNvsRawWriteAck(payload.toList());
+    if (status == null) {
+      _log('NVS_RAW_WRITE_ACK parse failed', level: ConsoleLogLevel.error);
+      final completer = _nvsRawWriteCompleter;
+      if (completer != null && !completer.isCompleted) {
+        completer.complete(kSettingsNvsRawError);
+      }
+      return;
+    }
+    _log('NVS raw write: status=$status', level: ConsoleLogLevel.info);
+    final completer = _nvsRawWriteCompleter;
+    if (completer != null && !completer.isCompleted) {
+      completer.complete(status);
     }
   }
 
@@ -1973,6 +2085,7 @@ class DeviceProvider extends ChangeNotifier {
     }
     await _transport.disconnect();
     _connectedDevice  = null;
+    _configName       = null;
     _widgets          = [];
     _widgetState      = null;
     _description      = null;

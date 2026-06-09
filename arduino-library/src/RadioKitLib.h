@@ -180,7 +180,7 @@ private:
     void _handleMetaUpdate(const uint8_t* payload, uint16_t len);
 
     // ── Settings protocol handlers (0xDD) ─────────────────────
-    void _handleSettingsTelemetry();
+    void _handleSettingsTelemetry(const uint8_t* payload, uint16_t payloadLen);
     void _handleSettingsBleInfo();
     void _handleSettingsGetFeatures();
     void _handleSettingsGetChipInfo();
@@ -188,6 +188,8 @@ private:
     void _handleSettingsPwdAuth(const uint8_t* payload, uint16_t len);
     void _handleSettingsFactoryReset();
     void _handleSettingsDeviceInfo();
+    void _handleSettingsNvsRawRead(const uint8_t* payload, uint16_t len);
+    void _handleSettingsNvsRawWrite(const uint8_t* payload, uint16_t len);
     void _sendSettingsFrame(uint16_t len);
 
     void _sendPacket(const uint8_t* buf, uint16_t len);

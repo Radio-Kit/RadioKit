@@ -90,7 +90,6 @@ Returns all current app settings.
   "showDemo": true,
   "useFullscreen": false,
   "enableDevTools": true,
-  "interfaceScale": 100,
   "enableRemoteAccess": true,
   "followRemoteAccess": true
 }
@@ -105,7 +104,7 @@ Update one or more settings. Only include the fields you want to change.
 ```json
 {
   "showDemo": false,
-  "interfaceScale": 120
+  "enableDevTools": true
 }
 ```
 
@@ -1270,19 +1269,21 @@ Delete a single design by its ID.
 
 ### `POST /api/ota/upload`
 
-Upload firmware to the connected device via OTA. The firmware binary is sent as base64-encoded data. The upload proceeds in chunks with ACK/retry logic. On success, the device reboots with the new firmware.
+Upload firmware to the connected device via OTA. The firmware binary is sent as base64-encoded data. The upload proceeds in chunks with ACK/retry logic. Supports optional erase of NVS config + filesystem after update. On success, the device reboots with the new firmware.
 
 **Request:**
 
 ```json
 {
-  "data": "<base64-encoded firmware binary>"
+  "data": "<base64-encoded firmware binary>",
+  "eraseAll": false
 }
 ```
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `data` | string | yes | Base64-encoded firmware binary (.bin file) |
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `data` | string | yes | — | Base64-encoded firmware binary (.bin file) |
+| `eraseAll` | bool | no | `false` | If `true`, erases NVS config + filesystem after OTA update before reboot |
 
 **Response `200`:**
 
@@ -1290,6 +1291,7 @@ Upload firmware to the connected device via OTA. The firmware binary is sent as 
 {
   "ok": true,
   "size": 1048576,
+  "eraseAll": false,
   "message": "Firmware uploaded successfully — device rebooting"
 }
 ```

@@ -22,31 +22,37 @@ bool RKNvs::init() {
     if (s_initialized) return true;
 
 #if defined(ESP32)
-    esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        // NVS partition was wiped or is in an inconsistent state — erase & retry
+    // Initialise NVS flash. If the partition is in an inconsistent state
+    // (e.g. after esptool erase_flash, or ESP-IDF version change), nvs_flash_init
+    // may return ESP_ERR_NVS_NO_FREE_PAGES or ESP_ERR_NVS_NEW_VERSION_FOUND.
+    // In that case we erase and re-init.
+    esp_err_t initErr = nvs_flash_init();
+
+    if (initErr == ESP_ERR_NVS_NO_FREE_PAGES || initErr == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         esp_err_t eraseErr = nvs_flash_erase();
         if (eraseErr != ESP_OK) {
-            Serial.printf("NVS: flash erase failed (%d)\\n", eraseErr);
+            Serial.printf("NVS: flash erase failed (%d)\n", eraseErr);
             return false;
         }
-        err = nvs_flash_init();
+        initErr = nvs_flash_init();
     }
-    if (err != ESP_OK) {
-        Serial.printf("NVS: flash init failed (%d)\\n", err);
+
+    if (initErr != ESP_OK) {
+        Serial.printf("NVS: flash init failed (%d)\n", initErr);
         return false;
     }
 
     // Open the "radiokit_cfg" namespace
     nvs_handle_t handle;
-    err = nvs_open(RK_NVS_NAMESPACE, NVS_READWRITE, &handle);
-    if (err != ESP_OK) {
-        Serial.printf("NVS: open namespace failed (%d)\\n", err);
+    esp_err_t openErr = nvs_open(RK_NVS_NAMESPACE, NVS_READWRITE, &handle);
+    if (openErr != ESP_OK) {
+        Serial.printf("NVS: open namespace failed (%d)\n", openErr);
         return false;
     }
     s_handle = (uint32_t)handle;
     s_open   = true;
     s_initialized = true;
+
     return true;
 #else
     // Non-ESP32: no-op

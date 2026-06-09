@@ -159,6 +159,8 @@ class RemoteAccessService {
     router.post('/api/settings/nvs', _handleNvsSet);
     router.post('/api/settings/nvs/authenticate', _handleNvsAuthenticate);
     router.post('/api/settings/nvs/factory-reset', _handleNvsFactoryReset);
+    router.get('/api/settings/nvs/raw/<key>', _handleNvsRawRead);
+    router.post('/api/settings/nvs/raw/<key>', _handleNvsRawWrite);
     router.get('/api/pair/devices', _handlePairDevices);
     router.post('/api/pair/scan', _handlePairScan);
     router.get('/api/connection', _handleConnection);
@@ -683,7 +685,7 @@ class RemoteAccessService {
         case 'get_meta':
           await transport.writePacket(ProtocolService.buildGetMeta());
         case 'get_tele':
-          await transport.writePacket(SettingsProtocolService.buildGetTelemetry());
+          await transport.writePacket(SettingsProtocolService.buildGetTelemetry(0));
         default:
           return _error('unknown_cmd', 'Unknown command: $cmd');
       }
@@ -1168,6 +1170,44 @@ class RemoteAccessService {
     }
   }
 
+  /// Handle GET /api/settings/nvs/raw/<key> — read a raw NVS key from the device.
+  Future<Response> _handleNvsRawRead(Request request, String key) async {
+    if (!_deviceProvider.isConnected) {
+      return _error('not_connected', 'Not connected to a device', status: 503);
+    }
+    try {
+      final result = await _deviceProvider.readNvsRawKey(key);
+      if (result.status == kSettingsNvsRawOk && result.value != null) {
+        return _json({'ok': true, 'key': key, 'value': result.value});
+      }
+      return _json({'ok': true, 'key': key, 'value': null});
+    } catch (e) {
+      return _error('nvs_error', e.toString(), status: 500);
+    }
+  }
+
+  /// Handle POST /api/settings/nvs/raw/<key> — write a raw uint8 value to an NVS key.
+  /// Body: { "value": <int> }
+  Future<Response> _handleNvsRawWrite(Request request, String key) async {
+    if (!_deviceProvider.isConnected) {
+      return _error('not_connected', 'Not connected to a device', status: 503);
+    }
+    final body = await _parseBody(request);
+    final value = body['value'] as int?;
+    if (value == null || value < 0 || value > 255) {
+      return _error('invalid_params', 'value must be an integer 0-255');
+    }
+    try {
+      final status = await _deviceProvider.writeNvsRawKey(key, value);
+      if (status == kSettingsNvsRawOk) {
+        return _json({'ok': true, 'key': key, 'value': value});
+      }
+      return _error('nvs_error', 'Failed to write NVS key', status: 500);
+    } catch (e) {
+      return _error('nvs_error', e.toString(), status: 500);
+    }
+  }
+
   /// Handle POST /api/settings/nvs/factory-reset — erases NVS config and
   /// reboots the device. This cannot be undone.
   Future<Response> _handleNvsFactoryReset(Request request) async {
@@ -1264,6 +1304,7 @@ class RemoteAccessService {
 
   /// Handle POST /api/ota/upload — accepts base64-encoded firmware and
   /// uploads it to the connected device via the OTA protocol.
+  /// Supports optional `eraseAll` parameter to clear NVS + FS after update.
   Future<Response> _handleOtaUpload(Request request) async {
     _otaProgress = null; // Clear any stale progress from previous upload
 
@@ -1284,6 +1325,8 @@ class RemoteAccessService {
           'data (base64-encoded firmware) is required');
     }
 
+    final eraseAll = body['eraseAll'] as bool? ?? false;
+
     List<int> firmware;
     try {
       firmware = base64Decode(dataB64);
@@ -1298,6 +1341,7 @@ class RemoteAccessService {
     try {
       await _deviceProvider.uploadFirmware(
         firmware,
+        eraseAll: eraseAll,
         onProgress: (received, total) {
           _otaProgress = (received, total, 'uploading');
         },
@@ -1308,6 +1352,7 @@ class RemoteAccessService {
       return _json({
         'ok': true,
         'size': firmware.length,
+        'eraseAll': eraseAll,
         'message': 'Firmware uploaded successfully — device rebooting',
       });
     } catch (e) {

@@ -94,16 +94,24 @@ const int kSettingsCmdSetConf        = 0x05;
 const int kSettingsCmdPwdAuth        = 0x06;
 const int kSettingsCmdFactoryReset   = 0x07;
 const int kSettingsCmdGetDeviceInfo  = 0x08;
+const int kSettingsCmdNvsRawRead     = 0x09;
+const int kSettingsCmdNvsRawWrite    = 0x0A;
 
 // MCU → App sub-commands (response = request | 0x80)
-const int kSettingsRespTelemetryData    = 0x81;
-const int kSettingsRespBleInfoData      = 0x82;
-const int kSettingsRespFeaturesData     = 0x83;
-const int kSettingsRespChipInfoData     = 0x84;
-const int kSettingsRespSetConfAck       = 0x85;
-const int kSettingsRespPwdAuthAck       = 0x86;
-const int kSettingsRespFactoryResetAck  = 0x87;
-const int kSettingsRespDeviceInfoData   = 0x88;
+const int kSettingsRespTelemetryData      = 0x81;
+const int kSettingsRespBleInfoData        = 0x82;
+const int kSettingsRespFeaturesData       = 0x83;
+const int kSettingsRespChipInfoData       = 0x84;
+const int kSettingsRespSetConfAck         = 0x85;
+const int kSettingsRespPwdAuthAck         = 0x86;
+const int kSettingsRespFactoryResetAck    = 0x87;
+const int kSettingsRespDeviceInfoData     = 0x88;
+const int kSettingsRespNvsRawReadData     = 0x89;
+const int kSettingsRespNvsRawWriteAck     = 0x8A;
+
+// NVS raw read/write status codes
+const int kSettingsNvsRawOk    = 0x00;
+const int kSettingsNvsRawError = 0x01;
 
 // PWD_AUTH status codes
 const int kSettingsPwdOk       = 0x00;

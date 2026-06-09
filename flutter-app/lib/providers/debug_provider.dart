@@ -153,7 +153,7 @@ class DebugProvider extends ChangeNotifier implements DebugLogSink {
         case 'GET_CONF': await t.writePacket(ProtocolService.buildGetConf());  break;
         case 'GET_VARS': await t.writePacket(ProtocolService.buildGetVars());  break;
         case 'GET_META': await t.writePacket(ProtocolService.buildGetMeta());  break;
-        case 'GET_TELE': await t.writePacket(SettingsProtocolService.buildGetTelemetry()); break;
+        case 'GET_TELE': await t.writePacket(SettingsProtocolService.buildGetTelemetry(0)); break;
         default: return 'Unknown command';
       }
       return null;

@@ -40,12 +40,30 @@ class SettingsProtocolService {
 
   // ── Request builders ────────────────────────────────────────────────────
 
-  static Uint8List buildGetTelemetry() => buildFrame(kSettingsCmdGetTelemetry);
+  /// Build GET_TELEMETRY with a 2-byte LE timestamp for round-trip RTT measurement.
+  /// The device echoes this timestamp in response bytes 2-3.
+  static Uint8List buildGetTelemetry([int timestamp = 0]) {
+    return buildFrame(kSettingsCmdGetTelemetry, [timestamp & 0xFF, (timestamp >> 8) & 0xFF]);
+  }
   static Uint8List buildBleInfo() => buildFrame(kSettingsCmdBleInfo);
   static Uint8List buildGetFeatures() => buildFrame(kSettingsCmdGetFeatures);
   static Uint8List buildGetChipInfo() => buildFrame(kSettingsCmdGetChipInfo);
   static Uint8List buildGetDeviceInfo() => buildFrame(kSettingsCmdGetDeviceInfo);
   static Uint8List buildFactoryReset() => buildFrame(kSettingsCmdFactoryReset);
+
+  /// Build NVS_RAW_READ frame. Payload: [KEY_LEN(1)][KEY...]
+  static Uint8List buildNvsRawRead(String key) {
+    final encoded = utf8.encode(key);
+    final payload = [encoded.length, ...encoded];
+    return buildFrame(kSettingsCmdNvsRawRead, payload);
+  }
+
+  /// Build NVS_RAW_WRITE frame. Payload: [KEY_LEN(1)][KEY...][VALUE(1)]
+  static Uint8List buildNvsRawWrite(String key, int value) {
+    final encoded = utf8.encode(key);
+    final payload = [encoded.length, ...encoded, value & 0xFF];
+    return buildFrame(kSettingsCmdNvsRawWrite, payload);
+  }
 
   /// Build SETTINGS_SET_CONF frame. Payload: [FIELD_MASK(2 LE)] [FIELD_DATA...]
   static Uint8List buildSetConf({
@@ -103,6 +121,25 @@ class SettingsProtocolService {
   }
 
   // ── Response parsers ────────────────────────────────────────────────────
+
+  /// Parse NVS_RAW_READ_DATA: [STATUS(1)][VALUE_LEN(1)][VALUE...]
+  /// Returns (status, value) on success, null on parse failure.
+  static ({int status, int? value})? parseNvsRawReadData(List<int> payload) {
+    if (payload.length < 2) return null;
+    final status = payload[0];
+    final valueLen = payload[1];
+    int? value;
+    if (status == kSettingsNvsRawOk && valueLen >= 1 && payload.length >= 3) {
+      value = payload[2];
+    }
+    return (status: status, value: value);
+  }
+
+  /// Parse NVS_RAW_WRITE_ACK: single byte status code.
+  static int? parseNvsRawWriteAck(List<int> payload) {
+    if (payload.isEmpty) return null;
+    return payload[0];
+  }
 
   /// Parse PWD_AUTH_ACK: single byte status code.
   static int? parsePwdAuthAck(List<int> payload) {

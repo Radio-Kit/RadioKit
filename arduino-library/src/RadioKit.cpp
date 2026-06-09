@@ -76,6 +76,12 @@ void RadioKitClass::begin() {
 
     if (_nvsActive) {
         // ── Check for deferred erase from OTA ──────────────────────
+        // The rk_pend_erase key is written to NVS before an OTA update
+        // with erase. NVS is a separate flash partition from the app
+        // partition (ota_0/ota_1), so it survives OTA and esp_restart().
+        // If non-zero, we perform the requested erase, then reboot to
+        // let the new firmware boot with empty NVS (which will populate
+        // compile-time defaults on first boot).
         uint8_t pendingErase = 0;
         if (RKNvs::readU8(RK_NVS_KEY_PENDING_ERASE, &pendingErase) &&
             pendingErase != RK_PENDING_ERASE_NONE) {
@@ -92,7 +98,8 @@ void RadioKitClass::begin() {
                 RKFs::format();
             }
 
-            RKNvs::writeU8(RK_NVS_KEY_PENDING_ERASE, RK_PENDING_ERASE_NONE);
+            // Clear the flag so we don't loop on next boot
+            RKNvs::eraseKey(RK_NVS_KEY_PENDING_ERASE);
             RKNvs::commit();
 
             Serial.println("BOOT: Erase complete — rebooting...");
@@ -317,7 +324,8 @@ void RadioKitClass::_onSettingsPacket(uint8_t subCmd,
         }
     } else if (!isAdminAuthd) {
         // User-authenticated: block admin-only commands
-        if (subCmd == RK_SETTINGS_CMD_SET_CONF || subCmd == RK_SETTINGS_CMD_FACTORY_RESET) {
+        if (subCmd == RK_SETTINGS_CMD_SET_CONF || subCmd == RK_SETTINGS_CMD_FACTORY_RESET ||
+            subCmd == RK_SETTINGS_CMD_NVS_RAW_WRITE) {
             Serial.printf("RK: Rejected SETTINGS 0x%02X — admin required\n", subCmd);
             uint8_t status = RK_SETTINGS_PWD_MISMATCH;
             uint8_t respSub = subCmd | 0x80;
@@ -330,7 +338,7 @@ void RadioKitClass::_onSettingsPacket(uint8_t subCmd,
     RK_DEBUG_PRINT("RK: Dispatching SETTINGS %s (0x%02X), len %d\n",
                    rk_settingsCmdName(subCmd), subCmd, payloadLen);
     switch (subCmd) {
-        case RK_SETTINGS_CMD_GET_TELEMETRY:  s_instance->_handleSettingsTelemetry();                break;
+        case RK_SETTINGS_CMD_GET_TELEMETRY:  s_instance->_handleSettingsTelemetry(payload, payloadLen);                break;
         case RK_SETTINGS_CMD_BLE_INFO:       s_instance->_handleSettingsBleInfo();                   break;
         case RK_SETTINGS_CMD_GET_FEATURES:   s_instance->_handleSettingsGetFeatures();              break;
         case RK_SETTINGS_CMD_GET_CHIP_INFO:  s_instance->_handleSettingsGetChipInfo();              break;
@@ -338,6 +346,8 @@ void RadioKitClass::_onSettingsPacket(uint8_t subCmd,
         case RK_SETTINGS_CMD_PWD_AUTH:       s_instance->_handleSettingsPwdAuth(payload, payloadLen); break;
         case RK_SETTINGS_CMD_FACTORY_RESET:  s_instance->_handleSettingsFactoryReset();              break;
         case RK_SETTINGS_CMD_GET_DEVICE_INFO: s_instance->_handleSettingsDeviceInfo();               break;
+        case RK_SETTINGS_CMD_NVS_RAW_READ:  s_instance->_handleSettingsNvsRawRead(payload, payloadLen); break;
+        case RK_SETTINGS_CMD_NVS_RAW_WRITE: s_instance->_handleSettingsNvsRawWrite(payload, payloadLen); break;
         default:
             Serial.printf("RK: Unknown SETTINGS sub-command 0x%02X\n", subCmd);
             break;
@@ -365,14 +375,24 @@ void RadioKitClass::_sendSettingsFrame(uint16_t len) {
     _transport->sendPacket(rk_settingsTxBuf(), len);
 }
 
-void RadioKitClass::_handleSettingsTelemetry() {
+void RadioKitClass::_handleSettingsTelemetry(const uint8_t* payload, uint16_t payloadLen) {
     if (!_transport) return;
     uint8_t buf[4];
     int r = getRssi();
     buf[0] = (uint8_t)r;
-    buf[1] = 0;
-    buf[2] = 0;
-    buf[3] = 0;
+    // Device-side latency: elapsed ms since the request frame was fully received.
+    uint32_t rxTime = rk_settingsLastRxTimestamp();
+    uint32_t elapsed = millis() - rxTime;
+    buf[1] = (elapsed > 255) ? 255 : (uint8_t)elapsed;
+    // Echo the app's 2-byte LE timestamp (bytes 0-1 of request) back in bytes 2-3
+    // so the app can compute true round-trip time.
+    if (payloadLen >= 2) {
+        buf[2] = payload[0];
+        buf[3] = payload[1];
+    } else {
+        buf[2] = 0;
+        buf[3] = 0;
+    }
     uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
         RK_SETTINGS_RESP_TELEMETRY_DATA, buf, 4);
     _sendSettingsFrame(frameLen);
@@ -1003,13 +1023,20 @@ void RadioKitClass::_handleOtaSetEraseFlag(const uint8_t* payload, uint16_t len)
         return;
     }
 
-    if (_nvsActive) {
-        RKNvs::writeU8(RK_NVS_KEY_PENDING_ERASE, eraseMode);
-        RKNvs::commit();
-        Serial.printf("OTA: Erase flag set to %d in NVS\n", eraseMode);
+    // Write the erase flag to NVS. NVS is a separate flash partition and
+    // survives OTA update (which only writes to the app partition). On the
+    // next boot, begin() reads this key after RKNvs::init() and performs
+    // the requested erase before continuing.
+    bool ok = RKNvs::writeU8(RK_NVS_KEY_PENDING_ERASE, eraseMode);
+    ok = RKNvs::commit() && ok;
+
+    if (ok) {
+        Serial.printf("OTA: Erase flag=%d written to NVS\n", eraseMode);
+    } else {
+        Serial.printf("OTA: Erase flag=%d NVS write FAILED\n", eraseMode);
     }
 
-    uint8_t err = RK_OTA_ERR_OK;
+    uint8_t err = ok ? RK_OTA_ERR_OK : RK_OTA_ERR_FLASH;
     uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
     _sendOtaFrame(rk_otaTxBuf(), frameLen);
 #else
@@ -1018,6 +1045,91 @@ void RadioKitClass::_handleOtaSetEraseFlag(const uint8_t* payload, uint16_t len)
     _sendOtaFrame(rk_otaTxBuf(), frameLen);
     (void)payload; (void)len;
 #endif
+}
+
+// ── NVS Raw Read / Write ─────────────────────────────────────────────────────
+
+void RadioKitClass::_handleSettingsNvsRawRead(const uint8_t* payload, uint16_t len) {
+    // Request: [KEY_LEN(1)][KEY...]
+    // Response: [STATUS(1)][VALUE_LEN(1)][VALUE...]
+    if (!_nvsActive || len < 1) {
+        uint8_t resp[2] = {RK_SETTINGS_NVS_RAW_ERROR, 0};
+        uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+            RK_SETTINGS_RESP_NVS_RAW_READ_DATA, resp, 2);
+        _sendSettingsFrame(frameLen);
+        return;
+    }
+
+    uint8_t keyLen = payload[0];
+    if (keyLen < 1 || keyLen > 16 || 1 + keyLen > len) {
+        uint8_t resp[2] = {RK_SETTINGS_NVS_RAW_ERROR, 0};
+        uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+            RK_SETTINGS_RESP_NVS_RAW_READ_DATA, resp, 2);
+        _sendSettingsFrame(frameLen);
+        return;
+    }
+
+    char key[32];
+    memcpy(key, &payload[1], keyLen);
+    key[keyLen] = '\0';
+
+    uint8_t value = 0;
+    bool found = RKNvs::readU8(key, &value);
+
+    if (found) {
+        uint8_t resp[3] = {RK_SETTINGS_NVS_RAW_OK, 1, value};
+        uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+            RK_SETTINGS_RESP_NVS_RAW_READ_DATA, resp, 3);
+        _sendSettingsFrame(frameLen);
+        Serial.printf("NVS: Raw read key='%s' = %u\n", key, value);
+    } else {
+        uint8_t resp[2] = {RK_SETTINGS_NVS_RAW_ERROR, 0};
+        uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+            RK_SETTINGS_RESP_NVS_RAW_READ_DATA, resp, 2);
+        _sendSettingsFrame(frameLen);
+        Serial.printf("NVS: Raw read key='%s' not found\n", key);
+    }
+}
+
+void RadioKitClass::_handleSettingsNvsRawWrite(const uint8_t* payload, uint16_t len) {
+    // Request: [KEY_LEN(1)][KEY...][VALUE(1)]
+    // Response: [STATUS(1)]
+    if (!_nvsActive || len < 3) {
+        uint8_t resp = RK_SETTINGS_NVS_RAW_ERROR;
+        uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+            RK_SETTINGS_RESP_NVS_RAW_WRITE_ACK, &resp, 1);
+        _sendSettingsFrame(frameLen);
+        return;
+    }
+
+    uint8_t keyLen = payload[0];
+    if (keyLen < 1 || keyLen > 16 || 1 + keyLen > len) {
+        uint8_t resp = RK_SETTINGS_NVS_RAW_ERROR;
+        uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+            RK_SETTINGS_RESP_NVS_RAW_WRITE_ACK, &resp, 1);
+        _sendSettingsFrame(frameLen);
+        return;
+    }
+
+    char key[32];
+    memcpy(key, &payload[1], keyLen);
+    key[keyLen] = '\0';
+
+    uint8_t value = payload[1 + keyLen];
+
+    bool ok = RKNvs::writeU8(key, value);
+    ok = RKNvs::commit() && ok;
+
+    uint8_t resp = ok ? RK_SETTINGS_NVS_RAW_OK : RK_SETTINGS_NVS_RAW_ERROR;
+    uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+        RK_SETTINGS_RESP_NVS_RAW_WRITE_ACK, &resp, 1);
+    _sendSettingsFrame(frameLen);
+
+    if (ok) {
+        Serial.printf("NVS: Raw write key='%s' = %u\n", key, value);
+    } else {
+        Serial.printf("NVS: Raw write key='%s' FAILED\n", key);
+    }
 }
 
 // ── Factory Reset ───────────────────────────────────────────────────────────

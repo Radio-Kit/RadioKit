@@ -28,6 +28,11 @@ static RK_SettingsPacketCallback s_callback = nullptr;
 // Outgoing scratch buffer
 static uint8_t s_txBuf[RK_SETTINGS_HEADER_SIZE + RK_SETTINGS_MAX_PAYLOAD];
 
+// Timestamp of the most recently completed frame reception (millis).
+// Set when a complete frame is parsed; consumed by _handleSettingsTelemetry()
+// to compute round-trip latency. Transport-agnostic.
+static uint32_t s_lastRxTimestamp = 0;
+
 // ── Public API ──────────────────────────────────────────────────────────────
 
 void rk_settingsRxReset() {
@@ -35,6 +40,11 @@ void rk_settingsRxReset() {
     s_expectedLen = 0;
     s_bytesRead   = 0;
     s_payloadLen  = 0;
+    s_lastRxTimestamp = millis();
+}
+
+uint32_t rk_settingsLastRxTimestamp() {
+    return s_lastRxTimestamp;
 }
 
 bool rk_settingsRxIsActive() {
@@ -77,6 +87,7 @@ bool rk_settingsRxFeedByte(uint8_t byte,
             s_payloadLen = s_expectedLen - RK_SETTINGS_HEADER_SIZE;
             s_rxState = (s_payloadLen == 0) ? SETTINGS_RX_WAIT_START : SETTINGS_RX_PAYLOAD;
             if (s_payloadLen == 0) {
+                s_lastRxTimestamp = millis();
                 outSubCmd     = s_buf[1];
                 outPayload    = nullptr;
                 outPayloadLen = 0;
@@ -89,6 +100,7 @@ bool rk_settingsRxFeedByte(uint8_t byte,
         case SETTINGS_RX_PAYLOAD:
             s_buf[s_bytesRead++] = byte;
             if (s_bytesRead >= s_expectedLen) {
+                s_lastRxTimestamp = millis();
                 outSubCmd     = s_buf[1];
                 outPayload    = &s_buf[RK_SETTINGS_HEADER_SIZE];
                 outPayloadLen = s_payloadLen;
@@ -137,6 +149,10 @@ const char* rk_settingsCmdName(uint8_t subCmd) {
         case RK_SETTINGS_CMD_PWD_AUTH:        return "SETTINGS_PWD_AUTH";
         case RK_SETTINGS_CMD_FACTORY_RESET:   return "SETTINGS_FACTORY_RESET";
         case RK_SETTINGS_CMD_GET_DEVICE_INFO: return "SETTINGS_GET_DEVICE_INFO";
+        case RK_SETTINGS_CMD_NVS_RAW_READ:    return "SETTINGS_NVS_RAW_READ";
+        case RK_SETTINGS_CMD_NVS_RAW_WRITE:   return "SETTINGS_NVS_RAW_WRITE";
+        case RK_SETTINGS_RESP_NVS_RAW_READ_DATA: return "SETTINGS_NVS_RAW_READ_DATA";
+        case RK_SETTINGS_RESP_NVS_RAW_WRITE_ACK: return "SETTINGS_NVS_RAW_WRITE_ACK";
         case RK_SETTINGS_RESP_TELEMETRY_DATA:     return "SETTINGS_TELEMETRY_DATA";
         case RK_SETTINGS_RESP_BLE_INFO_DATA:      return "SETTINGS_BLE_INFO_DATA";
         case RK_SETTINGS_RESP_FEATURES_DATA:      return "SETTINGS_FEATURES_DATA";

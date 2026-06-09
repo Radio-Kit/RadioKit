@@ -57,6 +57,8 @@
 #define RK_SETTINGS_CMD_PWD_AUTH         0x06
 #define RK_SETTINGS_CMD_FACTORY_RESET    0x07
 #define RK_SETTINGS_CMD_GET_DEVICE_INFO  0x08
+#define RK_SETTINGS_CMD_NVS_RAW_READ     0x09
+#define RK_SETTINGS_CMD_NVS_RAW_WRITE    0x0A
 
 // ── Sub-commands (MCU → App) ────────────────────────────────────────────────
 // Response = subCmd | 0x80
@@ -68,6 +70,12 @@
 #define RK_SETTINGS_RESP_PWD_AUTH_ACK       0x86
 #define RK_SETTINGS_RESP_FACTORY_RESET_ACK  0x87
 #define RK_SETTINGS_RESP_DEVICE_INFO_DATA   0x88
+#define RK_SETTINGS_RESP_NVS_RAW_READ_DATA  0x89
+#define RK_SETTINGS_RESP_NVS_RAW_WRITE_ACK  0x8A
+
+// ── NVS_RAW_READ/WRITE status codes ─────────────────────────────────────────
+#define RK_SETTINGS_NVS_RAW_OK        0x00
+#define RK_SETTINGS_NVS_RAW_ERROR     0x01
 
 // ── PWD_AUTH status codes ───────────────────────────────────────────────────
 #define RK_SETTINGS_PWD_OK          0x00
@@ -140,5 +148,12 @@ uint16_t rk_settingsTxBufSize();
  * Command/error name helpers (for debug logging).
  */
 const char* rk_settingsCmdName(uint8_t subCmd);
+
+/**
+ * Returns the millis() value captured when the most recent complete Settings
+ * frame was received. Used by the telemetry handler to compute round-trip
+ * request-to-response latency. Transport-agnostic.
+ */
+uint32_t rk_settingsLastRxTimestamp();
 
 #endif // RADIOKIT_SETTINGS_H
