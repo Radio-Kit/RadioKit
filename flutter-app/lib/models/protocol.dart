@@ -71,10 +71,10 @@ const int kOtaMaxPayload = 4096;
 
 // OTA sub-commands (App → MCU)
 const int kOtaCmdBegin = 0x01;
-const int kOtaFlagEraseAll = 1 << 0;
 const int kOtaCmdChunk = 0x02;
 const int kOtaCmdEnd   = 0x03;
 const int kOtaCmdAbort = 0x04;
+const int kOtaCmdSetEraseFlag = 0x05;
 
 // OTA sub-commands (MCU → App)
 const int kOtaRespAck      = 0x81;

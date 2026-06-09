@@ -39,19 +39,20 @@ class OtaProtocolService {
 
   // ── Request builders ────────────────────────────────────────────────────
 
-  /// OTA_BEGIN: [firmwareSize(4 LE)] [flags(1)]
-  /// [flags] bit 0 = eraseAll — erase NVS + flash before update.
-  static Uint8List buildBegin(int firmwareSize, {bool eraseAll = false}) {
+  /// OTA_BEGIN: [firmwareSize(4 LE)]
+  static Uint8List buildBegin(int firmwareSize) {
     final payload = <int>[
       firmwareSize & 0xFF,
       (firmwareSize >> 8) & 0xFF,
       (firmwareSize >> 16) & 0xFF,
       (firmwareSize >> 24) & 0xFF,
     ];
-    if (eraseAll) {
-      payload.add(kOtaFlagEraseAll);
-    }
     return buildFrame(kOtaCmdBegin, payload);
+  }
+
+  /// OTA_SET_ERASE: [mode(1)] — 0=none, 1=both, 2=NVS only, 3=FS only
+  static Uint8List buildSetEraseFlag(int eraseMode) {
+    return buildFrame(kOtaCmdSetEraseFlag, [eraseMode & 0xFF]);
   }
 
   /// OTA_CHUNK: [offset(4 LE)] [data...]
