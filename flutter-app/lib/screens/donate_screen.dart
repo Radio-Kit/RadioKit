@@ -8,7 +8,7 @@ class DonateBottomSheet {
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: const Color(0xFF181818),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -24,9 +24,9 @@ class _DonateSheetContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 16,
+        left: 20,
+        right: 20,
+        top: 20,
         bottom: MediaQuery.of(context).viewInsets.bottom + 32,
       ),
       child: Column(
@@ -35,7 +35,7 @@ class _DonateSheetContent extends StatelessWidget {
           Container(
             width: 40,
             height: 4,
-            margin: const EdgeInsets.only(bottom: 16),
+            margin: const EdgeInsets.only(bottom: 20),
             decoration: BoxDecoration(
               color: Colors.white24,
               borderRadius: BorderRadius.circular(2),
@@ -45,69 +45,94 @@ class _DonateSheetContent extends StatelessWidget {
             'SUPPORT RADIOKIT',
             style: GoogleFonts.changa(
               color: AppColors.brandOrange,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.2,
-              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.5,
+              fontSize: 14,
             ),
           ),
           const SizedBox(height: 24),
-          _buildProVersionCard(context),
+          _buildSupportCard(context),
           const SizedBox(height: 16),
-          _buildLicenseKeyCard(context),
-          const SizedBox(height: 16),
+          _buildLicenseKeySection(context),
+          const SizedBox(height: 8),
         ],
       ),
     );
   }
 
-  Widget _buildProVersionCard(BuildContext context) {
-    return Card(
-      color: Colors.white.withValues(alpha: 0.05),
+  Widget _buildSupportCard(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.brandOrange.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.brandOrange.withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Container(
-                  width: 40,
-                  height: 40,
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
                     color: AppColors.brandOrange.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.star, color: AppColors.brandOrange, size: 20),
+                  child: const Icon(Icons.favorite_rounded, color: AppColors.brandOrange, size: 28),
                 ),
                 const SizedBox(width: 16),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _SettingLabel(label: 'GET_PRO_VERSION', value: ''),
-                      SizedBox(height: 8),
                       Text(
-                        'The free version of RadioKit includes all features of the Pro version. If you find the app useful, please consider supporting the project to help cover development costs and keep the project alive.',
-                        style: TextStyle(color: Colors.white, fontSize: 14),
+                        'KEEP RADIOKIT ALIVE',
+                        style: GoogleFonts.changa(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                          letterSpacing: 1.5,
+                          color: AppColors.brandOrange,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'The free version includes all features. Support the project to keep development alive.',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          fontSize: 11,
+                        ),
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
-              height: 50,
+              height: 48,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.brandOrange,
                   foregroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   elevation: 0,
                 ),
                 onPressed: () => _openDonateLink(context),
-                child: Text('SUPPORT ON BUYMEA COFFEE', style: GoogleFonts.changa(fontWeight: FontWeight.w700, letterSpacing: 1.2, fontSize: 13)),
+                child: Text(
+                  'SUPPORT ON BUY ME A COFFEE',
+                  style: GoogleFonts.changa(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5,
+                    fontSize: 14,
+                  ),
+                ),
               ),
             ),
           ],
@@ -116,35 +141,49 @@ class _DonateSheetContent extends StatelessWidget {
     );
   }
 
-  Widget _buildLicenseKeyCard(BuildContext context) {
-    return Card(
-      color: Colors.white.withValues(alpha: 0.05),
+  Widget _buildLicenseKeySection(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Container(
-                  width: 40,
-                  height: 40,
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.lock, color: Colors.white, size: 20),
+                  child: const Icon(Icons.vpn_key_rounded, color: Colors.white70, size: 24),
                 ),
                 const SizedBox(width: 16),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _SettingLabel(label: 'ENTER LICENSE KEY', value: ''),
-                      SizedBox(height: 8),
                       Text(
-                        'Already have a license key? Enter it here to unlock Pro features.',
-                        style: TextStyle(color: Colors.white, fontSize: 14),
+                        'LICENSE_KEY',
+                        style: GoogleFonts.changa(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                          letterSpacing: 1.5,
+                          color: Colors.white70,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Enter your license key to unlock Pro features',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          fontSize: 11,
+                        ),
                       ),
                     ],
                   ),
@@ -154,35 +193,46 @@ class _DonateSheetContent extends StatelessWidget {
             const SizedBox(height: 16),
             TextFormField(
               decoration: InputDecoration(
-                hintText: 'ABC-DEF-123-HIJ',
-                hintStyle: const TextStyle(color: Colors.white38),
+                hintText: 'XXXX-XXXX-XXXX-XXXX',
+                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 filled: true,
                 fillColor: Colors.black.withValues(alpha: 0.3),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: Colors.white10),
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: Colors.white10),
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                 ),
               ),
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(
+                color: Colors.white,
+                fontFamily: 'monospace',
+                letterSpacing: 1,
+              ),
             ),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
-              height: 40,
+              height: 48,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white.withValues(alpha: 0.1),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   elevation: 0,
                 ),
                 onPressed: () => _validateLicenseKey(context),
-                child: Text('ACTIVATE', style: GoogleFonts.changa(fontWeight: FontWeight.w700, letterSpacing: 1.2, fontSize: 12)),
+                child: Text(
+                  'ACTIVATE',
+                  style: GoogleFonts.changa(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5,
+                    fontSize: 14,
+                  ),
+                ),
               ),
             ),
           ],
@@ -200,31 +250,6 @@ class _DonateSheetContent extends StatelessWidget {
   void _validateLicenseKey(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('License key activated!')),
-    );
-  }
-}
-
-class _SettingLabel extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _SettingLabel({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white38, fontSize: 10, letterSpacing: 0.5),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
-        ),
-      ],
     );
   }
 }
