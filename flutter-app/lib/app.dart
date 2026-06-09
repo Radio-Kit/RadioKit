@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
@@ -113,62 +112,10 @@ class _RadioKitAppState extends State<RadioKitApp> {
               themeMode: themeProvider.themeMode,
               routerConfig: _router,
               builder: (context, child) {
-                final settings = context.watch<SettingsProvider>();
-                final scale = settings.interfaceScale.clamp(50, 200) / 100.0;
-                final mq = MediaQuery.of(context);
-                return MediaQuery(
-                  data: mq.copyWith(
-                    size: Size(mq.size.width / scale, mq.size.height / scale),
-                  ),
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final w = constraints.maxWidth / scale;
-                      final h = constraints.maxHeight / scale;
-                      return OverflowBox(
-                        minWidth: w,
-                        maxWidth: w,
-                        minHeight: h,
-                        maxHeight: h,
-                        child: Transform.scale(
-                          scale: scale,
-                          child: CallbackShortcuts(
-                            bindings: {
-                              const SingleActivator(
-                                LogicalKeyboardKey.minus,
-                                control: true,
-                              ): () {
-                                final s = context.read<SettingsProvider>();
-                                s.setInterfaceScale(s.interfaceScale - 10);
-                              },
-                              const SingleActivator(
-                                LogicalKeyboardKey.equal,
-                                control: true,
-                              ): () {
-                                final s = context.read<SettingsProvider>();
-                                s.setInterfaceScale(s.interfaceScale + 10);
-                              },
-                              const SingleActivator(
-                                LogicalKeyboardKey.digit0,
-                                control: true,
-                              ): () {
-                                context
-                                    .read<SettingsProvider>()
-                                    .setInterfaceScale(100);
-                              },
-                            },
-                            child: Focus(
-                              autofocus: true,
-                              child: ConnectionListener(
-                                child: _FollowModeWrapper(
-                                  router: _router,
-                                  child: child!,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
+                return ConnectionListener(
+                  child: _FollowModeWrapper(
+                    router: _router,
+                    child: child!,
                   ),
                 );
               },
@@ -241,7 +188,6 @@ class _FollowModeWrapperState extends State<_FollowModeWrapper> {
     if (!mounted) return;
     try {
       final config = widget.router.routerDelegate.currentConfiguration;
-      if (config == null) return;
       final loc = config.uri.toString();
       if (loc != _currentLocation) {
         setState(() => _currentLocation = loc);

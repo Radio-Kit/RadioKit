@@ -97,7 +97,7 @@ assets/fonts/
 !assets/fonts/.gitkeep
 flutter_*.png
 
-# AI Agent Specifics (Comprehensive)
+# AI Agent Specifics
 .agent/
 .antigravity/
 .gemini/
@@ -111,6 +111,7 @@ walkthrough.md
 task.md
 implementation_plan.md
 GEMINI.md
+plans/
 
 # -----------------------------------------------------------------------------
 # Patterns from flutter-library/example/.gitignore

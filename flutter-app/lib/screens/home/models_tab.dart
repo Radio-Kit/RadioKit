@@ -38,9 +38,8 @@ class ModelsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final settings = context.watch<SettingsProvider>();
     final screenWidth = MediaQuery.of(context).size.width;
-    final breakpoint = 600 * (settings.interfaceScale / 100.0);
+    const breakpoint = 600;
     final useWideLayout = screenWidth > breakpoint;
 
     return Scaffold(
@@ -318,9 +317,8 @@ class _ActiveLinkSectionState extends State<_ActiveLinkSection> {
 
   @override
   Widget build(BuildContext context) {
-    final settings = context.watch<SettingsProvider>();
     final deviceProvider = context.watch<DeviceProvider>();
-    final useWide = MediaQuery.of(context).size.width > 600 * (settings.interfaceScale / 100.0);
+    final useWide = MediaQuery.of(context).size.width > 600;
     final isConnected = deviceProvider.isConnected;
 
     if (!isConnected) {

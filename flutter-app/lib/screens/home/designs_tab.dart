@@ -11,7 +11,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 import '../../widgets/radiokit_app_bar.dart';
 import '../../providers/designs_provider.dart';
-import '../../providers/settings_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/model_card.dart';
 
@@ -58,14 +57,9 @@ class DesignsTab extends StatelessWidget {
                 ],
               ),
             )
-          : Consumer<SettingsProvider>(
-              builder: (context, settings, _) {
-                return _DesignsGrid(
-                  designs: designs,
-                  provider: provider,
-                  interfaceScale: settings.interfaceScale,
-                );
-              },
+          : _DesignsGrid(
+              designs: designs,
+              provider: provider,
             ),
     );
   }
@@ -183,18 +177,16 @@ class _PillButton extends StatelessWidget {
 class _DesignsGrid extends StatelessWidget {
   final List<SavedDesign> designs;
   final DesignsProvider provider;
-  final int interfaceScale;
 
   const _DesignsGrid({
     required this.designs,
     required this.provider,
-    required this.interfaceScale,
   });
 
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final breakpoint = 600 * (interfaceScale / 100.0);
+    const breakpoint = 600;
     final useWide = screenWidth > breakpoint;
 
     if (!useWide) {

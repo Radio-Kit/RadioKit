@@ -390,7 +390,6 @@ class RemoteAccessService {
       'showDemo': _settingsProvider.showDemo,
       'useFullscreen': _settingsProvider.useFullscreen,
       'enableDevTools': _settingsProvider.enableDevTools,
-      'interfaceScale': _settingsProvider.interfaceScale,
       'enableRemoteAccess': _settingsProvider.enableRemoteAccess,
       'followRemoteAccess': _settingsProvider.followRemoteAccess,
     });
@@ -406,9 +405,6 @@ class RemoteAccessService {
     }
     if (body.containsKey('enableDevTools')) {
       await _settingsProvider.setEnableDevTools(body['enableDevTools'] as bool);
-    }
-    if (body.containsKey('interfaceScale')) {
-      await _settingsProvider.setInterfaceScale(body['interfaceScale'] as int);
     }
     if (body.containsKey('enableRemoteAccess')) {
       await _settingsProvider.setEnableRemoteAccess(

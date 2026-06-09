@@ -8,21 +8,17 @@ class SettingsProvider with ChangeNotifier {
   static const _defaultShowDemo = true;
   static const _defaultUseFullscreen = false;
   static const _defaultEnableDevTools = true;
-  static const _defaultInterfaceScale = 100;
   static const _defaultEnableRemoteAccess = false;
   static const _defaultFollowRemoteAccess = false;
 
   bool _showDemo = _defaultShowDemo;
-  bool _useFullscreen = _defaultUseFullscreen;
-  bool _enableDevTools = _defaultEnableDevTools;
-  int _interfaceScale = _defaultInterfaceScale;
-  bool _enableRemoteAccess = _defaultEnableRemoteAccess;
+  bool _useFullscreen = _defaultUseFullscreen;    bool _enableDevTools = _defaultEnableDevTools;
+    bool _enableRemoteAccess = _defaultEnableRemoteAccess;
   bool _followRemoteAccess = _defaultFollowRemoteAccess;
 
   bool get showDemo => _showDemo;
   bool get useFullscreen => _useFullscreen;
   bool get enableDevTools => _enableDevTools;
-  int get interfaceScale => _interfaceScale;
   bool get enableRemoteAccess => _enableRemoteAccess;
   bool get followRemoteAccess => _followRemoteAccess;
 
@@ -54,15 +50,6 @@ class SettingsProvider with ChangeNotifier {
     }
   }
 
-  Future<void> setInterfaceScale(int value) async {
-    final clamped = value.clamp(50, 200);
-    if (_interfaceScale != clamped) {
-      _interfaceScale = clamped;
-      notifyListeners();
-      await _persist();
-    }
-  }
-
   Future<void> setEnableRemoteAccess(bool value) async {
     if (_enableRemoteAccess != value) {
       _enableRemoteAccess = value;
@@ -88,7 +75,6 @@ class SettingsProvider with ChangeNotifier {
         _showDemo = decoded['showDemo'] ?? _defaultShowDemo;
         _useFullscreen = decoded['useFullscreen'] ?? _defaultUseFullscreen;
         _enableDevTools = decoded['enableDevTools'] ?? _defaultEnableDevTools;
-        _interfaceScale = decoded['interfaceScale'] ?? _defaultInterfaceScale;
         _enableRemoteAccess = decoded['enableRemoteAccess'] ?? _defaultEnableRemoteAccess;
         _followRemoteAccess = decoded['followRemoteAccess'] ?? _defaultFollowRemoteAccess;
       }
@@ -105,7 +91,6 @@ class SettingsProvider with ChangeNotifier {
         'showDemo': _showDemo,
         'useFullscreen': _useFullscreen,
         'enableDevTools': _enableDevTools,
-        'interfaceScale': _interfaceScale,
         'enableRemoteAccess': _enableRemoteAccess,
         'followRemoteAccess': _followRemoteAccess,
       });
