@@ -49,8 +49,8 @@ class ModelsTab extends StatelessWidget {
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.brandOrange.withValues(alpha: 0.15),
               foregroundColor: AppColors.brandOrange,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              minimumSize: const Size(0, 32),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              minimumSize: const Size(0, 36),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
@@ -59,13 +59,13 @@ class ModelsTab extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.add_rounded, size: 16, color: AppColors.brandOrange),
-                const SizedBox(width: 4),
-                Text('Add device',
+                Icon(Icons.add_rounded, size: 18, color: AppColors.brandOrange),
+                const SizedBox(width: 6),
+                Text('+ Connect',
                     style: GoogleFonts.changa(
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
-                        fontSize: 11,
+                        fontSize: 13,
                         color: AppColors.brandOrange)),
               ],
             ),
@@ -81,22 +81,28 @@ class ModelsTab extends StatelessWidget {
 
   Widget _buildPortraitBody(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: EdgeInsets.zero,
       children: [
         const SizedBox(height: 12),
         _ActiveLinkSection(),
         const SizedBox(height: 16),
-        _PairedModelsList(),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: _PairedModelsList(),
+        ),
         const SizedBox(height: 32),
         Consumer<SettingsProvider>(
           builder: (context, settings, _) {
             if (!settings.showDemo) return const SizedBox.shrink();
-            return Column(
-              children: [
-                _buildSectionTag(context, 'INTERACTIVE_DEMO'),
-                _InteractiveDemoSection(),
-                const SizedBox(height: 32),
-              ],
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                children: [
+                  _buildSectionTag(context, 'INTERACTIVE_DEMO'),
+                  _InteractiveDemoSection(),
+                  const SizedBox(height: 32),
+                ],
+              ),
             );
           },
         ),
@@ -106,22 +112,28 @@ class ModelsTab extends StatelessWidget {
 
   Widget _buildLandscapeBody(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: EdgeInsets.zero,
       children: [
         const SizedBox(height: 12),
         _ActiveLinkSection(),
         const SizedBox(height: 16),
-        _PairedModelsList(),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: _PairedModelsList(),
+        ),
         const SizedBox(height: 32),
         Consumer<SettingsProvider>(
           builder: (context, settings, _) {
             if (!settings.showDemo) return const SizedBox.shrink();
-            return Column(
-              children: [
-                _buildSectionTag(context, 'INTERACTIVE_DEMO'),
-                _InteractiveDemoSection(),
-                const SizedBox(height: 32),
-              ],
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                children: [
+                  _buildSectionTag(context, 'INTERACTIVE_DEMO'),
+                  _InteractiveDemoSection(),
+                  const SizedBox(height: 32),
+                ],
+              ),
             );
           },
         ),
@@ -148,70 +160,94 @@ Widget _buildActiveLinkCard(
   final signal = dp.rssi ?? device.rssi;
   final description = dp.description;
 
-  return AspectRatio(
-    aspectRatio: 3 / 2,
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 200),
-      child: LayoutBuilder(
+  return ConstrainedBox(
+    constraints: const BoxConstraints(minHeight: 200),
+    child: LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth;
           // Responsive scaling based on available width
           final isNarrow = width < 400;
-          final paddingSize = (width / 15).clamp(12.0, 24.0);
+          final paddingSize = (width / 15).clamp(8.0, 16.0);
           final nameFontSize = (width / 14).clamp(16.0, 26.0);
-          final teleDividerPad = (width / 15).clamp(12.0, 24.0);
           final actionGap = (width / 15).clamp(12.0, 24.0);
-          final iconSize = isNarrow ? 24.0 : 32.0;
-          final iconContainerPad = isNarrow ? 8.0 : 12.0;
-          final gapIconName = isNarrow ? 12.0 : 20.0;
-          final gapNameTransport = isNarrow ? 8.0 : 16.0;
+          final iconSize = isNarrow ? 28.0 : 36.0;
+          final iconContainerPad = isNarrow ? 6.0 : 10.0;
+          final gapIconName = isNarrow ? 8.0 : 12.0;
 
           return Card(
         clipBehavior: Clip.antiAlias,
         color: Colors.white.withValues(alpha: 0.05),
-        child: Stack(
-          children: [
-            Positioned(
-              right: -20,
-              bottom: -20,
-              child: Icon(Icons.local_shipping_rounded,
-                  size: width < 300 ? 80 : 160,
-                  color: Colors.white.withValues(alpha: 0.03)),
-            ),
-            Padding(
+        child: Padding(
               padding: EdgeInsets.all(paddingSize),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // ── Header row: icon + name/desc + transport info ──
+                  // ── Header row: info + icon ──
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Icon
-                      Container(
-                        padding: EdgeInsets.all(iconContainerPad),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2A2A2A),
-                          border: Border.all(
-                              color: AppColors.brandOrange.withValues(alpha: 0.3)),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Icon(Icons.local_shipping_rounded,
-                            color: AppColors.brandOrange, size: iconSize),
-                      ),
-                      SizedBox(width: gapIconName),
-                      // Name & description
+                      // Connection info + name + description
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(device.displayName.toUpperCase(),
-                                style: GoogleFonts.exo2(
-                                    fontSize: nameFontSize,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: -0.5)),
-                            const SizedBox(height: 4),
+                            // Connection info row
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(transportIcon,
+                                      size: isNarrow ? 10 : 12,
+                                      color: AppColors.connected),
+                                  const SizedBox(width: 4),
+                                  Text(transportType,
+                                      style: GoogleFonts.inter(
+                                          color: AppColors.connected,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: isNarrow ? 10 : 12,
+                                          letterSpacing: 1.2)),
+                                  if (latencyMs != null) ...[
+                                    const SizedBox(width: 10),
+                                    Icon(Icons.timer_outlined,
+                                        size: 9,
+                                        color: AppColors.connected.withValues(alpha: 0.6)),
+                                    const SizedBox(width: 2),
+                                    Text('${latencyMs}ms',
+                                        style: GoogleFonts.jetBrainsMono(
+                                            color: AppColors.connected.withValues(alpha: 0.8),
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w600)),
+                                  ],
+                                  const SizedBox(width: 10),
+                                  Icon(Icons.signal_cellular_alt_rounded,
+                                      size: 9,
+                                      color: AppColors.connected.withValues(alpha: 0.6)),
+                                  const SizedBox(width: 2),
+                                  Text('${signal} dBm',
+                                      style: GoogleFonts.jetBrainsMono(
+                                          color: AppColors.connected.withValues(alpha: 0.8),
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w600)),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            // Device name (single line, scale down)
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(device.displayName.toUpperCase(),
+                                  style: GoogleFonts.exo2(
+                                      fontSize: nameFontSize,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: -0.5)),
+                            ),
+                            const SizedBox(height: 1),
+                            // Description (truncated)
                             Text(
                               description?.isNotEmpty == true
                                   ? description!.toUpperCase()
@@ -227,67 +263,22 @@ Widget _buildActiveLinkCard(
                           ],
                         ),
                       ),
-                      SizedBox(width: gapNameTransport),
-                      // Transport info (right side, stacked vertically)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(transportIcon,
-                                  size: isNarrow ? 10 : 12,
-                                  color: AppColors.connected),
-                              const SizedBox(width: 4),
-                              Text(transportType,
-                                  style: GoogleFonts.inter(
-                                      color: AppColors.connected,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: isNarrow ? 12 : 14,
-                                      letterSpacing: 1.2)),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          if (latencyMs != null) ...[
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.timer_outlined,
-                                    size: 9,
-                                    color: AppColors.connected.withValues(alpha: 0.6)),
-                                const SizedBox(width: 2),
-                                Text('${latencyMs}ms',
-                                    style: GoogleFonts.jetBrainsMono(
-                                        color: AppColors.connected.withValues(alpha: 0.8),
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.w600)),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                          ],
-                          Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.signal_cellular_alt_rounded,
-                                    size: 9,
-                                    color: AppColors.connected.withValues(alpha: 0.6)),
-                                const SizedBox(width: 2),
-                                Text('${signal} dBm',
-                                    style: GoogleFonts.jetBrainsMono(
-                                        color: AppColors.connected.withValues(alpha: 0.8),
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.w600)),
-                              ],
-                            ),
-                        ],
+                      SizedBox(width: gapIconName),
+                      // Icon
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2A2A2A),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Icon(Icons.local_shipping_rounded,
+                            color: AppColors.brandOrange, size: 36),
                       ),
                     ],
                   ),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: teleDividerPad),
-                    child: const Divider(height: 1, color: Colors.white12),
-                  ),
+                  const SizedBox(height: 8),
                   // ── Telemetry ──────────────────────────────────────────
                   _buildActiveLinkTelemetry(dp, device),
                   SizedBox(height: actionGap),
@@ -296,11 +287,8 @@ Widget _buildActiveLinkCard(
                 ],
               ),
             ),
-          ],
-        ),
         );
       },
-    ),
     ),
   );
 }
@@ -441,6 +429,8 @@ Widget _buildActiveLinkActions(
       Expanded(
         child: _ActiveLinkButton(
           label: 'OPEN_CONTROLLER',
+          shortLabel: 'OPEN',
+          icon: Icons.gamepad_rounded,
           onTap: () => context.go('/control'),
           height: buttonHeight,
           borderRadius: borderRadius,
@@ -460,6 +450,7 @@ Widget _buildActiveLinkActions(
 class _ActiveLinkButton extends StatelessWidget {
   final IconData? icon;
   final String? label;
+  final String? shortLabel;
   final VoidCallback? onTap;
   final double height;
   final double borderRadius;
@@ -467,6 +458,7 @@ class _ActiveLinkButton extends StatelessWidget {
   const _ActiveLinkButton({
     this.icon,
     this.label,
+    this.shortLabel,
     required this.onTap,
     required this.height,
     required this.borderRadius,
@@ -489,14 +481,37 @@ class _ActiveLinkButton extends StatelessWidget {
           padding: EdgeInsets.zero,
         ),
         onPressed: onTap,
-        child: icon != null
-            ? Icon(icon, size: 20)
-            : Text(label ?? '',
-                style: GoogleFonts.changa(
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2,
-                    fontSize: 13,
-                    color: isDisconnect ? Colors.white : Colors.black)),
+        child: icon != null && label != null
+            ? LayoutBuilder(
+                builder: (context, constraints) {
+                  final showShort = constraints.maxWidth < 180;
+                  final displayLabel = showShort ? (shortLabel ?? label) : label;
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(displayLabel ?? '',
+                          style: GoogleFonts.changa(
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 1.2,
+                              fontSize: 20,
+                              color: isDisconnect ? Colors.white : Colors.black)),
+                      if (showShort) ...[
+                        const SizedBox(width: 6),
+                        Icon(icon, size: 26),
+                      ],
+                    ],
+                  );
+                },
+              )
+            : icon != null
+                ? Icon(icon, size: 28)
+                : Text(label ?? '',
+                    style: GoogleFonts.changa(
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2,
+                        fontSize: 20,
+                        color: isDisconnect ? Colors.white : Colors.black)),
       ),
     );
   }
@@ -3308,13 +3323,14 @@ class _TelemetryItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(label,
             style: const TextStyle(
                 color: Colors.white38, fontSize: 9, fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
         Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
@@ -3402,6 +3418,7 @@ class _PairedModelsListState extends State<_PairedModelsList> {
       state: connectionState,
       onReconnect: () => _handleReconnect(device),
       onDismissError: () => _clearStatus(device.id),
+      onTap: () => _handleReconnect(device),
     );
   }
 
@@ -3519,11 +3536,13 @@ class _PairedModelCard extends StatelessWidget {
   final _PairedModelConnectionState state;
   final VoidCallback onReconnect;
   final VoidCallback onDismissError;
+  final VoidCallback? onTap;
 
   const _PairedModelCard({
     required this.state,
     required this.onReconnect,
     required this.onDismissError,
+    this.onTap,
   });
 
   @override
@@ -3537,115 +3556,88 @@ class _PairedModelCard extends StatelessWidget {
     final isFailed = status == 'failed';
     final isConnected = status == 'connected';
 
-    Widget? statusWidget;
-
-    if (isBusy) {
-      statusWidget = const SizedBox(
-        width: 14,
-        height: 14,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      );
-    } else if (isConnected) {
-      statusWidget = const Icon(Icons.check_circle_rounded, size: 16, color: AppColors.connected);
-    } else if (isFailed) {
-      statusWidget = const Icon(Icons.error_rounded, size: 16, color: Colors.redAccent);
-    }
-
     return ModelCard(
-      aspectRatio: 4 / 1,
-      cardColor: isFailed
-          ? Colors.redAccent.withValues(alpha: 0.08)
-          : isConnected
-              ? AppColors.connected.withValues(alpha: 0.08)
-              : null,
+      onTap: onTap,
       leading: Container(
-        padding: const EdgeInsets.all(6),
+        padding: const EdgeInsets.all(4),
+        width: 60,
+        height: 60,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(8),
+          color: const Color(0xFF2A2A2A),
+          borderRadius: BorderRadius.circular(4),
         ),
-        child: statusWidget ??
-            Icon(connectionIcon,
-                color: AppColors.brandOrange.withValues(alpha: 0.7), size: 18),
+        child: Center(
+          child: Icon(connectionIcon,
+              color: AppColors.brandOrange.withValues(alpha: 0.7), size: 36),
+        ),
       ),
       title: FittedBox(
         fit: BoxFit.scaleDown,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              (device.configName?.isNotEmpty == true
-                      ? device.configName!
-                      : device.name)
-                  .toUpperCase(),
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1,
-                color: isFailed ? Colors.redAccent : null,
-                fontSize: 12,
-              ),
-            ),
-            const SizedBox(width: 6),
-            if (!isBusy && !isConnected && !isFailed)
-              Icon(connectionIcon,
-                  size: 12,
-                  color: AppColors.brandOrange.withValues(alpha: 0.5)),
-          ],
+        alignment: Alignment.centerLeft,
+        child: Text(
+          (device.configName?.isNotEmpty == true
+                  ? device.configName!
+                  : device.name)
+              .toUpperCase(),
+          style: GoogleFonts.exo2(
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.5,
+            fontSize: 18,
+          ),
         ),
       ),
       subtitle: state.message != null
           ? Text(
               state.message!,
               style: TextStyle(
-                color: isFailed ? Colors.redAccent : Colors.white54,
-                fontSize: 10,
+                color: AppColors.brandOrange.withValues(alpha: 0.7),
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             )
           : Text(
               device.description?.isNotEmpty == true
-                  ? device.description!
+                  ? device.description!.toUpperCase()
                   : 'NO_DESCRIPTION_PROVIDED',
-              style: const TextStyle(color: Colors.white38, fontSize: 10),
+              style: TextStyle(
+                color: AppColors.brandOrange.withValues(alpha: 0.7),
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-      trailing: isFailed
-          ? FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    height: 28,
-                    child: TextButton(
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        foregroundColor: AppColors.brandOrange,
-                        textStyle: const TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      onPressed: onReconnect,
-                      child: const Text('RETRY'),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 14),
-                    visualDensity: VisualDensity.compact,
-                    constraints: const BoxConstraints(),
-                    onPressed: onDismissError,
-                  ),
-                ],
-              ),
+      trailing: isBusy
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : isBusy
-              ? const SizedBox.shrink()
-              : const Icon(Icons.chevron_right_rounded, size: 18),
-      onTap: isBusy ? null : (isFailed ? onReconnect : onReconnect),
+          : isFailed
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.replay_rounded, size: 18, color: Colors.redAccent),
+                      visualDensity: VisualDensity.compact,
+                      constraints: const BoxConstraints(),
+                      onPressed: onReconnect,
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close_rounded, size: 14, color: Colors.redAccent),
+                      visualDensity: VisualDensity.compact,
+                      constraints: const BoxConstraints(),
+                      onPressed: onDismissError,
+                    ),
+                  ],
+                )
+              : Icon(connectionIcon,
+                  size: 18,
+                  color: AppColors.connected),
     );
   }
   }
@@ -3655,85 +3647,114 @@ class _PairedModelCard extends StatelessWidget {
 class _InteractiveDemoSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: _buildDemoTile(
-                icon: Icons.widgets_rounded,
-                title: 'WIDGETS_DEMO',
-                subtitle: 'Explore all available widget types',
-                onTap: () async {
-                  final dp = context.read<DeviceProvider>();
-                  await dp.loadDemo('WIDGETS_DEMO');
-                  if (context.mounted) context.go('/control');
-                },
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildDemoTile(
-                icon: Icons.sports_esports_rounded,
-                title: 'RC_CONTROLLER',
-                subtitle: 'Simulated remote control interface',
-                onTap: () async {
-                  final dp = context.read<DeviceProvider>();
-                  await dp.loadDemo('RC_CONTROLLER');
-                  if (context.mounted) context.go('/control');
-                },
-              ),
-            ),
-          ],
-        ),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: _buildDemoTile(
-                icon: Icons.dashboard_rounded,
-                title: 'IOT_DASHBOARD',
-                subtitle: 'IoT monitoring and control panel',
-                onTap: () async {
-                  final dp = context.read<DeviceProvider>();
-                  await dp.loadDemo('IOT_DASHBOARD');
-                  if (context.mounted) context.go('/control');
-                },
-              ),
-            ),
-            const Expanded(child: SizedBox.shrink()),
-          ],
-        ),
-      ],
-    );
+    final useWide = MediaQuery.of(context).size.width > 600;
+
+    final demos = [
+      _DemoTile(
+        icon: Icons.widgets_rounded,
+        title: 'WIDGETS_DEMO',
+        subtitle: 'Explore all available widget types',
+        onTap: () async {
+          final dp = context.read<DeviceProvider>();
+          await dp.loadDemo('WIDGETS_DEMO');
+          if (context.mounted) context.go('/control');
+        },
+      ),
+      _DemoTile(
+        icon: Icons.sports_esports_rounded,
+        title: 'RC_CONTROLLER',
+        subtitle: 'Simulated remote control interface',
+        onTap: () async {
+          final dp = context.read<DeviceProvider>();
+          await dp.loadDemo('RC_CONTROLLER');
+          if (context.mounted) context.go('/control');
+        },
+      ),
+      _DemoTile(
+        icon: Icons.dashboard_rounded,
+        title: 'IOT_DASHBOARD',
+        subtitle: 'IoT monitoring and control panel',
+        onTap: () async {
+          final dp = context.read<DeviceProvider>();
+          await dp.loadDemo('IOT_DASHBOARD');
+          if (context.mounted) context.go('/control');
+        },
+      ),
+    ];
+
+    if (useWide)
+      return _buildLandscapeGrid(demos);
+    else
+      return Column(children: demos.map((demo) => _buildCard(demo)).toList());
   }
 
-  Widget _buildDemoTile({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
+  Widget _buildCard(_DemoTile demo) {
     return ModelCard(
-      aspectRatio: 4 / 1,
       leading: Container(
-        padding: const EdgeInsets.all(6),
+        padding: const EdgeInsets.all(4),
+        width: 60,
+        height: 60,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(8),
+          color: const Color(0xFF2A2A2A),
+          borderRadius: BorderRadius.circular(4),
         ),
-        child: Icon(icon, color: AppColors.brandOrange, size: 18),
+        child: Center(
+          child: Icon(demo.icon, color: AppColors.brandOrange, size: 36),
+        ),
       ),
-      title: Text(title,
-          style: const TextStyle(
-              fontWeight: FontWeight.bold, letterSpacing: 1, fontSize: 12)),
-      subtitle: Text(subtitle,
-          style: const TextStyle(color: Colors.white54, fontSize: 10),
+      title: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Text(demo.title.toUpperCase(),
+            style: GoogleFonts.exo2(
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.5,
+                fontSize: 18)),
+      ),
+      subtitle: Text(demo.subtitle.toUpperCase(),
+          style: TextStyle(
+              color: AppColors.brandOrange.withValues(alpha: 0.7),
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5),
           maxLines: 1,
           overflow: TextOverflow.ellipsis),
       trailing: const Icon(Icons.chevron_right_rounded, size: 18),
-      onTap: onTap,
+      onTap: demo.onTap,
     );
   }
+
+  Widget _buildLandscapeGrid(List<_DemoTile> demos) {
+    final rows = <Widget>[];
+    for (int i = 0; i < demos.length; i += 2) {
+      rows.add(
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _buildCard(demos[i])),
+            const SizedBox(width: 12),
+            if (i + 1 < demos.length)
+              Expanded(child: _buildCard(demos[i + 1]))
+            else
+              const Expanded(child: SizedBox.shrink()),
+          ],
+        ),
+      );
+    }
+    return Column(children: rows);
+  }
+}
+
+class _DemoTile {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _DemoTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
 }

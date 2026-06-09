@@ -149,21 +149,24 @@ class _PillButton extends StatelessWidget {
               width: 1,
             ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 14, color: Colors.white54),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: GoogleFonts.changa(
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
-                  fontSize: 11,
-                  color: Colors.white54,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 14, color: Colors.white54),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: GoogleFonts.changa(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                    fontSize: 11,
+                    color: Colors.white54,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -286,29 +289,38 @@ class _DesignCard extends StatelessWidget {
     );
 
     return ModelCard(
-      centerContent: true,
-      aspectRatio: 3 / 1,
       leading: Container(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(4),
+        width: 60,
+        height: 60,
         decoration: BoxDecoration(
-          color: AppColors.brandOrange.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(6),
+          color: const Color(0xFF2A2A2A),
+          borderRadius: BorderRadius.circular(4),
         ),
-        child: Icon(LucideIcons.palette, color: AppColors.brandOrange, size: 24),
+        child: Center(
+          child: Icon(LucideIcons.palette, color: AppColors.brandOrange, size: 36),
+        ),
       ),
-      title: Text(
-        design.name.toUpperCase(),
-        style: GoogleFonts.exo2(
-          fontSize: 16,
-          fontWeight: FontWeight.w900,
-          letterSpacing: -0.3,
+      title: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Text(
+          design.name.toUpperCase(),
+          style: GoogleFonts.exo2(
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.5,
+          ),
         ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
       ),
       subtitle: Text(
-        formattedDate,
-        style: const TextStyle(color: Colors.white38, fontSize: 11),
+        formattedDate.toUpperCase(),
+        style: TextStyle(
+          color: AppColors.brandOrange.withValues(alpha: 0.7),
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
+        ),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),

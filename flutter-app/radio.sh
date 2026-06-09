@@ -41,13 +41,13 @@ while true; do
       echo "D-Bus: host socket not found (BLE may not work)"
     fi
 
-    exec flutter run -d linux --debug --no-pub
+    exec flutter run -d linux --debug
   fi
 
   # ── Web ──────────────────────────────────────────────────────────────────
   if [ "$target" = "Web" ]; then
     fuser -k 8080/tcp 2>/dev/null || true
-    exec flutter run -d chrome --web-port 8080 --web-hostname 127.0.0.1 --debug --no-pub
+    exec flutter run -d chrome --web-port 8080 --web-hostname 127.0.0.1 --debug
   fi
 
   # ── Android ──────────────────────────────────────────────────────────────
@@ -96,7 +96,7 @@ while true; do
       echo "APK: build/app/outputs/flutter-apk/app-debug.apk"
       ;;
     3)
-      exec flutter run -d "$DEVICE_ID" --debug --no-pub
+      exec flutter run -d "$DEVICE_ID" --debug
       ;;
     *)
       flutter build apk --debug
