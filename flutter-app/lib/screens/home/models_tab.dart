@@ -170,8 +170,6 @@ Widget _buildActiveLinkCard(
           final paddingSize = (width / 15).clamp(8.0, 16.0);
           final nameFontSize = (width / 14).clamp(16.0, 26.0);
           final actionGap = (width / 15).clamp(12.0, 24.0);
-          final iconSize = isNarrow ? 28.0 : 36.0;
-          final iconContainerPad = isNarrow ? 6.0 : 10.0;
           final gapIconName = isNarrow ? 8.0 : 12.0;
 
           return Card(
@@ -3554,7 +3552,6 @@ class _PairedModelCard extends StatelessWidget {
     final status = state.status;
     final isBusy = status == 'scanning' || status == 'connecting';
     final isFailed = status == 'failed';
-    final isConnected = status == 'connected';
 
     return ModelCard(
       onTap: onTap,
