@@ -75,6 +75,31 @@ void RadioKitClass::begin() {
     _nvsActive = RKNvs::init();
 
     if (_nvsActive) {
+        // ── Check for deferred erase from OTA ──────────────────────
+        uint8_t pendingErase = 0;
+        if (RKNvs::readU8(RK_NVS_KEY_PENDING_ERASE, &pendingErase) &&
+            pendingErase != RK_PENDING_ERASE_NONE) {
+            Serial.printf("BOOT: Pending erase flag=%d — performing erase...\n", pendingErase);
+
+            if (pendingErase == RK_PENDING_ERASE_BOTH || pendingErase == RK_PENDING_ERASE_NVS) {
+                Serial.println("BOOT: Erasing NVS config...");
+                RKNvs::eraseAll();
+                RKNvs::commit();
+            }
+
+            if (pendingErase == RK_PENDING_ERASE_BOTH || pendingErase == RK_PENDING_ERASE_FS) {
+                Serial.println("BOOT: Formatting LittleFS...");
+                RKFs::format();
+            }
+
+            RKNvs::writeU8(RK_NVS_KEY_PENDING_ERASE, RK_PENDING_ERASE_NONE);
+            RKNvs::commit();
+
+            Serial.println("BOOT: Erase complete — rebooting...");
+            delay(100);
+            esp_restart();
+        }
+
         // Check if NVS already has our config keys
         char testName[RADIOKIT_MAX_NAME + 1];
         bool hasExisting = RKNvs::readString(RK_NVS_KEY_NAME, testName, sizeof(testName));
@@ -737,10 +762,11 @@ void RadioKitClass::_onOtaPacket(uint8_t subCmd,
     RK_DEBUG_PRINT("RK: Dispatching OTA %s (0x%02X), len %d\n",
                    rk_otaCmdName(subCmd), subCmd, payloadLen);
     switch (subCmd) {
-        case RK_OTA_CMD_BEGIN:  s_instance->_handleOtaBegin(payload, payloadLen); break;
-        case RK_OTA_CMD_CHUNK:  s_instance->_handleOtaChunk(payload, payloadLen); break;
-        case RK_OTA_CMD_END:    s_instance->_handleOtaEnd(payload, payloadLen);   break;
-        case RK_OTA_CMD_ABORT:  s_instance->_handleOtaAbort();                    break;
+        case RK_OTA_CMD_BEGIN:          s_instance->_handleOtaBegin(payload, payloadLen); break;
+        case RK_OTA_CMD_CHUNK:          s_instance->_handleOtaChunk(payload, payloadLen); break;
+        case RK_OTA_CMD_END:            s_instance->_handleOtaEnd(payload, payloadLen);   break;
+        case RK_OTA_CMD_ABORT:          s_instance->_handleOtaAbort();                    break;
+        case RK_OTA_CMD_SET_ERASE_FLAG: s_instance->_handleOtaSetEraseFlag(payload, payloadLen); break;
         default:
             Serial.printf("RK: Unknown OTA sub-command 0x%02X\n", subCmd);
             break;
@@ -767,16 +793,7 @@ void RadioKitClass::_handleOtaBegin(const uint8_t* payload, uint16_t len) {
                            ((uint32_t)payload[2] << 16) |
                            ((uint32_t)payload[3] << 24);
 
-    // ── Parse optional flags byte ───────────────────────────────────
-    // Backward compatible: if len == 4, no flags (default behavior).
-    // If len >= 5, byte 4 contains flags (bit 0 = erase all).
-    bool eraseAll = false;
-    if (len >= 5) {
-        uint8_t flags = payload[4];
-        eraseAll = (flags & RK_OTA_FLAG_ERASE_ALL) != 0;
-    }
-
-    RK_DEBUG_PRINT("OTA: Begin firmware update, size=%u eraseAll=%d\n", firmwareSize, eraseAll);
+    RK_DEBUG_PRINT("OTA: Begin firmware update, size=%u\n", firmwareSize);
 
     // Reset progress tracking for fresh OTA session
     s_otaLastProgressPct = 0;
@@ -787,14 +804,6 @@ void RadioKitClass::_handleOtaBegin(const uint8_t* payload, uint16_t len) {
     // Abort any stale OTA in progress
     Update.abort();
     s_otaBytesWritten = 0;
-
-    // If erase all requested, erase NVS before OTA so the device
-    // boots with factory defaults after the update.
-    if (eraseAll && _nvsActive) {
-        Serial.println("OTA: Erase all requested — clearing NVS config...");
-        RKNvs::eraseAll();
-        RKNvs::commit();
-    }
 
     if (!Update.begin(firmwareSize)) {
         uint8_t err = RK_OTA_ERR_NO_SPACE;
@@ -974,6 +983,40 @@ void RadioKitClass::_handleOtaAbort() {
     Serial.println("OTA: Aborted — partition released, ready for new OTA");
 #else
     Serial.println("OTA: Abort ignored — OTA not supported");
+#endif
+}
+
+void RadioKitClass::_handleOtaSetEraseFlag(const uint8_t* payload, uint16_t len) {
+#if RK_HAS_OTA
+    if (len < 1) {
+        uint8_t err = RK_OTA_ERR_INVALID_STATE;
+        uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
+        _sendOtaFrame(rk_otaTxBuf(), frameLen);
+        return;
+    }
+
+    uint8_t eraseMode = payload[0];
+    if (eraseMode > RK_PENDING_ERASE_FS) {
+        uint8_t err = RK_OTA_ERR_INVALID_STATE;
+        uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
+        _sendOtaFrame(rk_otaTxBuf(), frameLen);
+        return;
+    }
+
+    if (_nvsActive) {
+        RKNvs::writeU8(RK_NVS_KEY_PENDING_ERASE, eraseMode);
+        RKNvs::commit();
+        Serial.printf("OTA: Erase flag set to %d in NVS\n", eraseMode);
+    }
+
+    uint8_t err = RK_OTA_ERR_OK;
+    uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
+    _sendOtaFrame(rk_otaTxBuf(), frameLen);
+#else
+    uint8_t err = RK_OTA_ERR_NOT_SUPPORTED;
+    uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
+    _sendOtaFrame(rk_otaTxBuf(), frameLen);
+    (void)payload; (void)len;
 #endif
 }
 

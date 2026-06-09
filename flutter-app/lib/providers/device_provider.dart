@@ -1559,7 +1559,7 @@ class DeviceProvider extends ChangeNotifier {
 
   /// Upload firmware to the device via OTA. Returns true on success.
   /// [firmware] contains the raw firmware binary bytes.
-  /// [eraseAll] if true, erases NVS config before OTA.
+  /// [eraseAll] if true, sets a deferred erase flag (NVS + FS) in the device.
   /// [onProgress] is called with (bytesSent, totalBytes) during upload.
   /// Throws on error.
   Future<bool> uploadFirmware(
@@ -1578,13 +1578,37 @@ class DeviceProvider extends ChangeNotifier {
     // 1. Compute CRC32 of the full firmware
     int crc32 = _computeCrc32(firmware);
 
-    // 2. Send OTA_BEGIN
+    // 2. Set erase flag before OTA if requested
+    if (eraseAll) {
+      final flagCompleter = Completer<int>();
+      _otaOperationCompleter = flagCompleter;
+      try {
+        await _writePacket(OtaProtocolService.buildSetEraseFlag(1)); // 1 = both NVS + FS
+      } catch (e) {
+        _otaOperationCompleter = null;
+        throw Exception('Failed to send SET_ERASE_FLAG: $e');
+      }
+      int flagResult;
+      try {
+        flagResult = await flagCompleter.future.timeout(
+          const Duration(seconds: 5));
+      } on TimeoutException catch (_) {
+        _otaOperationCompleter = null;
+        throw Exception('SET_ERASE_FLAG timed out');
+      }
+      if (flagResult != kOtaErrOk) {
+        _otaOperationCompleter = null;
+        throw Exception('SET_ERASE_FLAG failed: ${otaErrorName(flagResult)}');
+      }
+    }
+
+    // 3. Send OTA_BEGIN
     final beginCompleter = Completer<int>();
     _otaOperationCompleter = beginCompleter;
     _otaProgressCallback = onProgress;
 
     try {
-      await _writePacket(OtaProtocolService.buildBegin(firmware.length, eraseAll: eraseAll));
+      await _writePacket(OtaProtocolService.buildBegin(firmware.length));
     } catch (e) {
       _otaOperationCompleter = null;
       _otaProgressCallback = null;

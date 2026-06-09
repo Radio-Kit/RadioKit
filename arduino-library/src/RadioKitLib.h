@@ -201,6 +201,7 @@ private:
     void _handleOtaChunk(const uint8_t* payload, uint16_t len);
     void _handleOtaEnd(const uint8_t* payload, uint16_t len);
     void _handleOtaAbort();
+    void _handleOtaSetEraseFlag(const uint8_t* payload, uint16_t len);
     void _sendOtaFrame(const uint8_t* buf, uint16_t len);
 
     // NVS-backed buffers (override compile-time RK_Config values)

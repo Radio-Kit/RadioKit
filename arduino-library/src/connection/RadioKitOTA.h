@@ -17,6 +17,7 @@
  *   0x02  OTA_CHUNK      [OFFSET(4 LE)][...DATA(N)]         → OTA_ACK
  *   0x03  OTA_END        [CRC32(4 LE)]                      → OTA_ACK
  *   0x04  OTA_ABORT      (empty)                             → (no ack)
+ *   0x05  OTA_SET_ERASE  [MODE(1)]                           → OTA_ACK
  *
  * Sub-commands (MCU → App):
  *   0x81  OTA_ACK        [ERROR_CODE(1)]
@@ -45,14 +46,12 @@
 #define RK_OTA_MAX_PAYLOAD      4096    // 4 KB per chunk
 #define RK_OTA_RX_BUFFER_SIZE   (RK_OTA_HEADER_SIZE + RK_OTA_MAX_PAYLOAD)
 
-// ── OTA flags byte (appended to OTA_BEGIN payload) ─────────────────────────
-#define RK_OTA_FLAG_ERASE_ALL       (1 << 0)  ///< Erase NVS + flash before update
-
 // ── Sub-commands (App → MCU) ────────────────────────────────────────────────
 #define RK_OTA_CMD_BEGIN            0x01
 #define RK_OTA_CMD_CHUNK            0x02
 #define RK_OTA_CMD_END              0x03
 #define RK_OTA_CMD_ABORT            0x04
+#define RK_OTA_CMD_SET_ERASE_FLAG   0x05
 
 // ── Sub-commands (MCU → App) ────────────────────────────────────────────────
 #define RK_OTA_RESP_ACK             0x81

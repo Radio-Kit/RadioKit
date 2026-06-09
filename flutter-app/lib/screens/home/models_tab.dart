@@ -1890,7 +1890,7 @@ class _FirmwareTabContentState extends State<_FirmwareTabContent> {
                                   color: Colors.white,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600)),
-                          Text('Clear NVS config + entire flash after OTA',
+                          Text('Reset to factory defaults after reboot (NVS + filesystem)',
                               style: TextStyle(
                                   color: Colors.white38,
                                   fontSize: 10)),

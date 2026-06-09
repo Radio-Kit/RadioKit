@@ -24,6 +24,13 @@
 #define RK_NVS_KEY_DESC     "rk_desc"
 #define RK_NVS_KEY_PWD      "rk_pwd"
 #define RK_NVS_KEY_ADMIN_PWD  "rk_admin_pwd"
+#define RK_NVS_KEY_PENDING_ERASE  "rk_pend_erase"
+
+// ── Pending erase mode values (stored in rk_pend_erase) ──────────────────────
+#define RK_PENDING_ERASE_NONE     0  ///< No erase — cleared after operation completes
+#define RK_PENDING_ERASE_BOTH     1  ///< Erase NVS config + format LittleFS
+#define RK_PENDING_ERASE_NVS      2  ///< Erase NVS config only
+#define RK_PENDING_ERASE_FS       3  ///< Format LittleFS only
 
 // ── Max string sizes (copied from RadioKitConfig.h to avoid circular include) ─
 #define RK_NVS_MAX_NAME     32
@@ -78,6 +85,22 @@ public:
      * @return true on success
      */
     static bool eraseAll();
+
+    /**
+     * Read a uint8 value from NVS.
+     * @param key   NVS key
+     * @param out   Destination
+     * @return true if the key existed and was read successfully
+     */
+    static bool readU8(const char* key, uint8_t* out);
+
+    /**
+     * Write a uint8 value to NVS.
+     * @param key   NVS key
+     * @param val   Value to write
+     * @return true on success
+     */
+    static bool writeU8(const char* key, uint8_t val);
 
     /// Close the NVS namespace handle. init() must be called again after this.
     static void close();

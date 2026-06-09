@@ -136,13 +136,14 @@ uint16_t rk_otaTxBufSize() { return sizeof(s_otaTxBuf); }
 
 const char* rk_otaCmdName(uint8_t subCmd) {
     switch (subCmd) {
-        case RK_OTA_CMD_BEGIN:       return "OTA_BEGIN";
-        case RK_OTA_CMD_CHUNK:       return "OTA_CHUNK";
-        case RK_OTA_CMD_END:         return "OTA_END";
-        case RK_OTA_CMD_ABORT:       return "OTA_ABORT";
-        case RK_OTA_RESP_ACK:        return "OTA_ACK";
-        case RK_OTA_RESP_PROGRESS:   return "OTA_PROGRESS";
-        default:                     return "OTA_UNKNOWN";
+        case RK_OTA_CMD_BEGIN:          return "OTA_BEGIN";
+        case RK_OTA_CMD_CHUNK:          return "OTA_CHUNK";
+        case RK_OTA_CMD_END:            return "OTA_END";
+        case RK_OTA_CMD_ABORT:          return "OTA_ABORT";
+        case RK_OTA_CMD_SET_ERASE_FLAG: return "OTA_SET_ERASE";
+        case RK_OTA_RESP_ACK:           return "OTA_ACK";
+        case RK_OTA_RESP_PROGRESS:      return "OTA_PROGRESS";
+        default:                        return "OTA_UNKNOWN";
     }
 }
 

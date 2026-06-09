@@ -119,6 +119,32 @@ bool RKNvs::eraseAll() {
 #endif
 }
 
+bool RKNvs::readU8(const char* key, uint8_t* out) {
+    if (!s_open || !key || !out) return false;
+#if defined(ESP32)
+    nvs_handle_t handle = (nvs_handle_t)s_handle;
+    esp_err_t err = nvs_get_u8(handle, key, out);
+    if (err == ESP_ERR_NVS_NOT_FOUND) return false;
+    if (err != ESP_OK) return false;
+    return true;
+#else
+    (void)key; (void)out;
+    return false;
+#endif
+}
+
+bool RKNvs::writeU8(const char* key, uint8_t val) {
+    if (!s_open || !key) return false;
+#if defined(ESP32)
+    nvs_handle_t handle = (nvs_handle_t)s_handle;
+    esp_err_t err = nvs_set_u8(handle, key, val);
+    return (err == ESP_OK);
+#else
+    (void)key; (void)val;
+    return false;
+#endif
+}
+
 void RKNvs::close() {
 #if defined(ESP32)
     if (s_open) {
