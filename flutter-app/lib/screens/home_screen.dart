@@ -53,11 +53,6 @@ class _HomeScreenState extends State<HomeScreen> {
         label: 'MODELS',
       ),
       const _NavItem(
-        icon: Icons.add_circle_outline_rounded,
-        activeIcon: Icons.add_circle_rounded,
-        label: 'PAIR',
-      ),
-      const _NavItem(
         icon: Icons.create_new_folder_outlined,
         activeIcon: Icons.create_new_folder_rounded,
         label: 'PROJECTS',
@@ -77,12 +72,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   int _resolvedIndex(bool showDevTools) {
-    final raw = widget.navigationShell.currentIndex;
-    return showDevTools ? raw : (raw >= 3 ? raw : raw);
+    final branchIdx = widget.navigationShell.currentIndex;
+    if (showDevTools) return branchIdx;
+    // Without DEV_TOOLS: branch 0→0, 1→1, 2(hidden), 3→2
+    if (branchIdx >= 2) return branchIdx - 1;
+    return branchIdx;
   }
 
   int _branchIndex(int visibleIndex) {
-    if (visibleIndex < 3) return visibleIndex;
+    if (visibleIndex < 2) return visibleIndex;
     return visibleIndex + 1;
   }
 

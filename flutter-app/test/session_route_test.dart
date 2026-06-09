@@ -87,14 +87,14 @@ void main() {
       );
     });
 
-    test('pairing paths map to /pair', () {
+    test('pairing paths map to /models', () {
       expect(
         RemoteAccessService.testOnlyFollowRoute('/api/pair/scan'),
-        '/pair',
+        '/models',
       );
       expect(
         RemoteAccessService.testOnlyFollowRoute('/api/pair/devices'),
-        '/pair',
+        '/models',
       );
     });
 

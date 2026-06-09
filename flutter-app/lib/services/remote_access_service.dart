@@ -113,7 +113,7 @@ class RemoteAccessService {
         // Follow-mode route mapping
         if (_onFollowEvent != null && response.statusCode >= 200 && response.statusCode < 300) {
           final route = _followRoute(path);
-          if (route != null) _onFollowEvent?.call(route);
+          if (route != null) _onFollowEvent(route);
         }
 
         return response;
@@ -122,7 +122,7 @@ class RemoteAccessService {
   }
 
   static String? _followRoute(String path) {
-    if (path.startsWith('/api/pair/')) return '/pair';
+    if (path.startsWith('/api/pair/')) return '/models';
     if (path.startsWith('/api/connection/connect')) return '/control';
     if (path.startsWith('/api/connection/disconnect')) return '/models';
     if (path.startsWith('/api/connection/reconnect')) return '/models';

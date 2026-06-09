@@ -16,6 +16,7 @@ import '../../providers/serial_provider.dart';
 import '../../providers/console_provider.dart';
 import '../../services/secure_storage_service.dart';
 import '../../models/console_entry.dart';
+import '../../widgets/console_log_view.dart';
 import '../../models/device_info.dart';
 import '../../models/fs_entry.dart';
 import '../../models/fs_info.dart';
@@ -30,46 +31,279 @@ import '../devtools/filesystem/fs_action_sheet.dart';
 import '../devtools/filesystem/file_editor_cache.dart';
 import '../devtools/filesystem/file_editor_dialog.dart';
 import '../../widgets/device_settings_dialog.dart';
+import '../../widgets/model_card.dart';
 
 class ModelsTab extends StatelessWidget {
   const ModelsTab({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final settings = context.watch<SettingsProvider>();
+    final screenWidth = MediaQuery.of(context).size.width;
+    final breakpoint = 600 * (settings.interfaceScale / 100.0);
+    final useWideLayout = screenWidth > breakpoint;
+
     return Scaffold(
       appBar: RadioKitAppBar(
         actions: [
-          IconButton(
-            icon: const Icon(Icons.search_rounded, size: 20),
-            onPressed: () {},
+          FilledButton.tonal(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.brandOrange.withValues(alpha: 0.15),
+              foregroundColor: AppColors.brandOrange,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              minimumSize: const Size(0, 32),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            onPressed: () => _showPairBottomSheet(context),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.add_rounded, size: 16, color: AppColors.brandOrange),
+                const SizedBox(width: 4),
+                Text('Add device',
+                    style: GoogleFonts.changa(
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                        fontSize: 11,
+                        color: AppColors.brandOrange)),
+              ],
+            ),
           ),
           const SizedBox(width: 8),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        children: [
-          const SizedBox(height: 24),
-          _ActiveLinkSection(),
-          const SizedBox(height: 32),
-          _PairedModelsList(),
-          const SizedBox(height: 32),
-          Consumer<SettingsProvider>(
-            builder: (context, settings, _) {
-              if (!settings.showDemo) return const SizedBox.shrink();
-              return Column(
-                children: [
-                  _buildSectionTag(context, 'INTERACTIVE_DEMO'),
-                  _InteractiveDemoSection(),
-                  const SizedBox(height: 32),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
+      body: useWideLayout
+          ? _buildLandscapeBody(context)
+          : _buildPortraitBody(context),
     );
   }
+
+  Widget _buildPortraitBody(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      children: [
+        const SizedBox(height: 12),
+        _ActiveLinkSection(),
+        const SizedBox(height: 16),
+        _PairedModelsList(),
+        const SizedBox(height: 32),
+        Consumer<SettingsProvider>(
+          builder: (context, settings, _) {
+            if (!settings.showDemo) return const SizedBox.shrink();
+            return Column(
+              children: [
+                _buildSectionTag(context, 'INTERACTIVE_DEMO'),
+                _InteractiveDemoSection(),
+                const SizedBox(height: 32),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLandscapeBody(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      children: [
+        const SizedBox(height: 12),
+        _ActiveLinkSection(),
+        const SizedBox(height: 16),
+        _PairedModelsList(),
+        const SizedBox(height: 32),
+        Consumer<SettingsProvider>(
+          builder: (context, settings, _) {
+            if (!settings.showDemo) return const SizedBox.shrink();
+            return Column(
+              children: [
+                _buildSectionTag(context, 'INTERACTIVE_DEMO'),
+                _InteractiveDemoSection(),
+                const SizedBox(height: 32),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+/// Returns the active link card layout — stacks transport info on the right
+/// side above the telemetry divider.
+Widget _buildActiveLinkCard(
+    BuildContext context, DeviceProvider dp, DeviceInfo device) {
+  final transportType = device.id.startsWith('demo_')
+      ? 'DEMO'
+      : device.id.startsWith('COM') || device.id.contains('serial')
+          ? 'USB'
+          : 'BLE';
+  final transportIcon = device.id.startsWith('demo_')
+      ? Icons.wifi_tethering_rounded
+      : device.id.startsWith('COM') || device.id.contains('serial')
+          ? Icons.usb_rounded
+          : Icons.bluetooth_rounded;
+  final latencyMs = dp.latencyMs;
+  final signal = dp.rssi ?? device.rssi;
+  final description = dp.description;
+
+  return AspectRatio(
+    aspectRatio: 3 / 2,
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 200),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          // Responsive scaling based on available width
+          final isNarrow = width < 400;
+          final paddingSize = (width / 15).clamp(12.0, 24.0);
+          final nameFontSize = (width / 14).clamp(16.0, 26.0);
+          final teleDividerPad = (width / 15).clamp(12.0, 24.0);
+          final actionGap = (width / 15).clamp(12.0, 24.0);
+          final iconSize = isNarrow ? 24.0 : 32.0;
+          final iconContainerPad = isNarrow ? 8.0 : 12.0;
+          final gapIconName = isNarrow ? 12.0 : 20.0;
+          final gapNameTransport = isNarrow ? 8.0 : 16.0;
+
+          return Card(
+        clipBehavior: Clip.antiAlias,
+        color: Colors.white.withValues(alpha: 0.05),
+        child: Stack(
+          children: [
+            Positioned(
+              right: -20,
+              bottom: -20,
+              child: Icon(Icons.local_shipping_rounded,
+                  size: width < 300 ? 80 : 160,
+                  color: Colors.white.withValues(alpha: 0.03)),
+            ),
+            Padding(
+              padding: EdgeInsets.all(paddingSize),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // ── Header row: icon + name/desc + transport info ──
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Icon
+                      Container(
+                        padding: EdgeInsets.all(iconContainerPad),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2A2A2A),
+                          border: Border.all(
+                              color: AppColors.brandOrange.withValues(alpha: 0.3)),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Icon(Icons.local_shipping_rounded,
+                            color: AppColors.brandOrange, size: iconSize),
+                      ),
+                      SizedBox(width: gapIconName),
+                      // Name & description
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(device.displayName.toUpperCase(),
+                                style: GoogleFonts.exo2(
+                                    fontSize: nameFontSize,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: -0.5)),
+                            const SizedBox(height: 4),
+                            Text(
+                              description?.isNotEmpty == true
+                                  ? description!.toUpperCase()
+                                  : 'NO_DESCRIPTION',
+                              style: TextStyle(
+                                  color: AppColors.brandOrange.withValues(alpha: 0.7),
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(width: gapNameTransport),
+                      // Transport info (right side, stacked vertically)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(transportIcon,
+                                  size: isNarrow ? 10 : 12,
+                                  color: AppColors.connected),
+                              const SizedBox(width: 4),
+                              Text(transportType,
+                                  style: GoogleFonts.inter(
+                                      color: AppColors.connected,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: isNarrow ? 12 : 14,
+                                      letterSpacing: 1.2)),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          if (latencyMs != null) ...[
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.timer_outlined,
+                                    size: 9,
+                                    color: AppColors.connected.withValues(alpha: 0.6)),
+                                const SizedBox(width: 2),
+                                Text('${latencyMs}ms',
+                                    style: GoogleFonts.jetBrainsMono(
+                                        color: AppColors.connected.withValues(alpha: 0.8),
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                          ],
+                          Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.signal_cellular_alt_rounded,
+                                    size: 9,
+                                    color: AppColors.connected.withValues(alpha: 0.6)),
+                                const SizedBox(width: 2),
+                                Text('${signal} dBm',
+                                    style: GoogleFonts.jetBrainsMono(
+                                        color: AppColors.connected.withValues(alpha: 0.8),
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  Padding(
+                    padding: EdgeInsets.symmetric(vertical: teleDividerPad),
+                    child: const Divider(height: 1, color: Colors.white12),
+                  ),
+                  // ── Telemetry ──────────────────────────────────────────
+                  _buildActiveLinkTelemetry(dp, device),
+                  SizedBox(height: actionGap),
+                  // ── Action row ─────────────────────────────────────────
+                  _buildActiveLinkActions(context, dp, device),
+                ],
+              ),
+            ),
+          ],
+        ),
+        );
+      },
+    ),
+    ),
+  );
 }
 
 // ── Active Link Section ──────────────────────────────────────────────────────
@@ -84,7 +318,9 @@ class _ActiveLinkSectionState extends State<_ActiveLinkSection> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = context.watch<SettingsProvider>();
     final deviceProvider = context.watch<DeviceProvider>();
+    final useWide = MediaQuery.of(context).size.width > 600 * (settings.interfaceScale / 100.0);
     final isConnected = deviceProvider.isConnected;
 
     if (!isConnected) {
@@ -134,221 +370,112 @@ class _ActiveLinkSectionState extends State<_ActiveLinkSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionTag(context, 'ACTIVE_LINKS'),
-        _buildConnectedCard(context, deviceProvider, device),
+        if (useWide)
+          _buildLandscapeActiveLink(context, deviceProvider, device)
+        else
+          _buildActiveLinkCard(context, deviceProvider, device),
       ],
     );
   }
 
-  Widget _buildConnectedCard(
+  Widget _buildLandscapeActiveLink(
       BuildContext context, DeviceProvider dp, DeviceInfo device) {
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      color: Colors.white.withValues(alpha: 0.05),
-      child: Stack(
-        children: [
-          Positioned(
-            right: -20,
-            bottom: -20,
-            child: Icon(Icons.local_shipping_rounded,
-                size: 160, color: Colors.white.withValues(alpha: 0.03)),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _headerRow(dp, device),
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
-                  child: Divider(height: 1, color: Colors.white12),
-                ),
-                _telemetrySection(dp, device),
-                const SizedBox(height: 24),
-                _buildActionRow(context, dp, device),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _headerRow(
-      DeviceProvider dp, DeviceInfo device) {
-    final transportType = device.id.startsWith('demo_')
-        ? 'DEMO'
-        : device.id.startsWith('COM') || device.id.contains('serial')
-            ? 'USB'
-            : 'BLE';
-    final transportIcon = device.id.startsWith('demo_')
-        ? Icons.wifi_tethering_rounded
-        : device.id.startsWith('COM') || device.id.contains('serial')
-            ? Icons.usb_rounded
-            : Icons.bluetooth_rounded;
-    final latencyMs = dp.latencyMs;
-    final signal = dp.rssi ?? device.rssi;
-    final description = dp.description;
-
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: const Color(0xFF2A2A2A),
-            border: Border.all(
-                color: AppColors.brandOrange.withValues(alpha: 0.3)),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Icon(Icons.local_shipping_rounded,
-              color: AppColors.brandOrange, size: 32),
-        ),
-        const SizedBox(width: 20),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Transport type + latency + signal (inline)
-              Row(
-                children: [
-                  Icon(transportIcon,
-                      size: 12,
-                      color: AppColors.connected),
-                  const SizedBox(width: 4),
-                  Text(transportType,
-                      style: GoogleFonts.inter(
-                          color: AppColors.connected,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10,
-                          letterSpacing: 1.0)),
-                  const SizedBox(width: 8),
-                  Container(
-                      width: 6,
-                      height: 6,
-                      decoration: const BoxDecoration(
-                          color: AppColors.connected,
-                          shape: BoxShape.circle)),
-                  if (latencyMs != null) ...[
-                    const SizedBox(width: 10),
-                    Icon(Icons.timer_outlined,
-                        size: 10,
-                        color: AppColors.connected.withValues(alpha: 0.6)),
-                    const SizedBox(width: 3),
-                    Text('${latencyMs}ms',
-                        style: GoogleFonts.jetBrainsMono(
-                            color: AppColors.connected.withValues(alpha: 0.8),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600)),
-                  ],
-                  if (signal != null) ...[
-                    const SizedBox(width: 10),
-                    Icon(Icons.signal_cellular_alt_rounded,
-                        size: 10,
-                        color: AppColors.connected.withValues(alpha: 0.6)),
-                    const SizedBox(width: 3),
-                    Text('${signal} dBm',
-                        style: GoogleFonts.jetBrainsMono(
-                            color: AppColors.connected.withValues(alpha: 0.8),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600)),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(device.displayName.toUpperCase(),
-                  style: GoogleFonts.exo2(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.5)),
-              const SizedBox(height: 8),
-              // Description from device, or fallback
-              Text(
-                description?.isNotEmpty == true
-                    ? description!.toUpperCase()
-                    : 'NO_DESCRIPTION',
-                style: TextStyle(
-                    color: AppColors.brandOrange.withValues(alpha: 0.7),
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
+          child: _buildActiveLinkCard(context, dp, device),
         ),
+        const Expanded(child: SizedBox.shrink()),
       ],
     );
   }
 
-  Widget _telemetrySection(DeviceProvider dp, DeviceInfo device) {
-    // User telemetry placeholders — replace with live data from the device
-    final battery = 85;
-    final speed = 42;
-    final temp = 23;
+}
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: [
-        _TelemetryItem(
-            label: 'BATTERY',
-            value: '$battery',
-            unit: '%'),
-        _TelemetryItem(
-            label: 'SPEED',
-            value: '$speed',
-            unit: 'km/h'),
-        _TelemetryItem(
-            label: 'TEMP',
-            value: '$temp',
-            unit: '°C'),
-      ],
-    );
-  }
+// ── Active link helpers ──────────────────────────────────────────────────────
 
-  Widget _buildActionRow(
-      BuildContext context, DeviceProvider dp, DeviceInfo device) {
-    const buttonHeight = 52.0;
-    const borderRadius = 6.0;
+void _showDeviceInfoSheet(
+    BuildContext context, DeviceProvider dp, DeviceInfo device) {
+  dp.requestChipInfo();
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    backgroundColor: const Color(0xFF1A1A1A),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+    ),
+    builder: (ctx) => _DeviceInfoTabs(device: device),
+  );
+}
 
-    return Row(
-      children: [
-        // Config button (icon only)
-        _buildButton(
-          icon: Icons.tune_rounded,
-          onTap: () => _showDeviceInfoSheet(context, dp, device),
+Widget _buildActiveLinkTelemetry(DeviceProvider dp, DeviceInfo device) {
+  // User telemetry placeholders — replace with live data from the device
+  final battery = 85;
+  final speed = 42;
+  final temp = 23;
+
+  return Row(
+    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    children: [
+      Flexible(child: _TelemetryItem(label: 'BATTERY', value: '$battery', unit: '%')),
+      Flexible(child: _TelemetryItem(label: 'SPEED', value: '$speed', unit: 'km/h')),
+      Flexible(child: _TelemetryItem(label: 'TEMP', value: '$temp', unit: '°C')),
+    ],
+  );
+}
+
+Widget _buildActiveLinkActions(
+    BuildContext context, DeviceProvider dp, DeviceInfo device) {
+  const buttonHeight = 52.0;
+  const borderRadius = 6.0;
+
+  return Row(
+    children: [
+      _ActiveLinkButton(
+        icon: Icons.tune_rounded,
+        onTap: () => _showDeviceInfoSheet(context, dp, device),
+        height: buttonHeight,
+        borderRadius: borderRadius,
+      ),
+      const SizedBox(width: 8),
+      Expanded(
+        child: _ActiveLinkButton(
+          label: 'OPEN_CONTROLLER',
+          onTap: () => context.go('/control'),
           height: buttonHeight,
           borderRadius: borderRadius,
         ),
-        const SizedBox(width: 8),
-        // Open Controller button (text, fills remaining space)
-        Expanded(
-          child: _buildButton(
-            label: 'OPEN_CONTROLLER',
-            onTap: () => context.go('/control'),
-            height: buttonHeight,
-            borderRadius: borderRadius,
-          ),
-        ),
-        const SizedBox(width: 8),
-        // Disconnect button (icon only)
-        _buildButton(
-          icon: Icons.link_off_rounded,
-          onTap: () => dp.disconnect(),
-          height: buttonHeight,
-          borderRadius: borderRadius,
-        ),
-      ],
-    );
-  }
+      ),
+      const SizedBox(width: 8),
+      _ActiveLinkButton(
+        icon: Icons.link_off_rounded,
+        onTap: () => dp.disconnect(),
+        height: buttonHeight,
+        borderRadius: borderRadius,
+      ),
+    ],
+  );
+}
 
-  Widget _buildButton({
-    IconData? icon,
-    String? label,
-    required VoidCallback? onTap,
-    required double height,
-    required double borderRadius,
-  }) {
+class _ActiveLinkButton extends StatelessWidget {
+  final IconData? icon;
+  final String? label;
+  final VoidCallback? onTap;
+  final double height;
+  final double borderRadius;
+
+  const _ActiveLinkButton({
+    this.icon,
+    this.label,
+    required this.onTap,
+    required this.height,
+    required this.borderRadius,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final isDisconnect = icon == Icons.link_off_rounded;
     return SizedBox(
       height: height,
@@ -373,21 +500,6 @@ class _ActiveLinkSectionState extends State<_ActiveLinkSection> {
                     fontSize: 13,
                     color: isDisconnect ? Colors.white : Colors.black)),
       ),
-    );
-  }
-
-  void _showDeviceInfoSheet(
-      BuildContext context, DeviceProvider dp, DeviceInfo device) {
-    dp.requestChipInfo();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      backgroundColor: const Color(0xFF1A1A1A),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-      ),
-      builder: (ctx) => _DeviceInfoTabs(device: device),
     );
   }
 }
@@ -2366,11 +2478,814 @@ Future<void> _confirmRemoveDevice(
   }
 }
 
+// ── Pair Bottom Sheet ──────────────────────────────────────────────────────
+
+void _showPairBottomSheet(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    backgroundColor: const Color(0xFF1A1A1A),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+    ),
+    builder: (ctx) => const _PairBottomSheet(),
+  );
+}
+
+class _PairBottomSheet extends StatefulWidget {
+  const _PairBottomSheet();
+
+  @override
+  State<_PairBottomSheet> createState() => _PairBottomSheetState();
+}
+
+class _PairBottomSheetState extends State<_PairBottomSheet>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  String _selectedBaud = '1000000';
+  final Set<String> _connectingIds = {};
+  final Map<String, String> _failedIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_onTabChanged);
+    _startScan();
+  }
+
+  @override
+  void dispose() {
+    _tabController.removeListener(_onTabChanged);
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _onTabChanged() {
+    if (_tabController.indexIsChanging) {
+      _startScan();
+    }
+  }
+
+  void _startScan() {
+    final ble = context.read<BleProvider>();
+    final serial = context.read<SerialProvider>();
+    ble.startScan();
+    serial.startScan();
+  }
+
+  Future<void> _connectBle(DeviceInfo device) async {
+    final id = device.id;
+    if (_connectingIds.contains(id)) return;
+    setState(() {
+      _connectingIds.add(id);
+      _failedIds.remove(id);
+    });
+
+    try {
+      final bleProvider = context.read<BleProvider>();
+      final deviceProvider = context.read<DeviceProvider>();
+      final history = context.read<HistoryProvider>();
+
+      await bleProvider.stopScan();
+      if (!mounted) return;
+
+      deviceProvider.setTransport(bleProvider.bleService);
+      await deviceProvider.connectToDevice(device);
+      if (!mounted) return;
+
+      if (deviceProvider.isConnected) {
+        await history.saveDevice(
+          device,
+          'ble',
+          configName: deviceProvider.configName,
+          description: deviceProvider.description,
+        );
+        if (mounted) {
+          Navigator.of(context).maybePop();
+          context.go('/control');
+        }
+        return;
+      }
+      // Connection completed but not connected
+      if (mounted) {
+        setState(() => _failedIds[id] = 'Connection failed');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _failedIds[id] = 'Error: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _connectingIds.remove(id));
+    }
+  }
+
+  Future<void> _connectSerial(DeviceInfo device, int baudRate) async {
+    final id = device.id;
+    if (_connectingIds.contains(id)) return;
+    setState(() {
+      _connectingIds.add(id);
+      _failedIds.remove(id);
+    });
+
+    try {
+      final serialProvider = context.read<SerialProvider>();
+      final deviceProvider = context.read<DeviceProvider>();
+      final history = context.read<HistoryProvider>();
+
+      await serialProvider.stopScan();
+      if (!mounted) return;
+
+      deviceProvider.setTransport(serialProvider.serialService);
+      await deviceProvider.connectToDevice(device, baudRate: baudRate);
+      if (!mounted) return;
+
+      if (deviceProvider.isConnected) {
+        await history.saveDevice(
+          device,
+          'serial',
+          configName: deviceProvider.configName,
+          description: deviceProvider.description,
+        );
+        if (mounted) {
+          Navigator.of(context).maybePop();
+          context.go('/control');
+        }
+        return;
+      }
+      // Connection completed but not connected
+      if (mounted) {
+        setState(() => _failedIds[id] = 'Connection failed');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _failedIds[id] = 'Error: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _connectingIds.remove(id));
+    }
+  }
+
+  void _dismissError(String id) {
+    setState(() => _failedIds.remove(id));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const SizedBox(height: 8),
+        TabBar(
+          controller: _tabController,
+          indicatorColor: AppColors.brandOrange,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white54,
+          labelStyle: const TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 11,
+            letterSpacing: 0.8,
+          ),
+          tabs: const [
+            Tab(child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.bluetooth_rounded, size: 14),
+                SizedBox(width: 4),
+                Text('BLE'),
+              ],
+            )),
+            Tab(child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.usb_rounded, size: 14),
+                SizedBox(width: 4),
+                Text('USB'),
+              ],
+            )),
+          ],
+        ),
+        const Divider(height: 1, color: Colors.white12),
+        Expanded(
+          flex: 2,
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _PairBleTab(
+                onConnect: _connectBle,
+                connectingIds: _connectingIds,
+                failedIds: _failedIds,
+                onDismissError: _dismissError,
+              ),
+              _PairUsbTab(
+                onConnect: _connectSerial,
+                connectingIds: _connectingIds,
+                failedIds: _failedIds,
+                onDismissError: _dismissError,
+                selectedBaud: _selectedBaud,
+                onBaudChanged: (v) => setState(() => _selectedBaud = v),
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1, color: Colors.white12),
+        Expanded(
+          flex: 1,
+          child: ConsoleLogView(height: double.infinity),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Pair BLE Tab ─────────────────────────────────────────────────────────────
+
+class _PairBleTab extends StatelessWidget {
+  final Future<void> Function(DeviceInfo) onConnect;
+  final Set<String> connectingIds;
+  final Map<String, String> failedIds;
+  final ValueChanged<String> onDismissError;
+
+  const _PairBleTab({
+    required this.onConnect,
+    required this.connectingIds,
+    required this.failedIds,
+    required this.onDismissError,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<BleProvider>(
+      builder: (context, ble, _) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Status header ──────────────────────────────────
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: ble.isScanning || ble.devices.isNotEmpty
+                          ? AppColors.brandOrange
+                          : Colors.white12,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        ble.isScanning ? 'SCANNING' : 'IDLE',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                            letterSpacing: 1.0),
+                      ),
+                      const Text('BLUETOOTH LOW ENERGY',
+                          style: TextStyle(color: Colors.white24, fontSize: 8)),
+                    ],
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${ble.devices.length.toString().padLeft(2, '0')}_NODES',
+                    style: const TextStyle(color: Colors.white24, fontSize: 9),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              LinearProgressIndicator(
+                value: ble.isScanning ? null : 1.0,
+                backgroundColor: const Color(0x0DFFFFFF),
+                valueColor:
+                    const AlwaysStoppedAnimation(AppColors.brandOrange),
+                minHeight: 1,
+              ),
+              const SizedBox(height: 20),
+              // ── Device list ───────────────────────────────────
+              if (ble.devices.isEmpty)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 40),
+                    child: Text(
+                      ble.isScanning ? 'Scanning...' : 'No BLE devices found',
+                      style: const TextStyle(color: Colors.white24, fontSize: 12),
+                    ),
+                  ),
+                )
+              else
+                ...ble.devices.map(
+                  (device) => _PairDeviceCard(
+                    device: device,
+                    isConnecting: connectingIds.contains(device.id),
+                    errorMessage: failedIds[device.id],
+                    trailing: _PairSignalBars(rssi: device.rssi),
+                    onTap: () => onConnect(device),
+                    onRetry: () => onConnect(device),
+                    onDismissError: () => onDismissError(device.id),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ── Pair USB Tab ─────────────────────────────────────────────────────────────
+
+class _PairUsbTab extends StatelessWidget {
+  final Future<void> Function(DeviceInfo device, int baudRate) onConnect;
+  final Set<String> connectingIds;
+  final Map<String, String> failedIds;
+  final ValueChanged<String> onDismissError;
+  final String selectedBaud;
+  final ValueChanged<String> onBaudChanged;
+
+  const _PairUsbTab({
+    required this.onConnect,
+    required this.connectingIds,
+    required this.failedIds,
+    required this.onDismissError,
+    required this.selectedBaud,
+    required this.onBaudChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<SerialProvider>(
+      builder: (context, serial, _) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Status header (same style as BLE tab) ──────────
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: serial.ports.isNotEmpty
+                          ? AppColors.brandOrange
+                          : Colors.white12,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('SCANNING',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                              letterSpacing: 1.0)),
+                      const Text('USB SERIAL',
+                          style: TextStyle(color: Colors.white24, fontSize: 8)),
+                    ],
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${serial.ports.length.toString().padLeft(2, '0')}_PORTS',
+                    style: const TextStyle(color: Colors.white24, fontSize: 9),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const LinearProgressIndicator(
+                value: null,
+                backgroundColor: Color(0x0DFFFFFF),
+                valueColor:
+                    AlwaysStoppedAnimation(AppColors.brandOrange),
+                minHeight: 1,
+              ),
+              const SizedBox(height: 20),
+              // ── Port list ─────────────────────────────────────
+              if (serial.ports.isEmpty)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: Text('No serial ports found',
+                        style: TextStyle(color: Colors.white24, fontSize: 12)),
+                  ),
+                )
+              else
+                ...serial.ports.map(
+                  (port) => _PairSerialDeviceCard(
+                    device: port,
+                    isConnecting: connectingIds.contains(port.id),
+                    errorMessage: failedIds[port.id],
+                    selectedBaud: selectedBaud,
+                    onBaudChanged: onBaudChanged,
+                    onConnect: () =>
+                        onConnect(port, int.tryParse(selectedBaud) ?? 1000000),
+                    onRetry: () =>
+                        onConnect(port, int.tryParse(selectedBaud) ?? 1000000),
+                    onDismissError: () => onDismissError(port.id),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ── Pair Device Card (BLE) ───────────────────────────────────────────────────
+
+class _PairDeviceCard extends StatelessWidget {
+  final DeviceInfo device;
+  final bool isConnecting;
+  final String? errorMessage;
+  final Widget? trailing;
+  final VoidCallback onTap;
+  final VoidCallback? onRetry;
+  final VoidCallback? onDismissError;
+
+  const _PairDeviceCard({
+    required this.device,
+    required this.isConnecting,
+    this.errorMessage,
+    this.trailing,
+    required this.onTap,
+    this.onRetry,
+    this.onDismissError,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasError = errorMessage != null && !isConnecting;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      color: hasError
+          ? Colors.redAccent.withValues(alpha: 0.08)
+          : Colors.white.withValues(alpha: 0.05),
+      child: InkWell(
+        onTap: isConnecting ? null : hasError ? onRetry : onTap,
+        borderRadius: BorderRadius.circular(4),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              // Connection indicator
+              if (isConnecting)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else if (hasError)
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: Icon(Icons.error_rounded,
+                      size: 16, color: Colors.redAccent),
+                )
+              else
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.connected,
+                  ),
+                ),
+              const SizedBox(width: 14),
+              // Device info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      device.displayName.toUpperCase(),
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          letterSpacing: 0.5,
+                          color: hasError ? Colors.redAccent : Colors.white),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      isConnecting
+                          ? 'Connecting...'
+                          : hasError
+                              ? errorMessage!
+                              : 'READY TO PAIR',
+                      style: TextStyle(
+                        color: hasError
+                            ? Colors.redAccent
+                            : isConnecting
+                                ? AppColors.brandOrange
+                                : Colors.white38,
+                        fontSize: 9,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              // Trailing
+              if (isConnecting)
+                const SizedBox.shrink()
+              else if (hasError)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.redAccent,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        onPressed: onRetry,
+                        child: const Icon(Icons.refresh_rounded, size: 14),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: FilledButton.tonal(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.white12,
+                          foregroundColor: Colors.white38,
+                          padding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        onPressed: onDismissError,
+                        child: const Icon(Icons.close_rounded, size: 14),
+                      ),
+                    ),
+                  ],
+                )
+              else if (trailing != null)
+                trailing!,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Pair Serial Device Card ──────────────────────────────────────────────────
+
+class _PairSerialDeviceCard extends StatelessWidget {
+  final DeviceInfo device;
+  final bool isConnecting;
+  final String? errorMessage;
+  final String selectedBaud;
+  final ValueChanged<String> onBaudChanged;
+  final VoidCallback onConnect;
+  final VoidCallback? onRetry;
+  final VoidCallback? onDismissError;
+
+  const _PairSerialDeviceCard({
+    required this.device,
+    required this.isConnecting,
+    this.errorMessage,
+    required this.selectedBaud,
+    required this.onBaudChanged,
+    required this.onConnect,
+    this.onRetry,
+    this.onDismissError,
+  });
+
+  static const _baudRates = ['9600', '19200', '38400', '57600', '115200', '1000000'];
+
+  @override
+  Widget build(BuildContext context) {
+    final hasError = errorMessage != null && !isConnecting;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      color: hasError
+          ? Colors.redAccent.withValues(alpha: 0.08)
+          : Colors.white.withValues(alpha: 0.05),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            // Status indicator
+            if (isConnecting)
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else if (hasError)
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: Icon(Icons.error_rounded,
+                    size: 16, color: Colors.redAccent),
+              )
+            else
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.connected,
+                ),
+              ),
+            const SizedBox(width: 14),
+            // Port name + status
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    device.displayName.toUpperCase(),
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        letterSpacing: 0.5,
+                        color: hasError ? Colors.redAccent : Colors.white),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    isConnecting
+                        ? 'Connecting...'
+                        : hasError
+                            ? errorMessage!
+                            : 'READY TO CONNECT',
+                    style: TextStyle(
+                      color: hasError
+                          ? Colors.redAccent
+                          : isConnecting
+                              ? AppColors.brandOrange
+                              : Colors.white38,
+                      fontSize: 9,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            // Baud rate or retry
+            if (isConnecting)
+              const SizedBox.shrink()
+            else if (hasError)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      onPressed: onRetry,
+                      child: const Icon(Icons.refresh_rounded, size: 14),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: FilledButton.tonal(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.white12,
+                        foregroundColor: Colors.white38,
+                        padding: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      onPressed: onDismissError,
+                      child: const Icon(Icons.close_rounded, size: 14),
+                    ),
+                  ),
+                ],
+              )
+            else ...[
+              // Baud rate dropdown
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: selectedBaud,
+                    dropdownColor: const Color(0xFF2A2A2A),
+                    style: GoogleFonts.jetBrainsMono(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    isDense: true,
+                    items: _baudRates.map((b) {
+                      return DropdownMenuItem(
+                        value: b,
+                        child: Text('$b baud',
+                            style: GoogleFonts.jetBrainsMono(
+                                color: Colors.white, fontSize: 10)),
+                      );
+                    }).toList(),
+                    onChanged: (String? v) {
+                      if (v != null) onBaudChanged(v);
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Connect button
+              SizedBox(
+                height: 28,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.brandOrange,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  onPressed: onConnect,
+                  child: Text('CONNECT',
+                      style: GoogleFonts.changa(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 9,
+                          letterSpacing: 0.8)),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+class _PairSignalBars extends StatelessWidget {
+  final int rssi;
+  const _PairSignalBars({required this.rssi});
+
+  @override
+  Widget build(BuildContext context) {
+    int bars = 0;
+    if (rssi > -60) {
+      bars = 4;
+    } else if (rssi > -70) {
+      bars = 3;
+    } else if (rssi > -80) {
+      bars = 2;
+    } else if (rssi > -90) {
+      bars = 1;
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: List.generate(4, (i) {
+        final active = i < bars;
+        return Container(
+          width: 3,
+          height: 8 + (i * 3.0),
+          margin: const EdgeInsets.only(left: 2),
+          decoration: BoxDecoration(
+            color: active ? AppColors.brandOrange : Colors.white12,
+            borderRadius: BorderRadius.circular(0.5),
+          ),
+        );
+      }),
+    );
+  }
+}
 // ── Shared bottom widgets ───────────────────────────────────────────────────
 
 Widget _buildSectionTag(BuildContext context, String title) {
   return Padding(
-    padding: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.only(bottom: 8),
     child: Row(children: [
       Container(width: 8, height: 8, color: AppColors.brandOrange),
       const SizedBox(width: 12),
@@ -2425,11 +3340,43 @@ class _TelemetryItem extends StatelessWidget {
 
 // ── Paired Models List ───────────────────────────────────────────────────────
 
-class _PairedModelsList extends StatelessWidget {
+class _PairedModelConnectionState {
+  final PairedDevice device;
+  final String status; // 'idle', 'scanning', 'connecting', 'connected', 'failed'
+  final String? message;
+
+  const _PairedModelConnectionState({
+    required this.device,
+    this.status = 'idle',
+    this.message,
+  });
+
+  _PairedModelConnectionState copyWith({
+    PairedDevice? device,
+    String? status,
+    String? message,
+  }) {
+    return _PairedModelConnectionState(
+      device: device ?? this.device,
+      status: status ?? this.status,
+      message: message,
+    );
+  }
+}
+
+class _PairedModelsList extends StatefulWidget {
+  @override
+  State<_PairedModelsList> createState() => _PairedModelsListState();
+}
+
+class _PairedModelsListState extends State<_PairedModelsList> {
+  final Map<String, _PairedModelConnectionState> _connectionStates = {};
+
   @override
   Widget build(BuildContext context) {
     final history = context.watch<HistoryProvider>();
     final deviceProvider = context.watch<DeviceProvider>();
+    final useWide = MediaQuery.of(context).size.width > 600;
     final connectedId =
         deviceProvider.isConnected ? deviceProvider.connectedDevice?.id : null;
     final allDevices = history.pairedDevices;
@@ -2442,67 +3389,73 @@ class _PairedModelsList extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionTag(context, 'PAIRED_MODELS'),
-        ...filteredDevices.map((device) {
-          final connectionIcon = device.type == 'ble'
-              ? Icons.bluetooth_rounded
-              : Icons.usb_rounded;
-
-          return Card(
-            color: Colors.white.withValues(alpha: 0.05),
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(connectionIcon,
-                    color: AppColors.brandOrange.withValues(alpha: 0.7)),
-              ),
-              title: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    (device.configName?.isNotEmpty == true
-                            ? device.configName!
-                            : device.name)
-                        .toUpperCase(),
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, letterSpacing: 1),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(connectionIcon,
-                      size: 14,
-                      color: AppColors.brandOrange.withValues(alpha: 0.5)),
-                ],
-              ),
-              subtitle: Text(
-                device.description?.isNotEmpty == true
-                    ? device.description!
-                    : 'NO_DESCRIPTION_PROVIDED',
-                style: Theme.of(context)
-                    .textTheme
-                    .labelSmall
-                    ?.copyWith(color: Colors.white38),
-              ),
-              trailing: const Icon(Icons.chevron_right_rounded, size: 20),
-              onTap: () => _handleReconnect(context, device),
-            ),
-          );
-        }),
+        if (useWide)
+          _buildLandscapeGrid(filteredDevices)
+        else
+          ...filteredDevices.map((device) => _buildCard(device)),
       ],
     );
   }
 
-  Future<void> _handleReconnect(
-      BuildContext context, PairedDevice device) async {
+  Widget _buildCard(PairedDevice device) {
+    final connectionState = _connectionStates[device.id] ??
+        _PairedModelConnectionState(device: device);
+    return _PairedModelCard(
+      state: connectionState,
+      onReconnect: () => _handleReconnect(device),
+      onDismissError: () => _clearStatus(device.id),
+    );
+  }
+
+  Widget _buildLandscapeGrid(List<PairedDevice> devices) {
+    final rows = <Widget>[];
+    for (int i = 0; i < devices.length; i += 2) {
+      rows.add(
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _buildCard(devices[i])),
+            const SizedBox(width: 12),
+            if (i + 1 < devices.length)
+              Expanded(child: _buildCard(devices[i + 1]))
+            else
+              const Expanded(child: SizedBox.shrink()),
+          ],
+        ),
+      );
+    }
+    return Column(children: rows);
+  }
+
+  void _updateStatus(String deviceId, String status, {String? message}) {
+    setState(() {
+      final current = _connectionStates[deviceId] ??
+          _PairedModelConnectionState(device: _findDevice(deviceId)!);
+      _connectionStates[deviceId] = current.copyWith(
+        status: status,
+        message: message,
+      );
+    });
+  }
+
+  void _clearStatus(String deviceId) {
+    setState(() {
+      _connectionStates.remove(deviceId);
+    });
+  }
+
+  PairedDevice? _findDevice(String id) {
+    return context.read<HistoryProvider>().pairedDevices
+        .where((d) => d.id == id).firstOrNull;
+  }
+
+  Future<void> _handleReconnect(PairedDevice device) async {
     final console = context.read<ConsoleProvider>();
     final ble = context.read<BleProvider>();
     final serial = context.read<SerialProvider>();
     final deviceProvider = context.read<DeviceProvider>();
+
+    _updateStatus(device.id, 'scanning', message: 'Scanning...');
 
     console.log('RE-INITIALIZING SOURCE: ${device.type.toUpperCase()}',
         level: ConsoleLogLevel.info);
@@ -2513,10 +3466,7 @@ class _PairedModelsList extends StatelessWidget {
       deviceProvider.setTransport(serial.serialService);
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Checking availability for ${device.name}...')),
-    );
-
+    // Check availability
     bool isLive = false;
     if (device.type == 'ble') {
       await ble.startScan();
@@ -2531,122 +3481,261 @@ class _PairedModelsList extends StatelessWidget {
     }
 
     if (!isLive) {
-      if (!context.mounted) return;
+      if (!mounted) return;
       console.log(
           'RECONNECT FAILED: Device "${device.name}" is not reachable.',
           level: ConsoleLogLevel.error);
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              ble.errorMessage ?? 'Device is offline or out of range.'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      _updateStatus(device.id, 'failed',
+          message: ble.errorMessage ?? 'Device is offline or out of range.');
       return;
     }
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Connecting to ${device.name}...')),
-    );
+
+    if (!mounted) return;
+    _updateStatus(device.id, 'connecting', message: 'Connecting...');
 
     try {
       await deviceProvider.connectToDevice(device.toDeviceInfo());
-      if (!context.mounted) return;
+      if (!mounted) return;
       if (deviceProvider.isConnected) {
         console.log('RESYNC SUCCESSFUL: ${device.name}',
             level: ConsoleLogLevel.success);
+        _updateStatus(device.id, 'connected', message: 'Connected!');
+        // Clear status after a brief delay
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) _clearStatus(device.id);
+        });
       } else {
         final error = deviceProvider.errorMessage ?? 'Connection failed';
         console.log('RESYNC FAILED: $error', level: ConsoleLogLevel.error);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('Failed: $error'),
-              backgroundColor: Colors.redAccent),
-        );
+        _updateStatus(device.id, 'failed', message: error);
       }
     } catch (e) {
-      if (!context.mounted) return;
+      if (!mounted) return;
       console.log('RUNTIME ERROR: $e', level: ConsoleLogLevel.error);
+      _updateStatus(device.id, 'failed', message: '$e');
     }
   }
 }
+
+class _PairedModelCard extends StatelessWidget {
+  final _PairedModelConnectionState state;
+  final VoidCallback onReconnect;
+  final VoidCallback onDismissError;
+
+  const _PairedModelCard({
+    required this.state,
+    required this.onReconnect,
+    required this.onDismissError,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final device = state.device;
+    final connectionIcon = device.type == 'ble'
+        ? Icons.bluetooth_rounded
+        : Icons.usb_rounded;
+    final status = state.status;
+    final isBusy = status == 'scanning' || status == 'connecting';
+    final isFailed = status == 'failed';
+    final isConnected = status == 'connected';
+
+    Widget? statusWidget;
+
+    if (isBusy) {
+      statusWidget = const SizedBox(
+        width: 14,
+        height: 14,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+    } else if (isConnected) {
+      statusWidget = const Icon(Icons.check_circle_rounded, size: 16, color: AppColors.connected);
+    } else if (isFailed) {
+      statusWidget = const Icon(Icons.error_rounded, size: 16, color: Colors.redAccent);
+    }
+
+    return ModelCard(
+      aspectRatio: 4 / 1,
+      cardColor: isFailed
+          ? Colors.redAccent.withValues(alpha: 0.08)
+          : isConnected
+              ? AppColors.connected.withValues(alpha: 0.08)
+              : null,
+      leading: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: statusWidget ??
+            Icon(connectionIcon,
+                color: AppColors.brandOrange.withValues(alpha: 0.7), size: 18),
+      ),
+      title: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              (device.configName?.isNotEmpty == true
+                      ? device.configName!
+                      : device.name)
+                  .toUpperCase(),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1,
+                color: isFailed ? Colors.redAccent : null,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(width: 6),
+            if (!isBusy && !isConnected && !isFailed)
+              Icon(connectionIcon,
+                  size: 12,
+                  color: AppColors.brandOrange.withValues(alpha: 0.5)),
+          ],
+        ),
+      ),
+      subtitle: state.message != null
+          ? Text(
+              state.message!,
+              style: TextStyle(
+                color: isFailed ? Colors.redAccent : Colors.white54,
+                fontSize: 10,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            )
+          : Text(
+              device.description?.isNotEmpty == true
+                  ? device.description!
+                  : 'NO_DESCRIPTION_PROVIDED',
+              style: const TextStyle(color: Colors.white38, fontSize: 10),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+      trailing: isFailed
+          ? FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    height: 28,
+                    child: TextButton(
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        foregroundColor: AppColors.brandOrange,
+                        textStyle: const TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      onPressed: onReconnect,
+                      child: const Text('RETRY'),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 14),
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints(),
+                    onPressed: onDismissError,
+                  ),
+                ],
+              ),
+            )
+          : isBusy
+              ? const SizedBox.shrink()
+              : const Icon(Icons.chevron_right_rounded, size: 18),
+      onTap: isBusy ? null : (isFailed ? onReconnect : onReconnect),
+    );
+  }
+  }
 
 // ── Interactive Demo Section ─────────────────────────────────────────────────
 
 class _InteractiveDemoSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return const Column(children: [
-      _DemoModelTile(
-          icon: Icons.widgets_rounded,
-          demoId: 'WIDGETS_DEMO',
-          title: 'WIDGETS_DEMO',
-          subtitle: 'Explore all available widget types'),
-      _DemoModelTile(
-          icon: Icons.sports_esports_rounded,
-          demoId: 'RC_CONTROLLER',
-          title: 'RC_CONTROLLER',
-          subtitle: 'Simulated remote control interface'),
-      _DemoModelTile(
-          icon: Icons.dashboard_rounded,
-          demoId: 'IOT_DASHBOARD',
-          title: 'IOT_DASHBOARD',
-          subtitle: 'IoT monitoring and control panel'),
-    ]);
-  }
-}
-
-class _DemoModelTile extends StatelessWidget {
-  final IconData icon;
-  final String demoId;
-  final String title;
-  final String subtitle;
-
-  const _DemoModelTile({
-    required this.icon,
-    required this.demoId,
-    required this.title,
-    required this.subtitle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: Colors.white.withValues(alpha: 0.05),
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: AppColors.brandOrange),
-        ),
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
+    return Column(
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title,
-                style: const TextStyle(
-                    fontWeight: FontWeight.bold, letterSpacing: 1)),
-            const SizedBox(width: 8),
-            const Icon(Icons.wifi_tethering_rounded,
-                size: 14, color: AppColors.brandOrange),
+            Expanded(
+              child: _buildDemoTile(
+                icon: Icons.widgets_rounded,
+                title: 'WIDGETS_DEMO',
+                subtitle: 'Explore all available widget types',
+                onTap: () async {
+                  final dp = context.read<DeviceProvider>();
+                  await dp.loadDemo('WIDGETS_DEMO');
+                  if (context.mounted) context.go('/control');
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildDemoTile(
+                icon: Icons.sports_esports_rounded,
+                title: 'RC_CONTROLLER',
+                subtitle: 'Simulated remote control interface',
+                onTap: () async {
+                  final dp = context.read<DeviceProvider>();
+                  await dp.loadDemo('RC_CONTROLLER');
+                  if (context.mounted) context.go('/control');
+                },
+              ),
+            ),
           ],
         ),
-        subtitle: Text(subtitle,
-            style: Theme.of(context).textTheme.labelSmall),
-        trailing: const Icon(Icons.chevron_right_rounded, size: 20),
-        onTap: () async {
-          final dp = context.read<DeviceProvider>();
-          await dp.loadDemo(demoId);
-          if (context.mounted) context.go('/control');
-        },
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _buildDemoTile(
+                icon: Icons.dashboard_rounded,
+                title: 'IOT_DASHBOARD',
+                subtitle: 'IoT monitoring and control panel',
+                onTap: () async {
+                  final dp = context.read<DeviceProvider>();
+                  await dp.loadDemo('IOT_DASHBOARD');
+                  if (context.mounted) context.go('/control');
+                },
+              ),
+            ),
+            const Expanded(child: SizedBox.shrink()),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDemoTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return ModelCard(
+      aspectRatio: 4 / 1,
+      leading: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: AppColors.brandOrange, size: 18),
       ),
+      title: Text(title,
+          style: const TextStyle(
+              fontWeight: FontWeight.bold, letterSpacing: 1, fontSize: 12)),
+      subtitle: Text(subtitle,
+          style: const TextStyle(color: Colors.white54, fontSize: 10),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis),
+      trailing: const Icon(Icons.chevron_right_rounded, size: 18),
+      onTap: onTap,
     );
   }
 }

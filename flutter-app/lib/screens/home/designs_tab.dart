@@ -2,16 +2,18 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
-import 'package:intl/intl.dart';
 import '../../widgets/radiokit_app_bar.dart';
 import '../../providers/designs_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/model_card.dart';
 
 class DesignsTab extends StatelessWidget {
   const DesignsTab({super.key});
@@ -56,82 +58,12 @@ class DesignsTab extends StatelessWidget {
                 ],
               ),
             )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: designs.length,
-              itemBuilder: (context, index) {
-                final design = designs[index];
-                final date = DateTime.fromMillisecondsSinceEpoch(design.timestamp);
-                final formattedDate = DateFormat.yMMMd().add_jm().format(date);
-
-                final isFileMode = design.filePath != null;
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    leading: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.brandCharcoal,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        isFileMode ? LucideIcons.fileCode : LucideIcons.archive,
-                        color: AppColors.brandOrange,
-                      ),
-                    ),
-                    title: Text(
-                      design.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          formattedDate,
-                          style: const TextStyle(color: AppColors.brandGray, fontSize: 12),
-                        ),
-                        if (isFileMode)
-                          Text(
-                            design.filePath!,
-                            style: const TextStyle(color: AppColors.brandOrange, fontSize: 10),
-                          ),
-                      ],
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(LucideIcons.trash2, size: 20, color: AppColors.brandRed),
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                title: const Text('Delete Project?'),
-                                content: Text('Are you sure you want to delete "${design.name}"?'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(ctx),
-                                    child: const Text('CANCEL'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () {
-                                      provider.deleteDesign(design.id);
-                                      Navigator.pop(ctx);
-                                    },
-                                    child: const Text('DELETE', style: TextStyle(color: AppColors.brandRed)),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                    onTap: () {
-                      context.push('/designer?id=${design.id}');
-                    },
-                  ),
+          : Consumer<SettingsProvider>(
+              builder: (context, settings, _) {
+                return _DesignsGrid(
+                  designs: designs,
+                  provider: provider,
+                  interfaceScale: settings.interfaceScale,
                 );
               },
             ),
@@ -241,6 +173,178 @@ class _PillButton extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+
+// ── Designs Grid ─────────────────────────────────────────────────────────────
+
+class _DesignsGrid extends StatelessWidget {
+  final List<SavedDesign> designs;
+  final DesignsProvider provider;
+  final int interfaceScale;
+
+  const _DesignsGrid({
+    required this.designs,
+    required this.provider,
+    required this.interfaceScale,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final breakpoint = 600 * (interfaceScale / 100.0);
+    final useWide = screenWidth > breakpoint;
+
+    if (!useWide) {
+      return ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        children: designs.map((d) => _DesignCard(design: d, provider: provider)).toList(),
+      );
+    }
+
+    // Landscape: 2-column grid using Row + Expanded
+    final rows = <Widget>[];
+    for (int i = 0; i < designs.length; i += 2) {
+      rows.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _DesignCard(design: designs[i], provider: provider)),
+              const SizedBox(width: 12),
+              if (i + 1 < designs.length)
+                Expanded(child: _DesignCard(design: designs[i + 1], provider: provider))
+              else
+                const Expanded(child: SizedBox.shrink()),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      children: rows,
+    );
+  }
+}
+
+class _DesignCard extends StatelessWidget {
+  final SavedDesign design;
+  final DesignsProvider provider;
+
+  const _DesignCard({required this.design, required this.provider});
+
+  Future<void> _openDesign(BuildContext context) async {
+    if (design.filePath != null) {
+      final file = File(design.filePath!);
+      if (!file.existsSync()) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('File not found: ${design.filePath}')),
+          );
+          await provider.deleteDesign(design.id);
+        }
+        return;
+      }
+    }
+    if (context.mounted) {
+      context.push('/designer?id=${design.id}');
+    }
+  }
+
+  Future<void> _deleteDesign(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        icon: const Icon(Icons.warning_rounded, color: Colors.redAccent, size: 32),
+        title: const Text('Delete Design?', style: TextStyle(color: Colors.white)),
+        content: Text('Remove "${design.name}" permanently?',
+            style: const TextStyle(color: Colors.white54, fontSize: 13)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('CANCEL', style: TextStyle(color: Colors.white54)),
+          ),
+          FilledButton.tonal(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.redAccent.withValues(alpha: 0.2),
+              foregroundColor: Colors.redAccent,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('DELETE'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      await provider.deleteDesign(design.id);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final formattedDate = DateFormat('MMM d, yyyy').format(
+      DateTime.fromMillisecondsSinceEpoch(design.timestamp),
+    );
+
+    return ModelCard(
+      centerContent: true,
+      aspectRatio: 3 / 1,
+      leading: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: AppColors.brandOrange.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Icon(LucideIcons.palette, color: AppColors.brandOrange, size: 24),
+      ),
+      title: Text(
+        design.name.toUpperCase(),
+        style: GoogleFonts.exo2(
+          fontSize: 16,
+          fontWeight: FontWeight.w900,
+          letterSpacing: -0.3,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Text(
+        formattedDate,
+        style: const TextStyle(color: Colors.white38, fontSize: 11),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (design.appVersion != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppColors.brandOrange.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                'v${design.appVersion}',
+                style: GoogleFonts.jetBrainsMono(
+                  color: AppColors.brandOrange.withValues(alpha: 0.8),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          const SizedBox(width: 8),
+          Icon(Icons.chevron_right_rounded, color: Colors.white24, size: 20),
+        ],
+      ),
+      onTap: () => _openDesign(context),
+      onLongPress: () => _deleteDesign(context),
     );
   }
 }

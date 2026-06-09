@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'providers/device_provider.dart';
 import 'screens/home/models_tab.dart';
-import 'screens/home/pair_tab.dart';
 import 'screens/home/system_tab.dart';
 import 'screens/home/dev_tools_tab.dart';
 import 'screens/control_screen.dart';
@@ -85,14 +84,7 @@ GoRouter createRouter(ConnectionNotifier connectionNotifier) {
               ),
             ],
           ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/pair',
-                builder: (context, state) => const PairTab(),
-              ),
-            ],
-          ),
+
           StatefulShellBranch(
             routes: [
               GoRoute(
