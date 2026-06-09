@@ -456,14 +456,59 @@ Android devices connected over TCP/IP may disconnect after idle time. Reconnect 
 adb kill-server && adb connect <IP>:5555
 ```
 
-### FOLLOW_REMOTE Modes Impact
+### FOLLOW_REMOTE Mode — Test Usage
 
-When FOLLOW_REMOTE is enabled:
+**Always enable Follow Mode when starting an automated test, and disable it when the test is complete.**
+
+```bash
+# Enable Follow Mode (blocks all touch, auto-navigates on API calls)
+curl -s -X PUT http://$APP_IP:7007/api/settings \
+    -H 'Content-Type: application/json' \
+    -d '{"followRemoteAccess":true}'
+
+# Verify it's active
+curl -s http://$APP_IP:7007/api/settings | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+print(f'followRemoteAccess: {d[\"followRemoteAccess\"]}')
+"
+```
+
+When Follow Mode is enabled:
 - **All touch input is blocked** — user cannot interact with the app
 - The app auto-navigates to the relevant screen for each API call
-- Exit via the red STOP button (bottom-right) or via API:
-  ```bash
-  curl -s -X PUT http://$APP_IP:7007/api/settings \
-      -H 'Content-Type: application/json' \
-      -d '{"followRemoteAccess":false}'
-  ```
+- A faint yellow edge glow appears as a visual indicator
+- A red STOP button (bottom-right) exits the mode
+
+```bash
+# Disable Follow Mode after test completes
+curl -s -X PUT http://$APP_IP:7007/api/settings \
+    -H 'Content-Type: application/json' \
+    -d '{"followRemoteAccess":false}'
+```
+
+**Screen coverage (route mapping):**
+
+| API path prefix | Navigates to screen |
+|----------------|-------------------|
+| `/api/pair/` | `/pair` |
+| `/api/connection/connect` | `/control` |
+| `/api/connection/disconnect` | `/models` |
+| `/api/connection/reconnect` | `/models` |
+| `/api/connection/demo` | `/control` |
+| `/api/pair/` | `/pair` |
+| `/api/widgets` | `/control` |
+| `/api/fs/` | `/dev-tools/esp32-fs` |
+| `/api/ota/` | `/control` |
+| `/api/designs` | `/designs` |
+| `/api/transport/` | `/debug` |
+| `/api/settings` | `/system` |
+| `/api/console` | `/system` |
+| `/api/log` | `/system` |
+| `/api/models` | `/models` |
+
+**Blocking behavior:**
+- All screens except `/control` are wrapped in `AbsorbPointer` — touch is fully blocked
+- Dialogs (`showDialog`) and bottom sheets (`showModalBottomSheet`) are inside the Navigator's overlay, so they are also blocked
+- The `/control` screen remains interactive so the remote client can still control widgets
+- The red STOP button and edge glow overlay sit above the `AbsorbPointer` and are always tappable

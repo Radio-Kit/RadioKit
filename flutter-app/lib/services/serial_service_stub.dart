@@ -9,6 +9,7 @@ class SerialService implements TransportService {
   @override PacketReceivedCallback? onPacketReceived;
   @override FsPacketReceivedCallback? onFsPacketReceived;
   @override OtaPacketReceivedCallback? onOtaPacketReceived;
+  @override SettingsPacketReceivedCallback? onSettingsPacketReceived;
   @override ConnectionLostCallback? onConnectionLost;
 
   @override bool get isConnected => false;

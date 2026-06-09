@@ -51,6 +51,8 @@ class BleService implements TransportService {
   @override
   OtaPacketReceivedCallback? onOtaPacketReceived;
   @override
+  SettingsPacketReceivedCallback? onSettingsPacketReceived;
+  @override
   ConnectionLostCallback? onConnectionLost;
 
   final _logController = StreamController<String>.broadcast();
@@ -66,14 +68,16 @@ class BleService implements TransportService {
   bool _isMockConnected = false;
 
   // Per-protocol receive buffers — separate buffers prevent interleaving
-  final List<int> _receiveBuffer = [];    // Widget (0x55)
-  final List<int> _receiveFsBuffer = [];  // FS (0xAA)
-  final List<int> _receiveOtaBuffer = []; // OTA (0xBB)
+  final List<int> _receiveBuffer = [];        // Widget (0x55)
+  final List<int> _receiveFsBuffer = [];      // FS (0xAA)
+  final List<int> _receiveOtaBuffer = [];     // OTA (0xBB)
+  final List<int> _receiveSettingsBuffer = []; // Settings (0xDD)
 
   // Discovered characteristic UUIDs (actual, from BLE discovery)
   String? _charWidgetId;
   String? _charFsId;
   String? _charOtaId;
+  String? _charSettingsId;
 
   /// Negotiated BLE MTU (default 23). Updated after MTU exchange completes.
   /// Used by [writePacket] to fragment large payloads into MTU-sized chunks.
@@ -183,7 +187,10 @@ class BleService implements TransportService {
       _log('RAW MCU from $characteristicId: ${value.map((b) => b.toRadixString(16).padLeft(2, "0")).join(" ")}');
 
       // Determine which protocol this characteristic belongs to
-      if (_charFsId != null && charId == _charFsId!.toLowerCase()) {
+      if (_charSettingsId != null && charId == _charSettingsId!.toLowerCase()) {
+        _receiveSettingsBuffer.addAll(value);
+        _processSettingsBuffer();
+      } else if (_charFsId != null && charId == _charFsId!.toLowerCase()) {
         _receiveFsBuffer.addAll(value);
         _processFsBuffer();
       } else if (_charOtaId != null && charId == _charOtaId!.toLowerCase()) {
@@ -296,11 +303,13 @@ class BleService implements TransportService {
       final widgetCharUuid = kRadioKitCharWidgetUuid.toLowerCase();
       final fsCharUuid = kRadioKitCharFsUuid.toLowerCase();
       final otaCharUuid = kRadioKitCharOtaUuid.toLowerCase();
+      final settingsCharUuid = kRadioKitCharSettingsUuid.toLowerCase();
 
       String? actualServiceId;
       _charWidgetId = null;
       _charFsId = null;
       _charOtaId = null;
+      _charSettingsId = null;
 
       for (var s in services) {
         if (s.uuid.toLowerCase().contains(serviceUuid)) {
@@ -318,6 +327,9 @@ class BleService implements TransportService {
             if (cuuid.contains(otaCharUuid) || otaCharUuid.contains(cuuid)) {
               _charOtaId = c.uuid;
             }
+            if (cuuid.contains(settingsCharUuid) || settingsCharUuid.contains(cuuid)) {
+              _charSettingsId = c.uuid;
+            }
           }
         }
       }
@@ -327,7 +339,7 @@ class BleService implements TransportService {
         return;
       }
 
-      _log('Discovered chars: widget=$_charWidgetId, fs=$_charFsId, ota=$_charOtaId');
+      _log('Discovered chars: widget=$_charWidgetId, fs=$_charFsId, ota=$_charOtaId, settings=$_charSettingsId');
 
       // Subscribe to all discovered characteristics
       if (_charWidgetId != null) {
@@ -354,10 +366,19 @@ class BleService implements TransportService {
         _log('WARNING - OTA char not found (0xFFE3)');
       }
 
+      if (_charSettingsId != null) {
+        _log('Subscribing to Settings char $_charSettingsId...');
+        await UniversalBle.subscribeNotifications(deviceId, actualServiceId, _charSettingsId!);
+        _log('Settings subscription SUCCESS');
+      } else {
+        _log('WARNING - Settings char not found (0xFFE4)');
+      }
+
       // Clear all buffers
       _receiveBuffer.clear();
       _receiveFsBuffer.clear();
       _receiveOtaBuffer.clear();
+      _receiveSettingsBuffer.clear();
     } catch (e) {
       _log('Connection ERROR: $e');
       _connectedDeviceId = null;
@@ -380,9 +401,11 @@ class BleService implements TransportService {
     _receiveBuffer.clear();
     _receiveFsBuffer.clear();
     _receiveOtaBuffer.clear();
+    _receiveSettingsBuffer.clear();
     _charWidgetId = null;
     _charFsId = null;
     _charOtaId = null;
+    _charSettingsId = null;
   }
 
   void _handleDisconnect(String reason) {
@@ -391,9 +414,11 @@ class BleService implements TransportService {
     _receiveBuffer.clear();
     _receiveFsBuffer.clear();
     _receiveOtaBuffer.clear();
+    _receiveSettingsBuffer.clear();
     _charWidgetId = null;
     _charFsId = null;
     _charOtaId = null;
+    _charSettingsId = null;
     _mtu = 23;
     onConnectionLost?.call(reason);
   }
@@ -407,6 +432,7 @@ class BleService implements TransportService {
   String? _charIdForByte(int startByte) {
     if (startByte == kFsStartByte) return _charFsId;
     if (startByte == kOtaStartByte) return _charOtaId;
+    if (startByte == kSettingsStartByte) return _charSettingsId;
     return _charWidgetId; // 0x55 or unknown
   }
 
@@ -469,8 +495,8 @@ class BleService implements TransportService {
   }
 
   // ── Per-protocol buffer processing ────────────────────────────────────────
-  // Widget, FS, and OTA buffers are processed independently because they
-  // arrive on different BLE characteristics. No protocol interleaving possible.
+  // Widget, FS, OTA, and Settings buffers are processed independently because
+  // they arrive on different BLE characteristics. No protocol interleaving.
 
   void _processWidgetBuffer() {
     while (true) {
@@ -481,12 +507,14 @@ class BleService implements TransportService {
             'payloadLen=${drained.widgetPacket!.payload.length}');
         onPacketReceived?.call(drained.widgetPacket!);
       } else if (drained.kind == 'fs') {
-        // Should not happen on widget buffer, but handle gracefully
         _log('Unexpected FS packet on widget buffer');
         onFsPacketReceived?.call(drained.fsPacket!);
       } else if (drained.kind == 'ota') {
         _log('Unexpected OTA packet on widget buffer');
         onOtaPacketReceived?.call(drained.otaPacket!);
+      } else if (drained.kind == 'settings') {
+        _log('Unexpected Settings packet on widget buffer');
+        onSettingsPacketReceived?.call(drained.settingsPacket!);
       }
     }
   }
@@ -505,6 +533,9 @@ class BleService implements TransportService {
       } else if (drained.kind == 'ota') {
         _log('Unexpected OTA packet on FS buffer');
         onOtaPacketReceived?.call(drained.otaPacket!);
+      } else if (drained.kind == 'settings') {
+        _log('Unexpected Settings packet on FS buffer');
+        onSettingsPacketReceived?.call(drained.settingsPacket!);
       }
     }
   }
@@ -523,6 +554,30 @@ class BleService implements TransportService {
       } else if (drained.kind == 'fs') {
         _log('Unexpected FS packet on OTA buffer');
         onFsPacketReceived?.call(drained.fsPacket!);
+      } else if (drained.kind == 'settings') {
+        _log('Unexpected Settings packet on OTA buffer');
+        onSettingsPacketReceived?.call(drained.settingsPacket!);
+      }
+    }
+  }
+
+  void _processSettingsBuffer() {
+    while (true) {
+      final drained = ProtocolService.drainBuffer(_receiveSettingsBuffer);
+      if (drained == null) break;
+      if (drained.kind == 'settings') {
+        _log('Settings packet: sub=0x${drained.settingsPacket!.subCmd.toRadixString(16)} '
+            'payloadLen=${drained.settingsPacket!.payload.length}');
+        onSettingsPacketReceived?.call(drained.settingsPacket!);
+      } else if (drained.kind == 'widget') {
+        _log('Unexpected widget packet on Settings buffer, forwarding');
+        onPacketReceived?.call(drained.widgetPacket!);
+      } else if (drained.kind == 'fs') {
+        _log('Unexpected FS packet on Settings buffer');
+        onFsPacketReceived?.call(drained.fsPacket!);
+      } else if (drained.kind == 'ota') {
+        _log('Unexpected OTA packet on Settings buffer');
+        onOtaPacketReceived?.call(drained.otaPacket!);
       }
     }
   }

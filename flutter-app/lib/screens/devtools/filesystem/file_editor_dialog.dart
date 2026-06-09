@@ -3,6 +3,23 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:re_editor/re_editor.dart';
+import 'package:re_highlight/languages/bash.dart' show langBash;
+import 'package:re_highlight/languages/cpp.dart' show langCpp;
+import 'package:re_highlight/languages/css.dart' show langCss;
+import 'package:re_highlight/languages/dart.dart' show langDart;
+import 'package:re_highlight/languages/go.dart' show langGo;
+import 'package:re_highlight/languages/ini.dart' show langIni;
+import 'package:re_highlight/languages/javascript.dart' show langJavascript;
+import 'package:re_highlight/languages/json.dart' show langJson;
+import 'package:re_highlight/languages/markdown.dart' show langMarkdown;
+import 'package:re_highlight/languages/plaintext.dart' show langPlaintext;
+import 'package:re_highlight/languages/python.dart' show langPython;
+import 'package:re_highlight/languages/rust.dart' show langRust;
+import 'package:re_highlight/languages/xml.dart' show langXml;
+import 'package:re_highlight/languages/yaml.dart' show langYaml;
+import 'package:re_highlight/re_highlight.dart' show Mode;
+import 'package:re_highlight/styles/atom-one-dark.dart' show atomOneDarkTheme;
 
 import '../../../services/device_fs_service.dart';
 import 'fs_helpers.dart';
@@ -20,11 +37,70 @@ class FileEditResult {
   });
 }
 
+/// Maps a file extension to a re_highlight language name for syntax coloring.
+String _languageForFile(String fileName) {
+  final ext = fileName.split('.').last.toLowerCase();
+  switch (ext) {
+    case 'json':
+      return 'json';
+    case 'c':
+    case 'h':
+    case 'cpp':
+    case 'hpp':
+    case 'cxx':
+    case 'hxx':
+    case 'cc':
+    case 'hh':
+    case 'ino':
+    case 'arduino':
+      return 'cpp';
+    case 'py':
+      return 'python';
+    case 'dart':
+      return 'dart';
+    case 'yaml':
+    case 'yml':
+      return 'yaml';
+    case 'xml':
+    case 'html':
+    case 'htm':
+      return 'xml';
+    case 'md':
+    case 'markdown':
+      return 'markdown';
+    case 'sh':
+    case 'bash':
+    case 'zsh':
+      return 'bash';
+    case 'toml':
+      return 'toml';
+    case 'go':
+      return 'go';
+    case 'rs':
+      return 'rust';
+    case 'js':
+    case 'jsx':
+    case 'ts':
+    case 'tsx':
+      return 'javascript';
+    case 'css':
+    case 'scss':
+    case 'less':
+      return 'css';
+    case 'ini':
+    case 'cfg':
+      return 'ini';
+    case 'txt':
+    default:
+      return 'plaintext';
+  }
+}
+
 /// Full-screen overlay dialog for editing text/code files on the device.
 ///
 /// Features:
 /// - Top bar with back button, file name, and save button
-/// - Monospace text editor with basic undo support
+/// - re_editor [CodeEditor] with syntax highlighting based on file extension
 /// - File size warning for large files (>500 KB)
 /// - Save via DeviceFsService (uses REPLACE for small files, fallback to upload)
 /// - Loading spinner while file is being fetched
@@ -71,21 +147,16 @@ class FileEditorDialog extends StatefulWidget {
 }
 
 class _FileEditorDialogState extends State<FileEditorDialog> {
-  late TextEditingController _controller;
+  CodeLineEditingController? _controller;
   bool _loading = true;
   bool _saving = false;
   bool _contentChanged = false;
   String? _error;
   Uint8List? _originalBytes;
 
-  // Undo stack
-  final List<String> _undoStack = [];
-  int _undoIndex = -1;
-
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController();
     if (widget.initialContent != null) {
       _loadContent(widget.initialContent!);
     } else {
@@ -95,16 +166,16 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
   void _loadContent(Uint8List bytes) {
     _originalBytes = Uint8List.fromList(bytes);
     final text = utf8DecodeWithFallback(bytes);
-    _controller.text = text;
-    _controller.selection = TextSelection.collapsed(offset: text.length);
-    _controller.addListener(_onTextChanged);
+    _controller?.dispose();
+    _controller = CodeLineEditingController.fromText(text)
+      ..addListener(_onTextChanged);
     setState(() {
       _loading = false;
       _contentChanged = false;
@@ -134,10 +205,14 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
   }
 
   void _onTextChanged() {
-    final changed = _controller.text != _utf8Decode(_originalBytes);
+    final currentText = _controller?.text;
+    if (currentText == null) return;
+    final changed = currentText != _utf8Decode(_originalBytes);
     if (changed != _contentChanged) {
-      setState(() => _contentChanged = changed);
+      _contentChanged = changed;
     }
+    // Also rebuild for undo/redo button state changes
+    setState(() {});
   }
 
   String _utf8Decode(Uint8List? bytes) {
@@ -151,14 +226,15 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
 
   Future<void> _save() async {
     if (_saving || !_contentChanged) return;
+    final content = _controller?.text;
+    if (content == null) return;
     setState(() {
       _saving = true;
       _error = null;
     });
 
     try {
-      final text = _controller.text;
-      final bytes = Uint8List.fromList(utf8.encode(text));
+      final bytes = Uint8List.fromList(utf8.encode(content));
 
       final result = await widget.fs.replaceFile(widget.path, bytes);
       if (!mounted) return;
@@ -189,22 +265,13 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
     }
   }
 
-  void _saveUndoPoint() {
-    if (_undoIndex < 0 || _controller.text != _undoStack[_undoIndex]) {
-      // Truncate redo history
-      _undoStack.removeRange(_undoIndex + 1, _undoStack.length);
-      _undoStack.add(_controller.text);
-      _undoIndex = _undoStack.length - 1;
-    }
-  }
-
-  // Uses utf8DecodeWithFallback from fs_helpers.dart
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final isLargeFile = _originalBytes != null && _originalBytes!.length > 500 * 1024;
+    final isLargeFile =
+        _originalBytes != null && _originalBytes!.length > 500 * 1024;
+    final lang = _languageForFile(widget.fileName);
 
     return Material(
       color: const Color(0xFF121212),
@@ -255,24 +322,54 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
                       ],
                     ),
                   ),
-                  if (_contentChanged)
-                    TextButton.icon(
-                      icon: const Icon(Icons.undo_rounded, size: 16),
-                      label: const Text('Undo'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.white54,
-                        textStyle: const TextStyle(fontSize: 11),
-                      ),
-                      onPressed: _undoIndex > 0
-                          ? () {
-                              _undoIndex--;
-                              _controller.text = _undoStack[_undoIndex];
-                              _controller.selection = TextSelection.fromPosition(
-                                TextPosition(offset: _controller.text.length),
-                              );
-                            }
-                          : null,
-                    ),
+                  const SizedBox(width: 8),
+                  // Undo / Redo buttons
+                  ListenableBuilder(
+                    listenable: _controller ?? ChangeNotifier(),
+                    builder: (context, _) {
+                      final canUndo = _controller?.canUndo ?? false;
+                      final canRedo = _controller?.canRedo ?? false;
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              Icons.undo_rounded,
+                              size: 18,
+                              color: canUndo ? Colors.white70 : Colors.white24,
+                            ),
+                            tooltip: 'Undo',
+                            onPressed: canUndo
+                                ? () {
+                                    _controller!.undo();
+                                  }
+                                : null,
+                            style: IconButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.all(6),
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.redo_rounded,
+                              size: 18,
+                              color: canRedo ? Colors.white70 : Colors.white24,
+                            ),
+                            tooltip: 'Redo',
+                            onPressed: canRedo
+                                ? () {
+                                    _controller!.redo();
+                                  }
+                                : null,
+                            style: IconButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.all(6),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                   const SizedBox(width: 8),
                   FilledButton.icon(
                     icon: _saving
@@ -334,7 +431,8 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
                               children: [
                                 Icon(Icons.error_outline_rounded,
                                     size: 48,
-                                    color: Colors.redAccent.withValues(alpha: 0.7)),
+                                    color: Colors.redAccent
+                                        .withValues(alpha: 0.7)),
                                 const SizedBox(height: 12),
                                 Text(
                                   _error!,
@@ -358,7 +456,8 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
                                 width: double.infinity,
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 16, vertical: 6),
-                                color: Colors.orangeAccent.withValues(alpha: 0.1),
+                                color: Colors.orangeAccent
+                                    .withValues(alpha: 0.1),
                                 child: Row(
                                   children: [
                                     Icon(Icons.warning_amber_rounded,
@@ -378,24 +477,43 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
                                 ),
                               ),
                             Expanded(
-                              child: TextField(
-                                controller: _controller,
-                                maxLines: null,
-                                expands: true,
-                                textAlignVertical: TextAlignVertical.top,
-                                style: GoogleFonts.jetBrainsMono(
-                                  color: const Color(0xFFD4D4D4),
+                              child: CodeEditor(
+                                controller: _controller!,
+                                readOnly: false,
+                                style: CodeEditorStyle(
                                   fontSize: 13,
-                                  height: 1.5,
+                                  fontHeight: 1.5,
+                                  codeTheme: CodeHighlightTheme(
+                                    languages: {
+                                      if (lang != 'plaintext')
+                                        lang: CodeHighlightThemeMode(
+                                          mode: _highlightModeForLang(lang),
+                                        ),
+                                    },
+                                    theme: _codeHighlightTheme(),
+                                  ),
                                 ),
-                                decoration: const InputDecoration(
-                                  border: InputBorder.none,
-                                  contentPadding: EdgeInsets.all(16),
-                                  isDense: true,
-                                ),
-                                keyboardType: TextInputType.multiline,
-                                onTap: _saveUndoPoint,
-                                onEditingComplete: _saveUndoPoint,
+                                indicatorBuilder: (context, editingController,
+                                    chunkController, notifier) {
+                                  return Row(
+                                    children: [
+                                      DefaultCodeLineNumber(
+                                        controller: editingController,
+                                        notifier: notifier,
+                                        textStyle: TextStyle(
+                                          color: Colors.white38,
+                                          fontSize: 11,
+                                          fontFamily: 'monospace',
+                                        ),
+                                      ),
+                                      DefaultCodeChunkIndicator(
+                                        width: 20,
+                                        controller: chunkController,
+                                        notifier: notifier,
+                                      ),
+                                    ],
+                                  );
+                                },
                               ),
                             ),
                             // Bottom info bar
@@ -414,7 +532,7 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
                                       size: 12, color: Colors.white38),
                                   const SizedBox(width: 6),
                                   Text(
-                                    'UTF-8',
+                                    lang.toUpperCase(),
                                     style: TextStyle(
                                       color: Colors.white38,
                                       fontSize: 11,
@@ -422,7 +540,7 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
                                   ),
                                   const Spacer(),
                                   Text(
-                                    '${_controller.text.length} chars',
+                                    '${_controller?.text.length ?? 0} chars',
                                     style: TextStyle(
                                       color: Colors.white38,
                                       fontSize: 11,
@@ -496,4 +614,46 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
       ));
     }
   }
+}
+
+// ── Re-highlight helpers ──────────────────────────────────────────────────
+
+/// Map a language name string (from [_languageForFile]) to a [Mode] object.
+Mode _highlightModeForLang(String lang) {
+  switch (lang) {
+    case 'json':
+      return langJson;
+    case 'cpp':
+      return langCpp;
+    case 'python':
+      return langPython;
+    case 'dart':
+      return langDart;
+    case 'yaml':
+      return langYaml;
+    case 'xml':
+      return langXml;
+    case 'markdown':
+      return langMarkdown;
+    case 'bash':
+      return langBash;
+    case 'go':
+      return langGo;
+    case 'rust':
+      return langRust;
+    case 'javascript':
+      return langJavascript;
+    case 'css':
+      return langCss;
+    case 'ini':
+      return langIni;
+    case 'plaintext':
+    default:
+      return langPlaintext;
+  }
+}
+
+/// Returns the Atom One Dark theme map for re_highlight.
+Map<String, TextStyle> _codeHighlightTheme() {
+  return atomOneDarkTheme;
 }

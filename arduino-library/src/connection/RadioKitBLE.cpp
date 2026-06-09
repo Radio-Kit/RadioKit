@@ -19,6 +19,7 @@
 #include "../RadioKitLib.h"
 #include "RadioKitFS.h"
 #include "RadioKitOTA.h"
+#include "RadioKitSettings.h"
 #include <NimBLEDevice.h>
 
 // Default MTU (will be updated after negotiation)
@@ -82,11 +83,25 @@ static RKWidgetCharCallbacks s_widgetCharCallbacks;
 static RKFsCharCallbacks    s_fsCharCallbacks;
 static RKOtaCharCallbacks   s_otaCharCallbacks;
 
+class RKSettingsCharCallbacks : public NimBLECharacteristicCallbacks {
+public:
+    void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+        NimBLEAttValue value = pChar->getValue();
+        if (value.length() > 0)
+            RadioKitBLEInstance._onSettingsWrite(value.data(), value.length());
+    }
+    void onSubscribe(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo, uint16_t subValue) override {
+        Serial.printf("BLE: Settings char subscribed (subValue=%d)\n", subValue);
+    }
+};
+
+static RKSettingsCharCallbacks s_settingsCharCallbacks;
+
 // ─────────────────────────────────────────────
 RadioKitBLE::RadioKitBLE()
-    : _server(nullptr), _charWidget(nullptr), _charFs(nullptr), _charOta(nullptr)
+    : _server(nullptr), _charWidget(nullptr), _charFs(nullptr), _charOta(nullptr), _charSettings(nullptr)
     , _packetCallback(nullptr), _fsPacketCallback(nullptr)
-    , _otaPacketCallback(nullptr)
+    , _otaPacketCallback(nullptr), _settingsPacketCallback(nullptr)
     , _connected(false), _sending(false), _needRestartAdv(false)
     , _negotiatedMtu(RK_BLE_MTU), _connHandle(0xFFFF)
     , _connIntervalMs(12), _pendingLen(0)
@@ -98,6 +113,7 @@ void RadioKitBLE::begin(const char* deviceName, RK_PacketCallback cb) {
     _packetCallback   = cb;
     _fsPacketCallback = nullptr;
     _otaPacketCallback = nullptr;
+    _settingsPacketCallback = nullptr;
     _connected        = false;
     _needRestartAdv   = false;
     _negotiatedMtu    = RK_BLE_MTU;
@@ -164,6 +180,15 @@ void RadioKitBLE::begin(const char* deviceName, RK_PacketCallback cb) {
     );
     _charOta->setCallbacks(&s_otaCharCallbacks);
 
+    Serial.println("BLE: Creating Settings char (0xFFE4)...");
+    _charSettings = pService->createCharacteristic(
+        RK_BLE_CHAR_SETTINGS_UUID,
+        NIMBLE_PROPERTY::WRITE   |
+        NIMBLE_PROPERTY::WRITE_NR |
+        NIMBLE_PROPERTY::NOTIFY
+    );
+    _charSettings->setCallbacks(&s_settingsCharCallbacks);
+
     Serial.println("BLE: Starting server...");
     _server->start();
 
@@ -183,8 +208,9 @@ void RadioKitBLE::begin(const char* deviceName, RK_PacketCallback cb) {
 /// Select the characteristic matching the frame's protocol by start byte.
 NimBLECharacteristic* RadioKitBLE::_charForBuf(const uint8_t* buf) const {
     if (!buf) return _charWidget;
-    if (buf[0] == RK_FS_START_BYTE)  return _charFs;
-    if (buf[0] == RK_OTA_START_BYTE) return _charOta;
+    if (buf[0] == RK_FS_START_BYTE)        return _charFs;
+    if (buf[0] == RK_OTA_START_BYTE)       return _charOta;
+    if (buf[0] == RK_SETTINGS_START_BYTE)  return _charSettings;
     return _charWidget; // 0x55 (RK_START_BYTE) or unknown
 }
 
@@ -398,6 +424,10 @@ void RadioKitBLE::setOtaCallback(RK_OtaPacketCallback cb) {
     _otaPacketCallback = cb;
 }
 
+void RadioKitBLE::setSettingsCallback(RK_SettingsPacketCallback cb) {
+    _settingsPacketCallback = cb;
+}
+
 // ── Per-characteristic write handlers ─────────────────────────────────────
 // Each handler feeds bytes directly into the appropriate state-machine parser.
 // No dispatch-by-start-byte needed — the characteristic itself identifies the protocol.
@@ -443,6 +473,17 @@ void RadioKitBLE::_onOtaWrite(const uint8_t* data, size_t len) {
                 memcpy(_pendingOtaPayload, payload, payloadLen);
             }
             _hasPendingOta = true;
+        }
+    }
+}
+
+void RadioKitBLE::_onSettingsWrite(const uint8_t* data, size_t len) {
+    uint8_t subCmd; const uint8_t* payload; uint16_t payloadLen;
+    for (size_t i = 0; i < len; i++) {
+        if (rk_settingsRxFeedByte(data[i], subCmd, payload, payloadLen)) {
+            if (_settingsPacketCallback) {
+                _settingsPacketCallback(subCmd, payload, payloadLen);
+            }
         }
     }
 }

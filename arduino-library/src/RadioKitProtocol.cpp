@@ -160,8 +160,6 @@ const char* rk_cmdName(uint8_t cmd) {
         case RK_CMD_META_DATA:     return "META_DATA";
         case RK_CMD_META_UPDATE:   return "META_UPDATE";
         case RK_CMD_SET_INPUT:     return "SET_INPUT";
-        case RK_CMD_GET_TELEMETRY: return "GET_TELEMETRY";
-        case RK_CMD_TELEMETRY_DATA:return "TELEMETRY_DATA";
         default:                   return "UNKNOWN";
     }
 }

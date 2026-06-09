@@ -19,6 +19,7 @@ class LinuxSerialService implements TransportService {
   @override PacketReceivedCallback? onPacketReceived;
   @override FsPacketReceivedCallback? onFsPacketReceived;
   @override OtaPacketReceivedCallback? onOtaPacketReceived;
+  @override SettingsPacketReceivedCallback? onSettingsPacketReceived;
   @override ConnectionLostCallback? onConnectionLost;
 
   final _logController = StreamController<String>.broadcast();
@@ -148,6 +149,8 @@ class LinuxSerialService implements TransportService {
         onFsPacketReceived?.call(drained.fsPacket!);
       } else if (drained.kind == 'ota') {
         onOtaPacketReceived?.call(drained.otaPacket!);
+      } else if (drained.kind == 'settings') {
+        onSettingsPacketReceived?.call(drained.settingsPacket!);
       }
     }
   }

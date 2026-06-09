@@ -13,6 +13,7 @@ import '../models/protocol.dart';
 import '../models/device_info.dart';
 import '../models/widget_config.dart';
 import 'protocol_service.dart';
+import 'settings_protocol_service.dart';
 import '../providers/device_provider.dart';
 import '../providers/ble_provider.dart';
 import '../providers/serial_provider.dart';
@@ -690,7 +691,7 @@ class RemoteAccessService {
         case 'get_meta':
           await transport.writePacket(ProtocolService.buildGetMeta());
         case 'get_tele':
-          await transport.writePacket(ProtocolService.buildGetTelemetry());
+          await transport.writePacket(SettingsProtocolService.buildGetTelemetry());
         default:
           return _error('unknown_cmd', 'Unknown command: $cmd');
       }

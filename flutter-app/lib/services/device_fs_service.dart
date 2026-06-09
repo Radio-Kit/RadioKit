@@ -441,15 +441,21 @@ class DeviceFsService {
       }
       final code = FsProtocolService.parseAck(resp.payload) ?? -1;
       if (code != kFsErrOk) {
-        return FsOpResult(
-          success: false, errorCode: code, errorName: fsErrorName(code),
-          message: 'REPLACE failed',
-        );
+        // REPLACE failed — fall back to basic WRITE protocol.
+        // This happens on devices with older firmware that don't
+        // support the REPLACE command, or when FS is in a stale state.
+        return _fallbackWrite(path, data);
       }
       return FsOpResult(success: true, errorCode: kFsErrOk, errorName: 'OK');
     }
     // Larger files: fall back to CRC32-verified upload protocol
     return writeFileUpload(path, data);
+  }
+
+  /// Internal: fallback when REPLACE fails (e.g. older firmware).
+  /// Delegates to [writeFile], which uses the basic WRITE protocol.
+  Future<FsOpResult> _fallbackWrite(String path, Uint8List data) async {
+    return writeFile(path, data);
   }
 
   // ── CRC32 query ─────────────────────────────────────────────────────────

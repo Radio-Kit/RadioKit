@@ -1,0 +1,158 @@
+import 'dart:convert';
+import 'dart:typed_data';
+import '../models/protocol.dart';
+
+/// Result of parsing a 0xDD Settings frame.
+class ParsedSettingsPacket {
+  final int subCmd;
+  final Uint8List payload;
+  const ParsedSettingsPacket({required this.subCmd, required this.payload});
+
+  @override
+  String toString() =>
+      'ParsedSettingsPacket(sub=0x${subCmd.toRadixString(16).padLeft(2, "0")}, '
+      'payloadLen=${payload.length})';
+}
+
+/// Build and parse 0xDD Settings frames. Mirrors the Arduino side
+/// (RadioKitSettings.h / RadioKitSettings.cpp). No CRC.
+class SettingsProtocolService {
+  // ── Frame building ──────────────────────────────────────────────────────
+
+  /// Build a complete Settings frame:
+  ///   [0xDD] [SUB_CMD(1)] [LEN_LO(1)] [LEN_HI(1)] [PAYLOAD(N)]
+  static Uint8List buildFrame(int subCmd, [List<int>? payload]) {
+    final p = payload ?? const [];
+    final total = kSettingsHeaderSize + p.length;
+    if (total > 0xFFFF) {
+      throw ArgumentError('Settings frame too large: $total bytes');
+    }
+    final frame = Uint8List(total);
+    frame[0] = kSettingsStartByte;
+    frame[1] = subCmd & 0xFF;
+    frame[2] = total & 0xFF;
+    frame[3] = (total >> 8) & 0xFF;
+    for (int i = 0; i < p.length; i++) {
+      frame[kSettingsHeaderSize + i] = p[i] & 0xFF;
+    }
+    return frame;
+  }
+
+  // ── Request builders ────────────────────────────────────────────────────
+
+  static Uint8List buildGetTelemetry() => buildFrame(kSettingsCmdGetTelemetry);
+  static Uint8List buildBleInfo() => buildFrame(kSettingsCmdBleInfo);
+  static Uint8List buildGetFeatures() => buildFrame(kSettingsCmdGetFeatures);
+  static Uint8List buildGetChipInfo() => buildFrame(kSettingsCmdGetChipInfo);
+  static Uint8List buildGetDeviceInfo() => buildFrame(kSettingsCmdGetDeviceInfo);
+  static Uint8List buildFactoryReset() => buildFrame(kSettingsCmdFactoryReset);
+
+  /// Build SETTINGS_SET_CONF frame. Payload: [FIELD_MASK(2 LE)] [FIELD_DATA...]
+  static Uint8List buildSetConf({
+    String? name,
+    String? description,
+    String? password,
+    String? adminPassword,
+  }) {
+    final payload = <int>[];
+    int fieldMask = 0;
+
+    if (name != null) fieldMask |= kSettingsSetConfName;
+    if (description != null) fieldMask |= kSettingsSetConfDesc;
+    if (password != null) fieldMask |= kSettingsSetConfPwd;
+    if (adminPassword != null) fieldMask |= kSettingsSetConfAdminPwd;
+
+    payload.add(fieldMask & 0xFF);
+    payload.add((fieldMask >> 8) & 0xFF);
+
+    void addString(String s, int maxLen) {
+      final encoded = utf8.encode(s);
+      final len = encoded.length.clamp(0, maxLen);
+      payload.add(len);
+      payload.addAll(encoded.take(len));
+    }
+
+    if (name != null) addString(name, kMaxConfigName);
+    if (description != null) addString(description, kMaxConfigDesc);
+    if (password != null) addString(password, kMaxConfigPwd);
+    if (adminPassword != null) addString(adminPassword, kMaxConfigPwd);
+
+    return buildFrame(kSettingsCmdSetConf, payload);
+  }
+
+  /// Build SETTINGS_PWD_AUTH frame. Payload: [PWD_LEN(1)][PWD][FLAGS(1)?]
+  static Uint8List buildPwdAuth(String password, {bool admin = false}) {
+    final encoded = utf8.encode(password);
+    final len = encoded.length.clamp(0, kMaxConfigPwd);
+    final payload = [len, ...encoded.take(len)];
+    if (admin) {
+      payload.add(kSettingsPwdAuthFlagAdmin);
+    }
+    return buildFrame(kSettingsCmdPwdAuth, payload);
+  }
+
+  // ── Frame parsing ───────────────────────────────────────────────────────
+
+  /// Parse a complete 0xDD frame from raw bytes.
+  static ParsedSettingsPacket? parseFrame(List<int> data) {
+    if (data.length < kSettingsHeaderSize) return null;
+    if (data[0] != kSettingsStartByte) return null;
+    final subCmd = data[1];
+    final payload = Uint8List.fromList(data.sublist(kSettingsHeaderSize));
+    return ParsedSettingsPacket(subCmd: subCmd, payload: payload);
+  }
+
+  // ── Response parsers ────────────────────────────────────────────────────
+
+  /// Parse PWD_AUTH_ACK: single byte status code.
+  static int? parsePwdAuthAck(List<int> payload) {
+    if (payload.isEmpty) return null;
+    return payload[0];
+  }
+
+  /// Parse TELEMETRY_DATA: [RSSI(1)] [LATENCY(1)] [...]
+  static ({int rssi, int latency})? parseTelemetryData(List<int> payload) {
+    if (payload.isEmpty) return null;
+    final rawRssi = payload[0];
+    final rssi = rawRssi > 127 ? rawRssi - 256 : rawRssi;
+    final latency = payload.length >= 2 ? payload[1] : 0;
+    return (rssi: rssi, latency: latency);
+  }
+
+  /// Parse BLE_INFO_DATA: [CONN_INTERVAL_MS(2 LE)][MTU(2 LE)][RSSI(1)]
+  static ({int connIntervalMs, int mtu, int rssi})? parseBleInfoData(
+      List<int> payload) {
+    if (payload.length < 5) return null;
+    final connIntervalMs = payload[0] | (payload[1] << 8);
+    final mtu = payload[2] | (payload[3] << 8);
+    final rawRssi = payload[4];
+    final rssi = rawRssi > 127 ? rawRssi - 256 : rawRssi;
+    return (connIntervalMs: connIntervalMs, mtu: mtu, rssi: rssi);
+  }
+
+  /// Parse FEATURES_DATA: [BITMASK(1)]
+  static int? parseFeaturesData(List<int> payload) {
+    if (payload.isEmpty) return null;
+    return payload[0];
+  }
+
+  /// Parse DEVICE_INFO_DATA: [PROTO_VER(1)][NAME_LEN(1)][NAME][DESC_LEN(1)][DESC]
+  static ({int version, String name, String description})? parseDeviceInfoData(
+      List<int> payload) {
+    if (payload.length < 3) return null;
+    int offset = 0;
+    final version = payload[offset++];
+    final nameLen = payload[offset++];
+    if (offset + nameLen > payload.length) return null;
+    final name = utf8.decode(payload.sublist(offset, offset + nameLen),
+        allowMalformed: true);
+    offset += nameLen;
+    if (offset >= payload.length) return null;
+    final descLen = payload[offset++];
+    final description = (offset + descLen <= payload.length)
+        ? utf8.decode(payload.sublist(offset, offset + descLen),
+            allowMalformed: true)
+        : '';
+    return (version: version, name: name, description: description);
+  }
+}

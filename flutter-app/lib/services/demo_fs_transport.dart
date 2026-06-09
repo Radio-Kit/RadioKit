@@ -77,6 +77,12 @@ class DemoFsTransport extends DemoTransport {
         return _handleFormat();
       case kFsCmdReplace:
         return _handleReplace(payload);
+      case kFsCmdUploadBegin:
+        return _handleUploadBegin(payload);
+      case kFsCmdUploadChunk:
+        return _handleUploadChunk(payload);
+      case kFsCmdUploadEnd:
+        return _handleUploadEnd(payload);
       case kFsCmdCrc32:
         return _handleCrc32(payload);
       default:
@@ -112,6 +118,57 @@ class DemoFsTransport extends DemoTransport {
     final content = Uint8List.sublistView(payload, p);
     final res = _state.replace(path, content);
     return _ack(kFsRespReplaceAck, res.code);
+  }
+
+  // ── Upload protocol handlers ─────────────────────────────────────────
+
+  /// Simulated upload state.
+  String _uploadPath = '';
+
+  /// UPLOAD_BEGIN: create/truncate file for upload.
+  /// Payload: [PATH_LEN(1)][PATH(N)][TOTAL_SIZE(4 LE)].
+  ParsedFsPacket _handleUploadBegin(Uint8List payload) {
+    if (payload.length < 6) {
+      return _ack(kFsRespUploadBeginAck, kFsErrInvalidPath);
+    }
+    final pathLen = payload[0];
+    if (payload.length < 1 + pathLen + 4) {
+      return _ack(kFsRespUploadBeginAck, kFsErrInvalidPath);
+    }
+    final path = utf8.decode(
+      payload.sublist(1, 1 + pathLen),
+      allowMalformed: true,
+    );
+    // Create/truncate the file by writing empty at offset 0
+    final res = _state.writeFile(path, 0, Uint8List(0));
+    if (res.code != kFsErrOk) {
+      _uploadPath = '';
+      return _ack(kFsRespUploadBeginAck, res.code);
+    }
+    _uploadPath = path;
+    return _ack(kFsRespUploadBeginAck, kFsErrOk);
+  }
+
+  /// UPLOAD_CHUNK: write data at sequential offset.
+  /// Payload: [OFFSET(4 LE)][DATA(N)].
+  ParsedFsPacket _handleUploadChunk(Uint8List payload) {
+    if (payload.length < 5) {
+      return _ack(kFsRespUploadChunkAck, kFsErrInvalidPath);
+    }
+    final offset = payload[0] |
+        (payload[1] << 8) |
+        (payload[2] << 16) |
+        (payload[3] << 24);
+    final data = Uint8List.sublistView(payload, 4);
+    final res = _state.writeFile(_uploadPath, offset, data);
+    return _ack(kFsRespUploadChunkAck, res.code);
+  }
+
+  /// UPLOAD_END: finalize upload. Demo doesn't verify CRC.
+  /// Payload: [CRC32(4 LE)].
+  ParsedFsPacket _handleUploadEnd(Uint8List payload) {
+    _uploadPath = '';
+    return _ack(kFsRespUploadEndAck, kFsErrOk);
   }
 
   ParsedFsPacket _handleCrc32(Uint8List payload) {

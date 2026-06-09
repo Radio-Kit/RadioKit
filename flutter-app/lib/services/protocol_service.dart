@@ -5,6 +5,7 @@ import '../models/protocol.dart';
 import '../models/widget_config.dart';
 import 'fs_protocol_service.dart';
 import 'ota_protocol_service.dart';
+import 'settings_protocol_service.dart';
 
 /// Result of parsing a CONF_DATA payload.
 class ParsedConf {
@@ -213,7 +214,8 @@ class ProtocolService {
       for (int i = 0; i < buffer.length; i++) {
         if (buffer[i] == kStartByte ||
             buffer[i] == kFsStartByte ||
-            buffer[i] == kOtaStartByte) {
+            buffer[i] == kOtaStartByte ||
+            buffer[i] == kSettingsStartByte) {
           startIdx = i;
           startByte = buffer[i];
           break;
@@ -234,6 +236,7 @@ class ProtocolService {
       //   0x55 widget: [START(1)][LEN_LO(1)][LEN_HI(1)][CMD(1)]... → length at [1..2]
       //   0xAA FS:     [START(1)][SUB_CMD(1)][LEN_LO(1)][LEN_HI(1)]... → length at [2..3]
       //   0xBB OTA:    same as FS: [START(1)][SUB_CMD(1)][LEN_LO(1)][LEN_HI(1)]... → length at [2..3]
+      //   0xDD Settings: same as FS: [START(1)][SUB_CMD(1)][LEN_LO(1)][LEN_HI(1)]... → length at [2..3]
       final int length = (startByte == kStartByte)
           ? (buffer[1] | (buffer[2] << 8))
           : (buffer[2] | (buffer[3] << 8));
@@ -260,11 +263,17 @@ class ProtocolService {
           return DrainResult.fs(pkt);
         }
         continue;
-      } else {
-        // 0xBB OTA frame
+      } else if (startByte == kOtaStartByte) {
         final pkt = OtaProtocolService.parseFrame(frameBytes);
         if (pkt != null) {
           return DrainResult.ota(pkt);
+        }
+        continue;
+      } else {
+        // 0xDD Settings frame
+        final pkt = SettingsProtocolService.parseFrame(frameBytes);
+        if (pkt != null) {
+          return DrainResult.settings(pkt);
         }
         continue;
       }
@@ -272,16 +281,15 @@ class ProtocolService {
     return null;
   }
 
-  // ── CONF_DATA parsing (protocol v3/v4) ──────────────────────────────────
+  // ── CONF_DATA parsing (protocol v4) ────────────────────────────────────
   //
-  // v4 global header (variable length, NO password field):
+  // v4 global header (NO version/name/desc — those moved to Settings protocol):
+  //   [ORIENTATION(1)] [NUM_WIDGETS(1)] [THEME_LEN(1)] [THEME(THEME_LEN)]
+  //
+  // v3 global header (WITH password field, deprecated, parsed for compat):
   //   [VERSION(1)] [ORIENTATION(1)] [NUM_WIDGETS(1)]
-  //   [NAME_LEN(1)] [NAME(NAME_LEN)]
-  //   [DESC_LEN(1)] [DESC(DESC_LEN)]
-  //   [THEME_LEN(1)] [THEME(THEME_LEN)]
-  //
-  // v3 global header (WITH password field between DESC and THEME):
-  //   ... [PWD_LEN(1)] [PWD(PWD_LEN)] then [THEME_LEN(1)] [THEME(THEME_LEN)]
+  //   [NAME_LEN(1)] [NAME(NAME_LEN)] [DESC_LEN(1)] [DESC(DESC_LEN)]
+  //   [PWD_LEN(1)] [PWD(PWD_LEN)] [THEME_LEN(1)] [THEME(THEME_LEN)]
   //
   // Per widget — 10 fixed bytes:
   //   [TYPE(1)] [ID(1)] [X(1)] [Y(1)] [SCALE(1)] [ASPECT(1)]
@@ -296,65 +304,56 @@ class ProtocolService {
       return null;
     }
 
-    final version = payload[0];
-    if (version != kProtocolVersionV3 && version != kProtocolVersionV4) {
-      debugPrint(
-          'RadioKit CONF_DATA: version mismatch '
-          '(got 0x${version.toRadixString(16)}, '
-          'expected 0x$kProtocolVersionV4 or 0x$kProtocolVersionV3)');
-      return null;
-    }
+    // Determine format: v4 starts directly with ORIENTATION (no version byte),
+    // v3 starts with VERSION byte.
+    final isV4 = (payload[0] != kProtocolVersionV3);
 
-    final isV4 = version == kProtocolVersionV4;
-    final orientation = payload[1];
-    final numWidgets  = payload[2];
-    int offset        = 3;
-
-    // Skip device name
-    if (offset >= payload.length) {
-      debugPrint('RadioKit CONF_DATA: truncated before NAME_LEN');
-      return null;
-    }
-    final nameLen = payload[offset++];
-    if (offset + nameLen > payload.length) {
-      debugPrint('RadioKit CONF_DATA: truncated in NAME field');
-      return null;
-    }
-    final name = utf8.decode(payload.sublist(offset, offset + nameLen),
-        allowMalformed: true);
-    offset += nameLen;
-
-    // Parse description
-    if (offset >= payload.length) {
-      debugPrint('RadioKit CONF_DATA: truncated before DESC_LEN');
-      return null;
-    }
-    final descLen = payload[offset++];
-    if (offset + descLen > payload.length) {
-      debugPrint('RadioKit CONF_DATA: truncated in DESC field');
-      return null;
-    }
-    final description = utf8.decode(payload.sublist(offset, offset + descLen),
-        allowMalformed: true);
-    offset += descLen;
+    int offset;
+    int orientation;
+    int numWidgets;
+    String name = '';
+    String description = '';
 
     if (isV4) {
-      // v4: no password field, go straight to theme
+      // v4: [ORIENTATION(1)] [NUM_WIDGETS(1)] [THEME_LEN(1)] [THEME...]
+      orientation = payload[0];
+      numWidgets = payload[1];
+      offset = 2;
     } else {
-      // v3: skip password field
-      if (offset >= payload.length) {
-        debugPrint('RadioKit CONF_DATA: truncated before PWD_LEN');
-        return null;
+      // v3 (backward compat): [VERSION(1)] [ORIENTATION(1)] [NUM_WIDGETS(1)]
+      //                       [NAME_LEN(1)] [NAME...] [DESC_LEN(1)] [DESC...]
+      //                       [PWD_LEN(1)] [PWD...] [THEME_LEN(1)] [THEME...]
+      debugPrint('RadioKit CONF_DATA: v3 format detected (backward compat)');
+      orientation = payload[1];
+      numWidgets = payload[2];
+      offset = 3;
+
+      // Parse name (v3 only)
+      if (offset >= payload.length) return null;
+      final nameLen = payload[offset++];
+      if (offset + nameLen <= payload.length) {
+        name = utf8.decode(payload.sublist(offset, offset + nameLen),
+            allowMalformed: true);
+        offset += nameLen;
       }
+
+      // Parse description (v3 only)
+      if (offset >= payload.length) return null;
+      final descLen = payload[offset++];
+      if (offset + descLen <= payload.length) {
+        description = utf8.decode(payload.sublist(offset, offset + descLen),
+            allowMalformed: true);
+        offset += descLen;
+      }
+
+      // Skip password field (v3 only)
+      if (offset >= payload.length) return null;
       final pwdLen = payload[offset++];
-      if (offset + pwdLen > payload.length) {
-        debugPrint('RadioKit CONF_DATA: truncated in PWD field');
-        return null;
-      }
+      if (offset + pwdLen > payload.length) return null;
       offset += pwdLen;
     }
 
-    // Parse theme string
+    // Parse theme string (common to v3 and v4)
     if (offset >= payload.length) {
       debugPrint('RadioKit CONF_DATA: truncated before THEME_LEN');
       return null;
@@ -644,10 +643,13 @@ class DrainResult {
   final ParsedPacket? widgetPacket;
   final ParsedFsPacket? fsPacket;
   final ParsedOtaPacket? otaPacket;
+  final ParsedSettingsPacket? settingsPacket;
   const DrainResult.widget(ParsedPacket this.widgetPacket)
-      : kind = 'widget', fsPacket = null, otaPacket = null;
+      : kind = 'widget', fsPacket = null, otaPacket = null, settingsPacket = null;
   const DrainResult.fs(ParsedFsPacket this.fsPacket)
-      : kind = 'fs', widgetPacket = null, otaPacket = null;
+      : kind = 'fs', widgetPacket = null, otaPacket = null, settingsPacket = null;
   const DrainResult.ota(ParsedOtaPacket this.otaPacket)
-      : kind = 'ota', widgetPacket = null, fsPacket = null;
+      : kind = 'ota', widgetPacket = null, fsPacket = null, settingsPacket = null;
+  const DrainResult.settings(ParsedSettingsPacket this.settingsPacket)
+      : kind = 'settings', widgetPacket = null, fsPacket = null, otaPacket = null;
 }

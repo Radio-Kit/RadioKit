@@ -6,6 +6,7 @@ const String kRadioKitServiceUuid     = '0000FFE0-0000-1000-8000-00805F9B34FB';
 const String kRadioKitCharWidgetUuid  = '0000FFE1-0000-1000-8000-00805F9B34FB';  // Widget protocol (0x55)
 const String kRadioKitCharFsUuid      = '0000FFE2-0000-1000-8000-00805F9B34FB';  // FS protocol (0xAA)
 const String kRadioKitCharOtaUuid     = '0000FFE3-0000-1000-8000-00805F9B34FB';  // OTA protocol (0xBB)
+const String kRadioKitCharSettingsUuid = '0000FFE4-0000-1000-8000-00805F9B34FB';  // Settings protocol (0xDD)
 
 // Packet framing
 const int kStartByte = 0x55;
@@ -79,6 +80,52 @@ const int kOtaCmdAbort = 0x04;
 // OTA sub-commands (MCU → App)
 const int kOtaRespAck      = 0x81;
 const int kOtaRespProgress = 0x82;
+
+// ── Settings protocol (0xDD) ────────────────────────────────────────────────
+const int kSettingsStartByte = 0xDD;
+const int kSettingsHeaderSize = 4; // START(1) + SUB_CMD(1) + LEN_LO(1) + LEN_HI(1)
+const int kSettingsMaxPayload = 1024;
+
+// App → MCU sub-commands
+const int kSettingsCmdGetTelemetry   = 0x01;
+const int kSettingsCmdBleInfo        = 0x02;
+const int kSettingsCmdGetFeatures    = 0x03;
+const int kSettingsCmdGetChipInfo    = 0x04;
+const int kSettingsCmdSetConf        = 0x05;
+const int kSettingsCmdPwdAuth        = 0x06;
+const int kSettingsCmdFactoryReset   = 0x07;
+const int kSettingsCmdGetDeviceInfo  = 0x08;
+
+// MCU → App sub-commands (response = request | 0x80)
+const int kSettingsRespTelemetryData    = 0x81;
+const int kSettingsRespBleInfoData      = 0x82;
+const int kSettingsRespFeaturesData     = 0x83;
+const int kSettingsRespChipInfoData     = 0x84;
+const int kSettingsRespSetConfAck       = 0x85;
+const int kSettingsRespPwdAuthAck       = 0x86;
+const int kSettingsRespFactoryResetAck  = 0x87;
+const int kSettingsRespDeviceInfoData   = 0x88;
+
+// PWD_AUTH status codes
+const int kSettingsPwdOk       = 0x00;
+const int kSettingsPwdMismatch = 0x01;
+const int kSettingsPwdAlready  = 0x02;
+
+// PWD_AUTH flags
+const int kSettingsPwdAuthFlagAdmin = 1 << 0;
+
+// SET_CONF field mask bits
+const int kSettingsSetConfName      = 1 << 0;
+const int kSettingsSetConfDesc      = 1 << 1;
+const int kSettingsSetConfPwd       = 1 << 2;
+const int kSettingsSetConfAdminPwd  = 1 << 3;
+const int kSettingsSetConfError     = 1 << 7;
+
+// Feature bitmask bits
+const int kSettingsFeatureOta           = 1 << 0;
+const int kSettingsFeatureFilesystem    = 1 << 1;
+const int kSettingsFeatureHasConnPwd    = 1 << 2;
+const int kSettingsFeatureHasAdminPwd   = 1 << 3;
 
 // OTA error codes
 const int kOtaErrOk           = 0x00;

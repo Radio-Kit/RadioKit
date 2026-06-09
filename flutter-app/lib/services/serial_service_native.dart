@@ -68,6 +68,13 @@ class SerialService implements TransportService {
       _impl.onOtaPacketReceived = v;
 
   @override
+  SettingsPacketReceivedCallback? get onSettingsPacketReceived =>
+      _impl.onSettingsPacketReceived;
+  @override
+  set onSettingsPacketReceived(SettingsPacketReceivedCallback? v) =>
+      _impl.onSettingsPacketReceived = v;
+
+  @override
   ConnectionLostCallback? get onConnectionLost => _impl.onConnectionLost;
   @override
   set onConnectionLost(ConnectionLostCallback? v) => _impl.onConnectionLost = v;
@@ -108,6 +115,7 @@ class _UnsupportedSerialService implements TransportService {
   @override PacketReceivedCallback? onPacketReceived;
   @override FsPacketReceivedCallback? onFsPacketReceived;
   @override OtaPacketReceivedCallback? onOtaPacketReceived;
+  @override SettingsPacketReceivedCallback? onSettingsPacketReceived;
   @override ConnectionLostCallback? onConnectionLost;
   @override bool get isConnected => false;
   @override Stream<String> get logStream => const Stream.empty();

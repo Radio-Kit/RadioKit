@@ -7,6 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
+import 'package:re_editor/re_editor.dart';
+import 'package:re_highlight/languages/json.dart' show langJson;
+import 'package:re_highlight/languages/cpp.dart' show langCpp;
+import 'package:re_highlight/styles/atom-one-dark.dart' show atomOneDarkTheme;
 import 'package:share_plus/share_plus.dart';
 import 'package:file_picker/file_picker.dart';
 import 'utils/file_download.dart';
@@ -644,187 +648,45 @@ class _DesignerScreenState extends State<DesignerScreen> {
     }
   }
 
-  // ── JSON syntax highlighter ──────────────────────────────────────────
+  // ── Read-only code editor widget ──────────────────────────────────────
 
-  List<TextSpan> _jsonHighlightSpans(String json) {
-    const keyColor = Color(0xFF7EC8E3);
-    const stringColor = Color(0xFFA8D8A8);
-    const numberColor = Color(0xFFE5C07B);
-    const boolNullColor = Color(0xFFC678DD);
-    const braceColor = Color(0xFFAAAAAA);
-
-    const baseStyle = TextStyle(
-      fontSize: 12,
-      fontFamily: 'monospace',
-      height: 1.5,
-    );
-    final keyStyle = baseStyle.copyWith(color: keyColor);
-    final stringStyle = baseStyle.copyWith(color: stringColor);
-    final numberStyle = baseStyle.copyWith(color: numberColor);
-    final boolNullStyle = baseStyle.copyWith(color: boolNullColor);
-    final braceStyle = baseStyle.copyWith(color: braceColor);
-
-    final spans = <TextSpan>[];
-
-    final regex = RegExp(
-      r'("(?:[^"\\]|\\.)*")\s*:' // key
-      r'|("(?:[^"\\]|\\.)*")' // string value
-      r'|(\btrue\b|\bfalse\b)' // boolean
-      r'|(\bnull\b)' // null
-      r'|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)', // number
-    );
-
-    int lastEnd = 0;
-    for (final match in regex.allMatches(json)) {
-      if (match.start > lastEnd) {
-        spans.add(TextSpan(
-          text: json.substring(lastEnd, match.start),
-          style: braceStyle,
-        ));
-      }
-
-      TextStyle style;
-      if (match.group(1) != null) {
-        style = keyStyle;
-      } else if (match.group(2) != null) {
-        style = stringStyle;
-      } else if (match.group(3) != null || match.group(4) != null) {
-        style = boolNullStyle;
-      } else {
-        style = numberStyle;
-      }
-
-      spans.add(TextSpan(
-        text: match.group(0),
-        style: style,
-      ));
-      lastEnd = match.end;
-    }
-
-    if (lastEnd < json.length) {
-      spans.add(TextSpan(
-        text: json.substring(lastEnd),
-        style: braceStyle,
-      ));
-    }
-
-    return spans;
-  }
-
-  // ── Code viewer with line numbers ──────────────────────────────────────
-
-  Widget _buildCodeView(String jsonString) {
-    final lines = jsonString.split('\n');
-    const lineHeight = 18.0; // 12px font * 1.5 height
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Line numbers gutter
-          SizedBox(
-            width: 40,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: List.generate(lines.length, (i) {
-                return SizedBox(
-                  height: lineHeight,
-                  child: Text(
-                    '${i + 1}',
-                    overflow: TextOverflow.clip,
-                    style: const TextStyle(
-                      color: Color(0xFF555555),
-                      fontSize: 12,
-                      fontFamily: 'monospace',
-                      height: 1.5,
-                    ),
-                  ),
-                );
-              }),
+  /// Builds a read-only [CodeEditor] showing [text] highlighted with the given
+  /// re_highlight [language] mode.
+  Widget _buildCodeEditor(String text, String language) {
+    return CodeEditor(
+      controller: CodeLineEditingController.fromText(text),
+      readOnly: true,
+      style: CodeEditorStyle(
+        fontSize: 12,
+        fontHeight: 1.5,
+        codeTheme: CodeHighlightTheme(
+          languages: {
+            language: CodeHighlightThemeMode(
+              mode: language == 'json' ? langJson : langCpp,
             ),
-          ),
-          const SizedBox(width: 12),
-          // Divider
-          Container(
-            width: 1,
-            color: const Color(0xFF2A2A2A),
-          ),
-          const SizedBox(width: 16),
-          // JSON content
-          Expanded(
-            child: SelectableText.rich(
-              TextSpan(children: _jsonHighlightSpans(jsonString)),
-              style: const TextStyle(
-                color: Color(0xFFE0E0E0),
+          },
+          theme: atomOneDarkTheme,
+        ),
+      ),
+      indicatorBuilder: (context, editingController,
+          chunkController, notifier) {
+        return Row(
+          children: [
+            DefaultCodeLineNumber(
+              controller: editingController,
+              notifier: notifier,
+              textStyle: const TextStyle(
+                color: Color(0xFF555555),
                 fontSize: 12,
                 fontFamily: 'monospace',
-                height: 1.5,
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── C code viewer ───────────────────────────────────────────────────────
-
-  Widget _buildCView(String code) {
-    final lines = code.split('\n');
-    const lineHeight = 18.0;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Line numbers gutter
-          SizedBox(
-            width: 40,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: List.generate(lines.length, (i) {
-                return SizedBox(
-                  height: lineHeight,
-                  child: Text(
-                    '${i + 1}',
-                    overflow: TextOverflow.clip,
-                    style: const TextStyle(
-                      color: Color(0xFF555555),
-                      fontSize: 12,
-                      fontFamily: 'monospace',
-                      height: 1.5,
-                    ),
-                  ),
-                );
-              }),
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Divider
-          Container(
-            width: 1,
-            color: const Color(0xFF2A2A2A),
-          ),
-          const SizedBox(width: 16),
-          // C code content
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: SelectableText.rich(
-                TextSpan(children: _cHighlightSpans(code)),
-                style: const TextStyle(
-                  color: Color(0xFFABB2BF),
-                  fontSize: 12,
-                  fontFamily: 'monospace',
-                  height: 1.5,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+            const SizedBox(width: 4),
+            Container(width: 1, color: const Color(0xFF2A2A2A)),
+            const SizedBox(width: 4),
+          ],
+        );
+      },
     );
   }
 
@@ -887,72 +749,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
   }
 
   // ── C syntax highlighter for Arduino code ─────────────────────────────
-
-  List<TextSpan> _cHighlightSpans(String code) {
-    const keywordColor = Color(0xFFC678DD); // purple
-    const typeColor = Color(0xFFE5C07B); // yellow
-    const stringColor = Color(0xFFA8D8A8); // green
-    const commentColor = Color(0xFF5C6370); // grey
-    const preprocColor = Color(0xFF56B6C2); // cyan
-    const numberColor = Color(0xFFD19A66); // orange
-    const macroColor = Color(0xFF7EC8E3); // blue
-    const defaultColor = Color(0xFFABB2BF); // light grey
-
-    const baseStyle =
-        TextStyle(fontSize: 12, fontFamily: 'monospace', height: 1.5);
-    final defaultStyle = baseStyle.copyWith(color: defaultColor);
-
-    final spans = <TextSpan>[];
-
-    final regex = RegExp(
-      r'(//[^\n]*)' // line comment
-      r'|(/\*[\s\S]*?\*/)' // block comment
-      r'|(#\w+)' // preprocessor directive
-      r'|("(?:[^"\\]|\\.)*")' // string literal
-      r'|(\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b)' // number
-      r'|\b(RK_[A-Z_]+)\b' // RK_ macros/constants
-      r'|\b(RK_(?:Push|Toggle)Button|RK_SlideSwitch|RK_RockerSwitch|RK_Slider|RK_Knob|RK_Joystick|RK_LED|RK_Text|RK_SerialMonitor|RK_SteeringWheel|RK_GasPedal|RK_MultiButton|RK_MultiSelect)\b' // widget types
-      r'|\b(if|else|for|while|do|switch|case|break|continue|return|void|static|inline|const|struct|typedef|enum|class)\b', // keywords
-    );
-
-    int lastEnd = 0;
-    for (final match in regex.allMatches(code)) {
-      if (match.start > lastEnd) {
-        spans.add(TextSpan(
-          text: code.substring(lastEnd, match.start),
-          style: defaultStyle,
-        ));
-      }
-
-      TextStyle style;
-      if (match.group(1) != null || match.group(2) != null) {
-        style = baseStyle.copyWith(color: commentColor);
-      } else if (match.group(3) != null) {
-        style = baseStyle.copyWith(color: preprocColor);
-      } else if (match.group(4) != null) {
-        style = baseStyle.copyWith(color: stringColor);
-      } else if (match.group(5) != null) {
-        style = baseStyle.copyWith(color: numberColor);
-      } else if (match.group(6) != null) {
-        style = baseStyle.copyWith(color: macroColor);
-      } else if (match.group(7) != null) {
-        style = baseStyle.copyWith(color: typeColor);
-      } else if (match.group(8) != null) {
-        style = baseStyle.copyWith(color: keywordColor);
-      } else {
-        style = defaultStyle;
-      }
-
-      spans.add(TextSpan(text: match.group(0), style: style));
-      lastEnd = match.end;
-    }
-
-    if (lastEnd < code.length) {
-      spans.add(TextSpan(text: code.substring(lastEnd), style: defaultStyle));
-    }
-
-    return spans;
-  }
+  // (replaced by re_editor/re_highlight — see _buildCodeEditor above)
 
   /// Builds the complete RadioKit_UI.h content: JSON config block + Arduino code.
   String _buildFullHeader() {
@@ -1181,11 +978,11 @@ class _DesignerScreenState extends State<DesignerScreen> {
                                   );
                                 },
                               ),
-                              // Code content with line numbers
+                              // Code content with re_editor
                               Expanded(
                                 child: Container(
                                   color: const Color(0xFF0A0A0A),
-                                  child: _buildCodeView(displayJsonString),
+                                  child: _buildCodeEditor(displayJsonString, 'json'),
                                 ),
                               ),
                             ],
@@ -1217,11 +1014,11 @@ class _DesignerScreenState extends State<DesignerScreen> {
                                   );
                                 },
                               ),
-                              // Generated code
+                              // Generated code with re_editor
                               Expanded(
                                 child: Container(
                                   color: const Color(0xFF0A0A0A),
-                                  child: _buildCView(_generateArduinoHeader()),
+                                  child: _buildCodeEditor(_generateArduinoHeader(), 'cpp'),
                                 ),
                               ),
                             ],

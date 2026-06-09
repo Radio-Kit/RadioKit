@@ -1,0 +1,144 @@
+/**
+ * RadioKitSettings.h
+ * Settings/Info protocol for RadioKit — dedicated protocol for device settings,
+ * telemetry, features, chip info, authentication, and config management.
+ *
+ * Uses a dedicated start byte (0xDD) and a parallel state machine, following
+ * the same architecture as the FS protocol (0xAA) and OTA protocol (0xBB).
+ *
+ * Frame format (no CRC — transport is reliable):
+ *   [0xDD][SUB_CMD(1)][LEN_LO(1)][LEN_HI(1)][...PAYLOAD(N)...]
+ *   LEN = total frame bytes (header(4) + payload)
+ *   MAX payload per frame = RK_SETTINGS_MAX_PAYLOAD (1024)
+ *
+ * Sub-commands (App → MCU):
+ *   0x01  SETTINGS_GET_TELEMETRY   (empty)                                → SETTINGS_TELEMETRY_DATA
+ *   0x02  SETTINGS_BLE_INFO        (empty)                                → SETTINGS_BLE_INFO_DATA
+ *   0x03  SETTINGS_GET_FEATURES    (empty)                                → SETTINGS_FEATURES_DATA
+ *   0x04  SETTINGS_GET_CHIP_INFO   (empty)                                → SETTINGS_CHIP_INFO_DATA
+ *   0x05  SETTINGS_SET_CONF        [FIELD_MASK(2 LE)][FIELD_DATA...]       → SETTINGS_SET_CONF_ACK
+ *   0x06  SETTINGS_PWD_AUTH        [PWD_LEN(1)][PWD(N)][FLAGS(1)?]        → SETTINGS_PWD_AUTH_ACK
+ *   0x07  SETTINGS_FACTORY_RESET   (empty)                                → SETTINGS_FACTORY_RESET_ACK
+ *
+ * Sub-commands (MCU → App):
+ *   0x81  SETTINGS_TELEMETRY_DATA   [RSSI(1)][LATENCY(1)][...]
+ *   0x82  SETTINGS_BLE_INFO_DATA    [CONN_INTERVAL_MS(2 LE)][MTU(2 LE)][RSSI(1)]
+ *   0x83  SETTINGS_FEATURES_DATA    [BITMASK(1)]
+ *   0x84  SETTINGS_CHIP_INFO_DATA   [MODEL_LEN(1)][MODEL...][REV(1)][CORES(1)][FLASH_SIZE(4 LE)][PSRAM_SIZE(4 LE)][SDK_LEN(1)][SDK...][MAC(6)]
+ *   0x85  SETTINGS_SET_CONF_ACK     [STATUS(1)]  — echoed field mask or error
+ *   0x86  SETTINGS_PWD_AUTH_ACK     [STATUS(1)]  — 0x00 OK, 0x01 mismatch, 0x02 already
+ *   0x87  SETTINGS_FACTORY_RESET_ACK [STATUS(1)]
+ *
+ * Auth codes (PWD_AUTH_ACK):
+ *   0x00  OK
+ *   0x01  MISMATCH
+ *   0x02  ALREADY
+ */
+
+#ifndef RADIOKIT_SETTINGS_H
+#define RADIOKIT_SETTINGS_H
+
+#include <Arduino.h>
+#include <stdint.h>
+
+// ── Frame constants ─────────────────────────────────────────────────────────
+#define RK_SETTINGS_START_BYTE      0xDD
+#define RK_SETTINGS_HEADER_SIZE     4   // START(1) + SUB_CMD(1) + LEN_LO(1) + LEN_HI(1)
+#define RK_SETTINGS_MIN_FRAME       RK_SETTINGS_HEADER_SIZE
+#define RK_SETTINGS_MAX_PAYLOAD     1024
+#define RK_SETTINGS_RX_BUFFER_SIZE  (RK_SETTINGS_HEADER_SIZE + RK_SETTINGS_MAX_PAYLOAD)
+
+// ── Sub-commands (App → MCU) ────────────────────────────────────────────────
+#define RK_SETTINGS_CMD_GET_TELEMETRY    0x01
+#define RK_SETTINGS_CMD_BLE_INFO         0x02
+#define RK_SETTINGS_CMD_GET_FEATURES     0x03
+#define RK_SETTINGS_CMD_GET_CHIP_INFO    0x04
+#define RK_SETTINGS_CMD_SET_CONF         0x05
+#define RK_SETTINGS_CMD_PWD_AUTH         0x06
+#define RK_SETTINGS_CMD_FACTORY_RESET    0x07
+#define RK_SETTINGS_CMD_GET_DEVICE_INFO  0x08
+
+// ── Sub-commands (MCU → App) ────────────────────────────────────────────────
+// Response = subCmd | 0x80
+#define RK_SETTINGS_RESP_TELEMETRY_DATA     0x81
+#define RK_SETTINGS_RESP_BLE_INFO_DATA      0x82
+#define RK_SETTINGS_RESP_FEATURES_DATA      0x83
+#define RK_SETTINGS_RESP_CHIP_INFO_DATA     0x84
+#define RK_SETTINGS_RESP_SET_CONF_ACK       0x85
+#define RK_SETTINGS_RESP_PWD_AUTH_ACK       0x86
+#define RK_SETTINGS_RESP_FACTORY_RESET_ACK  0x87
+#define RK_SETTINGS_RESP_DEVICE_INFO_DATA   0x88
+
+// ── PWD_AUTH status codes ───────────────────────────────────────────────────
+#define RK_SETTINGS_PWD_OK          0x00
+#define RK_SETTINGS_PWD_MISMATCH    0x01
+#define RK_SETTINGS_PWD_ALREADY     0x02
+
+// ── PWD_AUTH flags byte ─────────────────────────────────────────────────────
+#define RK_SETTINGS_PWD_FLAG_ADMIN   (1 << 0)
+
+// ── SET_CONF field mask bits ────────────────────────────────────────────────
+#define RK_SETTINGS_SET_CONF_NAME        (1 << 0)
+#define RK_SETTINGS_SET_CONF_DESC        (1 << 1)
+#define RK_SETTINGS_SET_CONF_PWD         (1 << 2)
+#define RK_SETTINGS_SET_CONF_ADMIN_PWD   (1 << 3)
+#define RK_SETTINGS_SET_CONF_ERROR       (1 << 7)
+
+// ── Feature bitmask bits ────────────────────────────────────────────────────
+#define RK_SETTINGS_FEATURE_OTA             (1 << 0)
+#define RK_SETTINGS_FEATURE_FILESYSTEM      (1 << 1)
+#define RK_SETTINGS_FEATURE_HAS_CONN_PWD    (1 << 2)
+#define RK_SETTINGS_FEATURE_HAS_ADMIN_PWD   (1 << 3)
+
+// ── Callback signature ───────────────────────────────────────────────────────
+typedef void (*RK_SettingsPacketCallback)(uint8_t subCmd,
+                                          const uint8_t* payload,
+                                          uint16_t payloadLen);
+
+// ── Public API ──────────────────────────────────────────────────────────────
+
+/**
+ * Reset the Settings state machine. Call on transport disconnect / timeout.
+ */
+void rk_settingsRxReset();
+
+/**
+ * Returns true if the Settings parser is currently accumulating a frame.
+ */
+bool rk_settingsRxIsActive();
+
+/**
+ * Feed a single byte into the Settings state machine.
+ * Returns true when a complete frame is available.
+ */
+bool rk_settingsRxFeedByte(uint8_t byte,
+                           uint8_t& outSubCmd,
+                           const uint8_t*& outPayload,
+                           uint16_t& outPayloadLen);
+
+/**
+ * Build a complete Settings frame into [outBuf].
+ * Returns the total frame length, or 0 if [payloadLen] exceeds RK_SETTINGS_MAX_PAYLOAD.
+ */
+uint16_t rk_settingsBuildFrame(uint8_t* outBuf,
+                               uint8_t subCmd,
+                               const uint8_t* payload,
+                               uint16_t payloadLen);
+
+/**
+ * Callback registration. Set once at startup.
+ */
+void rk_settingsSetCallback(RK_SettingsPacketCallback cb);
+
+/**
+ * Get the tx scratch buffer.
+ */
+uint8_t* rk_settingsTxBuf();
+uint16_t rk_settingsTxBufSize();
+
+/**
+ * Command/error name helpers (for debug logging).
+ */
+const char* rk_settingsCmdName(uint8_t subCmd);
+
+#endif // RADIOKIT_SETTINGS_H

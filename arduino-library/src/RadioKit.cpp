@@ -136,6 +136,8 @@ void RadioKitClass::startBLE(const char* deviceName) {
     _transport->setFsCallback(RadioKitClass::_onFsPacket);
     rk_otaSetCallback(RadioKitClass::_onOtaPacket);
     _transport->setOtaCallback(RadioKitClass::_onOtaPacket);
+    rk_settingsSetCallback(RadioKitClass::_onSettingsPacket);
+    _transport->setSettingsCallback(RadioKitClass::_onSettingsPacket);
 }
 
 void RadioKitClass::startSerial(Stream& stream) {
@@ -144,6 +146,8 @@ void RadioKitClass::startSerial(Stream& stream) {
     RadioKitSerialInstance.setFsCallback(RadioKitClass::_onFsPacket);
     rk_otaSetCallback(RadioKitClass::_onOtaPacket);
     RadioKitSerialInstance.setOtaCallback(RadioKitClass::_onOtaPacket);
+    rk_settingsSetCallback(RadioKitClass::_onSettingsPacket);
+    RadioKitSerialInstance.setSettingsCallback(RadioKitClass::_onSettingsPacket);
 }
 
 void RadioKitClass::update() {
@@ -235,35 +239,17 @@ void RadioKitClass::_onPacket(uint8_t cmd,
 {
     if (!s_instance) return;
 
-    // ── Auth gate (dual-auth) ────────────────────────────────────────
-    // States:
-    //   1. Not authenticated:       only CMD_PWD_AUTH, CMD_GET_CONF, CMD_GET_FEATURES
-    //   2. User-authenticated:      user-mode commands + CMD_PWD_AUTH (admin upgrade)
-    //   3. Admin-authenticated:     all commands
-    // If BOTH passwords are empty, gate doesn't block (pre-authed admin).
+    // ── Auth gate (minimal — settings/auth moved to 0xDD) ─────────────
+    // Only widget commands live here now. Unauthenticated clients can
+    // GET_CONF (to display UI). Auth is gated in the Settings protocol.
     bool isUserAuthd = s_instance->_authenticated || s_instance->_nvsPwd[0] == '\0';
-    bool isAdminAuthd = s_instance->_authenticatedAdmin || s_instance->_nvsAdminPwd[0] == '\0';
-    
-    if (!isUserAuthd) {
-        // Gate 1: not authenticated at all
-        if (cmd != RK_CMD_PWD_AUTH && cmd != RK_CMD_GET_CONF && cmd != RK_CMD_GET_FEATURES) {
-            Serial.printf("RK: Rejected CMD 0x%02X — not authenticated\n", cmd);
-            uint8_t err = RK_PWD_AUTH_MISMATCH;
-            uint16_t len = rk_buildPacket(s_instance->_txBuf, RK_CMD_ACK, &err, 1);
-            s_instance->_sendPacket(len);
-            return;
-        }
-    } else if (!isAdminAuthd) {
-        // Gate 2: user-authenticated, not admin — block admin-only commands
-        if (cmd == RK_CMD_SET_CONF || cmd == RK_CMD_FACTORY_RESET) {
-            Serial.printf("RK: Rejected CMD 0x%02X — admin required\n", cmd);
-            uint8_t err = RK_PWD_AUTH_MISMATCH;
-            uint16_t len = rk_buildPacket(s_instance->_txBuf, RK_CMD_ACK, &err, 1);
-            s_instance->_sendPacket(len);
-            return;
-        }
+    if (!isUserAuthd && cmd != RK_CMD_GET_CONF) {
+        Serial.printf("RK: Rejected CMD 0x%02X — not authenticated\n", cmd);
+        uint8_t err = RK_SETTINGS_PWD_MISMATCH;
+        uint16_t len = rk_buildPacket(s_instance->_txBuf, RK_CMD_ACK, &err, 1);
+        s_instance->_sendPacket(len);
+        return;
     }
-    // Gate 3: admin-authenticated — all commands pass through
 
     RK_DEBUG_PRINT("RK: Dispatching CMD %s (0x%02X), len %d\n", rk_cmdName(cmd), cmd, payloadLen);
     switch (cmd) {
@@ -271,19 +257,65 @@ void RadioKitClass::_onPacket(uint8_t cmd,
         case RK_CMD_GET_VARS:   s_instance->_handleGetVars();                       break;
         case RK_CMD_GET_META:   s_instance->_handleGetMeta();                       break;
         case RK_CMD_SET_INPUT:  s_instance->_handleSetInput(payload, payloadLen);   break;
-        case RK_CMD_GET_TELEMETRY: s_instance->_handleGetTelemetry();                break;
         case RK_CMD_PING:       s_instance->_handlePing();                          break;
         case RK_CMD_ACK:        s_instance->_handleAck(payload, payloadLen);        break;
         case RK_CMD_VAR_UPDATE: s_instance->_handleVarUpdate(payload, payloadLen);  break;
         case RK_CMD_META_UPDATE:s_instance->_handleMetaUpdate(payload, payloadLen); break;
-        case RK_CMD_BLE_INFO:   s_instance->_handleBleInfo();                        break;
-        case RK_CMD_GET_FEATURES: s_instance->_handleGetFeatures();                   break;
-        case RK_CMD_GET_CHIP_INFO: s_instance->_handleGetChipInfo();                   break;
-        case RK_CMD_SET_CONF:   s_instance->_handleSetConf(payload, payloadLen);    break;
-        case RK_CMD_PWD_AUTH:   s_instance->_handlePwdAuth(payload, payloadLen);    break;
-        case RK_CMD_FACTORY_RESET: s_instance->_handleFactoryReset();                 break;
         default: 
             Serial.printf("RK: Unknown CMD %s (0x%02X)\n", rk_cmdName(cmd), cmd);
+            break;
+    }
+}
+
+// ── Settings protocol (0xDD) dispatch ───────────────────────────────────
+
+void RadioKitClass::_onSettingsPacket(uint8_t subCmd,
+                                      const uint8_t* payload,
+                                      uint16_t payloadLen)
+{
+    if (!s_instance) return;
+
+    // ── Auth gate (dual-auth) ────────────────────────────────────────
+    bool isUserAuthd = s_instance->_authenticated || s_instance->_nvsPwd[0] == '\0';
+    bool isAdminAuthd = s_instance->_authenticatedAdmin || s_instance->_nvsAdminPwd[0] == '\0';
+    
+    if (!isUserAuthd) {
+        // Not authenticated: allow PWD_AUTH, GET_FEATURES, GET_DEVICE_INFO
+        if (subCmd != RK_SETTINGS_CMD_PWD_AUTH &&
+            subCmd != RK_SETTINGS_CMD_GET_FEATURES &&
+            subCmd != RK_SETTINGS_CMD_GET_DEVICE_INFO) {
+            Serial.printf("RK: Rejected SETTINGS 0x%02X — not authenticated\n", subCmd);
+            uint8_t status = RK_SETTINGS_PWD_MISMATCH;
+            uint8_t respSub = subCmd | 0x80;
+            uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(), respSub, &status, 1);
+            s_instance->_transport->sendPacket(rk_settingsTxBuf(), frameLen);
+            return;
+        }
+    } else if (!isAdminAuthd) {
+        // User-authenticated: block admin-only commands
+        if (subCmd == RK_SETTINGS_CMD_SET_CONF || subCmd == RK_SETTINGS_CMD_FACTORY_RESET) {
+            Serial.printf("RK: Rejected SETTINGS 0x%02X — admin required\n", subCmd);
+            uint8_t status = RK_SETTINGS_PWD_MISMATCH;
+            uint8_t respSub = subCmd | 0x80;
+            uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(), respSub, &status, 1);
+            s_instance->_transport->sendPacket(rk_settingsTxBuf(), frameLen);
+            return;
+        }
+    }
+
+    RK_DEBUG_PRINT("RK: Dispatching SETTINGS %s (0x%02X), len %d\n",
+                   rk_settingsCmdName(subCmd), subCmd, payloadLen);
+    switch (subCmd) {
+        case RK_SETTINGS_CMD_GET_TELEMETRY:  s_instance->_handleSettingsTelemetry();                break;
+        case RK_SETTINGS_CMD_BLE_INFO:       s_instance->_handleSettingsBleInfo();                   break;
+        case RK_SETTINGS_CMD_GET_FEATURES:   s_instance->_handleSettingsGetFeatures();              break;
+        case RK_SETTINGS_CMD_GET_CHIP_INFO:  s_instance->_handleSettingsGetChipInfo();              break;
+        case RK_SETTINGS_CMD_SET_CONF:       s_instance->_handleSettingsSetConf(payload, payloadLen); break;
+        case RK_SETTINGS_CMD_PWD_AUTH:       s_instance->_handleSettingsPwdAuth(payload, payloadLen); break;
+        case RK_SETTINGS_CMD_FACTORY_RESET:  s_instance->_handleSettingsFactoryReset();              break;
+        case RK_SETTINGS_CMD_GET_DEVICE_INFO: s_instance->_handleSettingsDeviceInfo();               break;
+        default:
+            Serial.printf("RK: Unknown SETTINGS sub-command 0x%02X\n", subCmd);
             break;
     }
 }
@@ -293,69 +325,136 @@ int8_t RadioKitClass::getRssi() {
     return 0;
 }
 
-void RadioKitClass::_handleBleInfo() {
+// ── Settings protocol handlers ─────────────────────────────────────────
+
+void RadioKitClass::sendSettingsFrame(const uint8_t* buf, uint16_t len) {
     if (!_transport) return;
-    
-    // Payload: [connIntervalMs(2 LE)] [negotiatedMtu(2 LE)] [rssi(1)]
+    _transport->sendPacket(buf, len);
+}
+
+void RadioKitClass::_sendSettingsFrame(const uint8_t* buf, uint16_t len) {
+    if (s_instance) s_instance->sendSettingsFrame(buf, len);
+}
+
+void RadioKitClass::_sendSettingsFrame(uint16_t len) {
+    if (!_transport) return;
+    _transport->sendPacket(rk_settingsTxBuf(), len);
+}
+
+void RadioKitClass::_handleSettingsTelemetry() {
+    if (!_transport) return;
+    uint8_t buf[4];
+    int r = getRssi();
+    buf[0] = (uint8_t)r;
+    buf[1] = 0;
+    buf[2] = 0;
+    buf[3] = 0;
+    uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+        RK_SETTINGS_RESP_TELEMETRY_DATA, buf, 4);
+    _sendSettingsFrame(frameLen);
+}
+
+void RadioKitClass::_handleSettingsBleInfo() {
+    if (!_transport) return;
     uint8_t payload[5];
     uint16_t interval = RadioKitBLEInstance.getConnIntervalMs();
     uint16_t mtu = RadioKitBLEInstance.getNegotiatedMtu();
     int r = getRssi();
-    
     payload[0] = interval & 0xFF;
     payload[1] = (interval >> 8) & 0xFF;
     payload[2] = mtu & 0xFF;
     payload[3] = (mtu >> 8) & 0xFF;
     payload[4] = (uint8_t)r;
-    
-    uint16_t len = rk_buildPacket(_txBuf, RK_CMD_BLE_INFO_DATA, payload, 5);
-    _sendPacket(len);
+    uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+        RK_SETTINGS_RESP_BLE_INFO_DATA, payload, 5);
+    _sendSettingsFrame(frameLen);
 }
 
-void RadioKitClass::_handleGetFeatures() {
+void RadioKitClass::_handleSettingsGetFeatures() {
     if (!_transport) return;
-    
     uint8_t bitmask = 0;
-    
 #if RK_HAS_OTA
-    bitmask |= RK_FEATURE_OTA;
+    bitmask |= RK_SETTINGS_FEATURE_OTA;
 #endif
-    
 #if RK_FS_HAS_LITTLEFS
-    bitmask |= RK_FEATURE_FILESYSTEM;
+    bitmask |= RK_SETTINGS_FEATURE_FILESYSTEM;
 #endif
-    
-    // Report password presence
     if (_nvsActive && _nvsPwd[0] != '\0') {
-        bitmask |= RK_FEATURE_HAS_CONN_PWD;
+        bitmask |= RK_SETTINGS_FEATURE_HAS_CONN_PWD;
     }
     if (_nvsActive && _nvsAdminPwd[0] != '\0') {
-        bitmask |= RK_FEATURE_HAS_ADMIN_PWD;
+        bitmask |= RK_SETTINGS_FEATURE_HAS_ADMIN_PWD;
     }
-    
-    RK_DEBUG_PRINT("RK: Reporting features bitmask: 0x%02X (conn=%d, admin=%d, fs=%d, ota=%d)\n",
-        bitmask,
-        (bitmask & RK_FEATURE_HAS_CONN_PWD) != 0,
-        (bitmask & RK_FEATURE_HAS_ADMIN_PWD) != 0,
-        (bitmask & RK_FEATURE_FILESYSTEM) != 0,
-        (bitmask & RK_FEATURE_OTA) != 0);
-    uint16_t len = rk_buildPacket(_txBuf, RK_CMD_FEATURES_DATA, &bitmask, 1);
-    _sendPacket(len);
+    uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+        RK_SETTINGS_RESP_FEATURES_DATA, &bitmask, 1);
+    _sendSettingsFrame(frameLen);
 }
 
-void RadioKitClass::_handleGetTelemetry() {
-    if (!_transport) return;
-    
-    uint8_t payload[4];
-    int r = getRssi();
-    payload[0] = (uint8_t)r;
-    payload[1] = 0; // Reserved for latency
-    payload[2] = 0;
-    payload[3] = 0;
+void RadioKitClass::_handleSettingsGetChipInfo() {
+#if defined(ESP32)
+    uint8_t payload[64];
+    uint16_t offset = 0;
+    String modelStr = ESP.getChipModel();
+    uint8_t modelLen = modelStr.length();
+    if (modelLen > 20) modelLen = 20;
+    payload[offset++] = modelLen;
+    memcpy(&payload[offset], modelStr.c_str(), modelLen);
+    offset += modelLen;
+    payload[offset++] = ESP.getChipRevision();
+    payload[offset++] = ESP.getChipCores();
+    uint32_t flashSize = ESP.getFlashChipSize();
+    payload[offset++] = flashSize & 0xFF;
+    payload[offset++] = (flashSize >> 8) & 0xFF;
+    payload[offset++] = (flashSize >> 16) & 0xFF;
+    payload[offset++] = (flashSize >> 24) & 0xFF;
+    uint32_t psramSize = ESP.getPsramSize();
+    payload[offset++] = psramSize & 0xFF;
+    payload[offset++] = (psramSize >> 8) & 0xFF;
+    payload[offset++] = (psramSize >> 16) & 0xFF;
+    payload[offset++] = (psramSize >> 24) & 0xFF;
+    String sdkVer = ESP.getSdkVersion();
+    uint8_t sdkLen = sdkVer.length();
+    if (sdkLen > 30) sdkLen = 30;
+    payload[offset++] = sdkLen;
+    memcpy(&payload[offset], sdkVer.c_str(), sdkLen);
+    offset += sdkLen;
+    uint64_t macInt = ESP.getEfuseMac();
+    uint8_t mac[6];
+    mac[0] = (uint8_t)(macInt & 0xFF);
+    mac[1] = (uint8_t)((macInt >> 8) & 0xFF);
+    mac[2] = (uint8_t)((macInt >> 16) & 0xFF);
+    mac[3] = (uint8_t)((macInt >> 24) & 0xFF);
+    mac[4] = (uint8_t)((macInt >> 32) & 0xFF);
+    mac[5] = (uint8_t)((macInt >> 40) & 0xFF);
+    memcpy(&payload[offset], mac, 6);
+    offset += 6;
+    uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+        RK_SETTINGS_RESP_CHIP_INFO_DATA, payload, offset);
+    _sendSettingsFrame(frameLen);
+#else
+    uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+        RK_SETTINGS_RESP_CHIP_INFO_DATA, nullptr, 0);
+    _sendSettingsFrame(frameLen);
+#endif
+}
 
-    // Send full 4-byte payload to match potential app expectations
-    uint16_t len = rk_buildPacket(_txBuf, RK_CMD_TELEMETRY_DATA, payload, 4);
-    _sendPacket(len);
+void RadioKitClass::_handleSettingsDeviceInfo() {
+    if (!_transport) return;
+    // Payload: [PROTO_VER(1)][NAME_LEN(1)][NAME][DESC_LEN(1)][DESC]
+    uint8_t buf[1 + 1 + RADIOKIT_MAX_NAME + 1 + RADIOKIT_MAX_DESC];
+    uint16_t offset = 0;
+    buf[offset++] = RK_PROTOCOL_VERSION;
+    const char* name = _nvsActive && _nvsName[0] ? _nvsName : (config.name ? config.name : "");
+    const char* desc = _nvsActive && _nvsDesc[0] ? _nvsDesc : (config.description ? config.description : "");
+    uint8_t nameLen = (uint8_t)strnlen(name, RADIOKIT_MAX_NAME);
+    uint8_t descLen = (uint8_t)strnlen(desc, RADIOKIT_MAX_DESC);
+    buf[offset++] = nameLen;
+    memcpy(&buf[offset], name, nameLen); offset += nameLen;
+    buf[offset++] = descLen;
+    memcpy(&buf[offset], desc, descLen); offset += descLen;
+    uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+        RK_SETTINGS_RESP_DEVICE_INFO_DATA, buf, offset);
+    _sendSettingsFrame(frameLen);
 }
 
 void RadioKitClass::_handleGetConf() {
@@ -478,24 +577,15 @@ void RadioKitClass::_handleMetaUpdate(const uint8_t* payload, uint16_t len) {
 uint16_t RadioKitClass::_buildConfPayload(uint8_t* buf, uint16_t bufSize) {
     uint16_t out = 0;
 
-    // Use NVS-backed buffers if available, else fall back to RK_Config
-    const char* name    = _nvsActive && _nvsName[0] ? _nvsName : (config.name ? config.name : "");
-    const char* desc    = _nvsActive && _nvsDesc[0] ? _nvsDesc : (config.description ? config.description : "");
-    const char* themeStr = config.theme            ? config.theme       : RK_DEFAULT;
-    uint8_t nameLen  = (uint8_t)strnlen(name,     RADIOKIT_MAX_NAME);
-    uint8_t descLen  = (uint8_t)strnlen(desc,     RADIOKIT_MAX_DESC);
+    const char* themeStr = config.theme ? config.theme : RK_DEFAULT;
     uint8_t themeLen = (uint8_t)strnlen(themeStr, 64);
 
-    // v0x04: no password field (pwd removed from CONF_DATA)
-    if (out + 7 + nameLen + descLen + themeLen > bufSize) return 0;
+    // Minimal CONF_DATA: orientation + widget count + theme + per-widget layout
+    // Name, description, protocol version moved to Settings protocol (GET_DEVICE_INFO)
+    if (out + 3 + themeLen > bufSize) return 0;
 
-    buf[out++] = RK_PROTOCOL_VERSION;  // 0x04
     buf[out++] = config.orientation;
     buf[out++] = _widgetCount;
-    buf[out++] = nameLen;
-    memcpy(&buf[out], name, nameLen); out += nameLen;
-    buf[out++] = descLen;
-    memcpy(&buf[out], desc, descLen); out += descLen;
     buf[out++] = themeLen;
     memcpy(&buf[out], themeStr, themeLen); out += themeLen;
 
@@ -515,12 +605,11 @@ uint16_t RadioKitClass::_buildConfPayload(uint8_t* buf, uint16_t bufSize) {
         buf[out++] = w->style();
         buf[out++] = w->variant();
 
-        // Write strings directly to the target buffer.
         uint16_t strLen = w->serializeStrings(&buf[out]);
         if (out + strLen <= bufSize) {
             out += strLen;
         } else {
-            break; // No more room for this widget's strings
+            break;
         }
     }
     return out;
@@ -620,67 +709,7 @@ void RadioKitClass::_onFsPacket(uint8_t subCmd,
 
 // ── CHIP_INFO handler ─────────────────────────────────────────────────────
 
-void RadioKitClass::_handleGetChipInfo() {
-#if defined(ESP32)
-    uint8_t payload[64];
-    uint16_t offset = 0;
-
-    // 1. Chip model string (use Arduino ESP32 built-in)
-    String modelStr = ESP.getChipModel();
-    uint8_t modelLen = modelStr.length();
-    if (modelLen > 20) modelLen = 20;
-    payload[offset++] = modelLen;
-    memcpy(&payload[offset], modelStr.c_str(), modelLen);
-    offset += modelLen;
-
-    // 2. Chip revision
-    payload[offset++] = ESP.getChipRevision();
-
-    // 3. Number of cores
-    payload[offset++] = ESP.getChipCores();
-
-    // 4. Flash size (bytes, LE)
-    uint32_t flashSize = ESP.getFlashChipSize();
-    payload[offset++] = flashSize & 0xFF;
-    payload[offset++] = (flashSize >> 8) & 0xFF;
-    payload[offset++] = (flashSize >> 16) & 0xFF;
-    payload[offset++] = (flashSize >> 24) & 0xFF;
-
-    // 5. PSRAM size (bytes, LE; 0 if none)
-    uint32_t psramSize = ESP.getPsramSize();
-    payload[offset++] = psramSize & 0xFF;
-    payload[offset++] = (psramSize >> 8) & 0xFF;
-    payload[offset++] = (psramSize >> 16) & 0xFF;
-    payload[offset++] = (psramSize >> 24) & 0xFF;
-
-    // 6. SDK version string
-    String sdkVer = ESP.getSdkVersion();
-    uint8_t sdkLen = sdkVer.length();
-    if (sdkLen > 30) sdkLen = 30;
-    payload[offset++] = sdkLen;
-    memcpy(&payload[offset], sdkVer.c_str(), sdkLen);
-    offset += sdkLen;
-
-    // 7. MAC address (6 bytes from uint64_t)
-    uint64_t macInt = ESP.getEfuseMac();
-    uint8_t mac[6];
-    mac[0] = (uint8_t)(macInt & 0xFF);
-    mac[1] = (uint8_t)((macInt >> 8) & 0xFF);
-    mac[2] = (uint8_t)((macInt >> 16) & 0xFF);
-    mac[3] = (uint8_t)((macInt >> 24) & 0xFF);
-    mac[4] = (uint8_t)((macInt >> 32) & 0xFF);
-    mac[5] = (uint8_t)((macInt >> 40) & 0xFF);
-    memcpy(&payload[offset], mac, 6);
-    offset += 6;
-
-    uint16_t len = rk_buildPacket(_txBuf, RK_CMD_CHIP_INFO_DATA, payload, offset);
-    _sendPacket(len);
-#else
-    // Non-ESP32: send empty payload to signal "not available"
-    uint16_t len = rk_buildPacket(_txBuf, RK_CMD_CHIP_INFO_DATA, nullptr, 0);
-    _sendPacket(len);
-#endif
-}
+// (moved to _handleSettingsGetChipInfo via Settings protocol)
 
 // ── OTA protocol ────────────────────────────────────────────────────────────
 
@@ -956,15 +985,20 @@ void RadioKitClass::_handleOtaAbort() {
 
 // ── Factory Reset ───────────────────────────────────────────────────────────
 
-void RadioKitClass::_handleFactoryReset() {
+void RadioKitClass::_handleSettingsFactoryReset() {
     Serial.println("FACTORY RESET: Erasing NVS config and rebooting...");
+    
+    // Send ACK before reboot
+    uint8_t status = RK_SETTINGS_PWD_OK;
+    uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+        RK_SETTINGS_RESP_FACTORY_RESET_ACK, &status, 1);
+    _sendSettingsFrame(frameLen);
     
     if (_nvsActive) {
         RKNvs::eraseAll();
         RKNvs::commit();
     }
     
-    // Clear buffers
     memset(_nvsName, 0, sizeof(_nvsName));
     memset(_nvsDesc, 0, sizeof(_nvsDesc));
     memset(_nvsPwd,  0, sizeof(_nvsPwd));
@@ -972,7 +1006,6 @@ void RadioKitClass::_handleFactoryReset() {
     _authenticated = true;
     _authenticatedAdmin = true;
     
-    // Small delay to let the ACK frame be sent before reboot
     delay(100);
 #if defined(ESP32)
     esp_restart();
@@ -1148,18 +1181,22 @@ uint8_t RadioKitClass::authenticate(const char* password, bool asAdmin) {
 
 // ── CMD_SET_CONF handler (0x19) ─────────────────────────────────────────────
 
-void RadioKitClass::_handleSetConf(const uint8_t* payload, uint16_t len) {
+void RadioKitClass::_handleSettingsSetConf(const uint8_t* payload, uint16_t len) {
     if (!_nvsActive || len < 2) {
-        Serial.println("NVS: CMD_SET_CONF ignored — NVS not available or payload too short");
+        Serial.println("NVS: SETTINGS_SET_CONF ignored — NVS not available or payload too short");
+        uint8_t status = RK_SETTINGS_SET_CONF_ERROR;
+        uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+            RK_SETTINGS_RESP_SET_CONF_ACK, &status, 1);
+        _sendSettingsFrame(frameLen);
         return;
     }
 
     uint16_t fieldMask = (uint16_t)payload[0] | ((uint16_t)payload[1] << 8);
     uint16_t offset = 2;
-    uint8_t statusMask = fieldMask & 0x7F;  // Clear error bit
+    bool appliedOk = true;
 
     // Name
-    if (fieldMask & RK_SET_CONF_NAME) {
+    if (fieldMask & RK_SETTINGS_SET_CONF_NAME) {
         if (offset < len) {
             uint8_t strLen = payload[offset++];
             if (strLen > RADIOKIT_MAX_NAME) strLen = RADIOKIT_MAX_NAME;
@@ -1174,7 +1211,7 @@ void RadioKitClass::_handleSetConf(const uint8_t* payload, uint16_t len) {
     }
 
     // Description
-    if (fieldMask & RK_SET_CONF_DESC) {
+    if (fieldMask & RK_SETTINGS_SET_CONF_DESC) {
         if (offset < len) {
             uint8_t strLen = payload[offset++];
             if (strLen > RADIOKIT_MAX_DESC) strLen = RADIOKIT_MAX_DESC;
@@ -1188,7 +1225,7 @@ void RadioKitClass::_handleSetConf(const uint8_t* payload, uint16_t len) {
     }
 
     // Connection password
-    if (fieldMask & RK_SET_CONF_PWD) {
+    if (fieldMask & RK_SETTINGS_SET_CONF_PWD) {
         if (offset < len) {
             uint8_t strLen = payload[offset++];
             if (strLen > RADIOKIT_MAX_PWD) strLen = RADIOKIT_MAX_PWD;
@@ -1202,7 +1239,7 @@ void RadioKitClass::_handleSetConf(const uint8_t* payload, uint16_t len) {
     }
 
     // Admin password
-    if (fieldMask & RK_SET_CONF_ADMIN_PWD) {
+    if (fieldMask & RK_SETTINGS_SET_CONF_ADMIN_PWD) {
         if (offset < len) {
             uint8_t strLen = payload[offset++];
             if (strLen > RADIOKIT_MAX_ADMIN_PWD) strLen = RADIOKIT_MAX_ADMIN_PWD;
@@ -1215,149 +1252,139 @@ void RadioKitClass::_handleSetConf(const uint8_t* payload, uint16_t len) {
         }
     }
 
-    // Commit all writes to NVS
     RKNvs::commit();
 
-    // Update auth state based on changed passwords
-    if (fieldMask & RK_SET_CONF_PWD) {
+    if (fieldMask & RK_SETTINGS_SET_CONF_PWD) {
         if (_nvsPwd[0] == '\0') {
             _authenticated = true;
         } else {
-            _authenticated = false;  // New conn password set — re-auth required
+            _authenticated = false;
         }
     }
-    if (fieldMask & RK_SET_CONF_ADMIN_PWD) {
+    if (fieldMask & RK_SETTINGS_SET_CONF_ADMIN_PWD) {
         if (_nvsAdminPwd[0] == '\0') {
             _authenticatedAdmin = true;
         } else {
-            _authenticatedAdmin = false;  // New admin password set — re-auth required
+            _authenticatedAdmin = false;
         }
     }
 
-    // Send ACK with echoed field mask
-    uint16_t ackLen = rk_buildPacket(_txBuf, RK_CMD_ACK, (uint8_t*)&statusMask, 1);
-    _sendPacket(ackLen);
+    // Send ACK via settings protocol
+    uint8_t status = appliedOk ? (fieldMask & 0x7F) : RK_SETTINGS_SET_CONF_ERROR;
+    uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+        RK_SETTINGS_RESP_SET_CONF_ACK, &status, 1);
+    _sendSettingsFrame(frameLen);
 
-    // Re-broadcast CONF_DATA so the app can refresh config name/desc
-    _handleGetConf();
-
-    // If any password was changed, re-broadcast features so the app updates
-    // its hasPassword bitmasks.
-    if ((fieldMask & (RK_SET_CONF_PWD | RK_SET_CONF_ADMIN_PWD)) != 0) {
-        _handleGetFeatures();
+    // Re-broadcast device info so app can refresh cached name/desc
+    // (CONF_DATA no longer carries name/desc — use GET_DEVICE_INFO)
+    if (appliedOk && (fieldMask & (RK_SETTINGS_SET_CONF_NAME | RK_SETTINGS_SET_CONF_DESC)) != 0) {
+        _handleSettingsDeviceInfo();
     }
 
-    Serial.printf("NVS: CMD_SET_CONF applied mask=0x%04X\n", fieldMask);
+    Serial.printf("NVS: SETTINGS_SET_CONF applied mask=0x%04X\n", fieldMask);
 }
 
-// ── CMD_PWD_AUTH handler (0x1A) ─────────────────────────────────────────────
+// ── SETTINGS_PWD_AUTH handler (0x06) ───────────────────────────────────────
 
-void RadioKitClass::_handlePwdAuth(const uint8_t* payload, uint16_t len) {
+void RadioKitClass::_handleSettingsPwdAuth(const uint8_t* payload, uint16_t len) {
     if (len < 1) {
-        uint8_t status = RK_PWD_AUTH_MISMATCH;
-        uint16_t pkt = rk_buildPacket(_txBuf, RK_CMD_ACK, &status, 1);
-        _sendPacket(pkt);
+        uint8_t status = RK_SETTINGS_PWD_MISMATCH;
+        uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+            RK_SETTINGS_RESP_PWD_AUTH_ACK, &status, 1);
+        _sendSettingsFrame(frameLen);
         return;
     }
 
     uint8_t pwdLen = payload[0];
     if (pwdLen > RADIOKIT_MAX_PWD) pwdLen = RADIOKIT_MAX_PWD;
 
-    // Parse optional flags byte (present when len >= 1 + pwdLen + 1)
     bool adminRequested = false;
-    uint8_t flags = 0;
     if (len >= 1 + pwdLen + 1) {
-        flags = payload[1 + pwdLen];
-        adminRequested = (flags & RK_PWD_AUTH_FLAG_ADMIN) != 0;
+        adminRequested = (payload[1 + pwdLen] & RK_SETTINGS_PWD_FLAG_ADMIN) != 0;
     }
 
-    // ── Admin auth requested ────────────────────────────────────────────
     if (adminRequested) {
-        // Already admin? Check existing admin state
         bool alreadyAdmin = _authenticatedAdmin || _nvsAdminPwd[0] == '\0';
         if (alreadyAdmin) {
             _authenticatedAdmin = true;
             _authenticated = true;
-            uint8_t status = RK_PWD_AUTH_ALREADY;
-            uint16_t pkt = rk_buildPacket(_txBuf, RK_CMD_ACK, &status, 1);
-            _sendPacket(pkt);
+            uint8_t status = RK_SETTINGS_PWD_ALREADY;
+            uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+                RK_SETTINGS_RESP_PWD_AUTH_ACK, &status, 1);
+            _sendSettingsFrame(frameLen);
             return;
         }
-
-        // Try admin password
         if (len >= 1 + pwdLen && strncmp((const char*)&payload[1], _nvsAdminPwd, pwdLen) == 0) {
             _authenticatedAdmin = true;
-            _authenticated = true;  // Admin implies user auth
-            uint8_t status = RK_PWD_AUTH_OK;
-            uint16_t pkt = rk_buildPacket(_txBuf, RK_CMD_ACK, &status, 1);
-            _sendPacket(pkt);
+            _authenticated = true;
+            uint8_t status = RK_SETTINGS_PWD_OK;
+            uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+                RK_SETTINGS_RESP_PWD_AUTH_ACK, &status, 1);
+            _sendSettingsFrame(frameLen);
             Serial.println("NVS: Admin authentication successful");
-            // Re-request features so app knows admin is active
-            _handleGetFeatures();
         } else {
-            uint8_t status = RK_PWD_AUTH_MISMATCH;
-            uint16_t pkt = rk_buildPacket(_txBuf, RK_CMD_ACK, &status, 1);
-            _sendPacket(pkt);
+            uint8_t status = RK_SETTINGS_PWD_MISMATCH;
+            uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+                RK_SETTINGS_RESP_PWD_AUTH_ACK, &status, 1);
+            _sendSettingsFrame(frameLen);
             Serial.println("NVS: Admin authentication failed — password mismatch");
         }
         return;
     }
 
-    // ── Connection (user) auth ──────────────────────────────────────────
-    // If already authenticated as user, respond already
+    // User auth
     if (_authenticated) {
-        // Check if admin is also needed — if no admin pwd, auto-promote
         if (_nvsAdminPwd[0] == '\0') {
             _authenticatedAdmin = true;
         }
-        uint8_t status = RK_PWD_AUTH_ALREADY;
-        uint16_t pkt = rk_buildPacket(_txBuf, RK_CMD_ACK, &status, 1);
-        _sendPacket(pkt);
+        uint8_t status = RK_SETTINGS_PWD_ALREADY;
+        uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+            RK_SETTINGS_RESP_PWD_AUTH_ACK, &status, 1);
+        _sendSettingsFrame(frameLen);
         return;
     }
 
-    // No connection password on device = auto-success
     if (_nvsPwd[0] == '\0') {
         _authenticated = true;
-        // If no admin password either, auto-promote to admin
         if (_nvsAdminPwd[0] == '\0') {
             _authenticatedAdmin = true;
         }
-        uint8_t status = RK_PWD_AUTH_OK;
-        uint16_t pkt = rk_buildPacket(_txBuf, RK_CMD_ACK, &status, 1);
-        _sendPacket(pkt);
+        uint8_t status = RK_SETTINGS_PWD_OK;
+        uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+            RK_SETTINGS_RESP_PWD_AUTH_ACK, &status, 1);
+        _sendSettingsFrame(frameLen);
         return;
     }
 
     // Try connection password
     if (len >= 1 + pwdLen && strncmp((const char*)&payload[1], _nvsPwd, pwdLen) == 0) {
         _authenticated = true;
-        // Auto-promote to admin if no admin password is set
         if (_nvsAdminPwd[0] == '\0') {
             _authenticatedAdmin = true;
         }
-        uint8_t status = RK_PWD_AUTH_OK;
-        uint16_t pkt = rk_buildPacket(_txBuf, RK_CMD_ACK, &status, 1);
-        _sendPacket(pkt);
+        uint8_t status = RK_SETTINGS_PWD_OK;
+        uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+            RK_SETTINGS_RESP_PWD_AUTH_ACK, &status, 1);
+        _sendSettingsFrame(frameLen);
         Serial.println("NVS: Connection authentication successful");
         return;
     }
 
-    // Connection password didn't match — try admin password as fallback
-    // (admin password can also be used for connection authentication)
+    // Fallback: try admin password
     if (_nvsAdminPwd[0] != '\0' && len >= 1 + pwdLen && strncmp((const char*)&payload[1], _nvsAdminPwd, pwdLen) == 0) {
         _authenticated = true;
-        _authenticatedAdmin = true;  // Admin password always grants admin
-        uint8_t status = RK_PWD_AUTH_OK;
-        uint16_t pkt = rk_buildPacket(_txBuf, RK_CMD_ACK, &status, 1);
-        _sendPacket(pkt);
+        _authenticatedAdmin = true;
+        uint8_t status = RK_SETTINGS_PWD_OK;
+        uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+            RK_SETTINGS_RESP_PWD_AUTH_ACK, &status, 1);
+        _sendSettingsFrame(frameLen);
         Serial.println("NVS: Connection auth via admin password — admin mode granted");
-        _handleGetFeatures();
         return;
     }
 
-    uint8_t status = RK_PWD_AUTH_MISMATCH;
-    uint16_t pkt = rk_buildPacket(_txBuf, RK_CMD_ACK, &status, 1);
-    _sendPacket(pkt);
+    uint8_t status = RK_SETTINGS_PWD_MISMATCH;
+    uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+        RK_SETTINGS_RESP_PWD_AUTH_ACK, &status, 1);
+    _sendSettingsFrame(frameLen);
     Serial.println("NVS: Authentication failed — password mismatch");
 }

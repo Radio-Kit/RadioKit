@@ -10,6 +10,7 @@ import '../services/transport_service.dart';
 import '../services/protocol_service.dart';
 import '../services/fs_protocol_service.dart';
 import '../services/ota_protocol_service.dart';
+import '../services/settings_protocol_service.dart';
 import '../services/debug_transport.dart';
 import '../services/demo_transport.dart';
 import '../services/demo_fs_transport.dart';
@@ -271,12 +272,12 @@ class DeviceProvider extends ChangeNotifier {
   bool _authenticated = false;
   bool _authenticatedAdmin = false;
 
-  /// Send factory reset command — erases NVS config and reboots the device.
+  /// Send factory reset command via settings protocol — erases NVS config and reboots.
   /// Returns true if the command was sent successfully (device will reboot).
   Future<bool> sendFactoryReset() async {
     if (!_transport.isConnected) return false;
     try {
-      await _writePacket(ProtocolService.buildFactoryReset());
+      await _transport.writePacket(SettingsProtocolService.buildFactoryReset());
       return true;
     } catch (e) {
       _log('sendFactoryReset failed: $e', level: ConsoleLogLevel.error);
@@ -284,7 +285,7 @@ class DeviceProvider extends ChangeNotifier {
     }
   }
 
-  /// Send updated config values to the device's NVS.
+  /// Send updated config values to the device's NVS via settings protocol.
   /// Pass null for fields you don't want to change.
   /// Returns true on success, false on timeout/error.
   Future<bool> sendSetConf({
@@ -295,18 +296,21 @@ class DeviceProvider extends ChangeNotifier {
   }) async {
     if (!_transport.isConnected) return false;
     try {
-      final pkt = ProtocolService.buildSetConf(
+      final pkt = SettingsProtocolService.buildSetConf(
         name: name,
         description: description,
         password: password,
         adminPassword: adminPassword,
       );
-      await _writePacket(pkt);
-      // Wait for the re-broadcasted CONF_DATA to confirm the change
+      await _transport.writePacket(pkt);
+      // Wait for the re-broadcasted CONF_DATA on widget protocol
+      // (Arduino _handleSettingsSetConf re-broadcasts CONF_DATA via _handleGetConf())
       final completer = Completer<void>();
       _confCompleter = completer;
       try {
         await completer.future.timeout(const Duration(seconds: 5));
+        // Also request fresh device info to update name/desc
+        unawaited(_requestDeviceInfo());
         return true;
       } on TimeoutException catch (_) {
         return false;
@@ -333,14 +337,14 @@ class DeviceProvider extends ChangeNotifier {
     if (!_transport.isConnected) return false;
     if (_authenticated && _authenticatedAdmin) return true;
     try {
-      // Try connection auth first
-      final pkt = ProtocolService.buildPwdAuth(password);
-      await _writePacket(pkt);
+      // Try connection auth first — via settings protocol (0xDD)
+      final pkt = SettingsProtocolService.buildPwdAuth(password);
+      await _transport.writePacket(pkt);
       final completer = Completer<int>();
       _authCompleter = completer;
       try {
         final status = await completer.future.timeout(const Duration(seconds: 5));
-        if (status == kPwdAuthOk) {
+        if (status == kSettingsPwdOk) {
           _authenticated = true;
           _authenticatedAt = DateTime.now();
           _cancelAuthTimeout();
@@ -371,13 +375,13 @@ class DeviceProvider extends ChangeNotifier {
     if (!_transport.isConnected) return false;
     if (_authenticatedAdmin) return true;
     try {
-      final pkt = ProtocolService.buildPwdAuth(password, admin: true);
-      await _writePacket(pkt);
+      final pkt = SettingsProtocolService.buildPwdAuth(password, admin: true);
+      await _transport.writePacket(pkt);
       final completer = Completer<int>();
       _authCompleter = completer;
       try {
         final status = await completer.future.timeout(const Duration(seconds: 5));
-        if (status == kPwdAuthOk) {
+        if (status == kSettingsPwdOk) {
           _authenticated = true;
           _authenticatedAdmin = true;
           _authenticatedAt = DateTime.now();
@@ -440,6 +444,7 @@ class DeviceProvider extends ChangeNotifier {
     _transport.onPacketReceived = _handlePacket;
     _transport.onFsPacketReceived = _handleFsPacket;
     _transport.onOtaPacketReceived = _handleOtaPacket;
+    _transport.onSettingsPacketReceived = _handleSettingsPacket;
     _transport.onConnectionLost = _handleConnectionLost;
 
     // 7. Synchronize DebugProvider if it's our sink
@@ -480,6 +485,9 @@ class DeviceProvider extends ChangeNotifier {
     unawaited(_detectFs());
 
     await _requestConfig();
+
+    // Request device info (name, description, proto version) via settings protocol
+    unawaited(_requestDeviceInfo());
 
     // Request features after config loads — fire-and-forget
     // Auth timeout is started in _handleFeaturesData() when hasPassword is detected.
@@ -870,7 +878,7 @@ class DeviceProvider extends ChangeNotifier {
 
     // Request initial telemetry and variables immediately on connection
     if (_transport.isConnected) {
-      _writePacket(ProtocolService.buildGetTelemetry()).catchError((_) {});
+      _writePacket(SettingsProtocolService.buildGetTelemetry()).catchError((_) {});
       _writePacket(ProtocolService.buildGetVars()).catchError((_) {});
     }
 
@@ -900,7 +908,7 @@ class DeviceProvider extends ChangeNotifier {
 
     _telemetryTimer = Timer.periodic(kTelemetryInterval, (_) async {
       try {
-        await _writePacket(ProtocolService.buildGetTelemetry());
+        await _writePacket(SettingsProtocolService.buildGetTelemetry());
       } catch (_) {}
     });
   }
@@ -1009,11 +1017,6 @@ class DeviceProvider extends ChangeNotifier {
       case kCmdMetaUpdate: _handleMetaUpdate(packet.payload); break;
       case kCmdAck:       _handleAck(packet.payload);       break;
       case kCmdPong:      _handlePong();                    break;
-      case kCmdTelemetryData: _handleTelemetryData(packet.payload); break;
-      case kCmdBleInfoData: _handleBleInfoData(packet.payload); break;
-      case kCmdFeaturesData: _handleFeaturesData(packet.payload); break;
-      case kCmdChipInfoData: _handleChipInfoData(packet.payload); break;
-      case kCmdSetConf:  _handleConfData(packet.payload); break;  // Re-broadcasted CONF_DATA after SET_CONF
       default:
         debugPrint('RadioKit: Unknown cmd 0x${packet.cmd.toRadixString(16)}');
     }
@@ -1028,46 +1031,6 @@ class DeviceProvider extends ChangeNotifier {
     }
   }
 
-  void _handleBleInfoData(List<int> payload) {
-    if (payload.length < 5) return;
-    final connIntervalMs = payload[0] | (payload[1] << 8);
-    final negotiatedMtu = payload[2] | (payload[3] << 8);
-    final rawRssi = payload[4];
-    final rssi = rawRssi > 127 ? rawRssi - 256 : rawRssi;
-    debugPrint('RadioKit: BLE_INFO_DATA interval=${connIntervalMs}ms MTU=$negotiatedMtu RSSI=$rssi');
-    final completer = _bleInfoCompleter;
-    if (completer != null && !completer.isCompleted) {
-      completer.complete({
-        'connIntervalMs': connIntervalMs,
-        'negotiatedMtu': negotiatedMtu,
-        'rssi': rssi,
-      });
-    }
-  }
-
-  void _handleFeaturesData(List<int> payload) {
-    if (payload.isEmpty) return;
-    _deviceFeatures = payload[0];
-    _log('Features bitmask: 0x${_deviceFeatures.toRadixString(16)} '
-        '(OTA=${hasOta}, connPwd=${hasPassword}, adminPwd=${hasAdminPassword})',
-        level: ConsoleLogLevel.success);
-    
-    // Start auth timeout if device has a connection password and we're not authenticated
-    if (hasPassword && !_authenticated && _connectionState == DeviceConnectionState.connected) {
-      _startAuthTimeout();
-    }
-    
-    // Clear stale admin password from secure storage if device no longer has admin password
-    if (!hasAdminPassword && _connectedDevice != null) {
-      SecureStorageService.deleteAdminPassword(_connectedDevice!.id);
-    }
-    
-    notifyListeners();
-    final completer = _featuresCompleter;
-    if (completer != null && !completer.isCompleted) {
-      completer.complete(_deviceFeatures);
-    }
-  }
 
   void _handleChipInfoData(List<int> payload) {
     if (payload.isEmpty) return;
@@ -1144,35 +1107,173 @@ class DeviceProvider extends ChangeNotifier {
     }
   }
 
-  /// Request features from the device. Fire-and-forget — don't block connection.
+  // ── Settings protocol (0xDD) handlers ───────────────────────────────────
+
+  /// Incoming Settings packet dispatcher. Settings sub-commands carry
+  /// telemetry, BLE info, features, chip info, auth, config, and device info.
+  void _handleSettingsPacket(ParsedSettingsPacket packet) {
+    _lastRxAt = DateTime.now();
+    switch (packet.subCmd) {
+      case kSettingsRespTelemetryData:
+        _handleSettingsTelemetryData(packet.payload);
+        break;
+      case kSettingsRespBleInfoData:
+        _handleSettingsBleInfoData(packet.payload);
+        break;
+      case kSettingsRespFeaturesData:
+        _handleSettingsFeaturesData(packet.payload);
+        break;
+      case kSettingsRespChipInfoData:
+        _handleChipInfoData(packet.payload.toList());
+        break;
+      case kSettingsRespPwdAuthAck:
+        _handleSettingsPwdAuthAck(packet.payload);
+        break;
+      case kSettingsRespSetConfAck:
+        _handleSettingsSetConfAck(packet.payload);
+        break;
+      case kSettingsRespFactoryResetAck:
+        _log('Factory reset ACK received', level: ConsoleLogLevel.success);
+        break;
+      case kSettingsRespDeviceInfoData:
+        _handleSettingsDeviceInfoData(packet.payload);
+        break;
+      default:
+        _log('Unknown settings sub-cmd 0x${packet.subCmd.toRadixString(16)}',
+            level: ConsoleLogLevel.info);
+    }
+  }
+
+  /// Cache for device info from settings protocol.
+  String? _deviceInfoProtocolVersion;
+  Completer<void>? _deviceInfoCompleter;
+
+  void _handleSettingsTelemetryData(Uint8List payload) {
+    final parsed = SettingsProtocolService.parseTelemetryData(payload.toList());
+    if (parsed == null) return;
+    _rssi = parsed.rssi;
+    _latencyMs = parsed.latency;
+    debugPrint('RadioKit: SETTINGS_TELEMETRY_DATA rssi=$_rssi latency=$_latencyMs');
+    notifyListeners();
+  }
+
+  void _handleSettingsBleInfoData(Uint8List payload) {
+    final parsed = SettingsProtocolService.parseBleInfoData(payload.toList());
+    if (parsed == null) return;
+    debugPrint('RadioKit: SETTINGS_BLE_INFO_DATA interval=${parsed.connIntervalMs}ms MTU=${parsed.mtu} RSSI=${parsed.rssi}');
+    final completer = _bleInfoCompleter;
+    if (completer != null && !completer.isCompleted) {
+      completer.complete({
+        'connIntervalMs': parsed.connIntervalMs,
+        'negotiatedMtu': parsed.mtu,
+        'rssi': parsed.rssi,
+      });
+    }
+  }
+
+  void _handleSettingsFeaturesData(Uint8List payload) {
+    final bitmask = SettingsProtocolService.parseFeaturesData(payload.toList());
+    if (bitmask == null) return;
+    _deviceFeatures = bitmask;
+    _log('Features bitmask: 0x${_deviceFeatures.toRadixString(16)} '
+        '(OTA=${hasOta}, connPwd=${hasPassword}, adminPwd=${hasAdminPassword})',
+        level: ConsoleLogLevel.success);
+    
+    if (hasPassword && !_authenticated && _connectionState == DeviceConnectionState.connected) {
+      _startAuthTimeout();
+    }
+    if (!hasAdminPassword && _connectedDevice != null) {
+      SecureStorageService.deleteAdminPassword(_connectedDevice!.id);
+    }
+    
+    notifyListeners();
+    final completer = _featuresCompleter;
+    if (completer != null && !completer.isCompleted) {
+      completer.complete(_deviceFeatures);
+    }
+  }
+
+  void _handleSettingsPwdAuthAck(Uint8List payload) {
+    final status = SettingsProtocolService.parsePwdAuthAck(payload.toList());
+    if (status == null) return;
+    if (_authCompleter != null && !_authCompleter!.isCompleted) {
+      _authCompleter!.complete(status);
+    }
+  }
+
+  void _handleSettingsSetConfAck(Uint8List payload) {
+    // SET_CONF on Arduino re-broadcasts CONF_DATA via _handleGetConf(),
+    // which arrives on the widget protocol and completes _confCompleter.
+    // This ack is informational only.
+    if (payload.isNotEmpty) {
+      _log('SETTINGS_SET_CONF ACK: 0x${payload[0].toRadixString(16)}',
+          level: ConsoleLogLevel.info);
+    }
+  }
+
+  void _handleSettingsDeviceInfoData(Uint8List payload) {
+    final parsed = SettingsProtocolService.parseDeviceInfoData(payload.toList());
+    if (parsed == null) {
+      _log('DEVICE_INFO_DATA parse failed', level: ConsoleLogLevel.error);
+      return;
+    }
+    _log('Device info: v${parsed.version} "${parsed.name}" "${parsed.description}"',
+        level: ConsoleLogLevel.success);
+    _deviceInfoProtocolVersion = parsed.version.toString();
+    _configName = parsed.name.isNotEmpty ? parsed.name : _configName;
+    _description = parsed.description.isNotEmpty ? parsed.description : _description;
+    notifyListeners();
+    final completer = _deviceInfoCompleter;
+    if (completer != null && !completer.isCompleted) {
+      completer.complete();
+    }
+  }
+
+  /// Request device info (name, description, protocol version) via settings protocol.
+  Future<void> _requestDeviceInfo() async {
+    if (!_transport.isConnected) return;
+    final completer = Completer<void>();
+    _deviceInfoCompleter = completer;
+    try {
+      await _writePacket(SettingsProtocolService.buildGetDeviceInfo());
+    } catch (_) {
+      _deviceInfoCompleter = null;
+      return;
+    }
+    try {
+      await completer.future.timeout(const Duration(seconds: 3));
+    } on TimeoutException catch (_) {
+      // Device may be running older firmware without settings protocol
+    } catch (_) {}
+    _deviceInfoCompleter = null;
+  }
+
+  /// Request features from the device via settings protocol. Fire-and-forget.
   Future<void> _requestFeatures() async {
     if (!_transport.isConnected) return;
     final completer = Completer<int>();
     _featuresCompleter = completer;
     try {
-      await _writePacket(ProtocolService.buildGetFeatures());
+      await _writePacket(SettingsProtocolService.buildGetFeatures());
     } catch (_) {
       return;
     }
-    // Short timeout — if device doesn't respond, features stay at 0
     try {
       await completer.future.timeout(const Duration(seconds: 2));
     } on TimeoutException catch (_) {
-      // Device may be running older firmware; features stay at 0
     } catch (_) {
-      // Ignore
     } finally {
       _featuresCompleter = null;
     }
   }
 
-  /// Request chip info from the device. Fire-and-forget — cached for UI.
+  /// Request chip info from the device via settings protocol. Fire-and-forget.
   Future<void> _requestChipInfo() async {
     if (!_transport.isConnected) return;
     final completer = Completer<void>();
     _chipInfoCompleter = completer;
     try {
-      await _writePacket(ProtocolService.buildGetChipInfo());
+      await _writePacket(SettingsProtocolService.buildGetChipInfo());
     } catch (_) {
       _chipInfoCompleter = null;
       return;
@@ -1180,9 +1281,7 @@ class DeviceProvider extends ChangeNotifier {
     try {
       await completer.future.timeout(const Duration(seconds: 3));
     } on TimeoutException catch (_) {
-      // Device may be running older firmware — chip info stays null
     } catch (_) {
-      // Ignore
     } finally {
       _chipInfoCompleter = null;
     }
@@ -1195,14 +1294,14 @@ class DeviceProvider extends ChangeNotifier {
     await _requestChipInfo();
   }
 
-  /// Send a GET_BLE_INFO command to the device and wait for the response.
+  /// Send a GET_BLE_INFO command via settings protocol and wait for the response.
   /// Returns a map with connIntervalMs, negotiatedMtu, rssi, or null on timeout.
   Future<Map<String, int>?> sendGetBleInfo() async {
     if (!_transport.isConnected) return null;
     final completer = Completer<Map<String, int>>();
     _bleInfoCompleter = completer;
     try {
-      await _writePacket(ProtocolService.buildBleInfo());
+      await _writePacket(SettingsProtocolService.buildBleInfo());
     } catch (e) {
       _bleInfoCompleter = null;
       return null;
@@ -1220,23 +1319,7 @@ class DeviceProvider extends ChangeNotifier {
     }
   }
 
-  void _handleTelemetryData(List<int> payload) {
-    if (payload.isNotEmpty) {
-      final rawRssi = payload[0];
-      // Protocol uses a single byte for RSSI, interpreted as signed int8.
-      _rssi = rawRssi > 127 ? rawRssi - 256 : rawRssi;
-      
-      // If firmware sends more bytes, we can parse latency/uptime here.
-      if (payload.length >= 4) {
-         // Future: parse other telemetry fields
-      }
 
-      debugPrint('RadioKit: TELEMETRY_DATA rssi=$_rssi (raw=$rawRssi, len=${payload.length})');
-      notifyListeners();
-    } else {
-      debugPrint('RadioKit: TELEMETRY_DATA received but payload is empty');
-    }
-  }
 
   void _handleConfData(List<int> payload) {
     _log('MCU <- CONF_DATA (${payload.length} bytes)');
@@ -1247,9 +1330,11 @@ class DeviceProvider extends ChangeNotifier {
           '${payload.take(32).map((b) => b.toRadixString(16).padLeft(2, "0")).join(" ")}');
       return;
     }
-    _log('RECEIVED CONFIG: "${(conf).name}" with ${conf.widgets.length} widgets', level: ConsoleLogLevel.success);
-    _configName      = conf.name;
-    _description     = conf.description;
+    _log('RECEIVED CONFIG: ${_connectedDevice?.name ?? conf.name} with ${conf.widgets.length} widgets', level: ConsoleLogLevel.success);
+    // Name/desc may come from device info (v4) or embedded in CONF_DATA (v3 fallback)
+    final fallbackName = _connectedDevice?.name ?? 'RadioKit Device';
+    _configName      = conf.name.isNotEmpty ? conf.name : _configName ?? fallbackName;
+    _description     = conf.description.isNotEmpty ? conf.description : _description;
     _widgets         = conf.widgets;
     _orientation     = conf.orientation;
     _widgetState     = RadioWidgetState.initial(conf.widgets);
@@ -1258,8 +1343,8 @@ class DeviceProvider extends ChangeNotifier {
     // Convert to designer-format JSON and cache for fast UI rendering.
     _deviceConfigJson = widgetConfigsToDesignerJson(
       widgets: conf.widgets,
-      name: conf.name,
-      description: conf.description,
+      name: _configName ?? fallbackName,
+      description: _description ?? '',
       orientation: conf.orientation,
       theme: conf.theme,
     );
@@ -1401,13 +1486,6 @@ class DeviceProvider extends ChangeNotifier {
 
   void _handleAck(List<int> payload) {
     if (payload.isEmpty) return;
-    
-    // Check if this is an auth response (authCompleter active)
-    if (_authCompleter != null && !_authCompleter!.isCompleted) {
-      _authCompleter!.complete(payload[0]);
-      return;
-    }
-    
     final seq     = payload[0];
     final pending = _pendingUpdates.remove(seq);
     pending?.timer?.cancel();

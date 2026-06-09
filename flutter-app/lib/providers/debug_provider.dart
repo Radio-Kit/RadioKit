@@ -4,6 +4,7 @@ import '../models/debug_log_entry.dart';
 import '../services/debug_transport.dart';
 import '../services/transport_service.dart';
 import '../services/protocol_service.dart';
+import '../services/settings_protocol_service.dart';
 
 /// Maximum number of entries kept in the ring-buffer.
 const int kDebugLogMaxEntries = 1000;
@@ -152,7 +153,7 @@ class DebugProvider extends ChangeNotifier implements DebugLogSink {
         case 'GET_CONF': await t.writePacket(ProtocolService.buildGetConf());  break;
         case 'GET_VARS': await t.writePacket(ProtocolService.buildGetVars());  break;
         case 'GET_META': await t.writePacket(ProtocolService.buildGetMeta());  break;
-        case 'GET_TELE': await t.writePacket(ProtocolService.buildGetTelemetry()); break;
+        case 'GET_TELE': await t.writePacket(SettingsProtocolService.buildGetTelemetry()); break;
         default: return 'Unknown command';
       }
       return null;

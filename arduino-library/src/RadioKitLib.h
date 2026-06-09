@@ -20,6 +20,7 @@
 #include "connection/RadioKitFS.h"
 #include "connection/RadioKitFsHandlers.h"
 #include "connection/RadioKitOTA.h"
+#include "connection/RadioKitSettings.h"
 #include "connection/RadioKitNVS.h"
 
 class RadioKit_Widget;
@@ -68,6 +69,12 @@ public:
      * The sketch MUST call Serial.begin() before this.
      */
     void startSerial(Stream& stream);
+
+    // ── Settings protocol (0xDD) ─────────────────────────────────
+    /**
+     * Send a pre-built Settings frame to the device.
+     */
+    void sendSettingsFrame(const uint8_t* buf, uint16_t len);
 
     // ── Main loop ────────────────────────────────────────────
     void update();
@@ -160,7 +167,9 @@ private:
 
     static void _onPacket(uint8_t cmd, const uint8_t* payload, uint16_t payloadLen);
     static void _onFsPacket(uint8_t subCmd, const uint8_t* payload, uint16_t payloadLen);
+    static void _onSettingsPacket(uint8_t subCmd, const uint8_t* payload, uint16_t payloadLen);
     static void _sendFsFrame(const uint8_t* buf, uint16_t len);
+    static void _sendSettingsFrame(const uint8_t* buf, uint16_t len);
 
     void _handleGetConf();
     void _handleGetVars();
@@ -170,13 +179,18 @@ private:
     void _handleAck(const uint8_t* payload, uint16_t len);
     void _handleVarUpdate(const uint8_t* payload, uint16_t len);
     void _handleMetaUpdate(const uint8_t* payload, uint16_t len);
-    void _handleGetTelemetry();
-    void _handleBleInfo();
-    void _handleGetFeatures();
-    void _handleGetChipInfo();
-    void _handleSetConf(const uint8_t* payload, uint16_t len);
-    void _handlePwdAuth(const uint8_t* payload, uint16_t len);
-    void _handleFactoryReset();
+
+    // ── Settings protocol handlers (0xDD) ─────────────────────
+    void _handleSettingsTelemetry();
+    void _handleSettingsBleInfo();
+    void _handleSettingsGetFeatures();
+    void _handleSettingsGetChipInfo();
+    void _handleSettingsSetConf(const uint8_t* payload, uint16_t len);
+    void _handleSettingsPwdAuth(const uint8_t* payload, uint16_t len);
+    void _handleSettingsFactoryReset();
+    void _handleSettingsDeviceInfo();
+    void _sendSettingsFrame(uint16_t len);
+
     void _sendPacket(const uint8_t* buf, uint16_t len);
     void _sendPacket(uint16_t len);
 

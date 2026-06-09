@@ -23,10 +23,10 @@
 #define RK_MIN_PACKET 6 // header(4) + crc(2)
 
 // ─────────────────────────────────────────────
-//  Command IDs (Protocol v3)
+//  Command IDs (Protocol v4 — settings moved to 0xDD)
 // ─────────────────────────────────────────────
-#define RK_CMD_GET_CONF 0x01    // App → Arduino: request config
-#define RK_CMD_CONF_DATA 0x02   // Arduino → App: config payload
+#define RK_CMD_GET_CONF 0x01    // App → Arduino: request widget config
+#define RK_CMD_CONF_DATA 0x02   // Arduino → App: widget config payload (UI only)
 #define RK_CMD_PING 0x03        // App → Arduino: keep-alive ping
 #define RK_CMD_PONG 0x04        // Arduino → App: pong
 #define RK_CMD_ACK 0x05         // Both: acknowledge SET_INPUT or VAR_UPDATE
@@ -37,41 +37,11 @@
 #define RK_CMD_META_DATA 0x0A   // Arduino → App: metadata of all widgets
 #define RK_CMD_META_UPDATE 0x0B // Both: metadata of partial widgets
 #define RK_CMD_SET_INPUT 0x0C   // Arduino → App: force sync input widget
-#define RK_CMD_GET_TELEMETRY 0x0D // App → Arduino: request RSSI/Latency
-#define RK_CMD_TELEMETRY_DATA 0x0E // Arduino → App: telemetry values
-#define RK_CMD_BLE_INFO     0x14   // App → Arduino: request BLE connection params
-#define RK_CMD_BLE_INFO_DATA 0x0F  // Arduino → App: BLE connection param values
-#define RK_CMD_GET_FEATURES     0x15  // App → Arduino: request feature bitmask
-#define RK_CMD_FEATURES_DATA    0x16  // Arduino → App: feature bitmask [bitmask(1)]
-#define RK_CMD_GET_CHIP_INFO    0x17  // App → Arduino: request chip info
-#define RK_CMD_CHIP_INFO_DATA   0x18  // Arduino → App: chip info payload
-#define RK_CMD_SET_CONF         0x19  // App → Arduino: write name/desc/password to NVS
-#define RK_CMD_PWD_AUTH         0x1A  // App → Arduino: authenticate with password
-#define RK_CMD_FACTORY_RESET    0x1B  // App → Arduino: erase NVS config and reboot
 
-// ── Feature bitmask bits (FEATURES_DATA payload) ────────────────────────────
-#define RK_FEATURE_OTA             (1 << 0)  ///< OTA firmware update supported
-#define RK_FEATURE_FILESYSTEM      (1 << 1)  ///< LittleFS filesystem supported
-#define RK_FEATURE_HAS_CONN_PWD    (1 << 2)  ///< Device has a non-empty connection password
-#define RK_FEATURE_HAS_ADMIN_PWD   (1 << 3)  ///< Device has a non-empty admin password
-
-// Legacy alias
-#define RK_FEATURE_HAS_PASSWORD RK_FEATURE_HAS_CONN_PWD
-
-// ── PWD_AUTH response codes ─────────────────────────────────────────────────
-#define RK_PWD_AUTH_OK          0x00  ///< Authentication successful
-#define RK_PWD_AUTH_MISMATCH    0x01  ///< Password does not match
-#define RK_PWD_AUTH_ALREADY     0x02  ///< Already authenticated
-
-// ── PWD_AUTH flags byte ─────────────────────────────────────────────────────
-#define RK_PWD_AUTH_FLAG_ADMIN   (1 << 0)  ///< Authenticate as admin
-
-// ── SET_CONF field mask bits ────────────────────────────────────────────────
-#define RK_SET_CONF_NAME        (1 << 0)  ///< Name field present
-#define RK_SET_CONF_DESC        (1 << 1)  ///< Description field present
-#define RK_SET_CONF_PWD         (1 << 2)  ///< Connection password field present
-#define RK_SET_CONF_ADMIN_PWD   (1 << 3)  ///< Admin password field present
-#define RK_SET_CONF_ERROR       (1 << 7)  ///< ACK: error during NVS write
+// ── PWD_AUTH response codes (used by public API RadioKitClass::authenticate) ─
+#define RK_PWD_AUTH_OK          0x00
+#define RK_PWD_AUTH_MISMATCH    0x01
+#define RK_PWD_AUTH_ALREADY     0x02
 
 // ─────────────────────────────────────────────
 //  Protocol version (v4 — NVS-backed config)

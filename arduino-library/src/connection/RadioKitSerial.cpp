@@ -7,11 +7,12 @@
 #include "../RadioKitProtocol.h"
 #include "RadioKitFS.h"
 #include "RadioKitOTA.h"
+#include "RadioKitSettings.h"
 
 RadioKitSerialTransport RadioKitSerialInstance;
 
 RadioKitSerialTransport::RadioKitSerialTransport()
-    : _stream(nullptr), _cb(nullptr), _fsCb(nullptr), _otaCb(nullptr)
+    : _stream(nullptr), _cb(nullptr), _fsCb(nullptr), _otaCb(nullptr), _settingsCb(nullptr)
     , _lastPacketMs(0), _lastByteMs(0), _everReceived(false)
 {}
 
@@ -20,11 +21,13 @@ void RadioKitSerialTransport::begin(Stream& stream, RK_PacketCallback cb) {
     _cb           = cb;
     _fsCb         = nullptr;
     _otaCb        = nullptr;
+    _settingsCb   = nullptr;
     _lastPacketMs = 0;
     _lastByteMs   = 0;
     _everReceived = false;
     rk_rxReset();
     rk_fsRxReset();
+    rk_settingsRxReset();
 }
 
 void RadioKitSerialTransport::begin(const char* /*name*/, RK_PacketCallback cb) {
@@ -37,6 +40,10 @@ void RadioKitSerialTransport::setFsCallback(RK_FsPacketCallback cb) {
 
 void RadioKitSerialTransport::setOtaCallback(RK_OtaPacketCallback cb) {
     _otaCb = cb;
+}
+
+void RadioKitSerialTransport::setSettingsCallback(RK_SettingsPacketCallback cb) {
+    _settingsCb = cb;
 }
 
 void RadioKitSerialTransport::update() {
@@ -71,6 +78,14 @@ void RadioKitSerialTransport::update() {
             _everReceived = true;
             _lastPacketMs = millis();
             if (_otaCb) _otaCb(cmd, payload, payloadLen);
+            continue;
+        }
+
+        // Route to Settings state machine (0xDD)
+        if (rk_settingsRxFeedByte(byte, cmd, payload, payloadLen)) {
+            _everReceived = true;
+            _lastPacketMs = millis();
+            if (_settingsCb) _settingsCb(cmd, payload, payloadLen);
         }
     }
 
@@ -79,6 +94,7 @@ void RadioKitSerialTransport::update() {
         rk_rxReset();
         rk_fsRxReset();
         rk_otaRxReset();
+        rk_settingsRxReset();
         _lastByteMs = 0;
     }
 }

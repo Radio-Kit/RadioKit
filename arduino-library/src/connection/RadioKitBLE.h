@@ -25,6 +25,7 @@ class NimBLECharacteristic;
 #define RK_BLE_CHAR_WIDGET_UUID    "0000FFE1-0000-1000-8000-00805F9B34FB"
 #define RK_BLE_CHAR_FS_UUID        "0000FFE2-0000-1000-8000-00805F9B34FB"
 #define RK_BLE_CHAR_OTA_UUID       "0000FFE3-0000-1000-8000-00805F9B34FB"
+#define RK_BLE_CHAR_SETTINGS_UUID  "0000FFE4-0000-1000-8000-00805F9B34FB"
 
 // Default MTU (negotiated value is cached after connection)
 #define RK_BLE_MTU 20
@@ -42,6 +43,7 @@ public:
     void begin(const char* deviceName, RK_PacketCallback cb) override;
     void setFsCallback(RK_FsPacketCallback cb) override;
     void setOtaCallback(RK_OtaPacketCallback cb) override;
+    void setSettingsCallback(RK_SettingsPacketCallback cb) override;
     void update()                                            override;
     void sendPacket(const uint8_t* buf, uint16_t len)       override;
     bool isConnected() const                                override { return _connected; }
@@ -61,16 +63,19 @@ public:
     void _onWidgetWrite(const uint8_t* data, size_t len);
     void _onFsWrite(const uint8_t* data, size_t len);
     void _onOtaWrite(const uint8_t* data, size_t len);
+    void _onSettingsWrite(const uint8_t* data, size_t len);
     void _processPendingFs();
 
 private:
     NimBLEServer*         _server;
-    NimBLECharacteristic* _charWidget;   // 0xFFE1 — widget protocol (0x55)
-    NimBLECharacteristic* _charFs;       // 0xFFE2 — filesystem protocol (0xAA)
-    NimBLECharacteristic* _charOta;      // 0xFFE3 — OTA protocol (0xBB)
+    NimBLECharacteristic* _charWidget;    // 0xFFE1 — widget protocol (0x55)
+    NimBLECharacteristic* _charFs;        // 0xFFE2 — filesystem protocol (0xAA)
+    NimBLECharacteristic* _charOta;       // 0xFFE3 — OTA protocol (0xBB)
+    NimBLECharacteristic* _charSettings;  // 0xFFE4 — settings protocol (0xDD)
     RK_PacketCallback     _packetCallback;
     RK_FsPacketCallback   _fsPacketCallback;
     RK_OtaPacketCallback  _otaPacketCallback;
+    RK_SettingsPacketCallback _settingsPacketCallback;
     volatile bool _connected;
     volatile bool         _sending;          // Re-entrancy guard for sendPacket (cross-task)
     bool                  _needRestartAdv;
