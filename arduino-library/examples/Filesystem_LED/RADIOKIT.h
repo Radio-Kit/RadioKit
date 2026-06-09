@@ -9,7 +9,7 @@
     "name": "FS LED",
     "description": "Bulk filesystem + BLE LED switch",
     "type": "IOT",
-    "transport": "SERIAL",
+    "transport": "BLE",
     "theme": "RK_DEFAULT",
     "password": "1234"
   },
@@ -73,11 +73,8 @@ static inline void initRadioKit() {
 
   slide_switch_1.setLabelHidden(true);
 
-  RadioKit.config.baudrate = 115200;
-
   RadioKit.begin();
-  RadioKit.startSerial(Serial);
+  RadioKit.startBLE(RadioKit.config.name);
 }
 
 #endif // RADIOKIT_UI_H
-

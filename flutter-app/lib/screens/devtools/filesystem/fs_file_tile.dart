@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../../../models/fs_entry.dart';
 import 'fs_helpers.dart';
 
+/// Whether a file name has an editable extension.
+bool _isEditable(String name) => isEditableFile(name);
+
 /// A Material 3 [ListTile] row for a single filesystem entry.
 ///
 /// Supports two visual modes:
@@ -15,6 +18,8 @@ class FsFileTile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
   final VoidCallback? onSecondaryAction;
+  final VoidCallback? onEdit;
+  final bool isLoading;
 
   const FsFileTile({
     super.key,
@@ -25,6 +30,8 @@ class FsFileTile extends StatelessWidget {
     required this.onTap,
     this.onLongPress,
     this.onSecondaryAction,
+    this.onEdit,
+    this.isLoading = false,
   });
 
   @override
@@ -68,14 +75,29 @@ class FsFileTile extends StatelessWidget {
             onChanged: (_) => onTap(),
             visualDensity: VisualDensity.compact,
           )
-        : Container(
+        : SizedBox(
             width: 40,
             height: 40,
-            decoration: BoxDecoration(
-              color: visual.color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10),
+            child: Center(
+              child: isLoading
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: visual.color,
+                      ),
+                    )
+                  : Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: visual.color.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(visual.icon, color: visual.color, size: 20),
+                    ),
             ),
-            child: Icon(visual.icon, color: visual.color, size: 20),
           );
 
     final trailing = isMultiSelect
@@ -85,10 +107,22 @@ class FsFileTile extends StatelessWidget {
                 Icons.chevron_right_rounded,
                 color: scheme.onSurfaceVariant,
               )
-            : IconButton(
-                icon: const Icon(Icons.more_vert_rounded),
-                tooltip: 'More actions',
-                onPressed: onSecondaryAction,
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (!entry.isDirectory && _isEditable(entry.name))
+                    IconButton(
+                      icon: const Icon(Icons.edit_rounded, size: 18),
+                      tooltip: 'Edit file',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: onEdit,
+                    ),
+                  IconButton(
+                    icon: const Icon(Icons.more_vert_rounded),
+                    tooltip: 'More actions',
+                    onPressed: onSecondaryAction,
+                  ),
+                ],
               );
 
     return Container(

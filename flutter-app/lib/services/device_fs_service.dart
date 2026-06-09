@@ -418,6 +418,52 @@ class DeviceFsService {
       success: true, errorCode: kFsErrOk, errorName: 'OK',
     );
   }
+
+  // ── REPLACE (single-frame CRC32-verified) ──────────────────────────────
+
+  /// Replace the content of a file in a single frame with CRC32 verification.
+  /// For files that fit within [FsProtocolService.replaceMaxContent].
+  /// Falls back to [writeFileUpload] for larger files.
+  Future<FsOpResult> replaceFile(String path, Uint8List data) async {
+    final maxContent = FsProtocolService.replaceMaxContent(path);
+    if (data.length <= maxContent) {
+      // Single-frame REPLACE with CRC32
+      final crc32 = _crc32(data);
+      final resp = await _sendFs(
+        FsProtocolService.buildReplace(path, data, crc32),
+        timeout: _writeTimeout,
+      );
+      if (resp == null) {
+        return FsOpResult(
+          success: false, errorCode: -1, errorName: 'TIMEOUT',
+          message: 'No response from REPLACE',
+        );
+      }
+      final code = FsProtocolService.parseAck(resp.payload) ?? -1;
+      if (code != kFsErrOk) {
+        return FsOpResult(
+          success: false, errorCode: code, errorName: fsErrorName(code),
+          message: 'REPLACE failed',
+        );
+      }
+      return FsOpResult(success: true, errorCode: kFsErrOk, errorName: 'OK');
+    }
+    // Larger files: fall back to CRC32-verified upload protocol
+    return writeFileUpload(path, data);
+  }
+
+  // ── CRC32 query ─────────────────────────────────────────────────────────
+
+  /// Request the CRC32 checksum and file size from the device.
+  /// Returns null on timeout or malformed response.
+  Future<({bool found, int crc32, int size})?> getFileCrc32(String path) async {
+    final resp = await _sendFs(
+      FsProtocolService.buildCrc32(path),
+      timeout: const Duration(seconds: 3),
+    );
+    if (resp == null) return null;
+    return FsProtocolService.parseCrc32Data(resp.payload);
+  }
 }
 
 /// Convenience: build a [DeviceFsService] that routes through a

@@ -27,6 +27,8 @@ import '../devtools/filesystem/fs_breadcrumbs.dart';
 import '../devtools/filesystem/fs_file_tile.dart';
 import '../devtools/filesystem/fs_info_strip.dart';
 import '../devtools/filesystem/fs_action_sheet.dart';
+import '../devtools/filesystem/file_editor_cache.dart';
+import '../devtools/filesystem/file_editor_dialog.dart';
 
 class ModelsTab extends StatelessWidget {
   const ModelsTab({super.key});
@@ -101,6 +103,15 @@ class _ActiveLinkSectionState extends State<_ActiveLinkSection> {
     if (needAuth && !_authDialogShown) {
       _authDialogShown = true;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        
+        // Try auto-auth with saved password first
+        final saved = await SecureStorageService.loadPassword(device.id);
+        if (saved != null && saved.isNotEmpty) {
+          final ok = await context.read<DeviceProvider>().authenticate(saved);
+          if (ok && mounted) return; // Auto-authenticated — no dialog needed
+        }
+        
         if (!mounted) return;
         final ok = await _showAuthDialog(context, device);
         if (!mounted) return;
@@ -442,20 +453,17 @@ class _DeviceInfoTabsState extends State<_DeviceInfoTabs>
       child: Column(
         children: [
           const SizedBox(height: 8),
-          SizedBox(
-            width: 200,
-            child: TabBar(
-              controller: _tabController!,
-              indicatorColor: AppColors.brandOrange,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white54,
-              labelStyle: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
-                letterSpacing: 1,
-              ),
-              tabs: tabs,
+          TabBar(
+            controller: _tabController!,
+            indicatorColor: AppColors.brandOrange,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white54,
+            labelStyle: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+              letterSpacing: 1,
             ),
+            tabs: tabs,
           ),
           const Divider(height: 1, color: Colors.white12),
           Expanded(
@@ -562,20 +570,17 @@ class _InfoTabContent extends StatelessWidget {
           ] else ...[
             _DeviceSettingsSection(device: device),
           ],
-          // ── Authenticate + Remove Device (user mode only) ──
+          // ── Authenticate (user mode only) + Remove Device ──
           if (dp.isUserMode && !isDemo) ...[
             _AdminAccessButton(device: device),
             const SizedBox(height: 24),
-            const Divider(height: 1, color: Colors.white12),
-            const SizedBox(height: 24),
+          ],
+          if (!isDemo) ...[
             _RemoveDeviceButton(device: device),
             const SizedBox(height: 24),
-            const Divider(height: 1, color: Colors.white12),
-            const SizedBox(height: 24),
-          ] else ...[
-            const Divider(height: 1, color: Colors.white12),
-            const SizedBox(height: 24),
           ],
+          const Divider(height: 1, color: Colors.white12),
+          const SizedBox(height: 24),
           // ── Chip Info ───────────────────────────────────────
           Text('CHIP INFO',
               style: TextStyle(
@@ -669,6 +674,7 @@ class _FsTabContent extends StatefulWidget {
 }
 
 class _FsTabContentState extends State<_FsTabContent> {
+  final FileEditorCache _editorCache = FileEditorCache();
   DeviceFsService? _fs;
   List<FsEntry> _entries = [];
   FsInfo? _fsInfo;
@@ -682,6 +688,7 @@ class _FsTabContentState extends State<_FsTabContent> {
   int _currentTransferBytes = 0;
   bool _isMultiSelect = false;
   final Set<String> _selectedPaths = {};
+  final Set<String> _loadingPaths = {};
 
   @override
   void initState() {
@@ -807,6 +814,10 @@ class _FsTabContentState extends State<_FsTabContent> {
                   onTap: () => _onTileTap(entry, path),
                   onLongPress: () => _onTileLongPress(entry, path),
                   onSecondaryAction: () => _openActionSheet(entry, path),
+                  onEdit: isEditableFile(entry.name)
+                      ? () => _editFile(entry, path)
+                      : null,
+                  isLoading: _loadingPaths.contains(path),
                 );
               },
             ),
@@ -1011,6 +1022,9 @@ class _FsTabContentState extends State<_FsTabContent> {
         entry: entry, fullPath: path);
     if (!mounted || action == null) return;
     switch (action) {
+      case FsAction.edit:
+        await _editFile(entry, path);
+        break;
       case FsAction.download:
         await _downloadFile(entry, path);
         break;
@@ -1204,6 +1218,69 @@ class _FsTabContentState extends State<_FsTabContent> {
     }
   }
 
+  Future<void> _editFile(FsEntry entry, String path) async {
+    if (_fs == null || !mounted) return;
+    setState(() {
+      _loadingPaths.add(path);
+      _statusMessage = 'Opening ${entry.name}…';
+      _progress = 0;
+    });
+    try {
+      // Check cache first
+      Uint8List? content = _editorCache.get(path);
+      if (content != null) {
+        final crc = await _fs!.getFileCrc32(path);
+        if (crc != null && crc.found) {
+          final valid = _editorCache.isValid(
+            path,
+            crc32: crc.crc32,
+            size: crc.size,
+          );
+          if (valid != true) {
+            content = null;
+          }
+        } else {
+          content = null;
+        }
+      }
+
+      setState(() {
+        _loadingPaths.remove(path);
+        _progress = null;
+        _statusMessage = null;
+      });
+
+      final result = await FileEditorDialog.show(
+        context,
+        fs: _fs!,
+        path: path,
+        fileName: entry.name,
+        cachedContent: content,
+      );
+      if (!mounted) return;
+      if (result != null && result.saved && result.newContent != null) {
+        final crc = await _fs!.getFileCrc32(path);
+        if (crc != null && crc.found) {
+          _editorCache.put(path, result.newContent!,
+              crc32: crc.crc32, size: crc.size);
+        } else {
+          _editorCache.put(path, result.newContent!);
+        }
+        setState(() {
+          _statusMessage = 'Saved ${entry.name}';
+          _progress = null;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadingPaths.remove(path);
+        _errorMessage = 'Edit error: $e';
+        _progress = null;
+      });
+    }
+  }
+
   Future<void> _deleteSelected() async {
     if (_fs == null || _selectedPaths.isEmpty) return;
     final ok = await showDialog<bool>(
@@ -1359,7 +1436,12 @@ class _FirmwareTabContentState extends State<_FirmwareTabContent> {
   DateTime? _started;
   bool _cancelled = false;
 
-  Future<void> _selectAndUpdate() async {
+  // ── Confirm upload state ──────────────────────────────────────────
+  String? _selectedFileName;
+  Uint8List? _selectedFirmwareBytes;
+  bool _eraseAll = false;
+
+  Future<void> _selectFile() async {
     final result = await FilePicker.pickFiles(
       type: FileType.any,
       allowMultiple: false,
@@ -1389,11 +1471,33 @@ class _FirmwareTabContentState extends State<_FirmwareTabContent> {
       return;
     }
 
+    // Store file for confirm step instead of starting upload immediately
+    setState(() {
+      _selectedFileName = file.name;
+      _selectedFirmwareBytes = firmware;
+      _error = false;
+      _errorMessage = null;
+      _status = 'Ready';
+    });
+  }
+
+  void _clearSelection() {
+    setState(() {
+      _selectedFileName = null;
+      _selectedFirmwareBytes = null;
+      _eraseAll = false;
+    });
+  }
+
+  Future<void> _confirmAndUpload() async {
+    final firmware = _selectedFirmwareBytes;
+    if (firmware == null) return;
     _startUpload(firmware);
   }
 
   Future<void> _startUpload(Uint8List firmware) async {
     final dp = context.read<DeviceProvider>();
+    final eraseAll = _eraseAll;
     setState(() {
       _uploading = true;
       _complete = false;
@@ -1404,10 +1508,12 @@ class _FirmwareTabContentState extends State<_FirmwareTabContent> {
       _started = DateTime.now();
       _cancelled = false;
       _errorMessage = null;
+      _selectedFileName = null;
+      _selectedFirmwareBytes = null;
     });
 
     try {
-      await dp.uploadFirmware(firmware, onProgress: (received, total) {
+      await dp.uploadFirmware(firmware, eraseAll: eraseAll, onProgress: (received, total) {
         if (!mounted || _cancelled) return;
         setState(() {
           _received = received;
@@ -1443,6 +1549,15 @@ class _FirmwareTabContentState extends State<_FirmwareTabContent> {
     final speed = ms > 0 ? (received / ms * 1000 / 1024).toStringAsFixed(1) : '0';
     final pct = total > 0 ? (received * 100 / total).toStringAsFixed(0) : '0';
     return 'Uploading... $pct% ($speed KB/s)';
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes >= 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    } else if (bytes >= 1024) {
+      return '${(bytes / 1024).toStringAsFixed(0)} KB';
+    }
+    return '$bytes B';
   }
 
   Future<void> _cancel() async {
@@ -1511,6 +1626,122 @@ class _FirmwareTabContentState extends State<_FirmwareTabContent> {
           const SizedBox(height: 24),
 
           if (!_uploading && !_complete && !_error) ...[
+            // ── Confirm upload phase (file selected) ────────────
+            if (_selectedFileName != null && _selectedFirmwareBytes != null) ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.brandOrange.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                      color: AppColors.brandOrange.withValues(alpha: 0.25)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('SELECTED FILE',
+                        style: TextStyle(
+                            color: AppColors.brandOrange,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1)),
+                    const SizedBox(height: 8),
+                    Row(children: [
+                      const Icon(Icons.insert_drive_file_rounded,
+                          size: 18, color: Colors.white),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(_selectedFileName!,
+                                style: GoogleFonts.jetBrainsMono(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600)),
+                            Text(
+                                _formatBytes(
+                                    _selectedFirmwareBytes!.length),
+                                style: const TextStyle(
+                                    color: Colors.white54,
+                                    fontSize: 11)),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded,
+                            size: 18, color: Colors.white38),
+                        onPressed: _clearSelection,
+                      ),
+                    ]),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              // ── Erase all toggle ──────────────────────────────
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.03),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_sweep_rounded,
+                        size: 18,
+                        color: _eraseAll
+                            ? Colors.redAccent
+                            : Colors.white38),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('ERASE ALL',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600)),
+                          Text('Clear NVS config + entire flash after OTA',
+                              style: TextStyle(
+                                  color: Colors.white38,
+                                  fontSize: 10)),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: _eraseAll,
+                      onChanged: (v) => setState(() => _eraseAll = v),
+                      activeColor: Colors.redAccent,
+                      activeThumbColor: Colors.redAccent,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              // ── Confirm upload button ─────────────────────────
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.brandOrange,
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6)),
+                  ),
+                  icon: const Icon(Icons.cloud_upload_rounded, size: 20),
+                  label: Text('CONFIRM UPLOAD',
+                      style: GoogleFonts.changa(
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1,
+                          fontSize: 12)),
+                  onPressed: _confirmAndUpload,
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+            // ── Select file button (always visible when idle) ───
             SizedBox(
               width: double.infinity,
               height: 52,
@@ -1527,7 +1758,7 @@ class _FirmwareTabContentState extends State<_FirmwareTabContent> {
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1,
                         fontSize: 12)),
-                onPressed: _selectAndUpdate,
+                onPressed: _selectFile,
               ),
             ),
             const SizedBox(height: 12),
@@ -1676,24 +1907,21 @@ Future<bool> _showAuthDialog(
   bool isAdminAuth = false,
 }) async {
   final dp = context.read<DeviceProvider>();
-  final pwdCtrl = TextEditingController();
   bool obscure = true;
   bool loading = false;
   bool remember = isAdminAuth ? false : true;
   String? error;
+  String password = '';
 
   // Load saved password
   final saved = isAdminAuth
       ? await SecureStorageService.loadAdminPassword(device.id)
       : await SecureStorageService.loadPassword(device.id);
-  if (saved != null && saved.isNotEmpty && context.mounted) {
-    pwdCtrl.text = saved;
+  if (saved != null && saved.isNotEmpty) {
+    password = saved;
   }
 
-  if (!context.mounted) {
-    pwdCtrl.dispose();
-    return false;
-  }
+  if (!context.mounted) return false;
 
   final success = await showDialog<bool>(
     context: context,
@@ -1701,15 +1929,14 @@ Future<bool> _showAuthDialog(
     builder: (ctx) {
       return StatefulBuilder(
         builder: (context, setDialogState) {
-          // Shared submit handler — declared before AlertDialog return so
-          // onSubmitted and onPressed can reference it without forward ref errors.
+          // Shared submit handler
           Future<void> submit() async {
             if (loading) return;
             setDialogState(() {
               loading = true;
               error = null;
             });
-            final pwd = pwdCtrl.text.trim();
+            final pwd = password.trim();
             if (pwd.isEmpty) {
               setDialogState(() {
                 loading = false;
@@ -1742,31 +1969,59 @@ Future<bool> _showAuthDialog(
             backgroundColor: const Color(0xFF1A1A1A),
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12)),
-            title: Row(children: [
-              Icon(
-                isAdminAuth
-                    ? Icons.admin_panel_settings_outlined
-                    : Icons.lock_rounded,
-                color: AppColors.brandOrange,
-                size: 22,
-              ),
-              const SizedBox(width: 10),
-              Text(
-                isAdminAuth ? 'ADMIN AUTH' : 'PASSWORD REQUIRED',
-                style: GoogleFonts.changa(
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1,
-                    fontSize: 14,
-                    color: Colors.white),
-              ),
-              if (!isAdminAuth) ...[const Spacer(), _AuthCountdown(initialRemaining: dp.remainingAuthTime)],
-            ]),
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(children: [
+                  Icon(
+                    isAdminAuth
+                        ? Icons.admin_panel_settings_outlined
+                        : Icons.lock_rounded,
+                    color: AppColors.brandOrange,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      device.displayName.toUpperCase(),
+                      style: GoogleFonts.exo2(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.3,
+                          color: Colors.white),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (!isAdminAuth)
+                    const _AuthCountdown(initialSeconds: 60),
+                ]),
+                const SizedBox(height: 4),
+                Padding(
+                  padding: const EdgeInsets.only(left: 32),
+                  child: Text(
+                    device.id.startsWith('demo_')
+                        ? 'DEMO'
+                        : device.id.startsWith('COM') ||
+                                device.id.contains('serial')
+                            ? 'SERIAL'
+                            : 'BLUETOOTH LE',
+                    style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ],
+            ),
             content: SizedBox(
               width: 300,
-              child: Column(
+              child: SingleChildScrollView(
+                child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+
                   Text(
                     isAdminAuth
                         ? 'Enter admin password to unlock full access.'
@@ -1774,49 +2029,10 @@ Future<bool> _showAuthDialog(
                     style:
                         const TextStyle(color: Colors.white54, fontSize: 12),
                   ),
-                  const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.03),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.devices_rounded,
-                            size: 16, color: AppColors.brandOrange),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(device.displayName.toUpperCase(),
-                                  style: GoogleFonts.exo2(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                  )),
-                              Text(
-                                device.id.startsWith('demo_')
-                                    ? 'DEMO'
-                                    : device.id.startsWith('COM') ||
-                                            device.id.contains('serial')
-                                        ? 'SERIAL'
-                                        : 'BLUETOOTH LE',
-                                style: const TextStyle(
-                                    color: Colors.white38, fontSize: 10),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                   const SizedBox(height: 16),
-                  TextField(
-                    controller: pwdCtrl,
+                  TextFormField(
+                    onChanged: (v) => password = v,
+                    initialValue: password,
                     obscureText: obscure,
                     autofocus: true,
                     style: GoogleFonts.jetBrainsMono(
@@ -1865,7 +2081,7 @@ Future<bool> _showAuthDialog(
                                     .withValues(alpha: 0.5)),
                       ),
                     ),
-                    onSubmitted: (_) => submit(),
+                    onFieldSubmitted: (_) => submit(),
                   ),
                   if (error != null) ...[
                     const SizedBox(height: 8),
@@ -1908,6 +2124,7 @@ Future<bool> _showAuthDialog(
                 ],
               ),
             ),
+          ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(false),
@@ -1937,7 +2154,6 @@ Future<bool> _showAuthDialog(
     },
   );
 
-  pwdCtrl.dispose();
   return success ?? false;
 }
 
@@ -2054,28 +2270,31 @@ class _RemoveDeviceButton extends StatelessWidget {
 
 // ── Auth Countdown Widget ──────────────────────────────────────────────────
 
-/// Self-contained countdown timer for the auth dialog.
-/// Takes an [initialRemaining] snapshot so it doesn't need to
-/// watch [DeviceProvider] — avoiding dependent-registration races
-/// when the dialog route is dismissed.
+/// Live countdown timer for the auth dialog.
+/// Self-contained — uses [Timer.periodic] internally, NO [Provider] or
+/// [InheritedWidget] dependency. Takes a snapshot of remaining seconds
+/// at construction and counts down independently.
 class _AuthCountdown extends StatefulWidget {
-  final Duration initialRemaining;
-  const _AuthCountdown({required this.initialRemaining});
+  final int initialSeconds;
+  const _AuthCountdown({required this.initialSeconds});
 
   @override
   State<_AuthCountdown> createState() => _AuthCountdownState();
 }
 
 class _AuthCountdownState extends State<_AuthCountdown> {
-  Timer? _timer;
   late int _secondsRemaining;
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    _secondsRemaining = widget.initialRemaining.inSeconds.clamp(0, 60);
+    _secondsRemaining = widget.initialSeconds.clamp(0, 60);
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
+      if (!mounted) {
+        _timer?.cancel();
+        return;
+      }
       setState(() {
         _secondsRemaining = (_secondsRemaining - 1).clamp(0, 60);
       });
@@ -2094,36 +2313,37 @@ class _AuthCountdownState extends State<_AuthCountdown> {
 
   @override
   Widget build(BuildContext context) {
-    if (_secondsRemaining > 55) {
-      // Don't show in the first 5 seconds
-      return const SizedBox.shrink();
-    }
-    final urgent = _secondsRemaining <= 10;
+    final urgent = _secondsRemaining <= 10 && _secondsRemaining > 0;
+    final hideTimer = _secondsRemaining > 55;
+    if (hideTimer) return const SizedBox.shrink();
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: (urgent ? Colors.redAccent : Colors.orange)
-            .withValues(alpha: 0.15),
+        color: (urgent ? Colors.red : Colors.orange).withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: (urgent ? Colors.redAccent : Colors.orange)
-              .withValues(alpha: 0.4),
+          color: (urgent ? Colors.red : Colors.orange).withValues(alpha: 0.4),
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.timer_outlined,
-              size: 12,
-              color: urgent ? Colors.redAccent : Colors.orange),
+          Icon(
+            Icons.timer_outlined,
+            size: 12,
+            color: urgent ? Colors.red : Colors.orange,
+          ),
           const SizedBox(width: 4),
-          Text('${_secondsRemaining}s',
-              style: TextStyle(
-                color: urgent ? Colors.redAccent : Colors.orange,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                fontFamily: 'monospace',
-              )),
+          Text(
+            '${_secondsRemaining}s',
+            style: TextStyle(
+              color: urgent ? Colors.red : Colors.orange,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              fontFamily: 'monospace',
+            ),
+          ),
         ],
       ),
     );

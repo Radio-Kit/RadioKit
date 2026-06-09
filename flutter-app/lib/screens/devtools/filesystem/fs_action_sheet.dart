@@ -7,7 +7,7 @@ import 'fs_helpers.dart';
 
 /// Result of one of the actions in [FsActionSheet]. The caller is
 /// responsible for performing the actual FS operation.
-enum FsAction { download, rename, copyPath, delete, info }
+enum FsAction { download, rename, copyPath, delete, info, edit }
 
 /// M3 modal bottom sheet for per-file / per-directory actions.
 ///
@@ -93,13 +93,21 @@ class FsActionSheet extends StatelessWidget {
             ),
           ),
           const Divider(height: 1),
-          if (!entry.isDirectory)
+          if (!entry.isDirectory) ...[
+            if (isEditableFile(entry.name))
+              _SheetTile(
+                icon: Icons.edit_rounded,
+                label: 'Edit',
+                subtitle: 'Edit file content',
+                onTap: () => Navigator.of(context).pop(FsAction.edit),
+              ),
             _SheetTile(
               icon: Icons.download_rounded,
               label: 'Download',
               subtitle: 'Save to this device',
               onTap: () => Navigator.of(context).pop(FsAction.download),
             ),
+          ],
           _SheetTile(
             icon: Icons.edit_rounded,
             label: 'Rename',

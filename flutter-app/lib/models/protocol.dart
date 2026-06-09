@@ -71,6 +71,7 @@ const int kOtaMaxPayload = 4096;
 
 // OTA sub-commands (App → MCU)
 const int kOtaCmdBegin = 0x01;
+const int kOtaFlagEraseAll = 1 << 0;
 const int kOtaCmdChunk = 0x02;
 const int kOtaCmdEnd   = 0x03;
 const int kOtaCmdAbort = 0x04;
@@ -122,6 +123,8 @@ const int kFsCmdUploadChunk   = 0x09;
 const int kFsCmdUploadEnd     = 0x0A;
 const int kFsCmdPing          = 0x0B;
 const int kFsCmdFormat        = 0x0C;
+const int kFsCmdReplace       = 0x0D;
+const int kFsCmdCrc32         = 0x0E;
 
 // MCU → App sub-commands
 const int kFsRespListData         = 0x81;
@@ -136,6 +139,8 @@ const int kFsRespUploadChunkAck   = 0x89;
 const int kFsRespUploadEndAck     = 0x8A;
 const int kFsRespPingAck          = 0x8B;
 const int kFsRespFormatAck        = 0x8C;
+const int kFsRespReplaceAck      = 0x8D;
+const int kFsRespCrc32Data       = 0x8E;
 
 // FS error codes (single byte returned in *Ack frames)
 const int kFsErrOk             = 0x00;

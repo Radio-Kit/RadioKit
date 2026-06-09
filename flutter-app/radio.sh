@@ -78,26 +78,33 @@ while true; do
   while true; do
     echo "1) Install APK to $DEVICE_MODEL"
     echo "2) Only Build APK"
+    echo "3) Live Debug (hot-reload on device)"
     read -rp "Choice [1] (b back, q quit): " action
     action="${action:-1}"
 
     case "$action" in
       q|Q) echo "Aborted."; exit 0 ;;
       b|B) clear; break 2 ;;
-      1|2) break ;;
+      1|2|3) break ;;
       *) echo "Invalid." ;;
     esac
   done
 
-  if [ "$action" = "2" ]; then
-    flutter build apk --debug
-    echo "APK: build/app/outputs/flutter-apk/app-debug.apk"
-  else
-    flutter build apk --debug
-    echo "Installing to $DEVICE_ID..."
-    adb -s "$DEVICE_ID" install -r build/app/outputs/flutter-apk/app-debug.apk
-    echo "Done."
-  fi
+  case "$action" in
+    2)
+      flutter build apk --debug
+      echo "APK: build/app/outputs/flutter-apk/app-debug.apk"
+      ;;
+    3)
+      exec flutter run -d "$DEVICE_ID" --debug --no-pub
+      ;;
+    *)
+      flutter build apk --debug
+      echo "Installing to $DEVICE_ID..."
+      adb -s "$DEVICE_ID" install -r build/app/outputs/flutter-apk/app-debug.apk
+      echo "Done."
+      ;;
+  esac
 
   exit 0
 done

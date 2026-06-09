@@ -45,6 +45,9 @@
 #define RK_OTA_MAX_PAYLOAD      4096    // 4 KB per chunk
 #define RK_OTA_RX_BUFFER_SIZE   (RK_OTA_HEADER_SIZE + RK_OTA_MAX_PAYLOAD)
 
+// ── OTA flags byte (appended to OTA_BEGIN payload) ─────────────────────────
+#define RK_OTA_FLAG_ERASE_ALL       (1 << 0)  ///< Erase NVS + flash before update
+
 // ── Sub-commands (App → MCU) ────────────────────────────────────────────────
 #define RK_OTA_CMD_BEGIN            0x01
 #define RK_OTA_CMD_CHUNK            0x02

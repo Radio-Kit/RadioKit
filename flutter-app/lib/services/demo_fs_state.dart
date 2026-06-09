@@ -335,6 +335,48 @@ class DemoFsState {
     return const FsDemoResult.ok();
   }
 
+  /// Replace the content of a file at [path] with [data] in a single call.
+  /// CRC32 is verified by the transport layer; the state always trusts the
+  /// caller (the demo FS doesn't simulate corruption).
+  FsDemoResult replace(String path, Uint8List data) {
+    final p = _norm(path);
+    if (p == null || p == '/') {
+      return const FsDemoResult(FsDemoResult.errInvalidPath);
+    }
+    if (data.length > quota) {
+      return const FsDemoResult(FsDemoResult.errOutOfSpace);
+    }
+    final node = _get(p);
+    if (node == null) {
+      return const FsDemoResult(FsDemoResult.errNotFound);
+    }
+    if (node.isDirectory) {
+      return const FsDemoResult(FsDemoResult.errInvalidPath);
+    }
+    node.data = Uint8List.fromList(data);
+    node.size = data.length;
+    return const FsDemoResult.ok();
+  }
+
+  /// Compute CRC-32 of the file at [path]. Returns 0 and found=false if
+  /// the file doesn't exist or is empty (for empty, found=true, crc32=0).
+  ({bool found, int crc32, int size}) getFileCrc32(String path) {
+    final p = _norm(path);
+    if (p == null) return (found: false, crc32: 0, size: 0);
+    final node = _get(p);
+    if (node == null || node.isDirectory) return (found: false, crc32: 0, size: 0);
+    // CRC-32 (IEEE 802.3)
+    int crc = 0xFFFFFFFF;
+    for (final byte in node.data) {
+      crc ^= byte & 0xFF;
+      for (int i = 0; i < 8; i++) {
+        crc = (crc & 1) != 0 ? (crc >> 1) ^ 0xEDB88320 : crc >> 1;
+      }
+    }
+    final computed = crc ^ 0xFFFFFFFF;
+    return (found: true, crc32: computed, size: node.size);
+  }
+
   /// Rename (or move) a path. The new path's parent must exist; if a file
   /// already exists at the new path, the operation fails.
   FsDemoResult rename(String oldPath, String newPath) {

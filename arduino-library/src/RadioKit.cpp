@@ -744,7 +744,16 @@ void RadioKitClass::_handleOtaBegin(const uint8_t* payload, uint16_t len) {
                            ((uint32_t)payload[2] << 16) |
                            ((uint32_t)payload[3] << 24);
 
-    RK_DEBUG_PRINT("OTA: Begin firmware update, size=%u\n", firmwareSize);
+    // ── Parse optional flags byte ───────────────────────────────────
+    // Backward compatible: if len == 4, no flags (default behavior).
+    // If len >= 5, byte 4 contains flags (bit 0 = erase all).
+    bool eraseAll = false;
+    if (len >= 5) {
+        uint8_t flags = payload[4];
+        eraseAll = (flags & RK_OTA_FLAG_ERASE_ALL) != 0;
+    }
+
+    RK_DEBUG_PRINT("OTA: Begin firmware update, size=%u eraseAll=%d\n", firmwareSize, eraseAll);
 
     // Reset progress tracking for fresh OTA session
     s_otaLastProgressPct = 0;
@@ -755,6 +764,14 @@ void RadioKitClass::_handleOtaBegin(const uint8_t* payload, uint16_t len) {
     // Abort any stale OTA in progress
     Update.abort();
     s_otaBytesWritten = 0;
+
+    // If erase all requested, erase NVS before OTA so the device
+    // boots with factory defaults after the update.
+    if (eraseAll && _nvsActive) {
+        Serial.println("OTA: Erase all requested — clearing NVS config...");
+        RKNvs::eraseAll();
+        RKNvs::commit();
+    }
 
     if (!Update.begin(firmwareSize)) {
         uint8_t err = RK_OTA_ERR_NO_SPACE;

@@ -555,6 +555,130 @@ void handleFormat() {
     sendError(RK_FS_RESP_FORMAT_ACK, ok ? RK_FS_ERR_OK : RK_FS_ERR_IO);
 }
 
+// ── REPLACE handler ─────────────────────────────────────────────────────────
+
+/// FS_REPLACE: single-frame file replace with CRC32 verification.
+/// Payload: [PATH_LEN(1)][PATH(N)][CRC32(4 LE)][CONTENT(M)].
+void handleReplace(const uint8_t* payload, uint16_t len) {
+#if RK_FS_HAS_LITTLEFS
+    if (!s_mounted) { sendError(RK_FS_RESP_REPLACE_ACK, RK_FS_ERR_NO_FS); return; }
+    if (len < 6) { sendError(RK_FS_RESP_REPLACE_ACK, RK_FS_ERR_INVALID_PATH); return; }
+
+    // Abort any active upload first
+    if (s_upload.active) {
+        // Clean up the partial upload file
+        if (s_upload.path[0] != '\0') {
+            LittleFS.remove(s_upload.path);
+        }
+        s_upload.active = false;
+    }
+
+    uint16_t offset = 0;
+    char path[128];
+    uint16_t pathLen = 0;
+    readString(payload, len, offset, path, sizeof(path), pathLen);
+
+    if (offset + 4 > len) { sendError(RK_FS_RESP_REPLACE_ACK, RK_FS_ERR_INVALID_PATH); return; }
+    uint32_t expectedCrc = readU32LE(&payload[offset]);
+    offset += 4;
+
+    uint16_t contentLen = len - offset;
+    const uint8_t* content = &payload[offset];
+
+    // Compute CRC32 of content
+    uint32_t actualCrc = _crc32Final(_crc32Update(0xFFFFFFFFUL, content, contentLen));
+
+    // Verify CRC32 before writing
+    if (expectedCrc != actualCrc) {
+        sendError(RK_FS_RESP_REPLACE_ACK, RK_FS_ERR_IO);
+        return;
+    }
+
+    // Write the file (truncate)
+    char resolved[160];
+    resolvePath(path, resolved, sizeof(resolved));
+
+    File f = LittleFS.open(resolved, "w");
+    if (!f) { sendError(RK_FS_RESP_REPLACE_ACK, RK_FS_ERR_IO); return; }
+
+    uint16_t written = (uint16_t)f.write(content, contentLen);
+    f.close();
+
+    if (written != contentLen) {
+        LittleFS.remove(resolved);
+        sendError(RK_FS_RESP_REPLACE_ACK, RK_FS_ERR_IO);
+        return;
+    }
+
+    sendError(RK_FS_RESP_REPLACE_ACK, RK_FS_ERR_OK);
+#else
+    sendError(RK_FS_RESP_REPLACE_ACK, RK_FS_ERR_NO_FS);
+#endif
+}
+
+// ── CRC32 handler ───────────────────────────────────────────────────────────
+
+/// FS_CRC32: compute CRC32 checksum of a file.
+/// Payload: [PATH_LEN(1)][PATH(N)].
+/// Response: [STATUS(1)][CRC32(4 LE)][FILE_SIZE(4 LE)]
+///   STATUS=0x00: file found, CRC32+size valid
+///   STATUS=0x01: file not found or too large (>512 KB)
+void handleCrc32(const uint8_t* payload, uint16_t len) {
+#if RK_FS_HAS_LITTLEFS
+    if (!s_mounted) {
+        uint8_t resp[9] = { 0x01, 0, 0, 0, 0, 0, 0, 0, 0 }; // not found
+        sendFrame(RK_FS_RESP_CRC32_DATA, resp, 9);
+        return;
+    }
+
+    uint16_t offset = 0;
+    char path[128];
+    uint16_t pathLen = 0;
+    readString(payload, len, offset, path, sizeof(path), pathLen);
+
+    char resolved[160];
+    resolvePath(path, resolved, sizeof(resolved));
+
+    File f = LittleFS.open(resolved, "r");
+    if (!f) {
+        uint8_t resp[9] = { 0x01, 0, 0, 0, 0, 0, 0, 0, 0 }; // not found
+        sendFrame(RK_FS_RESP_CRC32_DATA, resp, 9);
+        return;
+    }
+
+    uint32_t fileSize = (uint32_t)f.size();
+
+    // Performance guard: skip CRC for files > 512 KB
+    if (fileSize > 512 * 1024) {
+        f.close();
+        uint8_t resp[9] = { 0x01, 0, 0, 0, 0, 0, 0, 0, 0 }; // not found signal
+        sendFrame(RK_FS_RESP_CRC32_DATA, resp, 9);
+        return;
+    }
+
+    // Compute CRC32 over the entire file
+    uint32_t runningCrc = 0xFFFFFFFFUL;
+    uint8_t buf[256];
+    int bytesRead;
+    while ((bytesRead = f.read(buf, sizeof(buf))) > 0) {
+        runningCrc = _crc32Update(runningCrc, buf, (size_t)bytesRead);
+    }
+    f.close();
+
+    uint32_t fileCrc = _crc32Final(runningCrc);
+
+    // Build response: STATUS(1) + CRC32(4) + SIZE(4) = 9 bytes
+    uint8_t resp[9];
+    resp[0] = 0x00; // STATUS: found
+    writeU32LE(&resp[1], fileCrc);
+    writeU32LE(&resp[5], fileSize);
+    sendFrame(RK_FS_RESP_CRC32_DATA, resp, 9);
+#else
+    uint8_t resp[9] = { 0x01, 0, 0, 0, 0, 0, 0, 0, 0 };
+    sendFrame(RK_FS_RESP_CRC32_DATA, resp, 9);
+#endif
+}
+
 void dispatch(uint8_t subCmd, const uint8_t* payload, uint16_t payloadLen) {
     switch (subCmd) {
         case RK_FS_CMD_LIST:          handleList(payload, payloadLen);          break;
@@ -569,6 +693,8 @@ void dispatch(uint8_t subCmd, const uint8_t* payload, uint16_t payloadLen) {
         case RK_FS_CMD_UPLOAD_END:    handleUploadEnd(payload, payloadLen);     break;
         case RK_FS_CMD_PING:          handlePing();                              break;
         case RK_FS_CMD_FORMAT:        handleFormat();                            break;
+        case RK_FS_CMD_REPLACE:       handleReplace(payload, payloadLen);       break;
+        case RK_FS_CMD_CRC32:         handleCrc32(payload, payloadLen);         break;
         default:
             // Unknown sub-command — reply with NO_FS to keep the app unblocked.
             sendError((uint8_t)(subCmd | 0x80), RK_FS_ERR_NO_FS);

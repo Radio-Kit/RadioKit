@@ -73,6 +73,8 @@
 #define RK_FS_CMD_UPLOAD_END       0x0A
 #define RK_FS_CMD_PING             0x0B
 #define RK_FS_CMD_FORMAT           0x0C
+#define RK_FS_CMD_REPLACE          0x0D
+#define RK_FS_CMD_CRC32            0x0E
 
 // ── Sub-commands (MCU → App) ────────────────────────────────────────────────
 #define RK_FS_RESP_LIST_DATA       0x81
@@ -87,6 +89,8 @@
 #define RK_FS_RESP_UPLOAD_END_ACK   0x8A
 #define RK_FS_RESP_PING_ACK        0x8B
 #define RK_FS_RESP_FORMAT_ACK      0x8C
+#define RK_FS_RESP_REPLACE_ACK     0x8D
+#define RK_FS_RESP_CRC32_DATA      0x8E
 
 // ── Error codes ─────────────────────────────────────────────────────────────
 #define RK_FS_ERR_OK               0x00

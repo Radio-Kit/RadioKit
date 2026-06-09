@@ -1528,10 +1528,12 @@ class DeviceProvider extends ChangeNotifier {
 
   /// Upload firmware to the device via OTA. Returns true on success.
   /// [firmware] contains the raw firmware binary bytes.
+  /// [eraseAll] if true, erases NVS config before OTA.
   /// [onProgress] is called with (bytesSent, totalBytes) during upload.
   /// Throws on error.
   Future<bool> uploadFirmware(
     List<int> firmware, {
+    bool eraseAll = false,
     required void Function(int received, int total) onProgress,
   }) async {
     if (!_transport.isConnected) {
@@ -1551,7 +1553,7 @@ class DeviceProvider extends ChangeNotifier {
     _otaProgressCallback = onProgress;
 
     try {
-      await _writePacket(OtaProtocolService.buildBegin(firmware.length));
+      await _writePacket(OtaProtocolService.buildBegin(firmware.length, eraseAll: eraseAll));
     } catch (e) {
       _otaOperationCompleter = null;
       _otaProgressCallback = null;

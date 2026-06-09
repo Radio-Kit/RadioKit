@@ -75,6 +75,10 @@ class DemoFsTransport extends DemoTransport {
         return _handlePing();
       case kFsCmdFormat:
         return _handleFormat();
+      case kFsCmdReplace:
+        return _handleReplace(payload);
+      case kFsCmdCrc32:
+        return _handleCrc32(payload);
       default:
         // Unknown sub-commands: synthesize a NO_FS ack to fail gracefully.
         return ParsedFsPacket(
@@ -88,6 +92,52 @@ class DemoFsTransport extends DemoTransport {
     return ParsedFsPacket(
       subCmd: kFsRespPingAck,
       payload: Uint8List.fromList([kFsErrOk]),
+    );
+  }
+
+  ParsedFsPacket _handleReplace(Uint8List payload) {
+    // Payload: [PATH_LEN(1)][PATH(N)][CRC32(4 LE)][CONTENT(M)]
+    if (payload.length < 6) {
+      return _ack(kFsRespReplaceAck, kFsErrInvalidPath);
+    }
+    final pathLen = payload[0];
+    if (payload.length < 1 + pathLen + 4) {
+      return _ack(kFsRespReplaceAck, kFsErrInvalidPath);
+    }
+    final path = utf8.decode(
+      payload.sublist(1, 1 + pathLen),
+      allowMalformed: true,
+    );
+    int p = 1 + pathLen + 4; // skip CRC32 (4 bytes)
+    final content = Uint8List.sublistView(payload, p);
+    final res = _state.replace(path, content);
+    return _ack(kFsRespReplaceAck, res.code);
+  }
+
+  ParsedFsPacket _handleCrc32(Uint8List payload) {
+    // Payload: [PATH_LEN(1)][PATH(N)]
+    final path = _readPathPayload(payload);
+    if (path == null) {
+      return ParsedFsPacket(
+        subCmd: kFsRespCrc32Data,
+        payload: Uint8List.fromList([1, 0, 0, 0, 0, 0, 0, 0, 0]),
+      );
+    }
+    final result = _state.getFileCrc32(path);
+    final buf = <int>[
+      result.found ? 0x00 : 0x01,  // STATUS
+      result.crc32 & 0xFF,
+      (result.crc32 >> 8) & 0xFF,
+      (result.crc32 >> 16) & 0xFF,
+      (result.crc32 >> 24) & 0xFF,
+      result.size & 0xFF,
+      (result.size >> 8) & 0xFF,
+      (result.size >> 16) & 0xFF,
+      (result.size >> 24) & 0xFF,
+    ];
+    return ParsedFsPacket(
+      subCmd: kFsRespCrc32Data,
+      payload: Uint8List.fromList(buf),
     );
   }
 

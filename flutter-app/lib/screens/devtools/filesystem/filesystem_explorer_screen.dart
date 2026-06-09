@@ -10,6 +10,8 @@ import '../../../models/fs_info.dart';
 import '../../../providers/device_provider.dart';
 import '../../../services/device_fs_service.dart';
 import '../../../widgets/radiokit_app_bar.dart';
+import 'file_editor_cache.dart';
+import 'file_editor_dialog.dart';
 import 'fs_action_sheet.dart';
 import 'fs_breadcrumbs.dart';
 import 'fs_drawer.dart';
@@ -31,6 +33,7 @@ class FilesystemExplorerScreen extends StatefulWidget {
 
 class _FilesystemExplorerScreenState
     extends State<FilesystemExplorerScreen> {
+  final FileEditorCache _editorCache = FileEditorCache();
   DeviceFsService? _fs;
 
   List<FsEntry> _entries = [];
@@ -49,6 +52,7 @@ class _FilesystemExplorerScreenState
 
   bool _isMultiSelect = false;
   final Set<String> _selectedPaths = <String>{};
+  final Set<String> _loadingPaths = <String>{};
 
   @override
   void initState() {
@@ -302,6 +306,10 @@ class _FilesystemExplorerScreenState
             onTap: () => _onTileTap(entry, path),
             onLongPress: () => _onTileLongPress(entry, path),
             onSecondaryAction: () => _openActionSheet(entry, path),
+            onEdit: isEditableFile(entry.name)
+                ? () => _editFile(entry, path)
+                : null,
+            isLoading: _loadingPaths.contains(path),
           );
         },
       ),
@@ -454,6 +462,9 @@ class _FilesystemExplorerScreenState
         entry: entry, fullPath: path);
     if (!mounted || action == null) return;
     switch (action) {
+      case FsAction.edit:
+        await _editFile(entry, path);
+        break;
       case FsAction.download:
         await _downloadFile(entry, path);
         break;
@@ -700,6 +711,77 @@ class _FilesystemExplorerScreenState
         _progress = null;
       });
       _showError('Delete error: $e');
+    }
+  }
+
+  Future<void> _editFile(FsEntry entry, String path) async {
+    if (_fs == null || !mounted) return;
+    setState(() => _loadingPaths.add(path));
+    _transferStartTime = DateTime.now();
+    setState(() {
+      _statusMessage = 'Opening ${entry.name}…';
+      _progress = 0;
+    });
+    try {
+      // Check cache first
+      Uint8List? content = _editorCache.get(path);
+      if (content != null) {
+        // Verify CRC32 with device
+        final crc = await _fs!.getFileCrc32(path);
+        if (crc != null && crc.found) {
+          final valid = _editorCache.isValid(
+            path,
+            crc32: crc.crc32,
+            size: crc.size,
+          );
+          if (valid != true) {
+            content = null; // Cache invalid — re-fetch
+          }
+        } else {
+          content = null;
+        }
+      }
+
+      setState(() => _loadingPaths.remove(path));
+      _transferStartTime = null;
+      _currentTransferBytes = 0;
+      setState(() {
+        _progress = null;
+        _statusMessage = null;
+      });
+
+      final result = await FileEditorDialog.show(
+        context,
+        fs: _fs!,
+        path: path,
+        fileName: entry.name,
+        cachedContent: content,
+      );
+      if (!mounted) return;
+      if (result != null && result.saved && result.newContent != null) {
+        // Update cache with new CRC32 after save
+        final crc = await _fs!.getFileCrc32(path);
+        if (crc != null && crc.found) {
+          _editorCache.put(path, result.newContent!,
+              crc32: crc.crc32, size: crc.size);
+        } else {
+          _editorCache.put(path, result.newContent!);
+        }
+        setState(() {
+          _statusMessage = 'Saved ${entry.name}';
+          _progress = null;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _transferStartTime = null;
+      _currentTransferBytes = 0;
+      setState(() {
+        _loadingPaths.remove(path);
+        _errorMessage = 'Edit error: $e';
+        _progress = null;
+      });
+      _showError('Edit error: $e');
     }
   }
 

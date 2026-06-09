@@ -142,6 +142,51 @@ class FsProtocolService {
     ]);
   }
 
+  /// Maximum content size that fits in a single REPLACE frame for a given
+  /// path. Frame max = kFsHeaderSize + kFsMaxPayload = 16388 bytes.
+  /// Overhead = 1 (path_len) + N (path bytes) + 4 (CRC32).
+  static int replaceMaxContent(String path) {
+    return kFsMaxPayload - 5 - utf8.encode(path).length;
+  }
+
+  /// Build a REPLACE frame (single-frame file replace with CRC32).
+  /// Payload: [PATH_LEN(1)][PATH(N)][CRC32(4 LE)][CONTENT(M)].
+  /// Throws if [content] exceeds [replaceMaxContent] for the given [path]
+  /// (caller should fall back to UPLOAD_BEGIN/CHUNK/END in that case).
+  static Uint8List buildReplace(String path, Uint8List content, int crc32) {
+    final p = _pathPayload(path);
+    p.add(crc32 & 0xFF);
+    p.add((crc32 >> 8) & 0xFF);
+    p.add((crc32 >> 16) & 0xFF);
+    p.add((crc32 >> 24) & 0xFF);
+    p.addAll(content);
+    return buildFrame(kFsCmdReplace, p);
+  }
+
+  /// Build a CRC32 request frame.
+  /// Payload: [PATH_LEN(1)][PATH(N)].
+  static Uint8List buildCrc32(String path) =>
+      buildFrame(kFsCmdCrc32, _pathPayload(path));
+
+  /// Parse a CRC32 response frame.
+  /// Payload: [STATUS(1)][CRC32(4 LE)][FILE_SIZE(4 LE)].
+  /// Returns null on malformed payload.
+  /// [found] is false when the file doesn't exist or was too large to CRC.
+  static ({bool found, int crc32, int size})? parseCrc32Data(
+      List<int> payload) {
+    if (payload.length < 9) return null;
+    final found = payload[0] == 0x00;
+    final crc32 = payload[1] |
+        (payload[2] << 8) |
+        (payload[3] << 16) |
+        (payload[4] << 24);
+    final size = payload[5] |
+        (payload[6] << 8) |
+        (payload[7] << 16) |
+        (payload[8] << 24);
+    return (found: found, crc32: crc32, size: size);
+  }
+
   // ── Packet parsing ──────────────────────────────────────────────────────
 
   /// Parse a complete FS frame extracted from the rx buffer. The caller

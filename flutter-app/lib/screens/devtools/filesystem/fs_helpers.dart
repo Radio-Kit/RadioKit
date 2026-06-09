@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -105,5 +108,57 @@ List<String> pathSegments(String path) {
       return (icon: LucideIcons.fileText, color: const Color(0xFFEF5350));
     default:
       return (icon: LucideIcons.file, color: const Color(0xFF90A4AE));
+  }
+}
+
+/// Returns true if the file extension indicates a text/code file that
+/// can be edited in the file editor dialog.
+bool isEditableFile(String name) {
+  final ext = fileExtension(name);
+  switch (ext) {
+    case 'json':
+    case 'html':
+    case 'htm':
+    case 'xml':
+    case 'css':
+    case 'js':
+    case 'ts':
+    case 'dart':
+    case 'cpp':
+    case 'c':
+    case 'h':
+    case 'py':
+    case 'md':
+    case 'txt':
+    case 'log':
+    case 'csv':
+    case 'tsv':
+    case 'yaml':
+    case 'yml':
+    case 'toml':
+    case 'ini':
+    case 'cfg':
+    case 'conf':
+    case 'env':
+    case 'sh':
+    case 'bash':
+    case 'zsh':
+    case 'fish':
+    case 'makefile':
+    case 'gradle':
+    case 'properties':
+    case 'svg':
+      return true;
+    default:
+      return false;
+  }
+}
+
+/// Decode [bytes] as UTF-8, falling back to Latin-1 on malformed input.
+String utf8DecodeWithFallback(Uint8List bytes) {
+  try {
+    return const Utf8Decoder(allowMalformed: true).convert(bytes);
+  } catch (_) {
+    return String.fromCharCodes(bytes);
   }
 }
