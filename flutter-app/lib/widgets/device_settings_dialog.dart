@@ -79,124 +79,127 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
 
     return SizedBox(
       height: MediaQuery.of(context).size.height * 0.85,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Header ──────────────────────────────────────
-            Row(children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.brandOrange.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
+      child: Transform.translate(
+        offset: const Offset(0, -18),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Header ──────────────────────────────────────
+              Row(children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.brandOrange.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.tune_rounded,
+                      color: AppColors.brandOrange, size: 22),
                 ),
-                child: const Icon(Icons.tune_rounded,
-                    color: AppColors.brandOrange, size: 22),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(deviceName.toUpperCase(),
+                          style: GoogleFonts.exo2(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.3,
+                              color: Colors.white)),
+                      const Text('DEVICE SETTINGS',
+                          style: TextStyle(
+                              color: Colors.white38,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1)),
+                    ],
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 24),
+              const Divider(height: 1, color: Colors.white12),
+              const SizedBox(height: 24),
+
+              // ── Name field ───────────────────────────────────
+              _buildSaveField(
+                label: 'NAME',
+                ctrl: _nameCtrl,
+                isChanged: _nameChanged,
+                saving: _savingName,
+                onSave: () => _saveField(dp, 'name'),
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(deviceName.toUpperCase(),
-                        style: GoogleFonts.exo2(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.3,
-                            color: Colors.white)),
-                    const Text('DEVICE SETTINGS',
-                        style: TextStyle(
-                            color: Colors.white38,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1)),
-                  ],
+              const SizedBox(height: 16),
+
+              // ── Description field ────────────────────────────
+              _buildSaveField(
+                label: 'DESCRIPTION',
+                ctrl: _descCtrl,
+                isChanged: _descChanged,
+                saving: _savingDesc,
+                onSave: () => _saveField(dp, 'description'),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 16),
+
+              // ── Connection Password field ────────────────────
+              _buildSaveField(
+                label: 'CONNECTION PASSWORD (leave empty to clear)',
+                ctrl: _pwdCtrl,
+                isChanged: _pwdChanged,
+                saving: _savingPwd,
+                onSave: () => _saveField(dp, 'password'),
+                isPassword: true,
+                pwdVisible: _pwdVisible,
+                onTogglePwd: () => setState(() => _pwdVisible = !_pwdVisible),
+              ),
+              const SizedBox(height: 16),
+
+              // ── Admin Password field ─────────────────────────
+              _buildSaveField(
+                label: 'ADMIN PASSWORD (leave empty to clear)',
+                ctrl: _adminPwdCtrl,
+                isChanged: _adminPwdChanged,
+                saving: _savingAdminPwd,
+                onSave: () => _saveField(dp, 'adminPassword'),
+                isPassword: true,
+                pwdVisible: _adminPwdVisible,
+                onTogglePwd: () =>
+                    setState(() => _adminPwdVisible = !_adminPwdVisible),
+                isAdmin: true,
+              ),
+              const SizedBox(height: 32),
+
+              // ── Factory Reset ────────────────────────────────
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.redAccent,
+                    side: BorderSide(
+                        color: Colors.redAccent.withValues(alpha: 0.5)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6)),
+                  ),
+                  icon: const Icon(Icons.restart_alt_rounded, size: 20),
+                  label: Text('FACTORY RESET',
+                      style: GoogleFonts.changa(
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1,
+                          fontSize: 12)),
+                  onPressed: () => _factoryReset(dp),
                 ),
               ),
-            ]),
-            const SizedBox(height: 24),
-            const Divider(height: 1, color: Colors.white12),
-            const SizedBox(height: 24),
-
-            // ── Name field ───────────────────────────────────
-            _buildSaveField(
-              label: 'NAME',
-              ctrl: _nameCtrl,
-              isChanged: _nameChanged,
-              saving: _savingName,
-              onSave: () => _saveField(dp, 'name'),
-            ),
-            const SizedBox(height: 16),
-
-            // ── Description field ────────────────────────────
-            _buildSaveField(
-              label: 'DESCRIPTION',
-              ctrl: _descCtrl,
-              isChanged: _descChanged,
-              saving: _savingDesc,
-              onSave: () => _saveField(dp, 'description'),
-              maxLines: 2,
-            ),
-            const SizedBox(height: 16),
-
-            // ── Connection Password field ────────────────────
-            _buildSaveField(
-              label: 'CONNECTION PASSWORD (leave empty to clear)',
-              ctrl: _pwdCtrl,
-              isChanged: _pwdChanged,
-              saving: _savingPwd,
-              onSave: () => _saveField(dp, 'password'),
-              isPassword: true,
-              pwdVisible: _pwdVisible,
-              onTogglePwd: () => setState(() => _pwdVisible = !_pwdVisible),
-            ),
-            const SizedBox(height: 16),
-
-            // ── Admin Password field ─────────────────────────
-            _buildSaveField(
-              label: 'ADMIN PASSWORD (leave empty to clear)',
-              ctrl: _adminPwdCtrl,
-              isChanged: _adminPwdChanged,
-              saving: _savingAdminPwd,
-              onSave: () => _saveField(dp, 'adminPassword'),
-              isPassword: true,
-              pwdVisible: _adminPwdVisible,
-              onTogglePwd: () =>
-                  setState(() => _adminPwdVisible = !_adminPwdVisible),
-              isAdmin: true,
-            ),
-            const SizedBox(height: 32),
-
-            // ── Factory Reset ────────────────────────────────
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.redAccent,
-                  side: BorderSide(
-                      color: Colors.redAccent.withValues(alpha: 0.5)),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6)),
-                ),
-                icon: const Icon(Icons.restart_alt_rounded, size: 20),
-                label: Text('FACTORY RESET',
-                    style: GoogleFonts.changa(
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1,
-                        fontSize: 12)),
-                onPressed: () => _factoryReset(dp),
+              const SizedBox(height: 16),
+              const Text(
+                'Factory reset will erase all settings (name, description, password) '
+                'and reboot the device. Compile-time defaults will be restored.',
+                style: TextStyle(color: Colors.white38, fontSize: 11),
               ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Factory reset will erase all settings (name, description, password) '
-              'and reboot the device. Compile-time defaults will be restored.',
-              style: TextStyle(color: Colors.white38, fontSize: 11),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

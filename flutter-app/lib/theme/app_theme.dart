@@ -94,6 +94,14 @@ class AppTheme {
         onSurface: text,
       ),
       scaffoldBackgroundColor: bg,
+      bottomSheetTheme: BottomSheetThemeData(
+        constraints: const BoxConstraints(maxHeight: double.infinity),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+        ),
+        dragHandleSize: const Size(32, 4),
+        dragHandleColor: Colors.white24,
+      ),
       dividerColor: border,
       disabledColor: isDark ? const Color(0xFF444446) : const Color(0xFFD1D1D6),
       appBarTheme: AppBarTheme(

@@ -224,8 +224,12 @@ class _DesignerScreenState extends State<DesignerScreen> {
                             onPressed: () {
                               showModalBottomSheet(
                                 context: context,
-                                backgroundColor: Colors.transparent,
                                 isScrollControlled: true,
+                                showDragHandle: true,
+                                backgroundColor: const Color(0xFF1A1A1A),
+                                shape: const RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                                ),
                                 builder: (context) =>
                                     DesignerWidgetSheet(state: _state),
                               );

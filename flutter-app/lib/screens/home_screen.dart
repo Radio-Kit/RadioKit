@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/logo_icon.dart';
+import '../widgets/radiokit_app_bar.dart';
 
 class HomeScreen extends StatefulWidget {
   final StatefulNavigationShell navigationShell;
@@ -136,6 +137,21 @@ class _HomeScreenState extends State<HomeScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
+      appBar: RadioKitAppBar(
+        tabIndex: currentIdx,
+        onConnect: () {
+          // Navigate to models tab and show pair sheet
+          widget.navigationShell.goBranch(0);
+        },
+        onOpen: () {
+          // Navigate to projects tab and open file
+          widget.navigationShell.goBranch(1);
+        },
+        onCreate: () {
+          // Navigate to projects tab and create new design
+          widget.navigationShell.goBranch(1);
+        },
+      ),
       body: Row(
         children: [
           NavigationRail(
@@ -144,14 +160,7 @@ class _HomeScreenState extends State<HomeScreen> {
             labelType: NavigationRailLabelType.all,
             backgroundColor: theme.colorScheme.surface,
             indicatorColor: Colors.transparent,
-            minWidth: 80,
-            leading: Padding(
-              padding: const EdgeInsets.only(top: 8, bottom: 16),
-              child: Transform.scale(
-                scale: 2.0,
-                child: const LogoIcon(),
-              ),
-            ),
+            minWidth: 60,
             selectedIconTheme: const IconThemeData(
               color: AppColors.brandOrange,
               size: 22,

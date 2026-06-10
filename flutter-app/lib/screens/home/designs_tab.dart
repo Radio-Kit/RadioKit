@@ -21,47 +21,47 @@ class DesignsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.watch<DesignsProvider>();
     final designs = provider.activeDesigns;
+    final orientation = MediaQuery.of(context).orientation;
+    final isLandscape = orientation == Orientation.landscape;
+
+    // In landscape mode, don't use Scaffold (parent provides it)
+    if (isLandscape) {
+      return _buildContent(context, designs);
+    }
 
     return Scaffold(
       appBar: RadioKitAppBar(
-        actions: [
-          _PillButton(
-            icon: LucideIcons.folderOpen,
-            label: 'Open',
-            onTap: () => _openConfigFile(context),
-          ),
-          const SizedBox(width: 6),
-          _PillButton(
-            icon: LucideIcons.plus,
-            label: 'Create',
-            onTap: () => context.push('/designer'),
-          ),
-          const SizedBox(width: 8),
-        ],
+        tabIndex: 1,
+        onOpen: () => _openConfigFile(context),
+        onCreate: () => context.push('/designer'),
       ),
-      body: designs.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(LucideIcons.palette, size: 64, color: AppColors.brandGray.withValues(alpha: 0.5)),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No designs saved',
-                    style: GoogleFonts.inter(
-                      color: AppColors.brandGray,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          : _DesignsGrid(
-              designs: designs,
-              provider: provider,
-            ),
+      body: _buildContent(context, designs),
     );
+  }
+
+  Widget _buildContent(BuildContext context, List<SavedDesign> designs) {
+    return designs.isEmpty
+        ? Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(LucideIcons.palette, size: 64, color: AppColors.brandGray.withValues(alpha: 0.5)),
+                const SizedBox(height: 16),
+                Text(
+                  'No designs saved',
+                  style: GoogleFonts.inter(
+                    color: AppColors.brandGray,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          )
+        : _DesignsGrid(
+            designs: designs,
+            provider: context.read<DesignsProvider>(),
+          );
   }
 
   Future<void> _openConfigFile(BuildContext context) async {

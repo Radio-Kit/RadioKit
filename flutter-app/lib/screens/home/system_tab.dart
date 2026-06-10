@@ -95,18 +95,24 @@ class SystemTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
-    
+    final orientation = MediaQuery.of(context).orientation;
+    final isLandscape = orientation == Orientation.landscape;
+
+    // In landscape mode, don't use Scaffold (parent provides it)
+    if (isLandscape) {
+      return _buildContent(context, themeProvider);
+    }
+
     return Scaffold(
       appBar: RadioKitAppBar(
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.sensors_rounded, size: 20),
-            onPressed: () {},
-          ),
-          const SizedBox(width: 8),
-        ],
+        tabIndex: 3,
       ),
-      body: NotificationListener<ScrollNotification>(
+      body: _buildContent(context, themeProvider),
+    );
+  }
+
+  Widget _buildContent(BuildContext context, ThemeProvider themeProvider) {
+    return NotificationListener<ScrollNotification>(
         onNotification: (notification) {
           if (notification is OverscrollNotification && notification.overscroll > 50) {
             DonateBottomSheet.show(context);
@@ -142,8 +148,7 @@ class SystemTab extends StatelessWidget {
             const SizedBox(height: 32),
           ],
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildSectionTag(BuildContext context, String title) {

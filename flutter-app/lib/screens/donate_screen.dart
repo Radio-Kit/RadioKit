@@ -8,9 +8,10 @@ class DonateBottomSheet {
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF181818),
+      showDragHandle: true,
+      backgroundColor: const Color(0xFF1A1A1A),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
       ),
       builder: (context) => const _DonateSheetContent(),
     );
@@ -26,36 +27,31 @@ class _DonateSheetContent extends StatelessWidget {
       padding: EdgeInsets.only(
         left: 20,
         right: 20,
-        top: 20,
         bottom: MediaQuery.of(context).viewInsets.bottom + 32,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 40,
-            height: 4,
-            margin: const EdgeInsets.only(bottom: 20),
-            decoration: BoxDecoration(
-              color: Colors.white24,
-              borderRadius: BorderRadius.circular(2),
-            ),
+      child: Transform.translate(
+        offset: const Offset(0, -18),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'SUPPORT RADIOKIT',
+                style: GoogleFonts.changa(
+                  color: AppColors.brandOrange,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.5,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 24),
+              _buildSupportCard(context),
+              const SizedBox(height: 16),
+              _buildLicenseKeySection(context),
+              const SizedBox(height: 8),
+            ],
           ),
-          Text(
-            'SUPPORT RADIOKIT',
-            style: GoogleFonts.changa(
-              color: AppColors.brandOrange,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.5,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 24),
-          _buildSupportCard(context),
-          const SizedBox(height: 16),
-          _buildLicenseKeySection(context),
-          const SizedBox(height: 8),
-        ],
+        ),
       ),
     );
   }

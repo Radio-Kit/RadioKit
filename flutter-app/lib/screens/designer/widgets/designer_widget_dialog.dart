@@ -35,72 +35,56 @@ class DesignerWidgetSheet extends StatelessWidget {
 
     return Container(
       height: MediaQuery.of(context).size.height,
-      decoration: const BoxDecoration(
-        color: Color(0xFF181818),
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(12),
-          topRight: Radius.circular(12),
-        ),
-      ),
       child: Padding(
         padding: EdgeInsets.fromLTRB(24, 8, 24, 16 + bottomInset),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Drag handle
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF444444),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            // Title row
-            Row(
-              children: [
-                Icon(LucideIcons.palette, color: tokens.primary, size: 20),
-                const SizedBox(width: 10),
-                const Text(
-                  'ADD WIDGET',
-                  style: TextStyle(
-                    color: Color(0xFFE0E0E0),
-                    fontSize: 15,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1,
-                  ),
-                ),
-                const Spacer(),
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF222222),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                    child: const Icon(LucideIcons.x, color: Color(0xFF888888), size: 16),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // Scrollable categories
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
+        child: Transform.translate(
+          offset: const Offset(0, -18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Title row
+              Row(
                 children: [
-                  _buildCategory('CONTROLS', _controlVariants, tokens),
-                  const SizedBox(height: 8),
-                  _buildCategory('INDICATORS', _indicatorVariants, tokens),
+                  Icon(LucideIcons.palette, color: tokens.primary, size: 20),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'ADD WIDGET',
+                    style: TextStyle(
+                      color: Color(0xFFE0E0E0),
+                      fontSize: 15,
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF222222),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      child: const Icon(LucideIcons.x, color: Color(0xFF888888), size: 16),
+                    ),
+                  ),
                 ],
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+              // Scrollable categories
+              Expanded(
+                child: ListView(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    _buildCategory('CONTROLS', _controlVariants, tokens),
+                    const SizedBox(height: 8),
+                    _buildCategory('INDICATORS', _indicatorVariants, tokens),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
