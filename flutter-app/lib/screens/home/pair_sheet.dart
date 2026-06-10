@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../providers/device_provider.dart';
 import '../../providers/history_provider.dart';
 import '../../providers/ble_provider.dart';
+import '../../providers/mdns_provider.dart';
 import '../../providers/serial_provider.dart';
 import '../../models/device_info.dart';
 import '../../theme/app_theme.dart';
@@ -71,9 +72,10 @@ class _PairBottomSheetState extends State<PairBottomSheet>
   void _startScan() {
     final ble = context.read<BleProvider>();
     final serial = context.read<SerialProvider>();
+    final mdns = context.read<MdnsProvider>();
     ble.startScan();
     serial.startScan();
-    // WiFi tab needs no scan — manual IP entry
+    if (mdns.isSupported) mdns.startScan();
   }
 
   Future<void> _connectBle(DeviceInfo device) async {
@@ -168,9 +170,8 @@ class _PairBottomSheetState extends State<PairBottomSheet>
     }
   }
 
-  Future<void> _connectWiFi(String host, int port) async {
-    // Build a device ID from the WebSocket URL
-    final deviceId = 'ws://$host:$port';
+  Future<void> _connectWiFi(DeviceInfo device) async {
+    final deviceId = device.id;
     if (_connectingIds.contains(deviceId)) return;
     setState(() {
       _connectingIds.add(deviceId);
@@ -180,16 +181,13 @@ class _PairBottomSheetState extends State<PairBottomSheet>
     try {
       final deviceProvider = context.read<DeviceProvider>();
       final history = context.read<HistoryProvider>();
+      final mdns = context.read<MdnsProvider>();
+      await mdns.stopScan();
+      if (!mounted) return;
 
       final wsService = WebSocketService();
       deviceProvider.setTransport(wsService);
       
-      final device = DeviceInfo(
-        id: deviceId,
-        name: '$host:$port',
-        rssi: 0,
-        hasFs: false,
-      );
       await deviceProvider.connectToDevice(device);
       if (!mounted) return;
 
@@ -285,11 +283,16 @@ class _PairBottomSheetState extends State<PairBottomSheet>
                   failedIds: _failedIds,
                   onDismissError: _dismissError,
                 ),
-                _PairWiFiTab(
-                  onConnect: _connectWiFi,
-                  connectingIds: _connectingIds,
-                  failedIds: _failedIds,
-                  onDismissError: _dismissError,
+                Consumer<MdnsProvider>(
+                  builder: (context, mdns, _) => _PairWiFiTab(
+                    onConnect: _connectWiFi,
+                    connectingIds: _connectingIds,
+                    failedIds: _failedIds,
+                    onDismissError: _dismissError,
+                    discoveredDevices: mdns.devices,
+                    isScanning: mdns.isScanning,
+                    isMdnsSupported: mdns.isSupported,
+                  ),
                 ),
               ],
             ),
@@ -508,24 +511,174 @@ class _PairUsbTab extends StatelessWidget {
 
 // ── Pair WiFi Tab ────────────────────────────────────────────────────────────
 
-class _PairWiFiTab extends StatefulWidget {
-  final Future<void> Function(String host, int port) onConnect;
+class _PairWiFiTab extends StatelessWidget {
+  final Future<void> Function(DeviceInfo) onConnect;
   final Set<String> connectingIds;
   final Map<String, String> failedIds;
   final ValueChanged<String> onDismissError;
+  final List<DeviceInfo> discoveredDevices;
+  final bool isScanning;
+  final bool isMdnsSupported;
 
   const _PairWiFiTab({
     required this.onConnect,
     required this.connectingIds,
     required this.failedIds,
     required this.onDismissError,
+    required this.discoveredDevices,
+    required this.isScanning,
+    required this.isMdnsSupported,
   });
 
   @override
-  State<_PairWiFiTab> createState() => _PairWiFiTabState();
+  Widget build(BuildContext context) {
+    final hasDiscovered = discoveredDevices.isNotEmpty;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Status header ──────────────────────────────────────
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: (isScanning || hasDiscovered)
+                      ? AppColors.brandOrange
+                      : Colors.white12,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isScanning ? 'SCANNING' : hasDiscovered ? 'DISCOVERED' : 'IDLE',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                        letterSpacing: 1.0),
+                  ),
+                  const Text('MDNS / WEBSOCKET',
+                      style: TextStyle(color: Colors.white24, fontSize: 8)),
+                ],
+              ),
+              const Spacer(),
+              Text(
+                '${discoveredDevices.length.toString().padLeft(2, '0')}_NODES',
+                style: const TextStyle(color: Colors.white24, fontSize: 9),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          LinearProgressIndicator(
+            value: isScanning ? null : 1.0,
+            backgroundColor: const Color(0x0DFFFFFF),
+            valueColor:
+                const AlwaysStoppedAnimation(AppColors.brandOrange),
+            minHeight: 1,
+          ),
+          const SizedBox(height: 16),
+
+          // ── Discovered devices ────────────────────────────────
+          if (hasDiscovered) ...[
+            ...discoveredDevices.map(
+              (device) => _PairDeviceCard(
+                device: device,
+                isConnecting: connectingIds.contains(device.id),
+                errorMessage: failedIds[device.id],
+                onTap: () => onConnect(device),
+                onRetry: () => onConnect(device),
+                onDismissError: () => onDismissError(device.id),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              height: 1,
+              color: Colors.white.withValues(alpha: 0.08),
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: Text(
+                'OR ENTER MANUALLY',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // ── No devices found message ──────────────────────────
+          if (!hasDiscovered && isScanning)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 32),
+                child: Text('Scanning for WiFi devices...',
+                    style: TextStyle(color: Colors.white24, fontSize: 12)),
+              ),
+            ),
+          if (!hasDiscovered && !isScanning && isMdnsSupported)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 32),
+                child: Text(
+                  'No WiFi devices found on the network\nEnter the IP address manually below',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white24, fontSize: 11),
+                ),
+              ),
+            ),
+          if (!isMdnsSupported)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 16),
+              child: Center(
+                child: Text(
+                  'mDNS discovery is not available on this platform.\nEnter the device IP address manually.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white24, fontSize: 11),
+                ),
+              ),
+            ),
+
+          // ── Manual entry form ─────────────────────────────────
+          _PairWiFiManualEntry(
+            onConnect: (host, port) {
+              final deviceId = 'ws://$host:$port';
+              final device = DeviceInfo(
+                id: deviceId,
+                name: '$host:$port',
+                rssi: 0,
+                hasFs: false,
+              );
+              return onConnect(device);
+            },
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _PairWiFiTabState extends State<_PairWiFiTab> {
+// ── Pair WiFi Manual Entry ──────────────────────────────────────────────────
+
+class _PairWiFiManualEntry extends StatefulWidget {
+  final Future<void> Function(String host, int port) onConnect;
+
+  const _PairWiFiManualEntry({required this.onConnect});
+
+  @override
+  State<_PairWiFiManualEntry> createState() => _PairWiFiManualEntryState();
+}
+
+class _PairWiFiManualEntryState extends State<_PairWiFiManualEntry> {
   final _hostController = TextEditingController();
   final _portController = TextEditingController(text: '5555');
   bool _connecting = false;
@@ -554,150 +707,119 @@ class _PairWiFiTabState extends State<_PairWiFiTab> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Status header ──────────────────────────────────────
-          Row(
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.brandOrange,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('ENTER DEVICE ADDRESS',
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
-                          letterSpacing: 1.0)),
-                  const Text('WiFi / WEBSOCKET',
-                      style: TextStyle(color: Colors.white24, fontSize: 8)),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // ── Host input ─────────────────────────────────────────
-          TextFormField(
-            controller: _hostController,
-            autofocus: true,
-            style: GoogleFonts.jetBrainsMono(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w500),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.05),
-              hintText: '192.168.4.1',
-              hintStyle: const TextStyle(color: Colors.white24),
-              labelText: 'IP ADDRESS / HOSTNAME',
-              labelStyle: const TextStyle(
-                  color: Colors.white38,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1),
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 12),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: Colors.white12),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: Colors.white12),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(
-                    color: AppColors.brandOrange.withValues(alpha: 0.5)),
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Host input ─────────────────────────────────────────
+        TextFormField(
+          controller: _hostController,
+          style: GoogleFonts.jetBrainsMono(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w500),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.05),
+            hintText: '192.168.4.1',
+            hintStyle: const TextStyle(color: Colors.white24),
+            labelText: 'IP ADDRESS / HOSTNAME',
+            labelStyle: const TextStyle(
+                color: Colors.white38,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1),
+            contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12, vertical: 12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: const BorderSide(color: Colors.white12),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: const BorderSide(color: Colors.white12),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: BorderSide(
+                  color: AppColors.brandOrange.withValues(alpha: 0.5)),
             ),
           ),
-          const SizedBox(height: 12),
-          // ── Port input ─────────────────────────────────────────
-          TextFormField(
-            controller: _portController,
-            keyboardType: TextInputType.number,
-            style: GoogleFonts.jetBrainsMono(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w500),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.05),
-              hintText: '5555',
-              hintStyle: const TextStyle(color: Colors.white24),
-              labelText: 'PORT',
-              labelStyle: const TextStyle(
-                  color: Colors.white38,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1),
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 12),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: Colors.white12),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: Colors.white12),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(
-                    color: AppColors.brandOrange.withValues(alpha: 0.5)),
-              ),
+        ),
+        const SizedBox(height: 12),
+        // ── Port input ─────────────────────────────────────────
+        TextFormField(
+          controller: _portController,
+          keyboardType: TextInputType.number,
+          style: GoogleFonts.jetBrainsMono(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w500),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.05),
+            hintText: '5555',
+            hintStyle: const TextStyle(color: Colors.white24),
+            labelText: 'PORT',
+            labelStyle: const TextStyle(
+                color: Colors.white38,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1),
+            contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12, vertical: 12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: const BorderSide(color: Colors.white12),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: const BorderSide(color: Colors.white12),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: BorderSide(
+                  color: AppColors.brandOrange.withValues(alpha: 0.5)),
             ),
           ),
-          const SizedBox(height: 20),
-          // ── Connect button ─────────────────────────────────────
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.brandOrange,
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6)),
-              ),
-              icon: _connecting
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.black))
-                  : const Icon(Icons.wifi_rounded, size: 20),
-              label: Text(
-                  _connecting ? 'CONNECTING...' : 'CONNECT',
-                  style: GoogleFonts.changa(
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1,
-                      fontSize: 14,
-                      height: 1)),
-              onPressed: _connecting ? null : _connect,
+        ),
+        const SizedBox(height: 20),
+        // ── Connect button ─────────────────────────────────────
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.brandOrange,
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6)),
             ),
+            icon: _connecting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.black))
+                : const Icon(Icons.wifi_rounded, size: 20),
+            label: Text(
+                _connecting ? 'CONNECTING...' : 'CONNECT',
+                style: GoogleFonts.changa(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                    fontSize: 14,
+                    height: 1)),
+            onPressed: _connecting ? null : _connect,
           ),
-          const SizedBox(height: 16),
-          // ── Help text ──────────────────────────────────────────
-          const Text(
-            'Enter the IP address or hostname of your RadioKit device.\n'
-            'The device must be on the same network and have WiFi transport enabled.\n'
-            'Default WebSocket port is 5555.',
-            style: TextStyle(color: Colors.white24, fontSize: 10),
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 16),
+        // ── Help text ──────────────────────────────────────────
+        const Text(
+          'Enter the IP address or hostname of your RadioKit device.\n'
+          'The device must be on the same network and have WiFi transport enabled.\n'
+          'Default WebSocket port is 5555.',
+          style: TextStyle(color: Colors.white24, fontSize: 10),
+        ),
+      ],
     );
   }
 }

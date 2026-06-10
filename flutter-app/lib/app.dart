@@ -9,6 +9,7 @@ import 'providers/debug_provider.dart';
 import 'providers/designs_provider.dart';
 import 'providers/device_provider.dart';
 import 'providers/history_provider.dart';
+import 'providers/mdns_provider.dart';
 import 'providers/remote_access_provider.dart';
 import 'providers/serial_provider.dart';
 import 'providers/settings_provider.dart';
@@ -26,6 +27,7 @@ class RadioKitApp extends StatefulWidget {
 
 class _RadioKitAppState extends State<RadioKitApp> {
   late final BleProvider _bleProvider;
+  late final MdnsProvider _mdnsProvider;
   late final SerialProvider _serialProvider;
   late final DebugProvider _debugProvider;
   late final HistoryProvider _historyProvider;
@@ -50,6 +52,7 @@ class _RadioKitAppState extends State<RadioKitApp> {
     _designsProvider.load();
     
     _bleProvider = BleProvider();
+    _mdnsProvider = MdnsProvider();
     _serialProvider = SerialProvider();
     _debugProvider = DebugProvider();
     _historyProvider = HistoryProvider();
@@ -90,6 +93,7 @@ class _RadioKitAppState extends State<RadioKitApp> {
         ChangeNotifierProvider<ThemeProvider>.value(value: ThemeProvider()),
         ChangeNotifierProvider<SkinProvider>.value(value: _skinProvider),
         ChangeNotifierProvider<BleProvider>.value(value: _bleProvider),
+        ChangeNotifierProvider<MdnsProvider>.value(value: _mdnsProvider),
         ChangeNotifierProvider<SerialProvider>.value(value: _serialProvider),
         ChangeNotifierProvider<DebugProvider>.value(value: _debugProvider),
         ChangeNotifierProvider<HistoryProvider>.value(value: _historyProvider),

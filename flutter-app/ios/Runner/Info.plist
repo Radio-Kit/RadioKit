@@ -60,5 +60,13 @@
 	<array>
 		<string>bluetooth-central</string>
 	</array>
+
+	<!-- mDNS / Local network access for WiFi device discovery -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>RadioKit needs local network access to discover WiFi devices advertising the RadioKit service.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_radiokit._tcp</string>
+	</array>
 </dict>
 </plist>

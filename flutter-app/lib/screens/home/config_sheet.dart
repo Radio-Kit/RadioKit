@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../providers/device_provider.dart';
-import '../theme/app_theme.dart';
+import '../../providers/device_provider.dart';
+import '../../services/ble_service_impl.dart';
+import '../../services/serial_service_native.dart';
+import '../../services/serial_service_linux.dart';
+import '../../services/websocket_service.dart';
+import '../../theme/app_theme.dart';
 
 /// Full-screen dialog for editing device settings (name, description,
 /// passwords) and performing a factory reset.
@@ -76,6 +80,49 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
   bool get _descChanged => _descCtrl.text.trim() != _originalDesc;
   bool get _pwdChanged => _pwdCtrl.text.trim().isNotEmpty;
   bool get _adminPwdChanged => _adminPwdCtrl.text.trim().isNotEmpty;
+
+  /// Returns the transport type name if connected, null otherwise.
+  String? _connectedTransportName(DeviceProvider dp) {
+    if (!dp.isConnected) return null;
+    final t = dp.currentTransport;
+    if (t is BleService) return 'BLE';
+    if (t is WebSocketService) return 'WIFI';
+    if (t is LinuxSerialService || t is SerialService) return 'Serial';
+    return null;
+  }
+
+  /// Shows confirmation if disabling the currently connected transport.
+  Future<bool> _confirmDisableTransport(DeviceProvider dp, String transport) async {
+    final connectedVia = _connectedTransportName(dp);
+    if (connectedVia != transport) return true;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.warning_rounded, color: Colors.orangeAccent, size: 32),
+        title: const Text('Disconnect Device?'),
+        content: Text(
+          'Connected via $transport. Disabling this will cause the device to disconnect.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton.tonal(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.orangeAccent.withValues(alpha: 0.2),
+              foregroundColor: Colors.orangeAccent,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('DISABLE'),
+          ),
+        ],
+      ),
+    );
+
+    return confirmed ?? false;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -185,34 +232,80 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
                 label: 'BLE',
                 subtitle: 'Bluetooth Low Energy',
                 enabled: _bleEnabled,
-                onChanged: (v) => setState(() => _bleEnabled = v),
+                onChanged: (v) async {
+                  if (!v) {
+                    final ok = await _confirmDisableTransport(dp, 'BLE');
+                    if (!ok) return;
+                  }
+                  setState(() => _bleEnabled = v);
+                },
               ),
               const SizedBox(height: 12),
 
-              _buildTransportRow(
-                icon: Icons.wifi_rounded,
-                label: 'WIFI',
-                subtitle: 'Wireless network',
-                enabled: _wifiEnabled,
-                onChanged: (v) => setState(() {
-                  _wifiEnabled = v;
-                  if (!v) _cloudEnabled = false;
-                }),
-              ),
-
-              if (_wifiEnabled) ...[
-                const SizedBox(height: 12),
-                Padding(
-                  padding: const EdgeInsets.only(left: 36),
-                  child: _buildTransportRow(
-                    icon: Icons.cloud_rounded,
-                    label: 'CLOUD',
-                    subtitle: 'Remote access over internet',
-                    enabled: _cloudEnabled,
-                    onChanged: (v) => setState(() => _cloudEnabled = v),
-                  ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.04),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-              ],
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.wifi_rounded, size: 20, color: _wifiEnabled ? AppColors.brandOrange : Colors.white38),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('WIFI',
+                                  style: TextStyle(
+                                      color: _wifiEnabled ? Colors.white : Colors.white54,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600)),
+                              const SizedBox(height: 2),
+                              Text('Wireless network',
+                                  style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.4),
+                                      fontSize: 11)),
+                            ],
+                          ),
+                        ),
+                        Switch(
+                          value: _wifiEnabled,
+                          onChanged: (v) async {
+                            if (!v) {
+                              final ok = await _confirmDisableTransport(dp, 'WIFI');
+                              if (!ok) return;
+                            }
+                            setState(() {
+                              _wifiEnabled = v;
+                              if (!v) _cloudEnabled = false;
+                            });
+                          },
+                          activeThumbColor: AppColors.brandOrange,
+                        ),
+                      ],
+                    ),
+                    if (_wifiEnabled) ...[
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: Divider(height: 1, color: Colors.white10),
+                      ),
+                      _buildSettingRow(
+                        Icons.cloud_rounded,
+                        'CLOUD',
+                        'Remote access over internet',
+                        Switch(
+                          value: _cloudEnabled,
+                          onChanged: (v) => setState(() => _cloudEnabled = v),
+                          activeThumbColor: AppColors.brandOrange,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
               const SizedBox(height: 32),
 
               // ── Factory Reset ────────────────────────────────
@@ -314,6 +407,40 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSettingRow(IconData icon, String label, String value, Widget trailing) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: AppColors.brandOrange.withValues(alpha: 0.7)),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.6),
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+        trailing,
+      ],
     );
   }
 
