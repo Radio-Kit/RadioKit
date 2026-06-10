@@ -225,8 +225,27 @@ void RadioKitClass::startCloud() {
         Serial.println("Cloud: startWiFi() must be called before startCloud() — ignoring");
         return;
     }
-    Serial.println("Cloud: Transport not yet implemented (Phase 4)");
-    // _cloudActive = true;  // Uncomment in Phase 4
+
+#if defined(ESP32)
+    RadioKitCloudInstance.setCloudUrl(_nvsCloudUrl);
+    RadioKitCloudInstance.setAccount(_nvsCloudAccount);
+
+    const char* baseName = (_nvsActive && _nvsName[0]) ? _nvsName :
+                           (config.name ? config.name : "RadioKit");
+
+    // Register all callbacks
+    RadioKitCloudInstance.begin(baseName, RadioKitClass::_onPacket);
+    RadioKitCloudInstance.setFsCallback(RadioKitClass::_onFsPacket);
+    rk_otaSetCallback(RadioKitClass::_onOtaPacket);
+    RadioKitCloudInstance.setOtaCallback(RadioKitClass::_onOtaPacket);
+    rk_settingsSetCallback(RadioKitClass::_onSettingsPacket);
+    RadioKitCloudInstance.setSettingsCallback(RadioKitClass::_onSettingsPacket);
+
+    _cloudActive = true;
+    Serial.println("Cloud: Transport started");
+#else
+    Serial.println("Cloud: Transport not available on this platform");
+#endif
 }
 
 void RadioKitClass::update() {

@@ -155,7 +155,7 @@ impl Relay {
     pub async fn remove_client(&self, key: &SessionKey, tx: &mpsc::UnboundedSender<RelayMessage>) {
         let mut clients = self.clients.lock().await;
         if let Some(client_list) = clients.get_mut(key) {
-            client_list.retain(|c| c.tx.same_channel(tx));
+            client_list.retain(|c| !c.tx.same_channel(tx));
             if client_list.is_empty() {
                 clients.remove(key);
             }
@@ -164,7 +164,7 @@ impl Relay {
 }
 
 /// Generate a short unique session ID (8 hex chars).
-fn uuid_v4_short() -> String {
+pub fn uuid_v4_short() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -172,3 +172,371 @@ fn uuid_v4_short() -> String {
         .subsec_nanos();
     format!("{:08x}", nanos)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::Value;
+    use tokio::sync::mpsc;
+
+    /// Helper: create a relay and a device session, returning the relay,
+    /// the device key, and the device's rx channel.
+    async fn setup_device(relay: &Relay, name: &str, account: &str) -> (SessionKey, mpsc::UnboundedReceiver<RelayMessage>) {
+        let (tx, rx) = mpsc::unbounded_channel();
+        let (resp, _) = relay.handle_register(name, account, tx).await;
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        assert_eq!(parsed["type"], "registered");
+        assert_eq!(parsed["ok"], true);
+        ((name.to_string(), account.to_string()), rx)
+    }
+
+    /// Helper: create a relay and a client session, returning the client's rx channel.
+    /// Panics if the device doesn't exist.
+    async fn setup_client(relay: &Relay, device_name: &str, account: &str) -> mpsc::UnboundedReceiver<RelayMessage> {
+        let (tx, rx) = mpsc::unbounded_channel();
+        let (resp, _) = relay.handle_join(device_name, account, tx).await;
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        assert_eq!(parsed["type"], "joined");
+        assert_eq!(parsed["ok"], true);
+        rx
+    }
+
+    // ── handle_register tests ────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn test_register_device() {
+        let relay = Relay::new();
+        let (tx, _rx) = mpsc::unbounded_channel();
+        let (resp, keep_alive) = relay.handle_register("test_device", "test_account", tx).await;
+
+        assert!(keep_alive);
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        assert_eq!(parsed["type"], "registered");
+        assert_eq!(parsed["ok"], true);
+        assert!(parsed["sid"].as_str().unwrap_or("").len() == 8);
+
+        // Verify device is stored
+        let devices = relay.devices.lock().await;
+        let key = ("test_device".to_string(), "test_account".to_string());
+        assert!(devices.contains_key(&key));
+        assert_eq!(devices[&key].name, "test_device");
+        assert_eq!(devices[&key].account, "test_account");
+    }
+
+    #[tokio::test]
+    async fn test_register_duplicate_replaces() {
+        let relay = Relay::new();
+        let (tx1, _rx1) = mpsc::unbounded_channel();
+        let (tx2, _rx2) = mpsc::unbounded_channel();
+
+        // Register twice with the same key
+        let (_, _) = relay.handle_register("device", "acct", tx1).await;
+        let (_, _) = relay.handle_register("device", "acct", tx2).await;
+
+        let devices = relay.devices.lock().await;
+        let key = ("device".to_string(), "acct".to_string());
+        assert!(devices.contains_key(&key));
+        // Only one entry (replaced, not duplicated)
+        assert_eq!(devices.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_register_multiple_devices() {
+        let relay = Relay::new();
+        let (tx1, _) = mpsc::unbounded_channel();
+        let (tx2, _) = mpsc::unbounded_channel();
+
+        let (_, _) = relay.handle_register("device_a", "acct1", tx1).await;
+        let (_, _) = relay.handle_register("device_b", "acct2", tx2).await;
+
+        let devices = relay.devices.lock().await;
+        assert_eq!(devices.len(), 2);
+    }
+
+    // ── handle_join tests ────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn test_join_existing_device() {
+        let relay = Relay::new();
+        let (device_key, mut device_rx) = setup_device(&relay, "rc_car", "user1").await;
+
+        let (client_tx, mut client_rx) = mpsc::unbounded_channel();
+        let (resp, keep_alive) = relay.handle_join("rc_car", "user1", client_tx).await;
+
+        assert!(keep_alive);
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        assert_eq!(parsed["type"], "joined");
+        assert_eq!(parsed["ok"], true);
+        assert_eq!(parsed["device"], "rc_car");
+        assert_eq!(parsed["deviceName"], "rc_car");
+
+        // Device should have received a client_joined notification
+        let msg = device_rx.recv().await;
+        match msg {
+            Some(RelayMessage::Text(text)) => {
+                let parsed: Value = serde_json::from_str(&text).unwrap();
+                assert_eq!(parsed["type"], "client_joined");
+                assert_eq!(parsed["account"], "user1");
+            }
+            _ => panic!("Expected Text message"),
+        }
+
+        // Client should not have received any message yet
+        let msg = client_rx.try_recv();
+        assert!(msg.is_err()); // channel empty
+    }
+
+    #[tokio::test]
+    async fn test_join_nonexistent_device() {
+        let relay = Relay::new();
+        let (tx, _rx) = mpsc::unbounded_channel();
+        let (resp, keep_alive) = relay.handle_join("ghost_device", "user1", tx).await;
+
+        assert!(keep_alive);
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        assert_eq!(parsed["type"], "joined");
+        assert_eq!(parsed["ok"], false);
+        assert_eq!(parsed["error"], "device_not_found");
+    }
+
+    #[tokio::test]
+    async fn test_join_wrong_account() {
+        let relay = Relay::new();
+        let (_, _) = relay.handle_register("device", "account_a", mpsc::unbounded_channel::<RelayMessage>().0).await;
+
+        // Try to join with different account
+        let (tx, _rx) = mpsc::unbounded_channel();
+        let (resp, _) = relay.handle_join("device", "account_b", tx).await;
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        assert_eq!(parsed["ok"], false);
+        assert_eq!(parsed["error"], "device_not_found");
+    }
+
+    // ── route_data tests ─────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn test_route_data_device_to_client() {
+        let relay = Relay::new();
+        let (device_key, _device_rx) = setup_device(&relay, "device", "acct").await;
+        let mut client_rx = setup_client(&relay, "device", "acct").await;
+
+        let frame: Vec<u8> = vec![0x55, 0x01, 0x02, 0x03];
+        relay.route_data(frame.clone(), device_key, true).await;
+
+        // Client should receive the frame
+        let msg = client_rx.recv().await;
+        match msg {
+            Some(RelayMessage::Binary(data)) => {
+                assert_eq!(data, frame);
+            }
+            _ => panic!("Expected Binary message"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_route_data_client_to_device() {
+        let relay = Relay::new();
+        let (device_key, mut device_rx) = setup_device(&relay, "device", "acct").await;
+        let (_, _) = relay.handle_join("device", "acct", mpsc::unbounded_channel::<RelayMessage>().0).await;
+
+        // Drain client_joined message from device
+        let _ = device_rx.recv().await;
+
+        let frame: Vec<u8> = vec![0x55, 0x05, 0x00];
+        relay.route_data(frame.clone(), device_key, false).await;
+
+        // Device should receive the frame
+        let msg = device_rx.recv().await;
+        match msg {
+            Some(RelayMessage::Binary(data)) => {
+                assert_eq!(data, frame);
+            }
+            _ => panic!("Expected Binary message"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_route_data_multiple_clients() {
+        let relay = Relay::new();
+        let (device_key, _device_rx) = setup_device(&relay, "device", "acct").await;
+
+        // Two clients join
+        let mut client_rx1 = setup_client(&relay, "device", "acct").await;
+        let mut client_rx2 = setup_client(&relay, "device", "acct").await;
+
+        // Device receives client_joined for each client in unbounded channel.
+        // No drain needed since channel is unbounded.
+
+        let frame: Vec<u8> = vec![0x55, 0x10];
+        relay.route_data(frame.clone(), device_key, true).await;
+
+        // Both clients should receive the frame
+        let msg1 = client_rx1.recv().await;
+        let msg2 = client_rx2.recv().await;
+
+        match (msg1, msg2) {
+            (Some(RelayMessage::Binary(d1)), Some(RelayMessage::Binary(d2))) => {
+                assert_eq!(d1, frame);
+                assert_eq!(d2, frame);
+            }
+            _ => panic!("Expected Binary messages"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_route_data_device_without_clients() {
+        let relay = Relay::new();
+        let (device_key, _device_rx) = setup_device(&relay, "device", "acct").await;
+
+        // Device sends data but no clients are connected
+        let frame: Vec<u8> = vec![0xAA, 0x01];
+        relay.route_data(frame, device_key, true).await;
+        // Should not panic — just no-op
+    }
+
+    #[tokio::test]
+    async fn test_route_data_client_without_device() {
+        let relay = Relay::new();
+        let key = ("phantom".to_string(), "acct".to_string());
+
+        let frame: Vec<u8> = vec![0x55, 0x01];
+        relay.route_data(frame, key, false).await;
+        // Should not panic — just no-op
+    }
+
+    // ── remove_device / remove_client tests ────────────────────────────────────
+
+    #[tokio::test]
+    async fn test_remove_device_notifies_clients() {
+        let relay = Relay::new();
+        let (device_key, _device_rx) = setup_device(&relay, "device", "acct").await;
+        let mut client_rx = setup_client(&relay, "device", "acct").await;
+
+        relay.remove_device(&device_key).await;
+
+        // Devices map should be empty
+        assert!(relay.devices.lock().await.is_empty());
+
+        // Client should receive device_status: offline
+        let msg = client_rx.recv().await;
+        match msg {
+            Some(RelayMessage::Text(text)) => {
+                let parsed: Value = serde_json::from_str(&text).unwrap();
+                assert_eq!(parsed["type"], "device_status");
+                assert_eq!(parsed["status"], "offline");
+                assert_eq!(parsed["id"], "device");
+            }
+            _ => panic!("Expected Text message"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_remove_client_cleans_up() {
+        let relay = Relay::new();
+        let (_device_key, _device_rx) = setup_device(&relay, "device", "acct").await;
+
+        let client_key = ("device".to_string(), "acct".to_string());
+        let (client_tx, _client_rx) = mpsc::unbounded_channel();
+        let (_, _) = relay.handle_join("device", "acct", client_tx.clone()).await;
+
+        // Remove the client
+        relay.remove_client(&client_key, &client_tx).await;
+
+        // Clients map should be empty
+        assert!(relay.clients.lock().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_remove_client_preserves_other_clients() {
+        let relay = Relay::new();
+        let (_device_key, _device_rx) = setup_device(&relay, "device", "acct").await;
+
+        let client_key = ("device".to_string(), "acct".to_string());
+        let (tx1, _rx1) = mpsc::unbounded_channel();
+        let (tx2, _rx2) = mpsc::unbounded_channel();
+        let (_, _) = relay.handle_join("device", "acct", tx1.clone()).await;
+        let (_, _) = relay.handle_join("device", "acct", tx2.clone()).await;
+
+        // Remove first client only
+        relay.remove_client(&client_key, &tx1).await;
+
+        let clients = relay.clients.lock().await;
+        assert!(clients.contains_key(&client_key));
+        assert_eq!(clients[&client_key].len(), 1);
+    }
+
+    // ── notify_device_status tests ────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn test_notify_device_status() {
+        let relay = Relay::new();
+        let (_device_key, _device_rx) = setup_device(&relay, "device", "acct").await;
+        let mut client_rx = setup_client(&relay, "device", "acct").await;
+
+        let key = ("device".to_string(), "acct".to_string());
+        relay.notify_device_status(&key, "online").await;
+
+        let msg = client_rx.recv().await;
+        match msg {
+            Some(RelayMessage::Text(text)) => {
+                let parsed: Value = serde_json::from_str(&text).unwrap();
+                assert_eq!(parsed["type"], "device_status");
+                assert_eq!(parsed["status"], "online");
+            }
+            _ => panic!("Expected Text message"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_notify_device_status_no_clients() {
+        let relay = Relay::new();
+        let key = ("device".to_string(), "acct".to_string());
+        // No device or clients registered — should not panic
+        relay.notify_device_status(&key, "offline").await;
+    }
+
+    // ── Integration: full lifecycle ───────────────────────────────────────────
+
+    #[tokio::test]
+    async fn test_full_device_client_lifecycle() {
+        let relay = Relay::new();
+
+        // 1. Device registers
+        let (device_key, mut device_rx) = setup_device(&relay, "sensor", "team_a").await;
+
+        // 2. First client joins
+        let mut client1_rx = setup_client(&relay, "sensor", "team_a").await;
+        // Device receives client_joined
+        let msg = device_rx.recv().await;
+        assert!(matches!(msg, Some(RelayMessage::Text(_))));
+
+        // 3. Client sends a command to device
+        let cmd: Vec<u8> = vec![0x55, 0x12, 0x34];
+        relay.route_data(cmd.clone(), device_key.clone(), false).await;
+        let device_msg = device_rx.recv().await;
+        assert!(matches!(device_msg, Some(RelayMessage::Binary(d)) if d == cmd));
+
+        // 4. Device sends telemetry to client
+        let tele: Vec<u8> = vec![0x55, 0x1E, 0x64];
+        relay.route_data(tele.clone(), device_key.clone(), true).await;
+        let client_msg = client1_rx.recv().await;
+        assert!(matches!(client_msg, Some(RelayMessage::Binary(d)) if d == tele));
+
+        // 5. Second client joins
+        let mut client2_rx = setup_client(&relay, "sensor", "team_a").await;
+
+        // 6. Device broadcasts to both clients
+        let broadcast: Vec<u8> = vec![0x55, 0x1E, 0x00, 0x42];
+        relay.route_data(broadcast.clone(), device_key.clone(), true).await;
+        let c1 = client1_rx.recv().await;
+        let c2 = client2_rx.recv().await;
+        assert!(matches!(c1, Some(RelayMessage::Binary(d)) if d == broadcast));
+        assert!(matches!(c2, Some(RelayMessage::Binary(d)) if d == broadcast));
+
+        // 7. Device disconnects — clients get offline notification
+        relay.remove_device(&device_key).await;
+        let offline = client1_rx.recv().await;
+        assert!(matches!(offline, Some(RelayMessage::Text(t)) if t.contains("offline")));
+    }
+}
+
