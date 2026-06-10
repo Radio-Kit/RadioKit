@@ -16,6 +16,9 @@
 #include "RadioKitCloud.h"
 #include "../RadioKitProtocol.h"
 #include "../RadioKitConfig.h"
+#include "RadioKitFS.h"
+#include "RadioKitOTA.h"
+#include "RadioKitSettings.h"
 #include <string.h>
 
 RadioKitCloud RadioKitCloudInstance;

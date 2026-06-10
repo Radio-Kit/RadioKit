@@ -23,6 +23,7 @@ import '../providers/console_provider.dart';
 import '../providers/designs_provider.dart';
 import 'device_fs_service.dart';
 import 'fs_protocol_service.dart';
+import 'websocket_service.dart';
 
 class RemoteAccessService {
   final DeviceProvider _deviceProvider;
@@ -475,7 +476,11 @@ class RemoteAccessService {
       'device': {
         'id': device.id,
         'name': device.displayName,
-        'type': device.id.startsWith('demo_') ? 'demo' : 'ble',
+        'type': device.id.startsWith('demo_')
+        ? 'demo'
+        : device.id.startsWith('ws://') || device.id.startsWith('wss://')
+            ? 'wifi'
+            : 'ble',
         'configName': _deviceProvider.configName,
         'description': _deviceProvider.description,
         'hasFs': device.hasFs,
@@ -532,8 +537,19 @@ class RemoteAccessService {
             'Serial device $id not found in scan results');
       }
       _deviceProvider.setTransport(_serialProvider.serialService);
+    } else if (type == 'wifi') {
+      if (!id.startsWith('ws://') && !id.startsWith('wss://')) {
+        return _error('invalid_url', 'WiFi ID must be a WebSocket URL (ws:// or wss://)');
+      }
+      target = DeviceInfo(
+        id: id,
+        name: Uri.tryParse(id)?.host ?? id,
+        rssi: 0,
+        hasFs: false,
+      );
+      _deviceProvider.setTransport(WebSocketService());
     } else {
-      return _error('invalid_type', "type must be 'ble' or 'serial'");
+      return _error('invalid_type', "type must be 'ble', 'serial', or 'wifi'");
     }
 
     try {

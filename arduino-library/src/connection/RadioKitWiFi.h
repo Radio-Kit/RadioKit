@@ -72,7 +72,7 @@ private:
     mutable char _localIpBuf[16];
 
 #if defined(ESP32) && defined(RADIOKIT_ENABLE_WIFI)
-    WebSocketsServer _server;
+    WebSocketsServer* _server;
 
     // Send buffer (pre-allocated to avoid stack overflow with large FS frames)
     uint8_t _framedBuf[16388];

@@ -46,6 +46,11 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
   bool _savingPwd = false;
   bool _savingAdminPwd = false;
 
+  // Transport toggles (UI only — functionality added later)
+  bool _bleEnabled = true;
+  bool _wifiEnabled = false;
+  bool _cloudEnabled = false;
+
   @override
   void initState() {
     super.initState();
@@ -122,7 +127,10 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
               const Divider(height: 1, color: Colors.white12),
               const SizedBox(height: 24),
 
-              // ── Name field ───────────────────────────────────
+              // ── MODEL_INFO section ─────────────────────────
+              _buildSectionTag('MODEL_INFO'),
+              const SizedBox(height: 16),
+
               _buildSaveField(
                 label: 'NAME',
                 ctrl: _nameCtrl,
@@ -132,7 +140,6 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
               ),
               const SizedBox(height: 16),
 
-              // ── Description field ────────────────────────────
               _buildSaveField(
                 label: 'DESCRIPTION',
                 ctrl: _descCtrl,
@@ -143,7 +150,6 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
               ),
               const SizedBox(height: 16),
 
-              // ── Connection Password field ────────────────────
               _buildSaveField(
                 label: 'CONNECTION PASSWORD (leave empty to clear)',
                 ctrl: _pwdCtrl,
@@ -156,7 +162,6 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
               ),
               const SizedBox(height: 16),
 
-              // ── Admin Password field ─────────────────────────
               _buildSaveField(
                 label: 'ADMIN PASSWORD (leave empty to clear)',
                 ctrl: _adminPwdCtrl,
@@ -171,7 +176,48 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
               ),
               const SizedBox(height: 32),
 
+              // ── CONNECTION section ──────────────────────────
+              _buildSectionTag('CONNECTION'),
+              const SizedBox(height: 16),
+
+              _buildTransportRow(
+                icon: Icons.bluetooth_rounded,
+                label: 'BLE',
+                subtitle: 'Bluetooth Low Energy',
+                enabled: _bleEnabled,
+                onChanged: (v) => setState(() => _bleEnabled = v),
+              ),
+              const SizedBox(height: 12),
+
+              _buildTransportRow(
+                icon: Icons.wifi_rounded,
+                label: 'WIFI',
+                subtitle: 'Wireless network',
+                enabled: _wifiEnabled,
+                onChanged: (v) => setState(() {
+                  _wifiEnabled = v;
+                  if (!v) _cloudEnabled = false;
+                }),
+              ),
+
+              if (_wifiEnabled) ...[
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.only(left: 36),
+                  child: _buildTransportRow(
+                    icon: Icons.cloud_rounded,
+                    label: 'CLOUD',
+                    subtitle: 'Remote access over internet',
+                    enabled: _cloudEnabled,
+                    onChanged: (v) => setState(() => _cloudEnabled = v),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 32),
+
               // ── Factory Reset ────────────────────────────────
+              _buildSectionTag('FACTORY_RESET'),
+              const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 height: 48,
@@ -192,15 +238,81 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
                   onPressed: () => _factoryReset(dp),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
               const Text(
-                'Factory reset will erase all settings (name, description, password) '
+                'Erase all settings (name, description, password) '
                 'and reboot the device. Compile-time defaults will be restored.',
                 style: TextStyle(color: Colors.white38, fontSize: 11),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTag(String title) {
+    return Row(
+      children: [
+        Container(
+          width: 6,
+          height: 6,
+          color: AppColors.brandOrange,
+        ),
+        const SizedBox(width: 10),
+        Text(
+          title,
+          style: GoogleFonts.changa(
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+            letterSpacing: 1.5,
+            color: AppColors.brandOrange,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTransportRow({
+    required IconData icon,
+    required String label,
+    required String subtitle,
+    required bool enabled,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: enabled ? AppColors.brandOrange : Colors.white38),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                        color: enabled ? Colors.white : Colors.white54,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(subtitle,
+                    style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.4),
+                        fontSize: 11)),
+              ],
+            ),
+          ),
+          Switch(
+            value: enabled,
+            onChanged: onChanged,
+            activeThumbColor: AppColors.brandOrange,
+          ),
+        ],
       ),
     );
   }

@@ -14,6 +14,9 @@
 #include "RadioKitWiFi.h"
 #include "../RadioKitProtocol.h"
 #include "../RadioKitConfig.h"
+#include "RadioKitFS.h"
+#include "RadioKitOTA.h"
+#include "RadioKitSettings.h"
 #include <string.h>
 
 RadioKitWiFi RadioKitWiFiInstance;
@@ -34,6 +37,9 @@ RadioKitWiFi::RadioKitWiFi()
     , _lastPacketMs(0)
     , _lastStaRetryMs(0)
     , _connPwd(nullptr)
+#if defined(ESP32) && defined(RADIOKIT_ENABLE_WIFI)
+    , _server(nullptr)
+#endif
 {
     _packetCb = nullptr;
     _fsCb = nullptr;
@@ -54,6 +60,10 @@ void RadioKitWiFi::setCredentials(const char* staSsid, const char* staPassword) 
     }
 }
 
+void RadioKitWiFi::setApPassword(const char* pwd) {
+    _connPwd = pwd;
+}
+
 void RadioKitWiFi::begin(const char* name, RK_PacketCallback cb) {
     _packetCb = cb;
 
@@ -71,9 +81,9 @@ void RadioKitWiFi::begin(const char* name, RK_PacketCallback cb) {
         if (_connectSta(_staSsid, _staPwd)) {
             // STA connected — start WebSocket server
             _apMode = false;
-            _server = WebSocketsServer(RK_WIFI_WS_PORT);
-            _server.begin();
-            _server.onEvent([this](uint8_t num, WStype_t type, uint8_t* payload, size_t length) {
+            _server = new WebSocketsServer(RK_WIFI_WS_PORT);
+            _server->begin();
+            _server->onEvent([this](uint8_t num, WStype_t type, uint8_t* payload, size_t length) {
                 _onWsEvent(num, type, payload, length);
             });
             _initMdns("sta");
@@ -125,9 +135,9 @@ void RadioKitWiFi::_startAp() {
     WiFi.mode(WIFI_AP_STA);  // AP + background STA retry
 
     // Start WebSocket server
-    _server = WebSocketsServer(RK_WIFI_WS_PORT);
-    _server.begin();
-    _server.onEvent([this](uint8_t num, WStype_t type, uint8_t* payload, size_t length) {
+    _server = new WebSocketsServer(RK_WIFI_WS_PORT);
+    _server->begin();
+    _server->onEvent([this](uint8_t num, WStype_t type, uint8_t* payload, size_t length) {
         _onWsEvent(num, type, payload, length);
     });
 
@@ -150,11 +160,11 @@ void RadioKitWiFi::_initMdns(const char* mode) {
     MDNS.end();
     if (MDNS.begin("radiokit")) {
         MDNS.addService("_radiokit", "_tcp", RK_WIFI_WS_PORT);
-        MDNS.addServiceTxt("_radiokit", "_tcp", "name", _deviceName);
-        MDNS.addServiceTxt("_radiokit", "_tcp", "mode", mode);
+        MDNS.addServiceTxt(String("_radiokit"), String("_tcp"), String("name"), String(_deviceName));
+        MDNS.addServiceTxt(String("_radiokit"), String("_tcp"), String("mode"), String(mode));
 
         String ipStr = _apMode ? WiFi.softAPIP().toString() : WiFi.localIP().toString();
-        MDNS.addServiceTxt("_radiokit", "_tcp", "ip", ipStr.c_str());
+        MDNS.addServiceTxt(String("_radiokit"), String("_tcp"), String("ip"), ipStr);
     }
 }
 
@@ -241,7 +251,7 @@ void RadioKitWiFi::_feedBytes(const uint8_t* data, size_t len) {
 }
 
 void RadioKitWiFi::update() {
-    _server.loop();
+    if (_server) _server->loop();
 
     // Background STA retry (AP mode only, keep AP active)
     if (_apMode && _staSsid[0] != '\0') {
@@ -288,7 +298,7 @@ void RadioKitWiFi::sendPacket(const uint8_t* buf, uint16_t len) {
     _framedBuf[0] = typeByte;
     memcpy(_framedBuf + 1, buf, len);
 
-    _server.broadcastBIN(_framedBuf, 1 + len);
+    if (_server) _server->broadcastBIN(_framedBuf, 1 + len);
 }
 
 bool RadioKitWiFi::isConnected() const {

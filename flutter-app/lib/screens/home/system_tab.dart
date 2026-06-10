@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/theme_provider.dart';
 import '../../providers/history_provider.dart';
+import '../../providers/designs_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/skin_provider.dart';
 import '../../providers/remote_access_provider.dart';
@@ -140,10 +141,11 @@ class SystemTab extends StatelessWidget {
             _buildAdvancedOptionsCard(context),
 
             const SizedBox(height: 32),
-            _buildSectionTag(context, '04. HARDWARE_METRICS'),
+            _buildSectionTag(context, '04. VERSION'),
             _buildAboutCard(context),
 
-            const SizedBox(height: 48),
+            const SizedBox(height: 32),
+            _buildSectionTag(context, '05. DANGER_ZONE'),
             _buildDangerZone(context),
             const SizedBox(height: 32),
           ],
@@ -350,7 +352,7 @@ class SystemTab extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'FIRMWARE_VERSION',
+                    'VERSION',
                     style: GoogleFonts.changa(
                       fontWeight: FontWeight.w900,
                       fontSize: 14,
@@ -360,15 +362,56 @@ class SystemTab extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'v4.2.0-STABLE',
+                    'App & firmware information',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.9),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                      color: Colors.white.withValues(alpha: 0.6),
+                      fontSize: 11,
                     ),
                   ),
                 ],
               ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  'APP_VERSION',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.5),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'v1.0.0',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'FIRMWARE_VERSION',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.5),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'v4.2.0',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -610,7 +653,7 @@ class SystemTab extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'This will remove all paired models',
+                        'Irreversible actions',
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.6),
                           fontSize: 11,
@@ -622,26 +665,72 @@ class SystemTab extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.redAccent,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  elevation: 0,
-                ),
-                onPressed: () => _confirmRemoveModels(context),
-                child: Text(
-                  'REMOVE_MODELS',
-                  style: GoogleFonts.changa(
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.5,
-                    fontSize: 14,
+            _buildDangerAction(
+              context,
+              icon: Icons.devices_other_rounded,
+              label: 'REMOVE_MODELS',
+              subtitle: 'Remove all paired models',
+              onPressed: () => _confirmRemoveModels(context),
+            ),
+            const SizedBox(height: 12),
+            _buildDangerAction(
+              context,
+              icon: Icons.folder_delete_rounded,
+              label: 'DELETE_PROJECTS',
+              subtitle: 'Delete all saved designs',
+              onPressed: () => _confirmDeleteProjects(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDangerAction(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String subtitle,
+    required VoidCallback onPressed,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.redAccent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: Colors.redAccent.withValues(alpha: 0.8)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.5),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
               ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.chevron_right_rounded),
+              color: Colors.redAccent.withValues(alpha: 0.7),
+              onPressed: onPressed,
             ),
           ],
         ),
@@ -671,6 +760,40 @@ class SystemTab extends StatelessWidget {
             },
             child: Text('REMOVE_ALL', style: GoogleFonts.changa(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1.0)),
           ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteProjects(BuildContext context) {
+    final designs = context.read<DesignsProvider>().designs;
+    final count = designs.length;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text('Delete All Projects'),
+        content: Text(
+          count == 0
+              ? 'No saved projects to delete.'
+              : 'Are you sure you want to delete all $count project(s)? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCEL', style: TextStyle(color: Colors.white38)),
+          ),
+          if (count > 0)
+            TextButton(
+              onPressed: () {
+                context.read<DesignsProvider>().deleteAll();
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('All projects deleted')),
+                );
+              },
+              child: Text('DELETE_ALL', style: GoogleFonts.changa(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1.0)),
+            ),
         ],
       ),
     );

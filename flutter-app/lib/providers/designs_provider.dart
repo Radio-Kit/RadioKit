@@ -96,6 +96,11 @@ class DesignsProvider extends ChangeNotifier {
     await _persist();
   }
 
+  Future<void> deleteAll() async {
+    _designs.clear();
+    await _persist();
+  }
+
   Future<void> _persist() async {
     final prefs = await SharedPreferences.getInstance();
     final jsonStr = jsonEncode(_designs.map((d) => d.toJson()).toList());

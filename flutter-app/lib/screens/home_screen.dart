@@ -9,6 +9,7 @@ import '../widgets/logo_icon.dart';
 import '../widgets/radiokit_app_bar.dart';
 import 'home/models_tab.dart';
 import 'home/designs_tab.dart';
+import 'home/pair_bottom_sheet.dart';
 
 class HomeScreen extends StatefulWidget {
   final StatefulNavigationShell navigationShell;

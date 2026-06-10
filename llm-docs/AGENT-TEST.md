@@ -316,6 +316,22 @@ curl -s http://$APP_IP:7007/api/log
 curl -s -X DELETE http://$APP_IP:7007/api/log
 ```
 
+### WiFi / WebSocket Connection
+
+Connect to a device over WiFi (local WebSocket server on port 5555):
+
+```bash
+# Connect directly — the pair bottom sheet has a WiFi tab (USB > BLE > WiFi ordering)
+# Enter the ESP32's IP address and port 5555, then tap CONNECT
+
+# Or via the API (if endpoint exists):
+curl -s -X POST http://$APP_IP:7007/api/connection/connect \
+    -H 'Content-Type: application/json' \
+    -d '{"id":"ws://<ESP32_IP>:5555","type":"wifi"}'
+```
+
+The device must be on the same WiFi network and have `-D RADIOKIT_ENABLE_WIFI` in its build flags. The ESP32 advertises via mDNS as `_radiokit._tcp` if STA mode is active.
+
 ### Demo Loading
 
 Load a built-in demo (replaces any connected device with a simulated one):

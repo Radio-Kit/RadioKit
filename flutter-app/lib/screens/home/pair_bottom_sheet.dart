@@ -169,8 +169,7 @@ class _PairBottomSheetState extends State<PairBottomSheet>
   }
 
   Future<void> _connectWiFi(String host, int port) async {
-    final url = 'ws://$host:$port';
-    // Build a device ID that can be detected as WiFi transport
+    // Build a device ID from the WebSocket URL
     final deviceId = 'ws://$host:$port';
     if (_connectingIds.contains(deviceId)) return;
     setState(() {
@@ -188,7 +187,7 @@ class _PairBottomSheetState extends State<PairBottomSheet>
       final device = DeviceInfo(
         id: deviceId,
         name: '$host:$port',
-        rssi: null,
+        rssi: 0,
         hasFs: false,
       );
       await deviceProvider.connectToDevice(device);
@@ -243,17 +242,17 @@ class _PairBottomSheetState extends State<PairBottomSheet>
               Tab(child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.bluetooth_rounded, size: 14),
+                  Icon(Icons.usb_rounded, size: 14),
                   SizedBox(width: 4),
-                  Text('BLE'),
+                  Text('USB'),
                 ],
               )),
               Tab(child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.usb_rounded, size: 14),
+                  Icon(Icons.bluetooth_rounded, size: 14),
                   SizedBox(width: 4),
-                  Text('USB'),
+                  Text('BLE'),
                 ],
               )),
               Tab(child: Row(
@@ -272,12 +271,6 @@ class _PairBottomSheetState extends State<PairBottomSheet>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _PairBleTab(
-                  onConnect: _connectBle,
-                  connectingIds: _connectingIds,
-                  failedIds: _failedIds,
-                  onDismissError: _dismissError,
-                ),
                 _PairUsbTab(
                   onConnect: _connectSerial,
                   connectingIds: _connectingIds,
@@ -285,6 +278,12 @@ class _PairBottomSheetState extends State<PairBottomSheet>
                   onDismissError: _dismissError,
                   selectedBaud: _selectedBaud,
                   onBaudChanged: (v) => setState(() => _selectedBaud = v),
+                ),
+                _PairBleTab(
+                  onConnect: _connectBle,
+                  connectingIds: _connectingIds,
+                  failedIds: _failedIds,
+                  onDismissError: _dismissError,
                 ),
                 _PairWiFiTab(
                   onConnect: _connectWiFi,

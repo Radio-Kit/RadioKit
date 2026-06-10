@@ -21,6 +21,10 @@
     {
       "name": "NimBLE-Arduino",
       "version": "^1.4.1"
+    },
+    {
+      "name": "WebSockets",
+      "version": "^2.7.3"
     }
   ],
   "build": {
