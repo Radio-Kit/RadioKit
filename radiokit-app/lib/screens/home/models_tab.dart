@@ -131,22 +131,27 @@ class ModelsTab extends StatelessWidget {
 /// side above the telemetry divider.
 Widget _buildActiveLinkCard(
     BuildContext context, DeviceProvider dp, DeviceInfo device) {
-  final isWifi =
+  final isWs =
       device.id.startsWith('ws://') || device.id.startsWith('wss://');
+  final isCloudRelay = isWs && device.id.contains('relay');
   final transportType = device.id.startsWith('demo_')
       ? 'DEMO'
-      : isWifi
-          ? 'WiFi'
-          : device.id.startsWith('COM') || device.id.contains('serial')
-              ? 'USB'
-              : 'BLE';
+      : isCloudRelay
+          ? 'CLOUD'
+          : isWs
+              ? 'WiFi'
+              : device.id.startsWith('COM') || device.id.contains('serial')
+                  ? 'USB'
+                  : 'BLE';
   final transportIcon = device.id.startsWith('demo_')
       ? Icons.wifi_tethering_rounded
-      : isWifi
-          ? Icons.wifi_rounded
-          : device.id.startsWith('COM') || device.id.contains('serial')
-              ? Icons.usb_rounded
-              : Icons.bluetooth_rounded;
+      : isCloudRelay
+          ? Icons.cloud_rounded
+          : isWs
+              ? Icons.wifi_rounded
+              : device.id.startsWith('COM') || device.id.contains('serial')
+                  ? Icons.usb_rounded
+                  : Icons.bluetooth_rounded;
   final latencyMs = dp.latencyMs;
   final signal = dp.rssi ?? device.rssi;
   final description = dp.description;
@@ -3062,7 +3067,9 @@ Future<void> _confirmRemoveDevice(
 /// Returns a human-readable transport label for the given device ID.
 String _transportLabel(String id) {
   if (id.startsWith('demo_')) return 'DEMO';
-  if (id.startsWith('ws://') || id.startsWith('wss://')) return 'WiFi';
+  final isWs = id.startsWith('ws://') || id.startsWith('wss://');
+  if (isWs && id.contains('relay')) return 'CLOUD';
+  if (isWs) return 'WiFi';
   if (id.startsWith('COM') || id.contains('serial')) return 'SERIAL';
   return 'BLUETOOTH LE';
 }

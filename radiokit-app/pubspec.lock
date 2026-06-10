@@ -915,7 +915,7 @@ packages:
   radiokit_widgets:
     dependency: "direct main"
     description:
-      path: "../flutter-library"
+      path: "../flutter-widgets"
       relative: true
     source: path
     version: "0.0.1"

@@ -5,11 +5,10 @@ import 'package:provider/provider.dart';
 
 import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
-import '../widgets/logo_icon.dart';
 import '../widgets/radiokit_app_bar.dart';
-import 'home/models_tab.dart';
 import 'home/designs_tab.dart';
 import 'home/pair_sheet.dart';
+import 'home/accounts_sheet.dart';
 
 class HomeScreen extends StatefulWidget {
   final StatefulNavigationShell navigationShell;
@@ -145,6 +144,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onConnect: () => showPairBottomSheet(context),
         onOpen: () => openConfigFile(context),
         onCreate: () => context.push('/designer'),
+        onAccounts: () => AccountsSheet.show(context),
       ),
       body: Row(
         children: [

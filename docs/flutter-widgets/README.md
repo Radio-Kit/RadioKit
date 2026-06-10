@@ -9,7 +9,7 @@ Add the package to your **pubspec.yaml**:
 ```yaml
 dependencies:
   radiokit_widgets:
-    path: ../flutter-library  # or published version when available
+    path: ../flutter-widgets  # or published version when available
 ```
 
 Import the public library entry point:
@@ -134,7 +134,7 @@ RKTheme(
 
 ## Integration with RadioKit Arduino Library
 
-This widget library pairs perfectly with the [RadioKit Arduino library](../../arduino-library):
+This widget library pairs perfectly with the [RadioKit Arduino library](../../rk-arduino):
 
 ```dart
 // In your Flutter app, use radiokit_widgets for UI
@@ -150,7 +150,7 @@ RKSlider(
 )
 ```
 
-See the [example app](../../flutter-app) for a complete BLE-connected implementation.
+See the [example app](../../radiokit-app) for a complete BLE-connected implementation.
 
 ## Learn More
 

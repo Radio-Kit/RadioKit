@@ -12,6 +12,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/radiokit_app_bar.dart';
 import '../../widgets/api_log_view.dart';
 import '../donate_screen.dart';
+import 'accounts_sheet.dart';
 
 class SystemTab extends StatelessWidget {
   Widget _buildProVersionCard(BuildContext context) {
@@ -99,7 +100,7 @@ class SystemTab extends StatelessWidget {
     final orientation = MediaQuery.of(context).orientation;
     final isLandscape = orientation == Orientation.landscape;
 
-    // In landscape mode, don't use Scaffold (parent provides it)
+    // In landscape mode, don't use Scaffold (parent provides it with its own AppBar)
     if (isLandscape) {
       return _buildContent(context, themeProvider);
     }
@@ -107,6 +108,34 @@ class SystemTab extends StatelessWidget {
     return Scaffold(
       appBar: RadioKitAppBar(
         tabIndex: 3,
+        actions: [
+          FilledButton.tonal(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.brandOrange.withValues(alpha: 0.15),
+              foregroundColor: AppColors.brandOrange,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              minimumSize: const Size(0, 34),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            onPressed: () => AccountsSheet.show(context),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.cloud_rounded, size: 16, color: AppColors.brandOrange),
+                const SizedBox(width: 6),
+                Text('Accounts',
+                    style: GoogleFonts.changa(
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                        fontSize: 15,
+                        color: AppColors.brandOrange)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: _buildContent(context, themeProvider),
     );
@@ -147,10 +176,39 @@ class SystemTab extends StatelessWidget {
             const SizedBox(height: 32),
             _buildSectionTag(context, '05. DANGER_ZONE'),
             _buildDangerZone(context),
+
+            const SizedBox(height: 32),
+            _buildAccountsButton(context),
             const SizedBox(height: 32),
           ],
         ),
       );
+  }
+
+  Widget _buildAccountsButton(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: () => AccountsSheet.show(context),
+        icon: Icon(Icons.cloud_rounded, size: 20, color: AppColors.brandOrange),
+        label: Text(
+          'ACCOUNTS',
+          style: GoogleFonts.changa(
+            color: AppColors.brandOrange,
+            fontWeight: FontWeight.w700,
+            fontSize: 14,
+            letterSpacing: 1.5,
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          side: BorderSide(color: AppColors.brandOrange.withValues(alpha: 0.3)),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildSectionTag(BuildContext context, String title) {

@@ -17,6 +17,7 @@ class RadioKitAppBar extends AppBar {
     VoidCallback? onConnect,
     VoidCallback? onOpen,
     VoidCallback? onCreate,
+    VoidCallback? onAccounts,
   }) : super(
           toolbarHeight: 40,
           title: Row(
@@ -51,7 +52,7 @@ class RadioKitAppBar extends AppBar {
               ),
             ],
           ),
-          actions: actions ?? _buildActionsForTab(tabIndex, onConnect, onOpen, onCreate),
+          actions: actions ?? _buildActionsForTab(tabIndex, onConnect, onOpen, onCreate, onAccounts),
         );
 
   static List<Widget> _buildActionsForTab(
@@ -59,6 +60,7 @@ class RadioKitAppBar extends AppBar {
     VoidCallback? onConnect,
     VoidCallback? onOpen,
     VoidCallback? onCreate,
+    VoidCallback? onAccounts,
   ) {
     switch (tabIndex) {
       case 0: // Models
@@ -101,10 +103,32 @@ class RadioKitAppBar extends AppBar {
         ];
       case 3: // System
         return [
-          IconButton(
-            icon: const Icon(Icons.sensors_rounded, size: 20),
-            onPressed: () {},
-          ),
+          if (onAccounts != null)
+            FilledButton.tonal(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.brandOrange.withValues(alpha: 0.15),
+                foregroundColor: AppColors.brandOrange,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                minimumSize: const Size(0, 34),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              onPressed: onAccounts,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.cloud_rounded, size: 16, color: AppColors.brandOrange),
+                  const SizedBox(width: 6),
+                  Text('Accounts',
+                      style: GoogleFonts.changa(
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                          fontSize: 15,
+                          color: AppColors.brandOrange)),
+                ],
+              ),
+            ),
           const SizedBox(width: 8),
         ];
       default:
