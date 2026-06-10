@@ -42,10 +42,10 @@ jobs:
           path: |
             ~/.platformio
             .pio
-          key: pio-${{ matrix.env }}-${{ hashFiles('arduino-library/platformio.ini', 'arduino-library/**/library.properties', 'arduino-library/**/library.json') }}
+          key: pio-${{ matrix.env }}-${{ hashFiles('rk-arduino/platformio.ini', 'rk-arduino/**/library.properties', 'rk-arduino/**/library.json') }}
           restore-keys: |
             pio-${{ matrix.env }}-
 
       - name: Build ${{ matrix.env }}
-        working-directory: arduino-library
+        working-directory: rk-arduino
         run: pio run -e ${{ matrix.env }}

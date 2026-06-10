@@ -167,7 +167,7 @@ Pass `showDebug: showDebug` to widgets (true only for the selected element in de
 
 ## 7. Code Generation Patterns
 
-- Generated Arduino code lives in `flutter-app/lib/screens/designer/codegen/`.
+- Generated Arduino code lives in `radiokit-app/lib/screens/designer/codegen/`.
 - The `JsonArduinoGenerator.generate(jsonMap)` method produces complete `RADIOKIT.h` content.
 - The `.h` file embeds the JSON config in a comment block delimited by:
   ```
@@ -177,7 +177,7 @@ Pass `showDebug: showDebug` to widgets (true only for the selected element in de
   ```
 - The C++ code is always derived from the JSON schema (never hand-edited alongside the designer).
 - Widget names use `snake_case` identifiers (e.g., `button_1`, `slider_2`).
-- Demo JSON files live in `flutter-app/assets/demos/` and use the same schema.
+- Demo JSON files live in `radiokit-app/assets/demos/` and use the same schema.
 
 ## 8. Demo Screen Conventions
 
@@ -363,8 +363,8 @@ Push a tag ending in `-flatpak` (e.g. `test-flatpak`, `v1.0.0-flatpak`) to trigg
 - Usage pattern:
   ```
   python3 flatpak-flutter.py \
-    --app-pubspec flutter-app \
-    --extra-pubspecs flutter-library \
+    --app-pubspec radiokit-app \
+    --extra-pubspecs flutter-widgets \
     flatpak/flatpak-flutter.yml
   ```
 
@@ -385,7 +385,7 @@ flatpak/
 - **Runtime**: `org.freedesktop.Platform//24.08`
 - **SDK extension**: `org.freedesktop.Sdk.Extension.llvm18` — required for C++ compiler (CMake)
 - **Flutter SDK tag**: must match the latest stable Flutter (check `git ls-remote --tags https://github.com/flutter/flutter.git`)
-- **Monorepo path dep**: `radiokit_widgets` (`path: ../flutter-library`) is handled via `--extra-pubspecs flutter-library` — the code is already in the git checkout, only its transitive hosted/git deps need pinning
+- **Monorepo path dep**: `radiokit_widgets` (`path: ../flutter-widgets`) is handled via `--extra-pubspecs flutter-widgets` — the code is already in the git checkout, only its transitive hosted/git deps need pinning
 - **`libserialport`**: no separate Flatpak module needed — `flutter_libserialport` bundles and self-builds the C library from `third_party/libserialport/`
 - **CMakeLists.txt**: must be tracked in git (add `!**/CMakeLists.txt` to `.gitignore` to override `*.txt` pattern)
 - **Icon**: must be ≤512x512px (Flathub limit)
@@ -409,7 +409,7 @@ finish-args:
 
 ```bash
 # Pre-process
-python3 flatpak-flutter.py --app-pubspec flutter-app --extra-pubspecs flutter-library flatpak/flatpak-flutter.yml
+python3 flatpak-flutter.py --app-pubspec radiokit-app --extra-pubspecs flutter-widgets flatpak/flatpak-flutter.yml
 
 # Build in sandbox (no network)
 flatpak-builder --repo=repo --force-clean --sandbox --user --install \
@@ -424,7 +424,7 @@ flatpak run com.rambros3d.radiokit
 
 The `.github/workflows/release.yml` has a `flatpak` job that runs after the Android/iOS release job. It:
 1. Installs flatpak-builder, flatpak-flutter, runtimes, and `org.freedesktop.Sdk.Extension.llvm18` (C++ compiler)
-2. Pre-processes the manifest with `--extra-pubspecs flutter-library`
+2. Pre-processes the manifest with `--extra-pubspecs flutter-widgets`
 3. Builds with flatpak-builder (no `--sandbox` for CI stability)
 4. Exports `.flatpak` bundle
 5. Uploads to the existing GitHub Release
@@ -439,7 +439,7 @@ The `.github/workflows/release.yml` has a `flatpak` job that runs after the Andr
 
 ### 12.1 App-level wrapper (`_FollowModeWrapper`)
 
-- **Location**: `flutter-app/lib/app.dart` — wraps all routes above the Navigator.
+- **Location**: `radiokit-app/lib/app.dart` — wraps all routes above the Navigator.
 - **Constructor param**: Takes `GoRouter router` as a required parameter (NOT `GoRouter.of(context)` — that fails from `MaterialApp.router` builder context because the GoRouter InheritedWidget is inside the Navigator).
 - **Route change tracking**: Uses `router.routerDelegate.addListener(_onRouteChanged)` — `RouterDelegate` extends `Listenable` so `addListener`/`removeListener` work directly.
 - **Initialization**: Register the listener in a `addPostFrameCallback` so the router delegate is fully initialized before we try to read `currentConfiguration`.
@@ -449,7 +449,7 @@ The `.github/workflows/release.yml` has a `flatpak` job that runs after the Andr
 
 ### 12.2 Route mapping (`_followRoute`)
 
-- **Location**: `flutter-app/lib/services/remote_access_service.dart` — `static String? _followRoute(String path)`.
+- **Location**: `radiokit-app/lib/services/remote_access_service.dart` — `static String? _followRoute(String path)`.
 - **Mapping**: API request path prefixes → follow-mode route targets (uses `startsWith` internally):
   ```
   path.startsWith('/api/pair/')        → /pair
@@ -552,7 +552,7 @@ pio run -t upload            # flash to board
 
 ### 17.2 Available examples
 
-Each directory under `arduino-library/examples/` has a self-contained `platformio.ini`:
+Each directory under `rk-arduino/examples/` has a self-contained `platformio.ini`:
 - `SerialTest` — Serial transport demo
 - `BasicSwitch` — BLE basic switch
 - `JoystickMotor` — BLE joystick motor
@@ -612,3 +612,105 @@ The `_AdminAccessButton` (shown in the info bottom sheet when user mode is activ
 - **Rationale**: Emojis render inconsistently across terminals, editors, and CI output. Use plain-text markers instead (e.g., `[X]` for complete, `[~]` for in progress, `[ ]` for pending, `[-]` for blocked/failed).
 - **Action**: If you find emoji characters in a doc file, replace them with the corresponding plain-text marker.
 - **Note**: This rule applies to ALL markdown files in the project, including `docs/`, `llm-docs/`, `llm-docs/plans/`, and any other documentation.
+
+## 20. Cloud Relay Ed25519 Auth
+
+The cloud relay system uses Ed25519 challenge-response authentication between the Flutter app and the Rust relay server.
+
+### 20.1 Key components
+
+- **`radiokit-app/lib/services/websocket_service.dart`** — WebSocket transport that manages the Ed25519 auth state machine (`unauth` → `challenged` → `authenticated`). Sends `auth_request` on connect, signs the challenge nonce, handles `auth_ok`/`auth_failed`.
+- **`radiokit-app/lib/services/cloud_identity.dart`** — `CloudIdentityService` class wrapping Ed25519 keypair generation (`cryptography` package), secure storage via `flutter_secure_storage`, and nonce signing.
+- **`radiokit-app/lib/providers/cloud_identity_provider.dart`** — ChangeNotifier wrapper that initializes identity on first launch (generates keypair, persists to secure storage).
+- **`radiokit-relay/src/relay.rs`** — `verify_auth()` function validates Ed25519 signatures against the hex-encoded public key (account).
+- **`radiokit-relay/src/main.rs`** — Auth state machine: `auth_request` → `auth_challenge` → `auth_response` → `auth_ok`/`auth_failed`.
+- **`radiokit-relay/src/session.rs`** — `list_devices` and `join` are gated behind `authenticated = true`.
+
+### 20.2 Auth flow
+
+```
+App (WebSocketService)        Relay                     Device
+ │                            │                          │
+ ├── auth_request ───────────→│                          │
+ │   { type, account }       │                          │
+ │                            │                          │
+ │←──── auth_challenge ───────┤                          │
+ │   { type, nonce_b64 }     │                          │
+ │                            │                          │
+ ├── auth_response ──────────→│                          │
+ │   { type, signature_b64 } │                          │
+ │   (sign(nonce, Ed25519)   │                          │
+ │                            │                          │
+ │←──── auth_ok ──────────────┤                          │
+ │   { type }                │                          │
+ │                            │                          │
+ ├── list_devices ───────────→│                          │
+ │←──── [device_names] ──────┤                          │
+ │                            │                          │
+ ├── join Device ────────────→│─────── forward ─────────→│
+ │                            │                          │
+ │   (widget frames rout     │                          │
+ │    through relay)         │                          │
+```
+
+### 20.3 WebSocketService auth state machine
+
+- **`_authState`**: `_AuthState.unauth`, `_AuthState.challenged`, `_AuthState.authenticated`
+- On `connect()`: sets `_authState = unauth`, sends `auth_request` with the account (public key hex)
+- On receiving `auth_challenge`: decodes nonce from base64, signs it with `_identity.sign(nonce)`, sends `auth_response`
+- On `auth_ok`: sets `_authState = authenticated`, fires `onAuthSuccess`
+- On `auth_failed`: sets `_authState = unauth`, fires `onAuthFailed`
+- On disconnect: resets `_authState = unauth`
+- **Re-entrant connect guard**: If `connect()` is called while already connected, it sends the join message through the existing authenticated session instead of creating a new WebSocket.
+
+### 20.4 CloudIdentityService
+
+```dart
+class CloudIdentityService {
+  Future<void> initialize();           // Load from storage or generate new
+  Future<List<int>> sign(List<int> data); // Sign with private key
+  Future<void> importKeyPair(String privHex, String pubHex); // For testing
+  bool get hasIdentity;
+  String? get publicKeyHex;
+}
+```
+
+- Keys are stored in `flutter_secure_storage` under keys `cloud_private_key` and `cloud_public_key`
+- On first launch, a new Ed25519 keypair is generated via `cryptography` package
+- The public key hex is the "account" — set this on the ESP32 firmware's `cloud_account` config
+
+### 20.5 Remote Access API endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/cloud/connect` | Connect to relay, auth, list devices |
+| GET | `/api/cloud/devices` | Cached connection state + device list |
+| POST | `/api/cloud/join` | Join a device through the relay |
+| POST | `/api/cloud/disconnect` | Disconnect from relay |
+
+See `llm-docs/API.md` for full request/response schemas.
+
+### 20.6 ESP32 firmware setup
+
+In the `RADIOKIT.h` config, set:
+```cpp
+RadioKit.config.cloud_url     = "wss://relay.example.com:443";
+RadioKit.config.cloud_account = "<64-char-hex-public-key>";
+RadioKit.startCloud();  // After startWiFi()
+```
+
+The device registers with the relay on boot using the public key as its identity.
+
+### 20.7 Testing
+
+See `llm-docs/AGENT-TEST.md` for the full cloud relay auth test procedure via the Remote Access API.
+
+Key test command:
+```bash
+curl -X POST http://127.0.0.1:7007/api/cloud/connect \
+  -H 'Content-Type: application/json' \
+  -d '{"host":"10.0.0.17","port":9000,"account":"<pubkey>","privateKey":"<privkey>"}'
+curl -X POST http://127.0.0.1:7007/api/cloud/join \
+  -H 'Content-Type: application/json' \
+  -d '{"device":"WiFi_Cloud_Switch"}'
+```

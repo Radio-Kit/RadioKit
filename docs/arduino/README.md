@@ -31,7 +31,7 @@ RadioKit is a powerful, object-oriented Arduino library (v3.0) that bridges your
 ```ini
 lib_deps =
     h2zero/NimBLE-Arduino@^2.1.0
-    RadioKit=symlink://./arduino-library
+    RadioKit=symlink://./rk-arduino
 ```
 
 ### Arduino IDE

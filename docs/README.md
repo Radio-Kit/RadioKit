@@ -52,7 +52,7 @@ void loop() {
 
 ```
 RadioKit/
-├── arduino-library/          # Arduino library (v2.0)
+├── rk-arduino/                # Arduino library (v2.0)
 │   ├── src/                   # Core library headers & implementation
 │   │   ├── RadioKit.h         # Main entry point
 │   │   ├── RadioKitConfig.h   # Configuration & constants
@@ -61,11 +61,11 @@ RadioKit/
 │   │   └── connection/        # BLE & Serial transports
 │   └── examples/              # Example sketches
 │
-├── flutter-library/           # Flutter widget library
+├── flutter-widgets/           # Flutter widget library
 │   ├── lib/                   # Widget implementations
 │   └── example/               # Example app
 │
-├── flutter-app/               # Reference Flutter companion app
+├── radiokit-app/              # Reference Flutter companion app
 │   ├── lib/                   # App source
 │   └── pubspec.yaml
 │
@@ -78,12 +78,12 @@ RadioKit/
 - **[Widgets Reference](arduino/widgets.md)** — Complete widget API
 - **[UI Layout](arduino/ui_layout.md)** — Coordinate system and sizing
 - **[Protocol Spec](arduino/protocol.md)** — Binary packet format details
-- **[Flutter Library](flutter-library/README.md)** — Flutter widget API
+- **[Flutter Widgets](flutter-widgets/README.md)** — Flutter widget API
 
 ### Development
 
-- **Arduino Library**: See [library.json](https://github.com/rambros3d/RadioKit/blob/main/arduino-library/library.json) for dependencies
-- **Flutter App**: See [pubspec.yaml](https://github.com/rambros3d/RadioKit/blob/main/flutter-app/pubspec.yaml) for dependencies
+- **Arduino Library**: See [library.json](https://github.com/rambros3d/RadioKit/blob/main/rk-arduino/library.json) for dependencies
+- **Flutter App**: See [pubspec.yaml](https://github.com/rambros3d/RadioKit/blob/main/radiokit-app/pubspec.yaml) for dependencies
 
 ### License
 

@@ -6,6 +6,6 @@
   - [UI Layout](arduino/ui_layout.md)
   - [Protocol Spec](arduino/protocol.md)
 
-- **Flutter Library**
-  - [Overview](flutter-library/README.md)
-  - [Widget API](flutter-library/rk_button.md)
+- **Flutter Widgets**
+  - [Overview](flutter-widgets/README.md)
+  - [Widget API](flutter-widgets/rk_button.md)

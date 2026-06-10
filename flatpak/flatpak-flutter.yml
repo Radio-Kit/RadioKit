@@ -17,13 +17,13 @@ modules:
   - name: radiokit
     buildsystem: simple
     build-commands:
-      - cd flutter-app && flutter build linux --release --no-pub
+      - cd radiokit-app && flutter build linux --release --no-pub
       - mkdir -p /app/share/radiokit /app/bin
-      - cp -r flutter-app/build/linux/*/release/bundle/lib /app/share/radiokit/
-      - cp -r flutter-app/build/linux/*/release/bundle/data /app/share/radiokit/
-      - install -Dm755 flutter-app/build/linux/*/release/bundle/radiokit /app/share/radiokit/radiokit
+      - cp -r radiokit-app/build/linux/*/release/bundle/lib /app/share/radiokit/
+      - cp -r radiokit-app/build/linux/*/release/bundle/data /app/share/radiokit/
+      - install -Dm755 radiokit-app/build/linux/*/release/bundle/radiokit /app/share/radiokit/radiokit
       - ln -s /app/share/radiokit/radiokit /app/bin/radiokit
-      - install -Dm644 flutter-app/resources/icon/app_icon.png /app/share/icons/hicolor/256x256/apps/com.rambros3d.radiokit.png
+      - install -Dm644 radiokit-app/resources/icon/app_icon.png /app/share/icons/hicolor/256x256/apps/com.rambros3d.radiokit.png
       - install -Dm644 flatpak/com.rambros3d.radiokit.desktop /app/share/applications/com.rambros3d.radiokit.desktop
       - install -Dm644 flatpak/com.rambros3d.radiokit.metainfo.xml /app/share/metainfo/com.rambros3d.radiokit.metainfo.xml
     build-options:

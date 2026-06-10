@@ -1377,24 +1377,210 @@ Returns an empty string if no route has been synced yet:
 
 ---
 
-## 14. Error Reference
+## 14. Cloud Relay (Cloud Auth)
+
+Cloud relay endpoints manage the Ed25519 challenge-response authentication flow with the Rust relay server. The relay acts as a bridge between the app and the ESP32 device over the internet.
+
+### Auth Flow
+
+```
+App                     Relay                    Device
+ │                        │                        │
+ ├── auth_request ───────→│                        │
+ │                        │                        │
+ │←──── auth_challenge ───┤                        │
+ │   (random 32-byte     │                        │
+ │    nonce, base64)     │                        │
+ │                        │                        │
+ ├── auth_response ──────→│                        │
+ │   (nonce signed with   │                        │
+ │    Ed25519 private key)│                        │
+ │                        │                        │
+ │←──── auth_ok ──────────┤                        │
+ │                        │                        │
+ ├── list_devices ───────→│                        │
+ │                        │                        │
+ │←──── ["Device1", ...] ─┤                        │
+ │                        │                        │
+ ├── join "Device1" ─────→│─────── forward ────────→│
+ │                        │                        │
+ │←──── join_ok ──────────┤←─────── ack ───────────┤
+ │                        │                        │
+ │   (Widget frames now   │                        │
+ │    route through relay)│                        │
+```
+
+> **How it works**: The app generates an Ed25519 keypair on first launch. The **public key hex** is the account identifier — set this on the ESP32 firmware's `cloud_account` field. The **private key hex** is used to sign relay challenges and is stored in platform secure storage on the device. When connecting via the API, both hex strings are passed explicitly.
+
+---
+
+### `POST /api/cloud/connect`
+
+Connect to a relay, authenticate with Ed25519 challenge-response, and retrieve the device list.
+
+**Request:**
+
+```json
+{
+  "host": "10.0.0.17",
+  "port": 9000,
+  "account": "4b6afa33fb4d3de07f9382ff9dbac48733d3aca7206218c82c982391210e1bed",
+  "privateKey": "1f2919214484bb4100aad318e572ca75a605b551ef68a2111b3cff56165fb654"
+}
+```
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `host` | string | no | `relay.radiokit.app` | Relay server hostname or IP |
+| `port` | int | no | `443` | Relay server port (`443`→`wss://`, otherwise `ws://`) |
+| `account` | string | yes | — | Ed25519 public key in hex (64 hex chars) |
+| `privateKey` | string | yes | — | Ed25519 private key in hex (64 hex chars) for signing the challenge nonce |
+
+**Response `200`:**
+
+```json
+{
+  "ok": true,
+  "host": "10.0.0.17",
+  "port": 9000,
+  "account": "4b6afa33fb4d3de07f9382ff9dbac48733d3aca7206218c82c982391210e1bed",
+  "devices": ["WiFi_Cloud_Switch"]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `devices` | string[] | List of device names registered with the same account on the relay |
+
+**Response `401` (auth failed):**
+
+```json
+{
+  "error": "auth_failed",
+  "message": "Signing failed: ..."
+}
+```
+
+**Response `504` (timeout):**
+
+```json
+{
+  "error": "timeout",
+  "message": "Timed out waiting for relay response"
+}
+```
+
+> **Internal flow**: `auth_request` is sent automatically by `WebSocketService` on connect. The relay responds with `auth_challenge` containing a random 32-byte nonce (base64). The app signs the nonce with the Ed25519 private key and sends `auth_response`. The relay verifies the signature against the stored public key and sends `auth_ok` or `auth_failed`.
+
+---
+
+### `GET /api/cloud/devices`
+
+Returns the cached connection state and device list from the last successful `POST /api/cloud/connect`.
+
+**Response `200`:**
+
+```json
+{
+  "connected": true,
+  "host": "10.0.0.17",
+  "port": 9000,
+  "account": "4b6afa33fb4d3de07f9382ff9dbac48733d3aca7206218c82c982391210e1bed",
+  "devices": ["WiFi_Cloud_Switch"]
+}
+```
+
+**Response `503` (not connected):**
+
+```json
+{
+  "error": "not_connected",
+  "message": "Not connected to a relay"
+}
+```
+
+---
+
+### `POST /api/cloud/join`
+
+Join a specific device through the relay. Wires up the `DeviceProvider` so widget interaction (toggle switches, read LED state, etc.) works through the cloud relay. The device is automatically saved to paired history on success.
+
+> **Guard**: Returns `503` if no relay connection is active.
+
+**Request:**
+
+```json
+{
+  "device": "WiFi_Cloud_Switch"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `device` | string | yes | Device name as returned by `GET /api/cloud/devices` |
+
+**Response `200` (success):**
+
+```json
+{
+  "ok": true,
+  "device": "WiFi_Cloud_Switch",
+  "host": "10.0.0.17",
+  "port": 9000,
+  "message": "Connected to WiFi_Cloud_Switch via cloud relay"
+}
+```
+
+**Response `200` (timeout):**
+
+```json
+{
+  "ok": false,
+  "device": "WiFi_Cloud_Switch",
+  "host": "10.0.0.17",
+  "port": 9000,
+  "message": "Join timed out — device may be offline"
+}
+```
+
+> **Internal flow**: The join URL becomes `ws://host:port/DeviceName`. `connectToDevice` calls `WebSocketService.connect(url)` which (on an already-connected session) sends the join message through the existing authenticated WebSocket. The relay confirms the join, then forwards all widget frames between the app and the device.
+
+---
+
+### `POST /api/cloud/disconnect`
+
+Disconnect from the relay. Clears the cached device list and closes the WebSocket.
+
+**Response `200`:**
+
+```json
+{
+  "ok": true,
+  "message": "Disconnected from relay"
+}
+```
+
+---
+
+## 15. Error Reference
 
 | `error` | Meaning |
 |---------|---------|
-| `not_connected` | No device is connected |
+| `not_connected` | No device is connected / not connected to relay |
 | `no_fs` | Device does not support filesystem |
 | `not_found` | Resource not found |
 | `invalid_type` | Invalid transport type |
+| `invalid_url` | WiFi ID must be a WebSocket URL (ws:// or wss://) |
 | `invalid_hex` | Payload is not valid hex |
 | `invalid_values` | Wrong number/type of values for widget |
 | `connection_failed` | Could not connect to device |
 | `no_history` | No previously paired device in history |
 | `demo_not_found` | Invalid demo ID |
 | `demo_load_failed` | Failed to load demo asset or parse config |
-| `timeout` | Device did not respond |
+| `timeout` | Device did not respond / relay timed out |
 | `fs_error` | Filesystem operation failed (check `message` for details) |
 | `internal_error` | Unexpected server error |
-| `auth_failed` | Password mismatch or auth timeout |
+| `auth_failed` | Password mismatch or auth timeout / cloud Ed25519 signing failed |
 | `auth_error` | Internal authentication error |
 | `nvs_error` | Failed to read/write NVS config |
 | `confirmation_required` | Factory reset requires `confirm: true` |
@@ -1404,3 +1590,4 @@ Returns an empty string if no route has been synced yet:
 | `invalid_description` | Description exceeds max length |
 | `invalid_password` | Password exceeds max length |
 | `invalid_admin_password` | Admin password exceeds max length |
+| `cloud_error` | Cloud relay operation failed (check `message` for details) |

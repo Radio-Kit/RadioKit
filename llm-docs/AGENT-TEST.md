@@ -30,7 +30,7 @@ The agent drives tests from the host PC via `curl` against a running instance of
 #### 1. Build & install the Flutter app
 
 ```bash
-cd flutter-app
+cd radiokit-app
 flutter build <platform> --debug
 # Install per platform (see platform sections below)
 ```
@@ -91,7 +91,7 @@ echo "App IP: $APP_IP"
 ### Build & Install
 
 ```bash
-cd flutter-app
+cd radiokit-app
 flutter build apk --debug
 adb install -r build/app/outputs/flutter-apk/app-debug.apk
 ```
@@ -129,7 +129,7 @@ The app runs as a native Linux desktop application.
 ### Build & Install
 
 ```bash
-cd flutter-app
+cd radiokit-app
 flutter build linux --debug
 ```
 
@@ -176,7 +176,7 @@ tail -f /tmp/radiokit.log
 ### Build & Flash
 
 ```bash
-cd arduino-library/examples/<EXAMPLE_DIR>
+cd rk-arduino/examples/<EXAMPLE_DIR>
 pio run -t upload --upload-port /dev/ttyACM0
 ```
 
@@ -332,6 +332,124 @@ curl -s -X POST http://$APP_IP:7007/api/connection/connect \
 
 The device must be on the same WiFi network and have `-D RADIOKIT_ENABLE_WIFI` in its build flags. The ESP32 advertises via mDNS as `_radiokit._tcp` if STA mode is active.
 
+### Cloud Relay Auth Flow
+
+Connect to the Rust relay server, authenticate with Ed25519 challenge-response, discover and join a remote device.
+
+**Prerequisites:**
+- The ESP32 must be flashed with firmware that sets `cloud_url` and `cloud_account` (public key hex)
+- The Rust relay must be running on the target server
+- ADB port forwarding must be active (`adb forward tcp:7007 tcp:7007`)
+
+**Step 1 — Connect to relay and authenticate:**
+
+```bash
+curl -s --max-time 30 -X POST http://127.0.0.1:7007/api/cloud/connect \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "host": "10.0.0.17",
+    "port": 9000,
+    "account": "<64-char-hex-public-key>",
+    "privateKey": "<64-char-hex-private-key>"
+  }'
+```
+
+Expected response:
+```json
+{
+  "ok": true,
+  "host": "10.0.0.17",
+  "port": 9000,
+  "account": "4b6afa33...",
+  "devices": ["WiFi_Cloud_Switch"]
+}
+```
+
+**Step 2 — Check device list:**
+
+```bash
+curl -s http://127.0.0.1:7007/api/cloud/devices
+```
+
+Expected response:
+```json
+{
+  "connected": true,
+  "host": "10.0.0.17",
+  "port": 9000,
+  "devices": ["WiFi_Cloud_Switch"]
+}
+```
+
+**Step 3 — Join a device:**
+
+```bash
+curl -s --max-time 20 -X POST http://127.0.0.1:7007/api/cloud/join \
+  -H 'Content-Type: application/json' \
+  -d '{"device": "WiFi_Cloud_Switch"}'
+```
+
+Expected response:
+```json
+{
+  "ok": true,
+  "device": "WiFi_Cloud_Switch",
+  "host": "10.0.0.17",
+  "port": 9000,
+  "message": "Connected to WiFi_Cloud_Switch via cloud relay"
+}
+```
+
+**Step 4 — Verify connection and control widgets:**
+
+```bash
+# Check connection status
+curl -s http://127.0.0.1:7007/api/connection | python3 -m json.tool
+
+# List widgets
+curl -s http://127.0.0.1:7007/api/widgets | python3 -m json.tool
+
+# Toggle a widget (e.g., switch widget to ON)
+curl -s -X PUT http://127.0.0.1:7007/api/widgets/0 \
+  -H 'Content-Type: application/json' \
+  -d '{"values":[1]}'
+
+# Toggle OFF
+curl -s -X PUT http://127.0.0.1:7007/api/widgets/0 \
+  -H 'Content-Type: application/json' \
+  -d '{"values":[0]}'
+```
+
+**Step 5 — Disconnect from relay:**
+
+```bash
+curl -s -X POST http://127.0.0.1:7007/api/cloud/disconnect
+```
+
+**Keypair generation (Python):**
+
+```python
+from cryptography.hazmat.primitives.asymmetric import ed25519
+
+private_key = ed25519.Ed25519PrivateKey.generate()
+public_key = private_key.public_key()
+
+print(f'Private key hex: {private_key.private_bytes_raw().hex()}')
+print(f'Public key hex:  {public_key.public_bytes_raw().hex()}')
+```
+
+The public key hex goes into the ESP32's `cloud_account` config. The app uses the private key to sign challenge nonces. Store the private key securely — it cannot be recovered.
+
+**Troubleshooting:**
+
+| Symptom | Likely cause |
+|---------|--------------|
+| `auth_failed: Signing failed` | Private key doesn't match account (public key) |
+| Timeout on connect | Relay not running or host:port unreachable |
+| Empty device list | No ESP32 registered with this account, or device hasn't connected to relay yet |
+| Join times out | ESP32 is offline, or `cloud_account` in firmware doesn't match the account sent to API |
+| `cloud_error: Connection lost` | ESP32 disconnected from relay mid-session |
+
 ### Demo Loading
 
 Load a built-in demo (replaces any connected device with a simulated one):
@@ -421,6 +539,11 @@ curl -s -X POST http://$APP_IP:7007/api/connection/disconnect
 | POST | `/api/designs` | Save a design |
 | DELETE | `/api/designs` | Delete all designs |
 | DELETE | `/api/designs/<id>` | Delete one design |
+| POST | `/api/cloud/connect` | Connect to relay, Ed25519 auth, list devices |
+| GET | `/api/cloud/devices` | Cached relay connection state + device list |
+| POST | `/api/cloud/join` | Join a device through the relay |
+| POST | `/api/cloud/disconnect` | Disconnect from relay |
+| GET | `/api/session/route` | Current app route (follow-mode / test sync) |
 
 ---
 

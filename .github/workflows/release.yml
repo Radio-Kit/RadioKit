@@ -31,17 +31,17 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd flutter-app
+          cd radiokit-app
           flutter pub get
 
       - name: Build Android APK
         run: |
-          cd flutter-app
+          cd radiokit-app
           flutter build apk --release
 
       - name: Build iOS IPA
         run: |
-          cd flutter-app
+          cd radiokit-app
           flutter build ios --release --no-codesign
           mkdir -p Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
@@ -97,8 +97,8 @@ jobs:
         run: |
           git clone --depth=1 https://github.com/TheAppgineer/flatpak-flutter.git /tmp/flatpak-flutter
           python3 /tmp/flatpak-flutter/flatpak-flutter.py \
-            --app-pubspec flutter-app \
-            --extra-pubspecs flutter-library \
+            --app-pubspec radiokit-app \
+            --extra-pubspecs flutter-widgets \
             flatpak/flatpak-flutter.yml
 
       - name: Build Flatpak
