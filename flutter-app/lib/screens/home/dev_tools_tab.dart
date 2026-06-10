@@ -10,45 +10,57 @@ class DevToolsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final orientation = MediaQuery.of(context).orientation;
+    final isLandscape = orientation == Orientation.landscape;
+
+    // In landscape mode, don't use Scaffold (parent provides it)
+    if (isLandscape) {
+      return _buildContent(context);
+    }
+
     return Scaffold(
       appBar: RadioKitAppBar(),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'DEV TOOLS',
-              style: GoogleFonts.changa(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.5,
-                color: AppColors.brandGray,
-              ),
+      body: _buildContent(context),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'DEV TOOLS',
+            style: GoogleFonts.changa(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.5,
+              color: AppColors.brandGray,
             ),
-            const SizedBox(height: 16),
-            _ToolCard(
-              icon: LucideIcons.cable,
-              title: 'USB Serial Monitor',
-              subtitle: 'Monitor and send serial data over USB',
-              onTap: () => context.push('/dev-tools/usb-serial'),
-            ),
-            const SizedBox(height: 12),
-            _ToolCard(
-              icon: LucideIcons.hardDrive,
-              title: 'Filesystem Explorer',
-              subtitle: 'Browse, upload, rename, and format the device partition',
-              onTap: () => context.push('/dev-tools/esp32-fs'),
-            ),
-            const SizedBox(height: 12),
-            _ToolCard(
-              icon: LucideIcons.zap,
-              title: 'Firmware Flasher',
-              subtitle: 'Flash firmware to MCU via USB',
-              onTap: () => context.push('/dev-tools/firmware-flasher'),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 16),
+          _ToolCard(
+            icon: LucideIcons.cable,
+            title: 'USB Serial Monitor',
+            subtitle: 'Monitor and send serial data over USB',
+            onTap: () => context.push('/dev-tools/usb-serial'),
+          ),
+          const SizedBox(height: 12),
+          _ToolCard(
+            icon: LucideIcons.hardDrive,
+            title: 'Filesystem Explorer',
+            subtitle: 'Browse, upload, rename, and format the device partition',
+            onTap: () => context.push('/dev-tools/esp32-fs'),
+          ),
+          const SizedBox(height: 12),
+          _ToolCard(
+            icon: LucideIcons.zap,
+            title: 'Firmware Flasher',
+            subtitle: 'Flash firmware to MCU via USB',
+            onTap: () => context.push('/dev-tools/firmware-flasher'),
+          ),
+        ],
       ),
     );
   }

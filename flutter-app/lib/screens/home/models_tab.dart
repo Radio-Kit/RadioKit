@@ -38,45 +38,27 @@ class ModelsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    const breakpoint = 600;
-    final useWideLayout = screenWidth > breakpoint;
+    final orientation = MediaQuery.of(context).orientation;
+    final isLandscape = orientation == Orientation.landscape;
+
+    // In landscape mode, don't use Scaffold (parent provides it)
+    if (isLandscape) {
+      return _buildContent(context, isLandscape);
+    }
 
     return Scaffold(
       appBar: RadioKitAppBar(
-        actions: [
-          FilledButton.tonal(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.brandOrange.withValues(alpha: 0.15),
-              foregroundColor: AppColors.brandOrange,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              minimumSize: const Size(0, 36),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-            ),
-            onPressed: () => _showPairBottomSheet(context),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.add_rounded, size: 18, color: AppColors.brandOrange),
-                const SizedBox(width: 6),
-                Text('+ Connect',
-                    style: GoogleFonts.changa(
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.5,
-                        fontSize: 13,
-                        color: AppColors.brandOrange)),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-        ],
+        tabIndex: 0,
+        onConnect: () => _showPairBottomSheet(context),
       ),
-      body: useWideLayout
-          ? _buildLandscapeBody(context)
-          : _buildPortraitBody(context),
+      body: _buildContent(context, isLandscape),
     );
+  }
+
+  Widget _buildContent(BuildContext context, bool isLandscape) {
+    return isLandscape
+        ? _buildLandscapeBody(context)
+        : _buildPortraitBody(context);
   }
 
   Widget _buildPortraitBody(BuildContext context) {
@@ -248,18 +230,17 @@ Widget _buildActiveLinkCard(
                             ),
                             const SizedBox(height: 1),
                             // Description (truncated)
-                            Text(
-                              description?.isNotEmpty == true
-                                  ? description!.toUpperCase()
-                                  : 'NO_DESCRIPTION',
-                              style: TextStyle(
-                                  color: AppColors.brandOrange.withValues(alpha: 0.7),
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.5),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            if (description?.isNotEmpty == true)
+                              Text(
+                                description!.toUpperCase(),
+                                style: TextStyle(
+                                    color: AppColors.brandOrange.withValues(alpha: 0.7),
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                           ],
                         ),
                       ),
@@ -355,7 +336,10 @@ class _ActiveLinkSectionState extends State<_ActiveLinkSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTag(context, 'ACTIVE_LINKS'),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: _buildSectionTag(context, 'ACTIVE_LINKS'),
+        ),
         if (useWide)
           _buildLandscapeActiveLink(context, deviceProvider, device)
         else
@@ -414,7 +398,7 @@ Widget _buildActiveLinkTelemetry(DeviceProvider dp, DeviceInfo device) {
 
 Widget _buildActiveLinkActions(
     BuildContext context, DeviceProvider dp, DeviceInfo device) {
-  const buttonHeight = 52.0;
+  const buttonHeight = 40.0;
   const borderRadius = 6.0;
 
   return Row(
@@ -428,8 +412,8 @@ Widget _buildActiveLinkActions(
       const SizedBox(width: 8),
       Expanded(
         child: _ActiveLinkButton(
-          label: 'OPEN_CONTROLLER',
-          shortLabel: 'OPEN',
+          label: 'CONTROLLER',
+          shortLabel: 'CTRL',
           icon: Icons.gamepad_rounded,
           onTap: () => context.go('/control'),
           height: buttonHeight,
@@ -614,29 +598,31 @@ class _DeviceInfoTabsState extends State<_DeviceInfoTabs>
 
     return SizedBox(
       height: MediaQuery.of(context).size.height * 0.9,
-      child: Column(
-        children: [
-          const SizedBox(height: 8),
-          TabBar(
-            controller: _tabController!,
-            indicatorColor: AppColors.brandOrange,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white54,
-            labelStyle: const TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-              letterSpacing: 1,
-            ),
-            tabs: tabs,
-          ),
-          const Divider(height: 1, color: Colors.white12),
-          Expanded(
-            child: TabBarView(
+      child: Transform.translate(
+        offset: const Offset(0, -18),
+        child: Column(
+          children: [
+            TabBar(
               controller: _tabController!,
-              children: tabWidgets,
+              indicatorColor: AppColors.brandOrange,
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.white54,
+              labelStyle: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+                letterSpacing: 1,
+              ),
+              tabs: tabs,
             ),
-          ),
-        ],
+            const Divider(height: 1, color: Colors.white12),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController!,
+                children: tabWidgets,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -725,65 +711,6 @@ class _InfoTabContent extends StatelessWidget {
           const SizedBox(height: 24),
           const Divider(height: 1, color: Colors.white12),
           const SizedBox(height: 24),
-          // ── Device Action Buttons ────────────────────────────
-          if (!isDemo) ...[
-            Row(
-              children: [
-                // Device Settings button
-                Expanded(
-                  child: SizedBox(
-                    height: 48,
-                    child: FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        backgroundColor:
-                            AppColors.brandOrange.withValues(alpha: 0.15),
-                        foregroundColor: AppColors.brandOrange,
-                        side: BorderSide(
-                          color: AppColors.brandOrange.withValues(alpha: 0.4),
-                        ),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6)),
-                      ),
-                      icon: const Icon(Icons.tune_rounded, size: 18),
-                      label: Text('DEVICE',
-                          style: GoogleFonts.changa(
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1,
-                              fontSize: 12)),
-                      onPressed: () => DeviceSettingsDialog.show(context),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Remove device button
-                Expanded(
-                  child: SizedBox(
-                    height: 48,
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.redAccent,
-                        side: BorderSide(
-                            color: Colors.redAccent.withValues(alpha: 0.4)),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6)),
-                      ),
-                      icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                      label: Text('REMOVE DEVICE',
-                          style: GoogleFonts.changa(
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1,
-                              fontSize: 12)),
-                      onPressed: () =>
-                        _confirmRemoveDevice(context, device, dp),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-          ],
-          const Divider(height: 1, color: Colors.white12),
-          const SizedBox(height: 24),
           // ── Chip Info ───────────────────────────────────────
           Text('CHIP INFO',
               style: TextStyle(
@@ -834,6 +761,69 @@ class _InfoTabContent extends StatelessWidget {
               'SDK Version': chipInfo['sdkVersion'] ?? '--',
               'Chip ID (MAC)': chipInfo['chipId'] ?? '--',
             }),
+          const SizedBox(height: 24),
+          const Divider(height: 1, color: Colors.white12),
+          const SizedBox(height: 24),
+          // ── Device Action Buttons ────────────────────────────
+          if (!isDemo) ...[
+            Row(
+              children: [
+                // Device Settings button
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor:
+                            AppColors.brandOrange.withValues(alpha: 0.15),
+                        foregroundColor: AppColors.brandOrange,
+                        side: BorderSide(
+                          color: AppColors.brandOrange.withValues(alpha: 0.4),
+                        ),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6)),
+                        padding: EdgeInsets.zero,
+                      ),
+                      icon: const Icon(Icons.tune_rounded, size: 18),
+                      label: Text('DEVICE',
+                          style: GoogleFonts.changa(
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1,
+                              fontSize: 14,
+                              height: 1)),
+                      onPressed: () => DeviceSettingsDialog.show(context),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Remove device button
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.redAccent,
+                        side: BorderSide(
+                            color: Colors.redAccent.withValues(alpha: 0.4)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6)),
+                        padding: EdgeInsets.zero,
+                      ),
+                      icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                      label: Text('REMOVE',
+                          style: GoogleFonts.changa(
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1,
+                              fontSize: 14,
+                              height: 1)),
+                      onPressed: () =>
+                        _confirmRemoveDevice(context, device, dp),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -996,89 +986,118 @@ class _FsTabContentState extends State<_FsTabContent> {
       return a.name.toLowerCase().compareTo(b.name.toLowerCase());
     });
 
-    return Column(
+    return Stack(
       children: [
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: _refresh,
-            child: ListView.separated(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-              itemCount: sorted.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 2),
-              itemBuilder: (context, i) {
-                final entry = sorted[i];
-                final path = joinPath(_currentPath, entry.name);
-                return FsFileTile(
-                  entry: entry,
-                  fullPath: path,
-                  isSelected: _selectedPaths.contains(path),
-                  isMultiSelect: _isMultiSelect,
-                  onTap: () => _onTileTap(entry, path),
-                  onLongPress: () => _onTileLongPress(entry, path),
-                  onSecondaryAction: () => _openActionSheet(entry, path),
-                  onEdit: isEditableFile(entry.name)
-                      ? () => _editFile(entry, path)
-                      : null,
-                  isLoading: _loadingPaths.contains(path),
-                );
-              },
+        Column(
+          children: [
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _refresh,
+                child: ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+                  itemCount: sorted.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 2),
+                  itemBuilder: (context, i) {
+                    final entry = sorted[i];
+                    final path = joinPath(_currentPath, entry.name);
+                    return FsFileTile(
+                      entry: entry,
+                      fullPath: path,
+                      isSelected: _selectedPaths.contains(path),
+                      isMultiSelect: _isMultiSelect,
+                      onTap: () => _onTileTap(entry, path),
+                      onLongPress: () => _onTileLongPress(entry, path),
+                      onSecondaryAction: () => _openActionSheet(entry, path),
+                      onEdit: isEditableFile(entry.name)
+                          ? () => _editFile(entry, path)
+                          : null,
+                      isLoading: _loadingPaths.contains(path),
+                    );
+                  },
+                ),
+              ),
             ),
-          ),
+          ],
         ),
-        // Upload / Create FAB row
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              if (_isMultiSelect)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextButton(
-                      onPressed: () {
-                        setState(() {
-                          _selectedPaths.clear();
-                          _isMultiSelect = false;
-                        });
-                      },
-                      child: const Text('CANCEL'),
-                    ),
-                    const SizedBox(width: 8),
-                    _actionButton(
-                      icon: Icons.select_all_rounded,
-                      tooltip: 'Select all',
-                      onPressed: _selectedPaths.length == _entries.length
-                          ? _deselectAll
-                          : _selectAll,
-                    ),
-                    const SizedBox(width: 4),
-                    _actionButton(
-                      icon: Icons.delete_outline_rounded,
-                      tooltip: 'Delete selected',
-                      onPressed:
-                          _selectedPaths.isEmpty ? null : _deleteSelected,
-                    ),
-                  ],
-                )
-              else ...[
-                _actionButton(
+        // Floating action buttons
+        if (_isMultiSelect)
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _floatingActionButton(
+                  icon: Icons.select_all_rounded,
+                  tooltip: 'Select all',
+                  onPressed: _selectedPaths.length == _entries.length
+                      ? _deselectAll
+                      : _selectAll,
+                ),
+                const SizedBox(width: 8),
+                _floatingActionButton(
+                  icon: Icons.delete_outline_rounded,
+                  tooltip: 'Delete selected',
+                  onPressed:
+                      _selectedPaths.isEmpty ? null : _deleteSelected,
+                ),
+                const SizedBox(width: 8),
+                _floatingActionButton(
+                  icon: Icons.close_rounded,
+                  tooltip: 'Cancel',
+                  onPressed: () {
+                    setState(() {
+                      _selectedPaths.clear();
+                      _isMultiSelect = false;
+                    });
+                  },
+                ),
+              ],
+            ),
+          )
+        else
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _floatingActionButton(
                   icon: Icons.create_new_folder_outlined,
                   tooltip: 'New folder',
                   onPressed: _createFolder,
                 ),
                 const SizedBox(width: 8),
-                _actionButton(
+                _floatingActionButton(
                   icon: Icons.upload_file_rounded,
                   tooltip: 'Upload file',
                   onPressed: () => _uploadFile(),
                 ),
               ],
-            ],
+            ),
           ),
-        ),
       ],
+    );
+  }
+
+  Widget _floatingActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback? onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox(
+        width: 44,
+        height: 44,
+        child: FloatingActionButton(
+          backgroundColor: AppColors.brandOrange.withValues(alpha: 0.9),
+          foregroundColor: Colors.black,
+          onPressed: onPressed,
+          child: Icon(icon, size: 20),
+        ),
+      ),
     );
   }
 
@@ -2646,67 +2665,69 @@ class _PairBottomSheetState extends State<_PairBottomSheet>
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const SizedBox(height: 8),
-        TabBar(
-          controller: _tabController,
-          indicatorColor: AppColors.brandOrange,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white54,
-          labelStyle: const TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 11,
-            letterSpacing: 0.8,
-          ),
-          tabs: const [
-            Tab(child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.bluetooth_rounded, size: 14),
-                SizedBox(width: 4),
-                Text('BLE'),
-              ],
-            )),
-            Tab(child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.usb_rounded, size: 14),
-                SizedBox(width: 4),
-                Text('USB'),
-              ],
-            )),
-          ],
-        ),
-        const Divider(height: 1, color: Colors.white12),
-        Expanded(
-          flex: 2,
-          child: TabBarView(
+    return Transform.translate(
+      offset: const Offset(0, -18),
+      child: Column(
+        children: [
+          TabBar(
             controller: _tabController,
-            children: [
-              _PairBleTab(
-                onConnect: _connectBle,
-                connectingIds: _connectingIds,
-                failedIds: _failedIds,
-                onDismissError: _dismissError,
-              ),
-              _PairUsbTab(
-                onConnect: _connectSerial,
-                connectingIds: _connectingIds,
-                failedIds: _failedIds,
-                onDismissError: _dismissError,
-                selectedBaud: _selectedBaud,
-                onBaudChanged: (v) => setState(() => _selectedBaud = v),
-              ),
+            indicatorColor: AppColors.brandOrange,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white54,
+            labelStyle: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 11,
+              letterSpacing: 0.8,
+            ),
+            tabs: const [
+              Tab(child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.bluetooth_rounded, size: 14),
+                  SizedBox(width: 4),
+                  Text('BLE'),
+                ],
+              )),
+              Tab(child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.usb_rounded, size: 14),
+                  SizedBox(width: 4),
+                  Text('USB'),
+                ],
+              )),
             ],
           ),
-        ),
-        const Divider(height: 1, color: Colors.white12),
-        Expanded(
-          flex: 1,
-          child: ConsoleLogView(height: double.infinity),
-        ),
-      ],
+          const Divider(height: 1, color: Colors.white12),
+          Expanded(
+            flex: 2,
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _PairBleTab(
+                  onConnect: _connectBle,
+                  connectingIds: _connectingIds,
+                  failedIds: _failedIds,
+                  onDismissError: _dismissError,
+                ),
+                _PairUsbTab(
+                  onConnect: _connectSerial,
+                  connectingIds: _connectingIds,
+                  failedIds: _failedIds,
+                  onDismissError: _dismissError,
+                  selectedBaud: _selectedBaud,
+                  onBaudChanged: (v) => setState(() => _selectedBaud = v),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: Colors.white12),
+          Expanded(
+            flex: 1,
+            child: ConsoleLogView(height: double.infinity),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -3598,19 +3619,19 @@ class _PairedModelCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             )
-          : Text(
-              device.description?.isNotEmpty == true
-                  ? device.description!.toUpperCase()
-                  : 'NO_DESCRIPTION_PROVIDED',
-              style: TextStyle(
-                color: AppColors.brandOrange.withValues(alpha: 0.7),
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+          : device.description?.isNotEmpty == true
+              ? Text(
+                  device.description!.toUpperCase(),
+                  style: TextStyle(
+                    color: AppColors.brandOrange.withValues(alpha: 0.7),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                )
+              : const SizedBox.shrink(),
       trailing: isBusy
           ? const SizedBox(
               width: 18,

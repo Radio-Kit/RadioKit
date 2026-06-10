@@ -45,99 +45,102 @@ class FsActionSheet extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: visual.color.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
+      child: Transform.translate(
+        offset: const Offset(0, -18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: visual.color.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(visual.icon, color: visual.color, size: 22),
                   ),
-                  child: Icon(visual.icon, color: visual.color, size: 22),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        entry.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          entry.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        fullPath,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                          fontFamily: 'monospace',
+                        const SizedBox(height: 2),
+                        Text(
+                          fullPath,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            fontFamily: 'monospace',
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          if (!entry.isDirectory) ...[
-            if (isEditableFile(entry.name))
-              _SheetTile(
-                icon: Icons.edit_rounded,
-                label: 'Edit',
-                subtitle: 'Edit file content',
-                onTap: () => Navigator.of(context).pop(FsAction.edit),
+                ],
               ),
+            ),
+            const Divider(height: 1),
+            if (!entry.isDirectory) ...[
+              if (isEditableFile(entry.name))
+                _SheetTile(
+                  icon: Icons.edit_rounded,
+                  label: 'Edit',
+                  subtitle: 'Edit file content',
+                  onTap: () => Navigator.of(context).pop(FsAction.edit),
+                ),
+              _SheetTile(
+                icon: Icons.download_rounded,
+                label: 'Download',
+                subtitle: 'Save to this device',
+                onTap: () => Navigator.of(context).pop(FsAction.download),
+              ),
+            ],
             _SheetTile(
-              icon: Icons.download_rounded,
-              label: 'Download',
-              subtitle: 'Save to this device',
-              onTap: () => Navigator.of(context).pop(FsAction.download),
+              icon: Icons.edit_rounded,
+              label: 'Rename',
+              subtitle: 'Move or rename this entry',
+              onTap: () => Navigator.of(context).pop(FsAction.rename),
+            ),
+            _SheetTile(
+              icon: Icons.link_rounded,
+              label: 'Copy path',
+              subtitle: fullPath,
+              onTap: () => Navigator.of(context).pop(FsAction.copyPath),
+            ),
+            _SheetTile(
+              icon: Icons.info_outline_rounded,
+              label: 'Info',
+              subtitle: entry.isDirectory
+                  ? 'Folder'
+                  : '${formatBytes(entry.size)} • ${entry.size} bytes',
+              onTap: () => Navigator.of(context).pop(FsAction.info),
+            ),
+            _SheetTile(
+              icon: Icons.delete_outline_rounded,
+              label: 'Delete',
+              subtitle: entry.isDirectory
+                  ? 'Recursive delete'
+                  : 'Permanent delete',
+              destructive: true,
+              onTap: () => Navigator.of(context).pop(FsAction.delete),
             ),
           ],
-          _SheetTile(
-            icon: Icons.edit_rounded,
-            label: 'Rename',
-            subtitle: 'Move or rename this entry',
-            onTap: () => Navigator.of(context).pop(FsAction.rename),
-          ),
-          _SheetTile(
-            icon: Icons.link_rounded,
-            label: 'Copy path',
-            subtitle: fullPath,
-            onTap: () => Navigator.of(context).pop(FsAction.copyPath),
-          ),
-          _SheetTile(
-            icon: Icons.info_outline_rounded,
-            label: 'Info',
-            subtitle: entry.isDirectory
-                ? 'Folder'
-                : '${formatBytes(entry.size)} • ${entry.size} bytes',
-            onTap: () => Navigator.of(context).pop(FsAction.info),
-          ),
-          _SheetTile(
-            icon: Icons.delete_outline_rounded,
-            label: 'Delete',
-            subtitle: entry.isDirectory
-                ? 'Recursive delete'
-                : 'Permanent delete',
-            destructive: true,
-            onTap: () => Navigator.of(context).pop(FsAction.delete),
-          ),
-        ],
+        ),
       ),
     );
   }
