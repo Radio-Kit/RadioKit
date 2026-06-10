@@ -18,7 +18,7 @@ class RadioKitAppBar extends AppBar {
     VoidCallback? onOpen,
     VoidCallback? onCreate,
   }) : super(
-          toolbarHeight: kToolbarHeight,
+          toolbarHeight: 40,
           title: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
