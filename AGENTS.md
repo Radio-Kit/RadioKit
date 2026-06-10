@@ -605,3 +605,10 @@ The `_AdminAccessButton` (shown in the info bottom sheet when user mode is activ
 - `_showAuthDialog` — Shared dialog function, returns `Future<bool>`
 - `DeviceProvider.authenticate()` — Connection auth (falls back to admin auth on mismatch)
 - `DeviceProvider.authenticateAdmin()` — Admin-only auth with admin flag byte
+
+## 19. Documentation — No Emojis
+
+- **Rule**: Do not use emoji characters (e.g. ✅, ❌, 🚀, 🔄, ⏳) in any documentation files.
+- **Rationale**: Emojis render inconsistently across terminals, editors, and CI output. Use plain-text markers instead (e.g., `[X]` for complete, `[~]` for in progress, `[ ]` for pending, `[-]` for blocked/failed).
+- **Action**: If you find emoji characters in a doc file, replace them with the corresponding plain-text marker.
+- **Note**: This rule applies to ALL markdown files in the project, including `docs/`, `llm-docs/`, `llm-docs/plans/`, and any other documentation.

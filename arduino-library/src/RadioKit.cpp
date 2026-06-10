@@ -44,6 +44,8 @@ RadioKitClass::RadioKitClass()
     , _pendingMetaMask(0)
     , _metaUpdateSeq(0)
     , _nvsActive(false)
+    , _wifiActive(false)
+    , _cloudActive(false)
     , _authenticated(false)
     , _authenticatedAdmin(false)
 {
@@ -54,6 +56,10 @@ RadioKitClass::RadioKitClass()
     memset(_nvsDesc, 0, sizeof(_nvsDesc));
     memset(_nvsPwd,  0, sizeof(_nvsPwd));
     memset(_nvsAdminPwd, 0, sizeof(_nvsAdminPwd));
+    memset(_nvsStaSsid, 0, sizeof(_nvsStaSsid));
+    memset(_nvsStaPwd, 0, sizeof(_nvsStaPwd));
+    memset(_nvsCloudUrl, 0, sizeof(_nvsCloudUrl));
+    memset(_nvsCloudAccount, 0, sizeof(_nvsCloudAccount));
     s_instance = this;
 }
 
@@ -116,6 +122,10 @@ void RadioKitClass::begin() {
             RKNvs::writeString(RK_NVS_KEY_NAME, config.name ? config.name : "");
             RKNvs::writeString(RK_NVS_KEY_DESC, config.description ? config.description : "");
             RKNvs::writeString(RK_NVS_KEY_PWD,  config.password ? config.password : "");
+            RKNvs::writeString(RK_NVS_KEY_STA_SSID, config.sta_ssid ? config.sta_ssid : "");
+            RKNvs::writeString(RK_NVS_KEY_STA_PWD, config.sta_password ? config.sta_password : "");
+            RKNvs::writeString(RK_NVS_KEY_CLOUD_URL, config.cloud_url ? config.cloud_url : "");
+            RKNvs::writeString(RK_NVS_KEY_CLOUD_ACCOUNT, config.cloud_account ? config.cloud_account : "");
             RKNvs::commit();
         }
 
@@ -127,6 +137,10 @@ void RadioKitClass::begin() {
         strncpy(_nvsDesc, config.description ? config.description : "", sizeof(_nvsDesc) - 1);
         strncpy(_nvsPwd,  config.password ? config.password : "", sizeof(_nvsPwd) - 1);
         _nvsAdminPwd[0] = '\0';
+        memset(_nvsStaSsid, 0, sizeof(_nvsStaSsid));
+        memset(_nvsStaPwd, 0, sizeof(_nvsStaPwd));
+        memset(_nvsCloudUrl, 0, sizeof(_nvsCloudUrl));
+        memset(_nvsCloudAccount, 0, sizeof(_nvsCloudAccount));
     }
 
     // Reset auth state on boot
@@ -182,22 +196,60 @@ void RadioKitClass::startSerial(Stream& stream) {
     RadioKitSerialInstance.setSettingsCallback(RadioKitClass::_onSettingsPacket);
 }
 
+void RadioKitClass::startWiFi() {
+#if defined(ESP32)
+    const char* baseName = (_nvsActive && _nvsName[0]) ? _nvsName :
+                           (config.name ? config.name : "RadioKit");
+
+    // Pass NVS-stored credentials to the WiFi transport
+    RadioKitWiFiInstance.setCredentials(_nvsStaSsid, _nvsStaPwd);
+    RadioKitWiFiInstance.setApPassword(_nvsActive && _nvsPwd[0] ? _nvsPwd : nullptr);
+
+    // Register all callbacks
+    RadioKitWiFiInstance.begin(baseName, RadioKitClass::_onPacket);
+    RadioKitWiFiInstance.setFsCallback(RadioKitClass::_onFsPacket);
+    rk_otaSetCallback(RadioKitClass::_onOtaPacket);
+    RadioKitWiFiInstance.setOtaCallback(RadioKitClass::_onOtaPacket);
+    rk_settingsSetCallback(RadioKitClass::_onSettingsPacket);
+    RadioKitWiFiInstance.setSettingsCallback(RadioKitClass::_onSettingsPacket);
+
+    _wifiActive = true;
+    Serial.println("WiFi: Transport started");
+#else
+    Serial.println("WiFi: Transport not available on this platform");
+#endif
+}
+
+void RadioKitClass::startCloud() {
+    if (!_wifiActive) {
+        Serial.println("Cloud: startWiFi() must be called before startCloud() — ignoring");
+        return;
+    }
+    Serial.println("Cloud: Transport not yet implemented (Phase 4)");
+    // _cloudActive = true;  // Uncomment in Phase 4
+}
+
 void RadioKitClass::update() {
+    // Poll existing primary transport (BLE or Serial)
     if (_transport) _transport->update();
 
-    // Track connection state to reset auth on disconnect
-    static bool s_lastConnected = false;
-    if (_transport) {
-        bool nowConnected = _transport->isConnected();
-        if (s_lastConnected && !nowConnected) {
-            // Connection was lost — reset auth so new client must re-authenticate
-            _authenticated = (_nvsPwd[0] == '\0');          // No conn pwd = pre-authed user
-            _authenticatedAdmin = (_nvsAdminPwd[0] == '\0'); // No admin pwd = pre-authed admin
-        }
-        s_lastConnected = nowConnected;
-    }
+    // Poll WiFi transport (priority: WiFi first)
+    if (_wifiActive) RadioKitWiFiInstance.update();
 
-    if (_transport && _transport->isConnected()) {
+    // Poll Cloud transport (lower priority)
+    if (_cloudActive) RadioKitCloudInstance.update();
+
+    // Track connection state — reset auth on all-transport disconnect
+    static bool s_lastConnected = false;
+    bool nowConnected = isConnected();
+    if (s_lastConnected && !nowConnected) {
+        // All transports disconnected — reset auth
+        _authenticated = (_nvsPwd[0] == '\0');
+        _authenticatedAdmin = (_nvsAdminPwd[0] == '\0');
+    }
+    s_lastConnected = nowConnected;
+
+    if (isConnected()) {
         for (uint8_t i = 0; i < _widgetCount; i++) {
             RadioKit_Widget* w = _widgets[i];
             uint8_t inSz = w->inputSize();
@@ -215,7 +267,7 @@ void RadioKitClass::update() {
     }
 
     // ── Batch-fire all pending VAR_UPDATE / SET_INPUT ─────────────
-    if (_pendingUpdatesMask != 0 && _transport && _transport->isConnected()) {
+    if (_pendingUpdatesMask != 0 && isConnected()) {
         for (uint8_t i = 0; i < 32; i++) {
             if (_pendingUpdatesMask & (1UL << i)) {
                 RadioKit_Widget* w = _widgets[i];
@@ -244,7 +296,7 @@ void RadioKitClass::update() {
     }
 
     // ── Batch-fire all pending META_UPDATE ────────────────────────
-    if (_pendingMetaMask != 0 && _transport && _transport->isConnected()) {
+    if (_pendingMetaMask != 0 && isConnected()) {
         for (uint8_t i = 0; i < 32; i++) {
             if (_pendingMetaMask & (1UL << i)) {
                 RadioKit_Widget* w = _widgets[i];
@@ -262,7 +314,10 @@ void RadioKitClass::update() {
 }
 
 bool RadioKitClass::isConnected() const {
-    return _transport ? _transport->isConnected() : false;
+    if (_transport && _transport->isConnected()) return true;
+    if (_wifiActive && RadioKitWiFiInstance.isConnected()) return true;
+    if (_cloudActive && RadioKitCloudInstance.isConnected()) return true;
+    return false;
 }
 
 void RadioKitClass::_onPacket(uint8_t cmd,
@@ -292,6 +347,7 @@ void RadioKitClass::_onPacket(uint8_t cmd,
         case RK_CMD_ACK:        s_instance->_handleAck(payload, payloadLen);        break;
         case RK_CMD_VAR_UPDATE: s_instance->_handleVarUpdate(payload, payloadLen);  break;
         case RK_CMD_META_UPDATE:s_instance->_handleMetaUpdate(payload, payloadLen); break;
+        case RK_CMD_GET_WIFI_INFO: s_instance->_handleGetWifiInfo();                          break;
         default: 
             Serial.printf("RK: Unknown CMD %s (0x%02X)\n", rk_cmdName(cmd), cmd);
             break;
@@ -319,18 +375,18 @@ void RadioKitClass::_onSettingsPacket(uint8_t subCmd,
             uint8_t status = RK_SETTINGS_PWD_MISMATCH;
             uint8_t respSub = subCmd | 0x80;
             uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(), respSub, &status, 1);
-            s_instance->_transport->sendPacket(rk_settingsTxBuf(), frameLen);
+            s_instance->_sendToAllTransports(rk_settingsTxBuf(), frameLen);
             return;
         }
     } else if (!isAdminAuthd) {
         // User-authenticated: block admin-only commands
         if (subCmd == RK_SETTINGS_CMD_SET_CONF || subCmd == RK_SETTINGS_CMD_FACTORY_RESET ||
-            subCmd == RK_SETTINGS_CMD_NVS_RAW_WRITE) {
+            subCmd == RK_SETTINGS_CMD_NVS_RAW_WRITE || subCmd == RK_SETTINGS_CMD_SET_WIFI) {
             Serial.printf("RK: Rejected SETTINGS 0x%02X — admin required\n", subCmd);
             uint8_t status = RK_SETTINGS_PWD_MISMATCH;
             uint8_t respSub = subCmd | 0x80;
             uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(), respSub, &status, 1);
-            s_instance->_transport->sendPacket(rk_settingsTxBuf(), frameLen);
+            s_instance->_sendToAllTransports(rk_settingsTxBuf(), frameLen);
             return;
         }
     }
@@ -348,6 +404,7 @@ void RadioKitClass::_onSettingsPacket(uint8_t subCmd,
         case RK_SETTINGS_CMD_GET_DEVICE_INFO: s_instance->_handleSettingsDeviceInfo();               break;
         case RK_SETTINGS_CMD_NVS_RAW_READ:  s_instance->_handleSettingsNvsRawRead(payload, payloadLen); break;
         case RK_SETTINGS_CMD_NVS_RAW_WRITE: s_instance->_handleSettingsNvsRawWrite(payload, payloadLen); break;
+        case RK_SETTINGS_CMD_SET_WIFI:      s_instance->_handleSettingsSetWifi(payload, payloadLen);      break;
         default:
             Serial.printf("RK: Unknown SETTINGS sub-command 0x%02X\n", subCmd);
             break;
@@ -355,15 +412,15 @@ void RadioKitClass::_onSettingsPacket(uint8_t subCmd,
 }
 
 int8_t RadioKitClass::getRssi() {
-    if (_transport) return _transport->getRssi();
+    if (_transport && _transport->isConnected()) return _transport->getRssi();
+    if (_wifiActive && RadioKitWiFiInstance.isConnected()) return RadioKitWiFiInstance.getRssi();
     return 0;
 }
 
 // ── Settings protocol handlers ─────────────────────────────────────────
 
 void RadioKitClass::sendSettingsFrame(const uint8_t* buf, uint16_t len) {
-    if (!_transport) return;
-    _transport->sendPacket(buf, len);
+    _sendToAllTransports(buf, len);
 }
 
 void RadioKitClass::_sendSettingsFrame(const uint8_t* buf, uint16_t len) {
@@ -371,8 +428,7 @@ void RadioKitClass::_sendSettingsFrame(const uint8_t* buf, uint16_t len) {
 }
 
 void RadioKitClass::_sendSettingsFrame(uint16_t len) {
-    if (!_transport) return;
-    _transport->sendPacket(rk_settingsTxBuf(), len);
+    _sendToAllTransports(rk_settingsTxBuf(), len);
 }
 
 void RadioKitClass::_handleSettingsTelemetry(const uint8_t* payload, uint16_t payloadLen) {
@@ -428,6 +484,12 @@ void RadioKitClass::_handleSettingsGetFeatures() {
     }
     if (_nvsActive && _nvsAdminPwd[0] != '\0') {
         bitmask |= RK_SETTINGS_FEATURE_HAS_ADMIN_PWD;
+    }
+    if (_wifiActive) {
+        bitmask |= RK_SETTINGS_FEATURE_WIFI;
+    }
+    if (_cloudActive) {
+        bitmask |= RK_SETTINGS_FEATURE_CLOUD;
     }
     uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
         RK_SETTINGS_RESP_FEATURES_DATA, &bitmask, 1);
@@ -521,6 +583,52 @@ void RadioKitClass::_handleGetMeta() {
                                             RK_MAX_PACKET_SIZE - RK_HEADER_SIZE - RK_CRC_SIZE);
     uint16_t totalLen = rk_buildPacket(_txBuf, RK_CMD_META_DATA, nullptr, payloadLen);
     _sendPacket(totalLen);
+}
+
+void RadioKitClass::_handleGetWifiInfo() {
+#if defined(ESP32) && defined(RADIOKIT_ENABLE_WIFI)
+    // Build WIFI_INFO_DATA payload:
+    // [ip0][ip1][ip2][ip3][mode(1)][ssid_len][ssid...][rssi(1)]
+    uint8_t buf[4 + 1 + 1 + RADIOKIT_MAX_SSID + 1];
+    uint16_t offset = 0;
+
+    // IP address (4 bytes)
+    IPAddress ip;
+    if (_wifiActive && RadioKitWiFiInstance.isApMode()) {
+        ip = WiFi.softAPIP();
+    } else {
+        ip = WiFi.localIP();
+    }
+    buf[offset++] = ip[0];
+    buf[offset++] = ip[1];
+    buf[offset++] = ip[2];
+    buf[offset++] = ip[3];
+
+    // Mode: 0x00 = STA, 0x01 = AP
+    buf[offset++] = _wifiActive && RadioKitWiFiInstance.isApMode() ? 0x01 : 0x00;
+
+    // STA SSID (from NVS buffer)
+    uint8_t ssidLen = (uint8_t)strnlen(_nvsStaSsid, RADIOKIT_MAX_SSID);
+    buf[offset++] = ssidLen;
+    memcpy(&buf[offset], _nvsStaSsid, ssidLen);
+    offset += ssidLen;
+
+    // RSSI
+    int rssi = 0;
+    if (_wifiActive && !RadioKitWiFiInstance.isApMode()) {
+        rssi = WiFi.RSSI();
+    }
+    buf[offset++] = (uint8_t)(rssi > 0 ? rssi : (rssi < 0 ? (uint8_t)rssi : 0));
+
+    // Send as 0x55 widget-protocol packet
+    uint16_t totalLen = rk_buildPacket(_txBuf, RK_CMD_WIFI_INFO_DATA, buf, offset);
+    _sendPacket(totalLen);
+#else
+    // WiFi not available: send empty response
+    uint8_t empty = 0;
+    uint16_t totalLen = rk_buildPacket(_txBuf, RK_CMD_WIFI_INFO_DATA, &empty, 1);
+    _sendPacket(totalLen);
+#endif
 }
 
 void RadioKitClass::_handleSetInput(const uint8_t* payload, uint16_t len) {
@@ -689,14 +797,18 @@ uint16_t RadioKitClass::_buildMetaPayload(uint8_t* buf, uint16_t bufSize) {
 }
 
 void RadioKitClass::_sendPacket(const uint8_t* buf, uint16_t len) {
-    if (!_transport) return;
-    _transport->sendPacket(buf, len);
+    _sendToAllTransports(buf, len);
 }
 
 void RadioKitClass::_sendPacket(uint16_t len) {
-    if (!_transport) return;
     RK_DEBUG_PRINT("RK: Sending CMD %s (0x%02X), len %d\n", rk_cmdName(_txBuf[3]), _txBuf[3], len);
-    _transport->sendPacket(_txBuf, len);
+    _sendToAllTransports(_txBuf, len);
+}
+
+void RadioKitClass::_sendToAllTransports(const uint8_t* buf, uint16_t len) {
+    if (_transport) _transport->sendPacket(buf, len);
+    if (_wifiActive) RadioKitWiFiInstance.sendPacket(buf, len);
+    if (_cloudActive) RadioKitCloudInstance.sendPacket(buf, len);
 }
 
 // ── Filesystem bulk protocol ────────────────────────────────────────────────
@@ -714,8 +826,7 @@ bool RadioKitClass::formatFs() {
 }
 
 void RadioKitClass::sendFsFrame(const uint8_t* buf, uint16_t len) {
-    if (!_transport) return;
-    _transport->sendPacket(buf, len);
+    _sendToAllTransports(buf, len);
 }
 
 void RadioKitClass::_sendFsFrame(const uint8_t* buf, uint16_t len) {
@@ -736,7 +847,7 @@ void RadioKitClass::_onFsPacket(uint8_t subCmd,
             uint8_t err = RK_FS_ERR_ACCESS_DENIED;
             uint8_t ackResp = subCmd | 0x80;
             uint16_t frameLen = rk_fsBuildFrame(rk_fsTxBuf(), ackResp, &err, 1);
-            s_instance->_transport->sendPacket(rk_fsTxBuf(), frameLen);
+            s_instance->_sendToAllTransports(rk_fsTxBuf(), frameLen);
             return;
         }
     }
@@ -794,8 +905,8 @@ void RadioKitClass::_onOtaPacket(uint8_t subCmd,
 }
 
 void RadioKitClass::_sendOtaFrame(const uint8_t* buf, uint16_t len) {
-    if (s_instance && s_instance->_transport) {
-        s_instance->_transport->sendPacket(buf, len);
+    if (s_instance) {
+        s_instance->_sendToAllTransports(buf, len);
     }
 }
 
@@ -1152,6 +1263,10 @@ void RadioKitClass::_handleSettingsFactoryReset() {
     memset(_nvsDesc, 0, sizeof(_nvsDesc));
     memset(_nvsPwd,  0, sizeof(_nvsPwd));
     memset(_nvsAdminPwd, 0, sizeof(_nvsAdminPwd));
+    memset(_nvsStaSsid, 0, sizeof(_nvsStaSsid));
+    memset(_nvsStaPwd, 0, sizeof(_nvsStaPwd));
+    memset(_nvsCloudUrl, 0, sizeof(_nvsCloudUrl));
+    memset(_nvsCloudAccount, 0, sizeof(_nvsCloudAccount));
     _authenticated = true;
     _authenticatedAdmin = true;
     
@@ -1193,6 +1308,23 @@ void RadioKitClass::_syncNvsToBuffers() {
     }
     if (!RKNvs::readString(RK_NVS_KEY_ADMIN_PWD, _nvsAdminPwd, sizeof(_nvsAdminPwd))) {
         _nvsAdminPwd[0] = '\0';
+    }
+
+    // ── WiFi STA SSID ──────────────────────────────────────────────
+    if (!RKNvs::readString(RK_NVS_KEY_STA_SSID, _nvsStaSsid, sizeof(_nvsStaSsid))) {
+        strncpy(_nvsStaSsid, config.sta_ssid ? config.sta_ssid : "", sizeof(_nvsStaSsid) - 1);
+    }
+    // ── STA Password ────────────────────────────────────────────────
+    if (!RKNvs::readString(RK_NVS_KEY_STA_PWD, _nvsStaPwd, sizeof(_nvsStaPwd))) {
+        strncpy(_nvsStaPwd, config.sta_password ? config.sta_password : "", sizeof(_nvsStaPwd) - 1);
+    }
+    // ── Cloud URL ───────────────────────────────────────────────────
+    if (!RKNvs::readString(RK_NVS_KEY_CLOUD_URL, _nvsCloudUrl, sizeof(_nvsCloudUrl))) {
+        strncpy(_nvsCloudUrl, config.cloud_url ? config.cloud_url : "", sizeof(_nvsCloudUrl) - 1);
+    }
+    // ── Cloud account ───────────────────────────────────────────────
+    if (!RKNvs::readString(RK_NVS_KEY_CLOUD_ACCOUNT, _nvsCloudAccount, sizeof(_nvsCloudAccount))) {
+        strncpy(_nvsCloudAccount, config.cloud_account ? config.cloud_account : "", sizeof(_nvsCloudAccount) - 1);
     }
 
     RK_DEBUG_PRINT("NVS: Loaded name='%s', desc='%s', conn_pwd=%s, admin_pwd=%s\n",
@@ -1431,6 +1563,66 @@ void RadioKitClass::_handleSettingsSetConf(const uint8_t* payload, uint16_t len)
     }
 
     Serial.printf("NVS: SETTINGS_SET_CONF applied mask=0x%04X\n", fieldMask);
+}
+
+// ── SETTINGS_SET_WIFI handler (0x0B) ─────────────────────────────────────────
+
+void RadioKitClass::_handleSettingsSetWifi(const uint8_t* payload, uint16_t len) {
+    if (!_nvsActive || len < 2) {
+        uint8_t status = RK_SETTINGS_SET_CONF_ERROR;
+        uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+            RK_SETTINGS_RESP_SET_WIFI_ACK, &status, 1);
+        _sendSettingsFrame(frameLen);
+        return;
+    }
+
+    uint16_t fieldMask = (uint16_t)payload[0] | ((uint16_t)payload[1] << 8);
+    uint16_t offset = 2;
+    bool appliedOk = true;
+
+    // STA SSID
+    if (fieldMask & RK_SETTINGS_SET_WIFI_SSID) {
+        if (offset < len) {
+            uint8_t strLen = payload[offset++];
+            if (strLen > RADIOKIT_MAX_SSID) strLen = RADIOKIT_MAX_SSID;
+            if (offset + strLen <= len) {
+                memcpy(_nvsStaSsid, &payload[offset], strLen);
+                _nvsStaSsid[strLen] = '\0';
+                RKNvs::writeString(RK_NVS_KEY_STA_SSID, _nvsStaSsid);
+            }
+            offset += strLen;
+        }
+    }
+
+    // STA Password
+    if (fieldMask & RK_SETTINGS_SET_WIFI_PWD) {
+        if (offset < len) {
+            uint8_t strLen = payload[offset++];
+            if (strLen > RADIOKIT_MAX_WIFI_PWD) strLen = RADIOKIT_MAX_WIFI_PWD;
+            if (offset + strLen <= len) {
+                memcpy(_nvsStaPwd, &payload[offset], strLen);
+                _nvsStaPwd[strLen] = '\0';
+                RKNvs::writeString(RK_NVS_KEY_STA_PWD, _nvsStaPwd);
+            }
+            offset += strLen;
+        }
+    }
+
+    RKNvs::commit();
+
+    // Send ACK
+    uint8_t status = appliedOk ? (fieldMask & 0x7F) : RK_SETTINGS_SET_CONF_ERROR;
+    uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+        RK_SETTINGS_RESP_SET_WIFI_ACK, &status, 1);
+    _sendSettingsFrame(frameLen);
+
+    Serial.printf("NVS: SETTINGS_SET_WIFI applied mask=0x%04X — rebooting...\n", fieldMask);
+
+    // Auto-reboot to apply new credentials
+    delay(100);
+#if defined(ESP32)
+    esp_restart();
+#endif
 }
 
 // ── SETTINGS_PWD_AUTH handler (0x06) ───────────────────────────────────────

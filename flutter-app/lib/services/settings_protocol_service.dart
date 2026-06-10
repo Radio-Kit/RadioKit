@@ -65,6 +65,38 @@ class SettingsProtocolService {
     return buildFrame(kSettingsCmdNvsRawWrite, payload);
   }
 
+  /// Build SETTINGS_SET_WIFI frame. Payload: [FIELD_MASK(2 LE)] [SSID_LEN(1)?][SSID...?][PWD_LEN(1)?][PWD...?]
+  /// Fields: SSID (mask bit 0), Password (mask bit 1).
+  static Uint8List buildSetWifi({
+    String? ssid,
+    String? password,
+  }) {
+    final payload = <int>[];
+    int fieldMask = 0;
+
+    if (ssid != null) fieldMask |= kSettingsSetWifiSsid;
+    if (password != null) fieldMask |= kSettingsSetWifiPwd;
+
+    payload.add(fieldMask & 0xFF);
+    payload.add((fieldMask >> 8) & 0xFF);
+
+    if (ssid != null) {
+      final encoded = utf8.encode(ssid);
+      final len = encoded.length.clamp(0, kMaxWifiSsid);
+      payload.add(len);
+      payload.addAll(encoded.take(len));
+    }
+
+    if (password != null) {
+      final encoded = utf8.encode(password);
+      final len = encoded.length.clamp(0, kMaxWifiPwd);
+      payload.add(len);
+      payload.addAll(encoded.take(len));
+    }
+
+    return buildFrame(kSettingsCmdSetWifi, payload);
+  }
+
   /// Build SETTINGS_SET_CONF frame. Payload: [FIELD_MASK(2 LE)] [FIELD_DATA...]
   static Uint8List buildSetConf({
     String? name,

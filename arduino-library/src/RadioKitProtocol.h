@@ -36,6 +36,8 @@
 #define RK_CMD_META_DATA 0x0A   // Arduino → App: metadata of all widgets
 #define RK_CMD_META_UPDATE 0x0B // Both: metadata of partial widgets
 #define RK_CMD_SET_INPUT 0x0C   // Arduino → App: force sync input widget
+#define RK_CMD_GET_WIFI_INFO 0x1D   // App → Arduino: request WiFi status
+#define RK_CMD_WIFI_INFO_DATA 0x1E // Arduino → App: WiFi status payload
 
 // ── PWD_AUTH response codes (used by public API RadioKitClass::authenticate) ─
 #define RK_PWD_AUTH_OK          0x00

@@ -26,6 +26,12 @@
 #define RK_NVS_KEY_ADMIN_PWD  "rk_admin_pwd"
 #define RK_NVS_KEY_PENDING_ERASE  "rk_pend_erase"
 
+// ── WiFi / Cloud NVS keys ────────────────────────────────────────────────────
+#define RK_NVS_KEY_STA_SSID       "rk_sta_ssid"
+#define RK_NVS_KEY_STA_PWD        "rk_sta_pwd"
+#define RK_NVS_KEY_CLOUD_URL      "rk_cloud_url"
+#define RK_NVS_KEY_CLOUD_ACCOUNT  "rk_cloud_account"
+
 // ── Pending erase mode values (stored in rk_pend_erase) ──────────────────────
 #define RK_PENDING_ERASE_NONE     0  ///< No erase — cleared after operation completes
 #define RK_PENDING_ERASE_BOTH     1  ///< Erase NVS config + format LittleFS

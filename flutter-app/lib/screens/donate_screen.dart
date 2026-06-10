@@ -80,7 +80,8 @@ class _DonateSheetContent extends StatelessWidget {
                     color: AppColors.brandOrange.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.favorite_rounded, color: AppColors.brandOrange, size: 28),
+                  child: const Icon(Icons.favorite_rounded,
+                      color: AppColors.brandOrange, size: 28),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -100,7 +101,7 @@ class _DonateSheetContent extends StatelessWidget {
                       Text(
                         'The free version includes all features. Support the project to keep development alive.',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.6),
+                          color: Colors.white.withValues(alpha: 0.7),
                           fontSize: 11,
                         ),
                       ),
@@ -117,12 +118,13 @@ class _DonateSheetContent extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.brandOrange,
                   foregroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
                   elevation: 0,
                 ),
                 onPressed: () => _openDonateLink(context),
                 child: Text(
-                  'SUPPORT ON BUY ME A COFFEE',
+                  'DONATE',
                   style: GoogleFonts.changa(
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1.5,
@@ -157,7 +159,8 @@ class _DonateSheetContent extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.vpn_key_rounded, color: Colors.white70, size: 24),
+                  child: const Icon(Icons.vpn_key_rounded,
+                      color: Colors.white70, size: 24),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -190,17 +193,21 @@ class _DonateSheetContent extends StatelessWidget {
             TextFormField(
               decoration: InputDecoration(
                 hintText: 'XXXX-XXXX-XXXX-XXXX',
-                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                hintStyle:
+                    TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 filled: true,
                 fillColor: Colors.black.withValues(alpha: 0.3),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                  borderSide:
+                      BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                  borderSide:
+                      BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                 ),
               ),
               style: const TextStyle(
@@ -217,7 +224,8 @@ class _DonateSheetContent extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white.withValues(alpha: 0.1),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
                   elevation: 0,
                 ),
                 onPressed: () => _validateLicenseKey(context),

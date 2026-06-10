@@ -59,6 +59,7 @@
 #define RK_SETTINGS_CMD_GET_DEVICE_INFO  0x08
 #define RK_SETTINGS_CMD_NVS_RAW_READ     0x09
 #define RK_SETTINGS_CMD_NVS_RAW_WRITE    0x0A
+#define RK_SETTINGS_CMD_SET_WIFI         0x0B
 
 // ── Sub-commands (MCU → App) ────────────────────────────────────────────────
 // Response = subCmd | 0x80
@@ -72,6 +73,7 @@
 #define RK_SETTINGS_RESP_DEVICE_INFO_DATA   0x88
 #define RK_SETTINGS_RESP_NVS_RAW_READ_DATA  0x89
 #define RK_SETTINGS_RESP_NVS_RAW_WRITE_ACK  0x8A
+#define RK_SETTINGS_RESP_SET_WIFI_ACK       0x8B
 
 // ── NVS_RAW_READ/WRITE status codes ─────────────────────────────────────────
 #define RK_SETTINGS_NVS_RAW_OK        0x00
@@ -92,11 +94,17 @@
 #define RK_SETTINGS_SET_CONF_ADMIN_PWD   (1 << 3)
 #define RK_SETTINGS_SET_CONF_ERROR       (1 << 7)
 
+// ── SET_WIFI field mask bits ────────────────────────────────────────────────
+#define RK_SETTINGS_SET_WIFI_SSID        (1 << 0)
+#define RK_SETTINGS_SET_WIFI_PWD         (1 << 1)
+
 // ── Feature bitmask bits ────────────────────────────────────────────────────
 #define RK_SETTINGS_FEATURE_OTA             (1 << 0)
 #define RK_SETTINGS_FEATURE_FILESYSTEM      (1 << 1)
 #define RK_SETTINGS_FEATURE_HAS_CONN_PWD    (1 << 2)
 #define RK_SETTINGS_FEATURE_HAS_ADMIN_PWD   (1 << 3)
+#define RK_SETTINGS_FEATURE_WIFI            (1 << 4)
+#define RK_SETTINGS_FEATURE_CLOUD           (1 << 5)
 
 // ── Callback signature ───────────────────────────────────────────────────────
 typedef void (*RK_SettingsPacketCallback)(uint8_t subCmd,

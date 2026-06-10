@@ -34,6 +34,8 @@ const int kCmdChipInfoData = 0x18;
 const int kCmdSetConf = 0x19;
 const int kCmdPwdAuth = 0x1A;
 const int kCmdFactoryReset = 0x1B;
+const int kCmdGetWifiInfo = 0x1D;
+const int kCmdWifiInfoData = 0x1E;
 
 // ── NVS SET_CONF field mask bits ────────────────────────────────────────────
 const int kSetConfName = 1 << 0;
@@ -52,12 +54,29 @@ const int kFeatureOta = 1 << 0;
 const int kFeatureFilesystem = 1 << 1;
 const int kFeatureHasConnPassword = 1 << 2;
 const int kFeatureHasAdminPassword = 1 << 3;
+const int kFeatureWiFi = 1 << 4;
+const int kFeatureCloud = 1 << 5;
 
 // Legacy alias
 const int kFeatureHasPassword = kFeatureHasConnPassword;
 
 // ── PWD_AUTH flags byte ─────────────────────────────────────────────────────
 const int kPwdAuthFlagAdmin = 1 << 0;
+
+// ── SET_WIFI field mask bits (settings protocol 0xDD) ─────────────────────
+const int kSettingsSetWifiSsid = 1 << 0;
+const int kSettingsSetWifiPwd = 1 << 1;
+
+// WiFi mode values
+const int kWifiModeSta = 0x00;
+const int kWifiModeAp = 0x01;
+
+// WiFi max string lengths
+const int kMaxWifiSsid = 32;
+const int kMaxWifiPwd = 64;
+
+// Default WebSocket port
+const int kDefaultWifiPort = 5555;
 
 // ── NVS config limits (must match RadioKitConfig.h) ─────────────────────────
 const int kMaxConfigName = 32;
@@ -96,6 +115,7 @@ const int kSettingsCmdFactoryReset   = 0x07;
 const int kSettingsCmdGetDeviceInfo  = 0x08;
 const int kSettingsCmdNvsRawRead     = 0x09;
 const int kSettingsCmdNvsRawWrite    = 0x0A;
+const int kSettingsCmdSetWifi        = 0x0B;
 
 // MCU → App sub-commands (response = request | 0x80)
 const int kSettingsRespTelemetryData      = 0x81;
@@ -108,6 +128,7 @@ const int kSettingsRespFactoryResetAck    = 0x87;
 const int kSettingsRespDeviceInfoData     = 0x88;
 const int kSettingsRespNvsRawReadData     = 0x89;
 const int kSettingsRespNvsRawWriteAck     = 0x8A;
+const int kSettingsRespSetWifiAck          = 0x8B;
 
 // NVS raw read/write status codes
 const int kSettingsNvsRawOk    = 0x00;
@@ -133,6 +154,8 @@ const int kSettingsFeatureOta           = 1 << 0;
 const int kSettingsFeatureFilesystem    = 1 << 1;
 const int kSettingsFeatureHasConnPwd    = 1 << 2;
 const int kSettingsFeatureHasAdminPwd   = 1 << 3;
+const int kSettingsFeatureWiFi          = 1 << 4;
+const int kSettingsFeatureCloud         = 1 << 5;
 
 // OTA error codes
 const int kOtaErrOk           = 0x00;

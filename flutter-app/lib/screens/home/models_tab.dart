@@ -32,6 +32,8 @@ import '../devtools/filesystem/file_editor_cache.dart';
 import '../devtools/filesystem/file_editor_dialog.dart';
 import '../../widgets/device_settings_dialog.dart';
 import '../../widgets/model_card.dart';
+import '../../services/websocket_service.dart';
+import 'pair_bottom_sheet.dart';
 
 class ModelsTab extends StatelessWidget {
   const ModelsTab({super.key});
@@ -128,16 +130,21 @@ class ModelsTab extends StatelessWidget {
 /// side above the telemetry divider.
 Widget _buildActiveLinkCard(
     BuildContext context, DeviceProvider dp, DeviceInfo device) {
+  final isWifi = device.id.startsWith('ws://') || device.id.startsWith('wss://');
   final transportType = device.id.startsWith('demo_')
       ? 'DEMO'
-      : device.id.startsWith('COM') || device.id.contains('serial')
-          ? 'USB'
-          : 'BLE';
+      : isWifi
+          ? 'WiFi'
+          : device.id.startsWith('COM') || device.id.contains('serial')
+              ? 'USB'
+              : 'BLE';
   final transportIcon = device.id.startsWith('demo_')
       ? Icons.wifi_tethering_rounded
-      : device.id.startsWith('COM') || device.id.contains('serial')
-          ? Icons.usb_rounded
-          : Icons.bluetooth_rounded;
+      : isWifi
+          ? Icons.wifi_rounded
+          : device.id.startsWith('COM') || device.id.contains('serial')
+              ? Icons.usb_rounded
+              : Icons.bluetooth_rounded;
   final latencyMs = dp.latencyMs;
   final signal = dp.rssi ?? device.rssi;
   final description = dp.description;
@@ -673,12 +680,7 @@ class _InfoTabContent extends StatelessWidget {
                               shape: BoxShape.circle)),
                       const SizedBox(width: 6),
                       Text(
-                        device.id.startsWith('demo_')
-                            ? 'DEMO'
-                            : device.id.startsWith('COM') ||
-                                    device.id.contains('serial')
-                                ? 'SERIAL'
-                                : 'BLE',
+                        _transportLabel(device.id),
                         style: const TextStyle(
                             color: Colors.white54,
                             fontSize: 11,
@@ -2219,12 +2221,7 @@ Future<bool> _showAuthDialog(
                 Padding(
                   padding: const EdgeInsets.only(left: 32),
                   child: Text(
-                    device.id.startsWith('demo_')
-                        ? 'DEMO'
-                        : device.id.startsWith('COM') ||
-                                device.id.contains('serial')
-                            ? 'SERIAL'
-                            : 'BLUETOOTH LE',
+                    _transportLabel(device.id),
                     style: const TextStyle(
                         color: Colors.white54,
                         fontSize: 11,
@@ -2507,817 +2504,15 @@ Future<void> _confirmRemoveDevice(
   }
 }
 
-// ── Pair Bottom Sheet ──────────────────────────────────────────────────────
-
-void showPairBottomSheet(BuildContext context) {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    backgroundColor: const Color(0xFF1A1A1A),
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-    ),
-    builder: (ctx) => const PairBottomSheet(),
-  );
-}
-
-class PairBottomSheet extends StatefulWidget {
-  const PairBottomSheet();
-
-  @override
-  State<PairBottomSheet> createState() => _PairBottomSheetState();
-}
-
-class _PairBottomSheetState extends State<PairBottomSheet>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  String _selectedBaud = '1000000';
-  final Set<String> _connectingIds = {};
-  final Map<String, String> _failedIds = {};
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(_onTabChanged);
-    // Defer scanning to avoid calling notifyListeners() during build.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _startScan();
-    });
-  }
-
-  @override
-  void dispose() {
-    _tabController.removeListener(_onTabChanged);
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  void _onTabChanged() {
-    if (_tabController.indexIsChanging) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _startScan();
-      });
-    }
-  }
-
-  void _startScan() {
-    final ble = context.read<BleProvider>();
-    final serial = context.read<SerialProvider>();
-    ble.startScan();
-    serial.startScan();
-  }
-
-  Future<void> _connectBle(DeviceInfo device) async {
-    final id = device.id;
-    if (_connectingIds.contains(id)) return;
-    setState(() {
-      _connectingIds.add(id);
-      _failedIds.remove(id);
-    });
-
-    try {
-      final bleProvider = context.read<BleProvider>();
-      final deviceProvider = context.read<DeviceProvider>();
-      final history = context.read<HistoryProvider>();
-
-      await bleProvider.stopScan();
-      if (!mounted) return;
-
-      deviceProvider.setTransport(bleProvider.bleService);
-      await deviceProvider.connectToDevice(device);
-      if (!mounted) return;
-
-      if (deviceProvider.isConnected) {
-        await history.saveDevice(
-          device,
-          'ble',
-          configName: deviceProvider.configName,
-          description: deviceProvider.description,
-        );
-        if (mounted) {
-          Navigator.of(context).maybePop();
-          context.go('/control');
-        }
-        return;
-      }
-      // Connection completed but not connected
-      if (mounted) {
-        setState(() => _failedIds[id] = 'Connection failed');
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _failedIds[id] = 'Error: $e');
-      }
-    } finally {
-      if (mounted) setState(() => _connectingIds.remove(id));
-    }
-  }
-
-  Future<void> _connectSerial(DeviceInfo device, int baudRate) async {
-    final id = device.id;
-    if (_connectingIds.contains(id)) return;
-    setState(() {
-      _connectingIds.add(id);
-      _failedIds.remove(id);
-    });
-
-    try {
-      final serialProvider = context.read<SerialProvider>();
-      final deviceProvider = context.read<DeviceProvider>();
-      final history = context.read<HistoryProvider>();
-
-      await serialProvider.stopScan();
-      if (!mounted) return;
-
-      deviceProvider.setTransport(serialProvider.serialService);
-      await deviceProvider.connectToDevice(device, baudRate: baudRate);
-      if (!mounted) return;
-
-      if (deviceProvider.isConnected) {
-        await history.saveDevice(
-          device,
-          'serial',
-          configName: deviceProvider.configName,
-          description: deviceProvider.description,
-        );
-        if (mounted) {
-          Navigator.of(context).maybePop();
-          context.go('/control');
-        }
-        return;
-      }
-      // Connection completed but not connected
-      if (mounted) {
-        setState(() => _failedIds[id] = 'Connection failed');
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _failedIds[id] = 'Error: $e');
-      }
-    } finally {
-      if (mounted) setState(() => _connectingIds.remove(id));
-    }
-  }
-
-  void _dismissError(String id) {
-    setState(() => _failedIds.remove(id));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Transform.translate(
-      offset: const Offset(0, -18),
-      child: Column(
-        children: [
-          TabBar(
-            controller: _tabController,
-            indicatorColor: AppColors.brandOrange,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white54,
-            labelStyle: const TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 11,
-              letterSpacing: 0.8,
-            ),
-            tabs: const [
-              Tab(child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.bluetooth_rounded, size: 14),
-                  SizedBox(width: 4),
-                  Text('BLE'),
-                ],
-              )),
-              Tab(child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.usb_rounded, size: 14),
-                  SizedBox(width: 4),
-                  Text('USB'),
-                ],
-              )),
-            ],
-          ),
-          const Divider(height: 1, color: Colors.white12),
-          Expanded(
-            flex: 2,
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _PairBleTab(
-                  onConnect: _connectBle,
-                  connectingIds: _connectingIds,
-                  failedIds: _failedIds,
-                  onDismissError: _dismissError,
-                ),
-                _PairUsbTab(
-                  onConnect: _connectSerial,
-                  connectingIds: _connectingIds,
-                  failedIds: _failedIds,
-                  onDismissError: _dismissError,
-                  selectedBaud: _selectedBaud,
-                  onBaudChanged: (v) => setState(() => _selectedBaud = v),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1, color: Colors.white12),
-          Expanded(
-            flex: 1,
-            child: ConsoleLogView(height: double.infinity),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Pair BLE Tab ─────────────────────────────────────────────────────────────
-
-class _PairBleTab extends StatelessWidget {
-  final Future<void> Function(DeviceInfo) onConnect;
-  final Set<String> connectingIds;
-  final Map<String, String> failedIds;
-  final ValueChanged<String> onDismissError;
-
-  const _PairBleTab({
-    required this.onConnect,
-    required this.connectingIds,
-    required this.failedIds,
-    required this.onDismissError,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<BleProvider>(
-      builder: (context, ble, _) {
-        return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Status header ──────────────────────────────────
-              Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: ble.isScanning || ble.devices.isNotEmpty
-                          ? AppColors.brandOrange
-                          : Colors.white12,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        ble.isScanning ? 'SCANNING' : 'IDLE',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
-                            letterSpacing: 1.0),
-                      ),
-                      const Text('BLUETOOTH LOW ENERGY',
-                          style: TextStyle(color: Colors.white24, fontSize: 8)),
-                    ],
-                  ),
-                  const Spacer(),
-                  Text(
-                    '${ble.devices.length.toString().padLeft(2, '0')}_NODES',
-                    style: const TextStyle(color: Colors.white24, fontSize: 9),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              LinearProgressIndicator(
-                value: ble.isScanning ? null : 1.0,
-                backgroundColor: const Color(0x0DFFFFFF),
-                valueColor:
-                    const AlwaysStoppedAnimation(AppColors.brandOrange),
-                minHeight: 1,
-              ),
-              const SizedBox(height: 20),
-              // ── Device list ───────────────────────────────────
-              if (ble.devices.isEmpty)
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 40),
-                    child: Text(
-                      ble.isScanning ? 'Scanning...' : 'No BLE devices found',
-                      style: const TextStyle(color: Colors.white24, fontSize: 12),
-                    ),
-                  ),
-                )
-              else
-                ...ble.devices.map(
-                  (device) => _PairDeviceCard(
-                    device: device,
-                    isConnecting: connectingIds.contains(device.id),
-                    errorMessage: failedIds[device.id],
-                    trailing: _PairSignalBars(rssi: device.rssi),
-                    onTap: () => onConnect(device),
-                    onRetry: () => onConnect(device),
-                    onDismissError: () => onDismissError(device.id),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ── Pair USB Tab ─────────────────────────────────────────────────────────────
-
-class _PairUsbTab extends StatelessWidget {
-  final Future<void> Function(DeviceInfo device, int baudRate) onConnect;
-  final Set<String> connectingIds;
-  final Map<String, String> failedIds;
-  final ValueChanged<String> onDismissError;
-  final String selectedBaud;
-  final ValueChanged<String> onBaudChanged;
-
-  const _PairUsbTab({
-    required this.onConnect,
-    required this.connectingIds,
-    required this.failedIds,
-    required this.onDismissError,
-    required this.selectedBaud,
-    required this.onBaudChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<SerialProvider>(
-      builder: (context, serial, _) {
-        return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Status header (same style as BLE tab) ──────────
-              Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: serial.ports.isNotEmpty
-                          ? AppColors.brandOrange
-                          : Colors.white12,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('SCANNING',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 11,
-                              letterSpacing: 1.0)),
-                      const Text('USB SERIAL',
-                          style: TextStyle(color: Colors.white24, fontSize: 8)),
-                    ],
-                  ),
-                  const Spacer(),
-                  Text(
-                    '${serial.ports.length.toString().padLeft(2, '0')}_PORTS',
-                    style: const TextStyle(color: Colors.white24, fontSize: 9),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              const LinearProgressIndicator(
-                value: null,
-                backgroundColor: Color(0x0DFFFFFF),
-                valueColor:
-                    AlwaysStoppedAnimation(AppColors.brandOrange),
-                minHeight: 1,
-              ),
-              const SizedBox(height: 20),
-              // ── Port list ─────────────────────────────────────
-              if (serial.ports.isEmpty)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 40),
-                    child: Text('No serial ports found',
-                        style: TextStyle(color: Colors.white24, fontSize: 12)),
-                  ),
-                )
-              else
-                ...serial.ports.map(
-                  (port) => _PairSerialDeviceCard(
-                    device: port,
-                    isConnecting: connectingIds.contains(port.id),
-                    errorMessage: failedIds[port.id],
-                    selectedBaud: selectedBaud,
-                    onBaudChanged: onBaudChanged,
-                    onConnect: () =>
-                        onConnect(port, int.tryParse(selectedBaud) ?? 1000000),
-                    onRetry: () =>
-                        onConnect(port, int.tryParse(selectedBaud) ?? 1000000),
-                    onDismissError: () => onDismissError(port.id),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ── Pair Device Card (BLE) ───────────────────────────────────────────────────
-
-class _PairDeviceCard extends StatelessWidget {
-  final DeviceInfo device;
-  final bool isConnecting;
-  final String? errorMessage;
-  final Widget? trailing;
-  final VoidCallback onTap;
-  final VoidCallback? onRetry;
-  final VoidCallback? onDismissError;
-
-  const _PairDeviceCard({
-    required this.device,
-    required this.isConnecting,
-    this.errorMessage,
-    this.trailing,
-    required this.onTap,
-    this.onRetry,
-    this.onDismissError,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final hasError = errorMessage != null && !isConnecting;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      color: hasError
-          ? Colors.redAccent.withValues(alpha: 0.08)
-          : Colors.white.withValues(alpha: 0.05),
-      child: InkWell(
-        onTap: isConnecting ? null : hasError ? onRetry : onTap,
-        borderRadius: BorderRadius.circular(4),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              // Connection indicator
-              if (isConnecting)
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              else if (hasError)
-                SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: Icon(Icons.error_rounded,
-                      size: 16, color: Colors.redAccent),
-                )
-              else
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.connected,
-                  ),
-                ),
-              const SizedBox(width: 14),
-              // Device info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      device.displayName.toUpperCase(),
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          letterSpacing: 0.5,
-                          color: hasError ? Colors.redAccent : Colors.white),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      isConnecting
-                          ? 'Connecting...'
-                          : hasError
-                              ? errorMessage!
-                              : 'READY TO PAIR',
-                      style: TextStyle(
-                        color: hasError
-                            ? Colors.redAccent
-                            : isConnecting
-                                ? AppColors.brandOrange
-                                : Colors.white38,
-                        fontSize: 9,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              // Trailing
-              if (isConnecting)
-                const SizedBox.shrink()
-              else if (hasError)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 28,
-                      height: 28,
-                      child: FilledButton(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.redAccent,
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.zero,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                        onPressed: onRetry,
-                        child: const Icon(Icons.refresh_rounded, size: 14),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    SizedBox(
-                      width: 28,
-                      height: 28,
-                      child: FilledButton.tonal(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.white12,
-                          foregroundColor: Colors.white38,
-                          padding: EdgeInsets.zero,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                        onPressed: onDismissError,
-                        child: const Icon(Icons.close_rounded, size: 14),
-                      ),
-                    ),
-                  ],
-                )
-              else if (trailing != null)
-                trailing!,
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Pair Serial Device Card ──────────────────────────────────────────────────
-
-class _PairSerialDeviceCard extends StatelessWidget {
-  final DeviceInfo device;
-  final bool isConnecting;
-  final String? errorMessage;
-  final String selectedBaud;
-  final ValueChanged<String> onBaudChanged;
-  final VoidCallback onConnect;
-  final VoidCallback? onRetry;
-  final VoidCallback? onDismissError;
-
-  const _PairSerialDeviceCard({
-    required this.device,
-    required this.isConnecting,
-    this.errorMessage,
-    required this.selectedBaud,
-    required this.onBaudChanged,
-    required this.onConnect,
-    this.onRetry,
-    this.onDismissError,
-  });
-
-  static const _baudRates = ['9600', '19200', '38400', '57600', '115200', '1000000'];
-
-  @override
-  Widget build(BuildContext context) {
-    final hasError = errorMessage != null && !isConnecting;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      color: hasError
-          ? Colors.redAccent.withValues(alpha: 0.08)
-          : Colors.white.withValues(alpha: 0.05),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            // Status indicator
-            if (isConnecting)
-              const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            else if (hasError)
-              SizedBox(
-                width: 16,
-                height: 16,
-                child: Icon(Icons.error_rounded,
-                    size: 16, color: Colors.redAccent),
-              )
-            else
-              Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.connected,
-                ),
-              ),
-            const SizedBox(width: 14),
-            // Port name + status
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    device.displayName.toUpperCase(),
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        letterSpacing: 0.5,
-                        color: hasError ? Colors.redAccent : Colors.white),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    isConnecting
-                        ? 'Connecting...'
-                        : hasError
-                            ? errorMessage!
-                            : 'READY TO CONNECT',
-                    style: TextStyle(
-                      color: hasError
-                          ? Colors.redAccent
-                          : isConnecting
-                              ? AppColors.brandOrange
-                              : Colors.white38,
-                      fontSize: 9,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            // Baud rate or retry
-            if (isConnecting)
-              const SizedBox.shrink()
-            else if (hasError)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 28,
-                    height: 28,
-                    child: FilledButton(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.redAccent,
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.zero,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                      onPressed: onRetry,
-                      child: const Icon(Icons.refresh_rounded, size: 14),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  SizedBox(
-                    width: 28,
-                    height: 28,
-                    child: FilledButton.tonal(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.white12,
-                        foregroundColor: Colors.white38,
-                        padding: EdgeInsets.zero,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                      onPressed: onDismissError,
-                      child: const Icon(Icons.close_rounded, size: 14),
-                    ),
-                  ),
-                ],
-              )
-            else ...[
-              // Baud rate dropdown
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: selectedBaud,
-                    dropdownColor: const Color(0xFF2A2A2A),
-                    style: GoogleFonts.jetBrainsMono(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    isDense: true,
-                    items: _baudRates.map((b) {
-                      return DropdownMenuItem(
-                        value: b,
-                        child: Text('$b baud',
-                            style: GoogleFonts.jetBrainsMono(
-                                color: Colors.white, fontSize: 10)),
-                      );
-                    }).toList(),
-                    onChanged: (String? v) {
-                      if (v != null) onBaudChanged(v);
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              // Connect button
-              SizedBox(
-                height: 28,
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.brandOrange,
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                  onPressed: onConnect,
-                  child: Text('CONNECT',
-                      style: GoogleFonts.changa(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 9,
-                          letterSpacing: 0.8)),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-class _PairSignalBars extends StatelessWidget {
-  final int rssi;
-  const _PairSignalBars({required this.rssi});
-
-  @override
-  Widget build(BuildContext context) {
-    int bars = 0;
-    if (rssi > -60) {
-      bars = 4;
-    } else if (rssi > -70) {
-      bars = 3;
-    } else if (rssi > -80) {
-      bars = 2;
-    } else if (rssi > -90) {
-      bars = 1;
-    }
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: List.generate(4, (i) {
-        final active = i < bars;
-        return Container(
-          width: 3,
-          height: 8 + (i * 3.0),
-          margin: const EdgeInsets.only(left: 2),
-          decoration: BoxDecoration(
-            color: active ? AppColors.brandOrange : Colors.white12,
-            borderRadius: BorderRadius.circular(0.5),
-          ),
-        );
-      }),
-    );
-  }
-}
 // ── Shared bottom widgets ───────────────────────────────────────────────────
+
+/// Returns a human-readable transport label for the given device ID.
+String _transportLabel(String id) {
+  if (id.startsWith('demo_')) return 'DEMO';
+  if (id.startsWith('ws://') || id.startsWith('wss://')) return 'WiFi';
+  if (id.startsWith('COM') || id.contains('serial')) return 'SERIAL';
+  return 'BLUETOOTH LE';
+}
 
 Widget _buildSectionTag(BuildContext context, String title) {
   return Padding(
@@ -3500,6 +2695,9 @@ class _PairedModelsListState extends State<_PairedModelsList> {
 
     if (device.type == 'ble') {
       deviceProvider.setTransport(ble.bleService);
+    } else if (device.type == 'wifi') {
+      final ws = WebSocketService();
+      deviceProvider.setTransport(ws);
     } else {
       deviceProvider.setTransport(serial.serialService);
     }
@@ -3514,6 +2712,22 @@ class _PairedModelsListState extends State<_PairedModelsList> {
     } else if (device.type == 'serial') {
       await serial.startScan();
       isLive = serial.ports.any((p) => p.id == device.id);
+    } else if (device.type == 'wifi') {
+      // WiFi: try a quick TCP connection to verify the device is reachable.
+      final uri = Uri.tryParse(device.id);
+      if (uri != null && (uri.scheme == 'ws' || uri.scheme == 'wss')) {
+        try {
+          final socket = await Socket.connect(
+            uri.host,
+            uri.port,
+            timeout: const Duration(seconds: 3),
+          );
+          socket.destroy();
+          isLive = true;
+        } catch (_) {
+          isLive = false;
+        }
+      }
     } else {
       isLive = true;
     }
@@ -3573,7 +2787,9 @@ class _PairedModelCard extends StatelessWidget {
     final device = state.device;
     final connectionIcon = device.type == 'ble'
         ? Icons.bluetooth_rounded
-        : Icons.usb_rounded;
+        : device.type == 'wifi'
+            ? Icons.wifi_rounded
+            : Icons.usb_rounded;
     final status = state.status;
     final isBusy = status == 'scanning' || status == 'connecting';
     final isFailed = status == 'failed';

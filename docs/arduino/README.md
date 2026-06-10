@@ -129,10 +129,10 @@ See [Protocol Specification](protocol.md) for details.
 
 | Platform | BLE | Serial | Notes |
 |----------|-----|--------|-------|
-| **ESP32** | ✅ NimBLE | ✅ USB CDC, FTDI | Fully supported |
-| **nRF52** | ✅ Native | ✅ UART | Nordic SDK |
-| **STM32** | ❌ | ✅ UART | Use Serial only |
-| **SAMD** | ❌ | ✅ UART | Use Serial only |
+| **ESP32** | [X] NimBLE | [X] USB CDC, FTDI | Fully supported |
+| **nRF52** | [X] Native | [X] UART | Nordic SDK |
+| **STM32** | [-] | [X] UART | Use Serial only |
+| **SAMD** | [-] | [X] UART | Use Serial only |
 
 ## Examples
 

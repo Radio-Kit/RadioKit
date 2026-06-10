@@ -22,6 +22,8 @@
 #include "connection/RadioKitOTA.h"
 #include "connection/RadioKitSettings.h"
 #include "connection/RadioKitNVS.h"
+#include "connection/RadioKitWiFi.h"
+#include "connection/RadioKitCloud.h"
 
 class RadioKit_Widget;
 
@@ -39,6 +41,12 @@ struct RK_Config {
     uint8_t     height      = 0;  ///< Canvas height (0 = auto)
     uint8_t     transport   = RK_TRANSPORT_BLE; ///< Transport type
     uint32_t    baudrate    = 1000000; ///< Serial baud rate
+
+    // ── WiFi / Cloud (new) ────────────────────────────────────
+    const char* sta_ssid      = "";     ///< STA WiFi SSID (empty = AP-only)
+    const char* sta_password  = "";     ///< STA WiFi password
+    const char* cloud_url     = "";      ///< Cloud relay URL (e.g. "wss://relay.radiokit.com")
+    const char* cloud_account = "";      ///< Account identifier for cloud relay
 
     // ── Read-only (set by library) ────────────────────────────
     uint8_t     architecture = RK_ARCH_DETECTED;
@@ -69,6 +77,20 @@ public:
      * The sketch MUST call Serial.begin() before this.
      */
     void startSerial(Stream& stream);
+
+    /**
+     * Start the WiFi transport — WebSocket server on port 5555.
+     * If STA credentials are configured in NVS, connects to the network;
+     * otherwise starts in AP mode with SSID "RK_<device_name>".
+     * Must be called after begin(). May be combined with startBLE() or startSerial().
+     */
+    void startWiFi();
+
+    /**
+     * Start the cloud relay client (optional). Requires startWiFi() to have
+     * been called first. Connects to the configured relay server via WSS:443.
+     */
+    void startCloud();
 
     // ── Settings protocol (0xDD) ─────────────────────────────────
     /**
@@ -152,6 +174,10 @@ private:
     uint8_t            _widgetCount;
     RadioKitTransport* _transport;
 
+    // Additional transport pointers (WiFi, Cloud) — separate from _transport
+    bool _wifiActive;       ///< True after startWiFi() called
+    bool _cloudActive;      ///< True after startCloud() called
+
     // VAR_UPDATE / SET_INPUT batch dispatch
     uint32_t _pendingUpdatesMask;
     uint8_t _varUpdateSeq;
@@ -190,10 +216,13 @@ private:
     void _handleSettingsDeviceInfo();
     void _handleSettingsNvsRawRead(const uint8_t* payload, uint16_t len);
     void _handleSettingsNvsRawWrite(const uint8_t* payload, uint16_t len);
+    void _handleSettingsSetWifi(const uint8_t* payload, uint16_t len);
+    void _handleGetWifiInfo();
     void _sendSettingsFrame(uint16_t len);
 
     void _sendPacket(const uint8_t* buf, uint16_t len);
     void _sendPacket(uint16_t len);
+    void _sendToAllTransports(const uint8_t* buf, uint16_t len);
 
     // ── OTA handlers ────────────────────────────────────────────────
     static void _onOtaPacket(uint8_t subCmd,
@@ -214,6 +243,12 @@ private:
     bool _nvsActive;        ///< True once NVS values have been loaded
     bool _authenticated;    ///< User-mode auth flag
     bool _authenticatedAdmin;  ///< Admin-mode auth flag
+
+    // WiFi / Cloud NVS buffers
+    char _nvsStaSsid[RADIOKIT_MAX_SSID + 1];
+    char _nvsStaPwd[RADIOKIT_MAX_WIFI_PWD + 1];
+    char _nvsCloudUrl[RADIOKIT_MAX_CLOUD_URL + 1];
+    char _nvsCloudAccount[RADIOKIT_MAX_CLOUD_ACCOUNT + 1];
 
     // Internal helpers
     void _syncNvsToBuffers();

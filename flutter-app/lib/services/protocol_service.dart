@@ -70,6 +70,27 @@ class ProtocolService {
   static Uint8List buildGetFeatures() => buildPacket(kCmdGetFeatures);
   static Uint8List buildGetChipInfo() => buildPacket(kCmdGetChipInfo);
 
+  /// Build CMD_GET_WIFI_INFO (0x1D) request.
+  static Uint8List buildGetWifiInfo() => buildPacket(kCmdGetWifiInfo);
+
+  /// Parse CMD_WIFI_INFO_DATA (0x1E) payload.
+  /// Payload: [IP0][IP1][IP2][IP3][MODE(1)][SSID_LEN(1)][SSID...][RSSI(1)]
+  /// Returns (ip, mode, ssid, rssi) or null if payload is too short.
+  static ({String ip, int mode, String ssid, int rssi})? parseWifiInfoData(
+      List<int> payload) {
+    if (payload.length < 6) return null;
+    final ip = '${payload[0]}.${payload[1]}.${payload[2]}.${payload[3]}';
+    final mode = payload[4];
+    final ssidLen = payload[5];
+    final ssid = (ssidLen > 0 && 6 + ssidLen <= payload.length)
+        ? utf8.decode(payload.sublist(6, 6 + ssidLen), allowMalformed: true)
+        : '';
+    final rssiOffset = 6 + ssidLen;
+    final rawRssi = rssiOffset < payload.length ? payload[rssiOffset] : 0;
+    final rssi = rawRssi > 127 ? rawRssi - 256 : rawRssi;
+    return (ip: ip, mode: mode, ssid: ssid, rssi: rssi);
+  }
+
   // ── NVS SET_CONF / PWD_AUTH ──────────────────────────────────────────────
 
   /// Build a CMD_SET_CONF (0x19) packet to write config to NVS.

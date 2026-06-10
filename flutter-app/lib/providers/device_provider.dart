@@ -233,6 +233,12 @@ class DeviceProvider extends ChangeNotifier {
   /// Whether the device has an admin password set.
   bool get hasAdminPassword => (_deviceFeatures & kFeatureHasAdminPassword) != 0;
 
+  /// Whether the device supports WiFi transport.
+  bool get hasWifi => (_deviceFeatures & kFeatureWiFi) != 0;
+
+  /// Whether the device supports cloud relay.
+  bool get hasCloud => (_deviceFeatures & kFeatureCloud) != 0;
+
   /// Current authentication state (user mode).
   bool get isAuthenticated => _authenticated;
 
@@ -1040,7 +1046,10 @@ class DeviceProvider extends ChangeNotifier {
       case kCmdVarUpdate: _handleVarUpdate(packet.payload); break;
       case kCmdMetaData:  _handleMetaData(packet.payload);  break;
       case kCmdMetaUpdate: _handleMetaUpdate(packet.payload); break;
-      case kCmdAck:       _handleAck(packet.payload);       break;
+      case kCmdAck:           _handleAck(packet.payload);       break;
+      case kCmdWifiInfoData:
+        _handleWifiInfoData(packet.payload);
+        break;
       default:
         debugPrint('RadioKit: Unknown cmd 0x${packet.cmd.toRadixString(16)}');
     }
@@ -1145,6 +1154,9 @@ class DeviceProvider extends ChangeNotifier {
         break;
       case kSettingsRespSetConfAck:
         _handleSettingsSetConfAck(packet.payload);
+        break;
+      case kSettingsRespSetWifiAck:
+        _handleSettingsSetWifiAck(packet.payload);
         break;
       case kSettingsRespFactoryResetAck:
         _log('Factory reset ACK received', level: ConsoleLogLevel.success);
@@ -1263,6 +1275,21 @@ class DeviceProvider extends ChangeNotifier {
     final completer = _nvsRawWriteCompleter;
     if (completer != null && !completer.isCompleted) {
       completer.complete(status);
+    }
+  }
+
+  void _handleSettingsSetWifiAck(Uint8List payload) {
+    if (payload.isNotEmpty) {
+      final status = payload[0];
+      final hasError = (status & kSettingsSetConfError) != 0;
+      if (hasError) {
+        _log('SET_WIFI ACK: error (0x${status.toRadixString(16)})',
+            level: ConsoleLogLevel.error);
+      } else {
+        _log('SET_WIFI ACK: SSID=${(status & kSettingsSetWifiSsid) != 0 ? "set" : "-"} '
+            'PWD=${(status & kSettingsSetWifiPwd) != 0 ? "set" : "-"}',
+            level: ConsoleLogLevel.success);
+      }
     }
   }
 
@@ -1547,6 +1574,77 @@ class DeviceProvider extends ChangeNotifier {
     }
 
     _writePacket(ProtocolService.buildAck(seq)).catchError((_) {});
+  }
+
+  /// Cached WiFi info from the device.
+  ({String ip, int mode, String ssid, int rssi})? _wifiInfo;
+
+  /// Completer for GET_WIFI_INFO response.
+  Completer<({String ip, int mode, String ssid, int rssi})>? _wifiInfoCompleter;
+
+  /// Send GET_WIFI_INFO and wait for response.
+  /// Returns WiFi info or null on timeout.
+  Future<({String ip, int mode, String ssid, int rssi})?> sendGetWifiInfo() async {
+    if (!_transport.isConnected) return null;
+    final completer = Completer<({String ip, int mode, String ssid, int rssi})>();
+    _wifiInfoCompleter = completer;
+    try {
+      await _writePacket(ProtocolService.buildGetWifiInfo());
+    } catch (e) {
+      _wifiInfoCompleter = null;
+      return null;
+    }
+    try {
+      final result = await completer.future.timeout(const Duration(seconds: 3));
+      _wifiInfo = result;
+      return result;
+    } on TimeoutException catch (_) {
+      _wifiInfoCompleter = null;
+      return null;
+    } catch (_) {
+      _wifiInfoCompleter = null;
+      return null;
+    }
+  }
+
+  void _handleWifiInfoData(List<int> payload) {
+    final parsed = ProtocolService.parseWifiInfoData(payload);
+    if (parsed == null) {
+      _log('WIFI_INFO_DATA parse failed', level: ConsoleLogLevel.error);
+      return;
+    }
+    _log('WiFi info: IP=${parsed.ip} mode=${parsed.mode == kWifiModeSta ? "STA" : "AP"} '
+        'SSID="${parsed.ssid}" RSSI=${parsed.rssi}',
+        level: ConsoleLogLevel.success);
+    _wifiInfo = parsed;
+    notifyListeners();
+    final completer = _wifiInfoCompleter;
+    if (completer != null && !completer.isCompleted) {
+      completer.complete(parsed);
+    }
+  }
+
+  /// Send SET_WIFI command via settings protocol to configure WiFi credentials.
+  /// The device will save to NVS and reboot. Returns true if command was sent.
+  Future<bool> sendSetWifi({
+    String? ssid,
+    String? password,
+  }) async {
+    if (!_transport.isConnected) return false;
+    try {
+      final pkt = SettingsProtocolService.buildSetWifi(
+        ssid: ssid,
+        password: password,
+      );
+      await _writePacket(pkt);
+      _log('SET_WIFI sent (SSID=${ssid != null ? "yes" : "no"} '
+          'PWD=${password != null ? "yes" : "no"})',
+          level: ConsoleLogLevel.info);
+      return true;
+    } catch (e) {
+      _log('sendSetWifi failed: $e', level: ConsoleLogLevel.error);
+      return false;
+    }
   }
 
   void _handleAck(List<int> payload) {
