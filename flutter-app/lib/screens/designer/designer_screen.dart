@@ -159,14 +159,16 @@ class _DesignerScreenState extends State<DesignerScreen> {
 
   Future<void> _saveAs() async {
     final ext = _isJsonMode ? 'json' : 'h';
+    final content = _saveContent('');
+    final bytes = Uint8List.fromList(utf8.encode(content));
     final path = await FilePicker.saveFile(
       fileName: 'RadioKit_UI.$ext',
       allowedExtensions: [ext],
       type: FileType.custom,
+      bytes: bytes,
     );
     if (path == null || !mounted) return;
 
-    final content = _saveContent(path);
     await File(path).writeAsString(content);
 
     // Create a new provider entry with the new file path
@@ -862,8 +864,11 @@ class _DesignerScreenState extends State<DesignerScreen> {
                         // SHARE
                         GestureDetector(
                           onTap: () {
-                            Share.share(_buildFullHeader(),
-                                subject: 'RadioKit_UI.h');
+                            SharePlus.instance.share(
+                                ShareParams(
+                                  text: _buildFullHeader(),
+                                  subject: 'RadioKit_UI.h',
+                                ));
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(

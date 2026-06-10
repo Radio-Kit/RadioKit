@@ -1932,7 +1932,6 @@ class _FirmwareTabContentState extends State<_FirmwareTabContent> {
                     Switch(
                       value: _eraseAll,
                       onChanged: (v) => setState(() => _eraseAll = v),
-                      activeColor: Colors.redAccent,
                       activeThumbColor: Colors.redAccent,
                     ),
                   ],
