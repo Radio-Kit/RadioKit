@@ -20,7 +20,7 @@ class MdnsProvider extends ChangeNotifier {
 
   MDnsClient? _client;
   StreamSubscription<PtrResourceRecord>? _ptrSubscription;
-  Timer? _scanTimer;
+  Timer? _scanLoopTimer;
 
   List<DeviceInfo> get devices => List.unmodifiable(_devices);
   bool get isScanning => _isScanning;
@@ -30,22 +30,43 @@ class MdnsProvider extends ChangeNotifier {
   bool get isSupported => !kIsWeb;
 
   /// Start scanning for `_radiokit._tcp` services on the local network.
-  /// Auto-stops after 8 seconds.
+  /// Scans for 4 seconds, waits 4 seconds, repeats.
   Future<void> startScan() async {
     if (_isScanning) return;
 
-    debugPrint('MDNS_PROVIDER: Starting mDNS scan...');
+    debugPrint('MDNS_PROVIDER: Starting mDNS scan loop...');
     _devices = [];
     _errorMessage = null;
     _isScanning = true;
     notifyListeners();
 
+    _startScanLoop();
+  }
+
+  void _startScanLoop() {
+    _runScanCycle();
+  }
+
+  void _runScanCycle() {
+    if (!_isScanning) return;
+
+    // Scan for 4 seconds
+    _scanForDuration(const Duration(seconds: 4)).then((_) {
+      if (!_isScanning) return;
+
+      // Wait 4 seconds
+      _scanLoopTimer = Timer(const Duration(seconds: 4), () {
+        _runScanCycle();
+      });
+    });
+  }
+
+  Future<void> _scanForDuration(Duration duration) async {
     try {
       _client = MDnsClient();
       await _client!.start();
 
       // Listen for PTR records matching our service type.
-      // Each PTR record represents one discovered service instance.
       _ptrSubscription = _client!
           .lookup<PtrResourceRecord>(
             ResourceRecordQuery.serverPointer('_radiokit._tcp.local'),
@@ -62,15 +83,21 @@ class MdnsProvider extends ChangeNotifier {
             },
           );
 
-      // Auto-stop after 8 seconds
-      _scanTimer = Timer(const Duration(seconds: 8), () {
-        if (_isScanning) stopScan();
+      // Wait for the scan duration
+      final completer = Completer<void>();
+      Timer(duration, () {
+        if (!completer.isCompleted) completer.complete();
       });
+      await completer.future;
+
+      // Stop the current scan
+      await _ptrSubscription?.cancel();
+      _ptrSubscription = null;
+      _client?.stop();
+      _client = null;
     } catch (e) {
       debugPrint('MDNS_PROVIDER: Failed to start scan: $e');
       _errorMessage = 'mDNS not available: $e';
-      _isScanning = false;
-      notifyListeners();
     }
   }
 
@@ -134,8 +161,8 @@ class MdnsProvider extends ChangeNotifier {
   /// Stop an active mDNS scan.
   Future<void> stopScan() async {
     debugPrint('MDNS_PROVIDER: Stopping scan');
-    _scanTimer?.cancel();
-    _scanTimer = null;
+    _scanLoopTimer?.cancel();
+    _scanLoopTimer = null;
     await _ptrSubscription?.cancel();
     _ptrSubscription = null;
     _client?.stop();
@@ -146,7 +173,7 @@ class MdnsProvider extends ChangeNotifier {
 
   @override
   void dispose() {
-    _scanTimer?.cancel();
+    _scanLoopTimer?.cancel();
     _ptrSubscription?.cancel();
     _client?.stop();
     super.dispose();

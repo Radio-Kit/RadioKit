@@ -14,6 +14,7 @@ class SerialProvider extends ChangeNotifier {
   String? _errorMessage;
 
   StreamSubscription<DeviceInfo>? _scanSubscription;
+  Timer? _scanLoopTimer;
 
   List<DeviceInfo> get ports => List.unmodifiable(_ports);
   bool get isScanning => _isScanning;
@@ -28,16 +29,36 @@ class SerialProvider extends ChangeNotifier {
   /// On native: enumerates attached USB-CDC devices and populates [ports].
   /// On web: opens the browser port picker (one-shot).
   ///
-  /// Returns the first discovered port (especially useful for web).
+  /// Scans every second on native, one-shot on web.
   Future<DeviceInfo?> startScan() async {
     if (_isScanning) return _ports.isNotEmpty ? _ports.first : null;
 
-    final completer = Completer<DeviceInfo?>();
+    debugPrint('SERIAL_PROVIDER: Starting scan loop...');
     _ports = [];
     _errorMessage = null;
     _isScanning = true;
     notifyListeners();
 
+    if (kIsWeb) {
+      // Web: one-shot scan (browser picker)
+      return _scanOnce();
+    } else {
+      // Native: scan every second
+      _startScanLoop();
+      return null;
+    }
+  }
+
+  void _startScanLoop() {
+    _scanOnce();
+    _scanLoopTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _scanOnce();
+    });
+  }
+
+  Future<DeviceInfo?> _scanOnce() async {
+    final completer = Completer<DeviceInfo?>();
+    
     await _scanSubscription?.cancel();
 
     _scanSubscription = _serialService.listPorts().listen(
@@ -58,8 +79,6 @@ class SerialProvider extends ChangeNotifier {
         if (!completer.isCompleted) completer.complete(null);
       },
       onDone: () {
-        _isScanning = false;
-        notifyListeners();
         if (!completer.isCompleted) completer.complete(null);
       },
     );
@@ -69,6 +88,8 @@ class SerialProvider extends ChangeNotifier {
 
   /// Stop an active scan (no-op on web where the picker is one-shot).
   Future<void> stopScan() async {
+    _scanLoopTimer?.cancel();
+    _scanLoopTimer = null;
     await _scanSubscription?.cancel();
     _scanSubscription = null;
     _isScanning = false;
@@ -81,6 +102,7 @@ class SerialProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _scanLoopTimer?.cancel();
     _scanSubscription?.cancel();
     _serialService.dispose();
     super.dispose();

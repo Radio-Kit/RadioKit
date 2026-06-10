@@ -131,7 +131,8 @@ class ModelsTab extends StatelessWidget {
 /// side above the telemetry divider.
 Widget _buildActiveLinkCard(
     BuildContext context, DeviceProvider dp, DeviceInfo device) {
-  final isWifi = device.id.startsWith('ws://') || device.id.startsWith('wss://');
+  final isWifi =
+      device.id.startsWith('ws://') || device.id.startsWith('wss://');
   final transportType = device.id.startsWith('demo_')
       ? 'DEMO'
       : isWifi
@@ -153,127 +154,132 @@ Widget _buildActiveLinkCard(
   return ConstrainedBox(
     constraints: const BoxConstraints(minHeight: 200),
     child: LayoutBuilder(
-        builder: (context, constraints) {
-          final width = constraints.maxWidth;
-          // Responsive scaling based on available width
-          final isNarrow = width < 400;
-          final paddingSize = (width / 15).clamp(8.0, 16.0);
-          final nameFontSize = (width / 14).clamp(16.0, 26.0);
-          final actionGap = (width / 15).clamp(12.0, 24.0);
-          final gapIconName = isNarrow ? 8.0 : 12.0;
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        // Responsive scaling based on available width
+        final isNarrow = width < 400;
+        final paddingSize = (width / 15).clamp(8.0, 16.0);
+        final nameFontSize = (width / 14).clamp(16.0, 26.0);
+        final actionGap = (width / 15).clamp(12.0, 24.0);
+        final gapIconName = isNarrow ? 8.0 : 12.0;
 
-          return Card(
-        clipBehavior: Clip.antiAlias,
-        color: Colors.white.withValues(alpha: 0.05),
-        child: Padding(
-              padding: EdgeInsets.all(paddingSize),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // ── Header row: info + icon ──
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Connection info + name + description
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Connection info row
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(transportIcon,
-                                      size: isNarrow ? 10 : 12,
-                                      color: AppColors.connected),
-                                  const SizedBox(width: 4),
-                                  Text(transportType,
-                                      style: GoogleFonts.inter(
-                                          color: AppColors.connected,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: isNarrow ? 10 : 12,
-                                          letterSpacing: 1.2)),
-                                  if (latencyMs != null) ...[
-                                    const SizedBox(width: 10),
-                                    Icon(Icons.timer_outlined,
-                                        size: 9,
-                                        color: AppColors.connected.withValues(alpha: 0.6)),
-                                    const SizedBox(width: 2),
-                                    Text('${latencyMs}ms',
-                                        style: GoogleFonts.jetBrainsMono(
-                                            color: AppColors.connected.withValues(alpha: 0.8),
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w600)),
-                                  ],
+        return Card(
+          clipBehavior: Clip.antiAlias,
+          color: Colors.white.withValues(alpha: 0.05),
+          child: Padding(
+            padding: EdgeInsets.all(paddingSize),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── Header row: info + icon ──
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Connection info + name + description
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Connection info row
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(transportIcon,
+                                    size: isNarrow ? 10 : 12,
+                                    color: AppColors.connected),
+                                const SizedBox(width: 4),
+                                Text(transportType,
+                                    style: GoogleFonts.inter(
+                                        color: AppColors.connected,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: isNarrow ? 10 : 12,
+                                        letterSpacing: 1.2)),
+                                if (latencyMs != null) ...[
                                   const SizedBox(width: 10),
-                                  Icon(Icons.signal_cellular_alt_rounded,
+                                  Icon(Icons.timer_outlined,
                                       size: 9,
-                                      color: AppColors.connected.withValues(alpha: 0.6)),
+                                      color: AppColors.connected
+                                          .withValues(alpha: 0.6)),
                                   const SizedBox(width: 2),
-                                  Text('${signal} dBm',
+                                  Text('${latencyMs}ms',
                                       style: GoogleFonts.jetBrainsMono(
-                                          color: AppColors.connected.withValues(alpha: 0.8),
+                                          color: AppColors.connected
+                                              .withValues(alpha: 0.8),
                                           fontSize: 9,
                                           fontWeight: FontWeight.w600)),
                                 ],
-                              ),
+                                const SizedBox(width: 10),
+                                Icon(Icons.signal_cellular_alt_rounded,
+                                    size: 9,
+                                    color: AppColors.connected
+                                        .withValues(alpha: 0.6)),
+                                const SizedBox(width: 2),
+                                Text('${signal} dBm',
+                                    style: GoogleFonts.jetBrainsMono(
+                                        color: AppColors.connected
+                                            .withValues(alpha: 0.8),
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w600)),
+                              ],
                             ),
-                            const SizedBox(height: 2),
-                            // Device name (single line, scale down)
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: Text(device.displayName.toUpperCase(),
-                                  style: GoogleFonts.exo2(
-                                      fontSize: nameFontSize,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: -0.5)),
+                          ),
+                          const SizedBox(height: 2),
+                          // Device name (single line, scale down)
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(device.displayName.toUpperCase(),
+                                style: GoogleFonts.exo2(
+                                    fontSize: nameFontSize,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: -0.5)),
+                          ),
+                          const SizedBox(height: 1),
+                          // Description (truncated)
+                          if (description?.isNotEmpty == true)
+                            Text(
+                              description!.toUpperCase(),
+                              style: TextStyle(
+                                  color: AppColors.brandOrange
+                                      .withValues(alpha: 0.7),
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(height: 1),
-                            // Description (truncated)
-                            if (description?.isNotEmpty == true)
-                              Text(
-                                description!.toUpperCase(),
-                                style: TextStyle(
-                                    color: AppColors.brandOrange.withValues(alpha: 0.7),
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 0.5),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                          ],
-                        ),
+                        ],
                       ),
-                      SizedBox(width: gapIconName),
-                      // Icon
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2A2A2A),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Icon(Icons.local_shipping_rounded,
-                            color: AppColors.brandOrange, size: 36),
+                    ),
+                    SizedBox(width: gapIconName),
+                    // Icon
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2A2A2A),
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  // ── Telemetry ──────────────────────────────────────────
-                  _buildActiveLinkTelemetry(dp, device),
-                  SizedBox(height: actionGap),
-                  // ── Action row ─────────────────────────────────────────
-                  _buildActiveLinkActions(context, dp, device),
-                ],
-              ),
+                      child: Icon(Icons.local_shipping_rounded,
+                          color: AppColors.brandOrange, size: 36),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // ── Telemetry ──────────────────────────────────────────
+                _buildActiveLinkTelemetry(dp, device),
+                SizedBox(height: actionGap),
+                // ── Action row ─────────────────────────────────────────
+                _buildActiveLinkActions(context, dp, device),
+              ],
             ),
+          ),
         );
       },
     ),
@@ -307,21 +313,22 @@ class _ActiveLinkSectionState extends State<_ActiveLinkSection> {
     }
 
     final device = deviceProvider.connectedDevice!;
-    final needAuth = deviceProvider.hasPassword && !deviceProvider.isAuthenticated;
+    final needAuth =
+        deviceProvider.hasPassword && !deviceProvider.isAuthenticated;
 
     // If auth is needed and dialog hasn't been shown yet, trigger it
     if (needAuth && !_authDialogShown) {
       _authDialogShown = true;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
-        
+
         // Try auto-auth with saved password first
         final saved = await SecureStorageService.loadPassword(device.id);
         if (saved != null && saved.isNotEmpty) {
           final ok = await context.read<DeviceProvider>().authenticate(saved);
           if (ok && mounted) return; // Auto-authenticated — no dialog needed
         }
-        
+
         if (!mounted) return;
         final ok = await _showAuthDialog(context, device);
         if (!mounted) return;
@@ -366,7 +373,6 @@ class _ActiveLinkSectionState extends State<_ActiveLinkSection> {
       ],
     );
   }
-
 }
 
 // ── Active link helpers ──────────────────────────────────────────────────────
@@ -395,9 +401,13 @@ Widget _buildActiveLinkTelemetry(DeviceProvider dp, DeviceInfo device) {
   return Row(
     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
     children: [
-      Flexible(child: _TelemetryItem(label: 'BATTERY', value: '$battery', unit: '%')),
-      Flexible(child: _TelemetryItem(label: 'SPEED', value: '$speed', unit: 'km/h')),
-      Flexible(child: _TelemetryItem(label: 'TEMP', value: '$temp', unit: '°C')),
+      Flexible(
+          child:
+              _TelemetryItem(label: 'BATTERY', value: '$battery', unit: '%')),
+      Flexible(
+          child: _TelemetryItem(label: 'SPEED', value: '$speed', unit: 'km/h')),
+      Flexible(
+          child: _TelemetryItem(label: 'TEMP', value: '$temp', unit: '°C')),
     ],
   );
 }
@@ -475,7 +485,8 @@ class _ActiveLinkButton extends StatelessWidget {
             ? LayoutBuilder(
                 builder: (context, constraints) {
                   final showShort = constraints.maxWidth < 180;
-                  final displayLabel = showShort ? (shortLabel ?? label) : label;
+                  final displayLabel =
+                      showShort ? (shortLabel ?? label) : label;
                   return Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     mainAxisSize: MainAxisSize.min,
@@ -485,7 +496,8 @@ class _ActiveLinkButton extends StatelessWidget {
                               fontWeight: FontWeight.w500,
                               letterSpacing: 1.2,
                               fontSize: 20,
-                              color: isDisconnect ? Colors.white : Colors.black)),
+                              color:
+                                  isDisconnect ? Colors.white : Colors.black)),
                       if (showShort) ...[
                         const SizedBox(width: 6),
                         Icon(icon, size: 26),
@@ -773,14 +785,13 @@ class _InfoTabContent extends StatelessWidget {
                   padding: EdgeInsets.zero,
                 ),
                 icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                label: Text('REMOVE',
+                label: Text('REMOVE DEVICE',
                     style: GoogleFonts.changa(
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1,
                         fontSize: 14,
                         height: 1)),
-                onPressed: () =>
-                  _confirmRemoveDevice(context, device, dp),
+                onPressed: () => _confirmRemoveDevice(context, device, dp),
               ),
             ),
           ],
@@ -790,21 +801,24 @@ class _InfoTabContent extends StatelessWidget {
   }
 
   List<Widget> _chipFields(Map<String, String> fields) {
-    return fields.entries.map((e) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(e.key,
-                  style: const TextStyle(color: Colors.white54, fontSize: 12)),
-              Text(e.value,
-                  style: GoogleFonts.jetBrainsMono(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500)),
-            ],
-          ),
-        )).toList();
+    return fields.entries
+        .map((e) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(e.key,
+                      style:
+                          const TextStyle(color: Colors.white54, fontSize: 12)),
+                  Text(e.value,
+                      style: GoogleFonts.jetBrainsMono(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500)),
+                ],
+              ),
+            ))
+        .toList();
   }
 
   String _fmtBytes(dynamic value) {
@@ -880,14 +894,16 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
     return null;
   }
 
-  Future<bool> _confirmDisableTransport(DeviceProvider dp, String transport) async {
+  Future<bool> _confirmDisableTransport(
+      DeviceProvider dp, String transport) async {
     final connectedVia = _connectedTransportName(dp);
     if (connectedVia != transport) return true;
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.warning_rounded, color: Colors.orangeAccent, size: 32),
+        icon: const Icon(Icons.warning_rounded,
+            color: Colors.orangeAccent, size: 32),
         title: const Text('Disconnect Device?'),
         content: Text(
           'Connected via $transport. Disabling this will cause the device to disconnect.',
@@ -923,7 +939,6 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
         children: [
           _buildSectionTag('MODEL_INFO'),
           const SizedBox(height: 16),
-
           _buildSaveField(
             label: 'NAME',
             ctrl: _nameCtrl,
@@ -932,7 +947,6 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
             onSave: () => _saveField(dp, 'name'),
           ),
           const SizedBox(height: 16),
-
           _buildSaveField(
             label: 'DESCRIPTION',
             ctrl: _descCtrl,
@@ -942,7 +956,6 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
             maxLines: 2,
           ),
           const SizedBox(height: 16),
-
           _buildSaveField(
             label: 'CONNECTION PASSWORD (leave empty to clear)',
             ctrl: _pwdCtrl,
@@ -954,7 +967,6 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
             onTogglePwd: () => setState(() => _pwdVisible = !_pwdVisible),
           ),
           const SizedBox(height: 16),
-
           _buildSaveField(
             label: 'ADMIN PASSWORD (leave empty to clear)',
             ctrl: _adminPwdCtrl,
@@ -963,14 +975,13 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
             onSave: () => _saveField(dp, 'adminPassword'),
             isPassword: true,
             pwdVisible: _adminPwdVisible,
-            onTogglePwd: () => setState(() => _adminPwdVisible = !_adminPwdVisible),
+            onTogglePwd: () =>
+                setState(() => _adminPwdVisible = !_adminPwdVisible),
             isAdmin: true,
           ),
           const SizedBox(height: 32),
-
           _buildSectionTag('CONNECTION'),
           const SizedBox(height: 16),
-
           _buildTransportRow(
             icon: Icons.bluetooth_rounded,
             label: 'BLE',
@@ -985,7 +996,6 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
             },
           ),
           const SizedBox(height: 12),
-
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
@@ -996,7 +1006,11 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.wifi_rounded, size: 20, color: _wifiEnabled ? AppColors.brandOrange : Colors.white38),
+                    Icon(Icons.wifi_rounded,
+                        size: 20,
+                        color: _wifiEnabled
+                            ? AppColors.brandOrange
+                            : Colors.white38),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -1004,7 +1018,9 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
                         children: [
                           Text('WIFI',
                               style: TextStyle(
-                                  color: _wifiEnabled ? Colors.white : Colors.white54,
+                                  color: _wifiEnabled
+                                      ? Colors.white
+                                      : Colors.white54,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600)),
                           const SizedBox(height: 2),
@@ -1051,7 +1067,6 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
             ),
           ),
           const SizedBox(height: 32),
-
           _buildSectionTag('FACTORY_RESET'),
           const SizedBox(height: 16),
           SizedBox(
@@ -1060,12 +1075,17 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
             child: OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.redAccent,
-                side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.5)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                side:
+                    BorderSide(color: Colors.redAccent.withValues(alpha: 0.5)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6)),
               ),
               icon: const Icon(Icons.restart_alt_rounded, size: 20),
               label: Text('FACTORY RESET',
-                  style: GoogleFonts.changa(fontWeight: FontWeight.w700, letterSpacing: 1, fontSize: 12)),
+                  style: GoogleFonts.changa(
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1,
+                      fontSize: 12)),
               onPressed: () => _factoryReset(dp),
             ),
           ),
@@ -1087,7 +1107,10 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
         const SizedBox(width: 10),
         Text(title,
             style: GoogleFonts.changa(
-                fontWeight: FontWeight.w700, fontSize: 12, letterSpacing: 1.5, color: AppColors.brandOrange)),
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+                letterSpacing: 1.5,
+                color: AppColors.brandOrange)),
       ],
     );
   }
@@ -1107,7 +1130,9 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
       ),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: enabled ? AppColors.brandOrange : Colors.white38),
+          Icon(icon,
+              size: 20,
+              color: enabled ? AppColors.brandOrange : Colors.white38),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -1120,20 +1145,27 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
                         fontWeight: FontWeight.w600)),
                 const SizedBox(height: 2),
                 Text(subtitle,
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 11)),
+                    style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.4),
+                        fontSize: 11)),
               ],
             ),
           ),
-          Switch(value: enabled, onChanged: onChanged, activeThumbColor: AppColors.brandOrange),
+          Switch(
+              value: enabled,
+              onChanged: onChanged,
+              activeThumbColor: AppColors.brandOrange),
         ],
       ),
     );
   }
 
-  Widget _buildSettingRow(IconData icon, String label, String value, Widget trailing) {
+  Widget _buildSettingRow(
+      IconData icon, String label, String value, Widget trailing) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: AppColors.brandOrange.withValues(alpha: 0.7)),
+        Icon(icon,
+            size: 18, color: AppColors.brandOrange.withValues(alpha: 0.7)),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -1147,7 +1179,9 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
                       letterSpacing: 1)),
               const SizedBox(height: 2),
               Text(value,
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 13)),
+                  style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontSize: 13)),
             ],
           ),
         ),
@@ -1168,11 +1202,13 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
     VoidCallback? onTogglePwd,
     bool isAdmin = false,
   }) {
-    final borderColor = isAdmin ? AppColors.brandOrange.withValues(alpha: 0.3) : Colors.white12;
+    final borderColor =
+        isAdmin ? AppColors.brandOrange.withValues(alpha: 0.3) : Colors.white12;
     final focusBorderColor = isAdmin
         ? AppColors.brandOrange.withValues(alpha: 0.7)
         : AppColors.brandOrange.withValues(alpha: 0.5);
-    final labelColor = isAdmin ? AppColors.brandOrange.withValues(alpha: 0.7) : Colors.white54;
+    final labelColor =
+        isAdmin ? AppColors.brandOrange.withValues(alpha: 0.7) : Colors.white54;
     final labelIcon = isAdmin
         ? Icon(Icons.admin_panel_settings_outlined,
             size: 12, color: AppColors.brandOrange.withValues(alpha: 0.5))
@@ -1184,7 +1220,9 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
         Row(children: [
           Text(label,
               style: TextStyle(
-                  color: labelColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                  color: labelColor,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold)),
           if (labelIcon != null) ...[const SizedBox(width: 6), labelIcon],
         ]),
         const SizedBox(height: 6),
@@ -1197,7 +1235,9 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
                 maxLines: maxLines,
                 obscureText: isPassword && !pwdVisible,
                 style: GoogleFonts.jetBrainsMono(
-                    color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500),
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: Colors.white.withValues(alpha: 0.05),
@@ -1240,14 +1280,16 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
                     backgroundColor: AppColors.brandOrange,
                     foregroundColor: Colors.black,
                     padding: EdgeInsets.zero,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4)),
                   ),
                   onPressed: saving ? null : onSave,
                   child: saving
                       ? const SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.black))
                       : const Icon(Icons.save_rounded, size: 18),
                 ),
               ),
@@ -1269,7 +1311,8 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
     final name = field == 'name' ? _nameCtrl.text.trim() : null;
     final desc = field == 'description' ? _descCtrl.text.trim() : null;
     final pwd = field == 'password' ? _pwdCtrl.text.trim() : null;
-    final adminPwd = field == 'adminPassword' ? _adminPwdCtrl.text.trim() : null;
+    final adminPwd =
+        field == 'adminPassword' ? _adminPwdCtrl.text.trim() : null;
 
     final ok = await dp.sendSetConf(
       name: name,
@@ -1305,7 +1348,8 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.warning_rounded, color: Colors.redAccent, size: 32),
+        icon: const Icon(Icons.warning_rounded,
+            color: Colors.redAccent, size: 32),
         title: const Text('Factory Reset?'),
         content: const Text(
             'This will erase all device settings (name, description, password) '
@@ -1335,7 +1379,9 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(ok ? 'Factory reset sent — device rebooting...' : 'Failed to send factory reset'),
+        content: Text(ok
+            ? 'Factory reset sent — device rebooting...'
+            : 'Failed to send factory reset'),
         backgroundColor: ok ? Colors.orangeAccent : Colors.redAccent,
       ),
     );
@@ -1403,14 +1449,14 @@ class _FsTabContentState extends State<_FsTabContent> {
         FsInfoStrip(
           info: _fsInfo,
           loading: _loading && _fsInfo == null,
-          speedBytesPerSec: _transferStartTime != null &&
-                  _transferStartTime != null
-              ? _currentTransferBytes /
-                  (DateTime.now()
-                          .difference(_transferStartTime!)
-                          .inMilliseconds /
-                      1000.0)
-              : null,
+          speedBytesPerSec:
+              _transferStartTime != null && _transferStartTime != null
+                  ? _currentTransferBytes /
+                      (DateTime.now()
+                              .difference(_transferStartTime!)
+                              .inMilliseconds /
+                          1000.0)
+                  : null,
         ),
         FsBreadcrumbs(
           currentPath: _currentPath,
@@ -1421,7 +1467,9 @@ class _FsTabContentState extends State<_FsTabContent> {
         ),
         const Divider(height: 1),
         Expanded(child: _buildList()),
-        if (_statusMessage != null || _errorMessage != null || _progress != null)
+        if (_statusMessage != null ||
+            _errorMessage != null ||
+            _progress != null)
           _buildStatusBar(),
       ],
     );
@@ -1448,13 +1496,13 @@ class _FsTabContentState extends State<_FsTabContent> {
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
             const SizedBox(height: 80),
-            const Icon(Icons.folder_open_rounded, size: 64,
-                color: Colors.white38),
+            const Icon(Icons.folder_open_rounded,
+                size: 64, color: Colors.white38),
             const SizedBox(height: 16),
             const Center(
                 child: Text('Empty directory',
-                    style: TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w600))),
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.w600))),
             const SizedBox(height: 4),
             Center(
               child: TextButton.icon(
@@ -1527,8 +1575,7 @@ class _FsTabContentState extends State<_FsTabContent> {
                 _floatingActionButton(
                   icon: Icons.delete_outline_rounded,
                   tooltip: 'Delete selected',
-                  onPressed:
-                      _selectedPaths.isEmpty ? null : _deleteSelected,
+                  onPressed: _selectedPaths.isEmpty ? null : _deleteSelected,
                 ),
                 const SizedBox(width: 8),
                 _floatingActionButton(
@@ -1665,9 +1712,14 @@ class _FsTabContentState extends State<_FsTabContent> {
       ),
     ).then((choice) {
       switch (choice) {
-        case _NewChoice.upload: _uploadFile(); break;
-        case _NewChoice.mkdir: _createFolder(); break;
-        default: break;
+        case _NewChoice.upload:
+          _uploadFile();
+          break;
+        case _NewChoice.mkdir:
+          _createFolder();
+          break;
+        default:
+          break;
       }
     });
   }
@@ -1708,8 +1760,8 @@ class _FsTabContentState extends State<_FsTabContent> {
       _onTileTap(entry, path);
       return;
     }
-    final action = await FsActionSheet.show(context,
-        entry: entry, fullPath: path);
+    final action =
+        await FsActionSheet.show(context, entry: entry, fullPath: path);
     if (!mounted || action == null) return;
     switch (action) {
       case FsAction.edit:
@@ -1791,8 +1843,8 @@ class _FsTabContentState extends State<_FsTabContent> {
         _statusMessage = 'Uploading ${picked.name}…';
         _progress = 0;
       });
-      final res = await _fs!.writeFile(remotePath, picked.bytes,
-          onProgress: (w, t) {
+      final res =
+          await _fs!.writeFile(remotePath, picked.bytes, onProgress: (w, t) {
         if (!mounted) return;
         setState(() {
           _currentTransferBytes = w;
@@ -1855,8 +1907,8 @@ class _FsTabContentState extends State<_FsTabContent> {
         });
         return;
       }
-      final savePath = await promptSaveFile(context,
-          fileName: entry.name, bytes: bytes);
+      final savePath =
+          await promptSaveFile(context, fileName: entry.name, bytes: bytes);
       if (!mounted) return;
       setState(() {
         _statusMessage = savePath != null
@@ -2000,8 +2052,14 @@ class _FsTabContentState extends State<_FsTabContent> {
       final p = paths[i];
       try {
         final res = await _fs!.delete(p, recursive: true);
-        if (res.success) { okCount++; } else { failCount++; }
-      } catch (_) { failCount++; }
+        if (res.success) {
+          okCount++;
+        } else {
+          failCount++;
+        }
+      } catch (_) {
+        failCount++;
+      }
       if (mounted) setState(() => _progress = (i + 1) / paths.length);
     }
     if (!mounted) return;
@@ -2027,14 +2085,24 @@ class _FsTabContentState extends State<_FsTabContent> {
       final res = await _fs!.rename(oldPath, newPath);
       if (!mounted) return;
       if (res.success) {
-        setState(() { _statusMessage = 'Renamed'; _progress = null; });
+        setState(() {
+          _statusMessage = 'Renamed';
+          _progress = null;
+        });
       } else {
-        setState(() { _errorMessage = 'Rename failed: ${res.errorName}'; _statusMessage = null; _progress = null; });
+        setState(() {
+          _errorMessage = 'Rename failed: ${res.errorName}';
+          _statusMessage = null;
+          _progress = null;
+        });
       }
       await _refresh();
     } catch (e) {
       if (!mounted) return;
-      setState(() { _errorMessage = 'Rename error: $e'; _progress = null; });
+      setState(() {
+        _errorMessage = 'Rename error: $e';
+        _progress = null;
+      });
     }
   }
 
@@ -2050,14 +2118,24 @@ class _FsTabContentState extends State<_FsTabContent> {
       final res = await _fs!.mkdir(newPath);
       if (!mounted) return;
       if (res.success) {
-        setState(() { _statusMessage = 'Created folder'; _progress = null; });
+        setState(() {
+          _statusMessage = 'Created folder';
+          _progress = null;
+        });
       } else {
-        setState(() { _errorMessage = 'Create failed: ${res.errorName}'; _statusMessage = null; _progress = null; });
+        setState(() {
+          _errorMessage = 'Create failed: ${res.errorName}';
+          _statusMessage = null;
+          _progress = null;
+        });
       }
       await _refresh();
     } catch (e) {
       if (!mounted) return;
-      setState(() { _errorMessage = 'Create error: $e'; _progress = null; });
+      setState(() {
+        _errorMessage = 'Create error: $e';
+        _progress = null;
+      });
     }
   }
 
@@ -2070,20 +2148,30 @@ class _FsTabContentState extends State<_FsTabContent> {
   }
 
   void _deselectAll() => setState(() => _selectedPaths.clear());
-  void _exitMultiSelect() => setState(() { _isMultiSelect = false; _selectedPaths.clear(); });
+  void _exitMultiSelect() => setState(() {
+        _isMultiSelect = false;
+        _selectedPaths.clear();
+      });
 
   void _showInfoDialog(FsEntry entry, String path) {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(entry.name),
-        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _kv('Type', entry.isDirectory ? 'Folder' : 'File'),
-          _kv('Path', path),
-          if (!entry.isDirectory) _kv('Size', formatBytes(entry.size)),
-          if (!entry.isDirectory) _kv('Bytes', entry.size.toString()),
-        ]),
-        actions: [TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Close'))],
+        content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _kv('Type', entry.isDirectory ? 'Folder' : 'File'),
+              _kv('Path', path),
+              if (!entry.isDirectory) _kv('Size', formatBytes(entry.size)),
+              if (!entry.isDirectory) _kv('Bytes', entry.size.toString()),
+            ]),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Close'))
+        ],
       ),
     );
   }
@@ -2097,7 +2185,8 @@ class _FsTabContentState extends State<_FsTabContent> {
                   style: const TextStyle(color: Colors.white54, fontSize: 12))),
           Expanded(
               child: SelectableText(v,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12))),
+                  style:
+                      const TextStyle(fontFamily: 'monospace', fontSize: 12))),
         ]),
       );
 }
@@ -2203,7 +2292,8 @@ class _FirmwareTabContentState extends State<_FirmwareTabContent> {
     });
 
     try {
-      await dp.uploadFirmware(firmware, eraseAll: eraseAll, onProgress: (received, total) {
+      await dp.uploadFirmware(firmware, eraseAll: eraseAll,
+          onProgress: (received, total) {
         if (!mounted || _cancelled) return;
         setState(() {
           _received = received;
@@ -2236,7 +2326,8 @@ class _FirmwareTabContentState extends State<_FirmwareTabContent> {
   String _formatSpeed(int received, int total) {
     final elapsed = DateTime.now().difference(_started ?? DateTime.now());
     final ms = elapsed.inMilliseconds;
-    final speed = ms > 0 ? (received / ms * 1000 / 1024).toStringAsFixed(1) : '0';
+    final speed =
+        ms > 0 ? (received / ms * 1000 / 1024).toStringAsFixed(1) : '0';
     final pct = total > 0 ? (received * 100 / total).toStringAsFixed(0) : '0';
     return 'Uploading... $pct% ($speed KB/s)';
   }
@@ -2317,7 +2408,8 @@ class _FirmwareTabContentState extends State<_FirmwareTabContent> {
 
           if (!_uploading && !_complete && !_error) ...[
             // ── Confirm upload phase (file selected) ────────────
-            if (_selectedFileName != null && _selectedFirmwareBytes != null) ...[
+            if (_selectedFileName != null &&
+                _selectedFirmwareBytes != null) ...[
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -2349,12 +2441,9 @@ class _FirmwareTabContentState extends State<_FirmwareTabContent> {
                                     color: Colors.white,
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600)),
-                            Text(
-                                _formatBytes(
-                                    _selectedFirmwareBytes!.length),
+                            Text(_formatBytes(_selectedFirmwareBytes!.length),
                                 style: const TextStyle(
-                                    color: Colors.white54,
-                                    fontSize: 11)),
+                                    color: Colors.white54, fontSize: 11)),
                           ],
                         ),
                       ),
@@ -2370,7 +2459,8 @@ class _FirmwareTabContentState extends State<_FirmwareTabContent> {
               const SizedBox(height: 16),
               // ── Erase all toggle ──────────────────────────────
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.03),
                   borderRadius: BorderRadius.circular(6),
@@ -2379,9 +2469,7 @@ class _FirmwareTabContentState extends State<_FirmwareTabContent> {
                   children: [
                     Icon(Icons.delete_sweep_rounded,
                         size: 18,
-                        color: _eraseAll
-                            ? Colors.redAccent
-                            : Colors.white38),
+                        color: _eraseAll ? Colors.redAccent : Colors.white38),
                     const SizedBox(width: 10),
                     const Expanded(
                       child: Column(
@@ -2392,10 +2480,10 @@ class _FirmwareTabContentState extends State<_FirmwareTabContent> {
                                   color: Colors.white,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600)),
-                          Text('Reset to factory defaults after reboot (NVS + filesystem)',
+                          Text(
+                              'Reset to factory defaults after reboot (NVS + filesystem)',
                               style: TextStyle(
-                                  color: Colors.white38,
-                                  fontSize: 10)),
+                                  color: Colors.white38, fontSize: 10)),
                         ],
                       ),
                     ),
@@ -2465,8 +2553,7 @@ class _FirmwareTabContentState extends State<_FirmwareTabContent> {
                 value: _total > 0 ? _received / _total : null,
                 minHeight: 6,
                 backgroundColor: Colors.white12,
-                valueColor:
-                    const AlwaysStoppedAnimation(AppColors.brandOrange),
+                valueColor: const AlwaysStoppedAnimation(AppColors.brandOrange),
               ),
             ),
             const SizedBox(height: 12),
@@ -2503,7 +2590,8 @@ class _FirmwareTabContentState extends State<_FirmwareTabContent> {
           // ── Error state ──────────────────────────────────────
           if (_error) ...[
             Row(children: [
-              const Icon(Icons.error_rounded, color: Colors.redAccent, size: 20),
+              const Icon(Icons.error_rounded,
+                  color: Colors.redAccent, size: 20),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(_errorMessage ?? 'Unknown error',
@@ -2586,13 +2674,14 @@ class _FirmwareTabContentState extends State<_FirmwareTabContent> {
 
 /// Shows a reusable authentication dialog for both connection (password gate)
 /// and admin (admin upgrade) authentication.
-/// 
+///
 /// [isAdminAuth]: false → connection auth via [DeviceProvider.authenticate],
 ///                 true  → admin auth via [DeviceProvider.authenticateAdmin].
 /// Both modes support "Remember password" via [SecureStorageService].
 /// Returns true if auth succeeded, false if cancelled or failed.
 Future<bool> _showAuthDialog(
-    BuildContext context, DeviceInfo device, {
+  BuildContext context,
+  DeviceInfo device, {
   bool isAdminAuth = false,
 }) async {
   final dp = context.read<DeviceProvider>();
@@ -2656,8 +2745,8 @@ Future<bool> _showAuthDialog(
 
           return AlertDialog(
             backgroundColor: const Color(0xFF1A1A1A),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -2682,8 +2771,7 @@ Future<bool> _showAuthDialog(
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  if (!isAdminAuth)
-                    const _AuthCountdown(initialSeconds: 60),
+                  if (!isAdminAuth) const _AuthCountdown(initialSeconds: 60),
                 ]),
                 const SizedBox(height: 4),
                 Padding(
@@ -2702,113 +2790,111 @@ Future<bool> _showAuthDialog(
               width: 300,
               child: SingleChildScrollView(
                 child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-
-                  Text(
-                    isAdminAuth
-                        ? 'Enter admin password to unlock full access.'
-                        : 'Enter the device password to connect.',
-                    style:
-                        const TextStyle(color: Colors.white54, fontSize: 12),
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    onChanged: (v) => password = v,
-                    initialValue: password,
-                    obscureText: obscure,
-                    autofocus: true,
-                    style: GoogleFonts.jetBrainsMono(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.05),
-                      hintText: isAdminAuth
-                          ? 'Enter admin password'
-                          : 'Enter device password',
-                      hintStyle: const TextStyle(color: Colors.white24),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 12),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                            obscure
-                                ? Icons.visibility_off_rounded
-                                : Icons.visibility_rounded,
-                            size: 18,
-                            color: Colors.white38),
-                        onPressed: () =>
-                            setDialogState(() => obscure = !obscure),
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide(
-                            color: error != null
-                                ? Colors.redAccent
-                                : Colors.white12),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide(
-                            color: error != null
-                                ? Colors.redAccent
-                                : Colors.white12),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide(
-                            color: error != null
-                                ? Colors.redAccent
-                                : AppColors.brandOrange
-                                    .withValues(alpha: 0.5)),
-                      ),
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isAdminAuth
+                          ? 'Enter admin password to unlock full access.'
+                          : 'Enter the device password to connect.',
+                      style:
+                          const TextStyle(color: Colors.white54, fontSize: 12),
                     ),
-                    onFieldSubmitted: (_) => submit(),
-                  ),
-                  if (error != null) ...[
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      onChanged: (v) => password = v,
+                      initialValue: password,
+                      obscureText: obscure,
+                      autofocus: true,
+                      style: GoogleFonts.jetBrainsMono(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.white.withValues(alpha: 0.05),
+                        hintText: isAdminAuth
+                            ? 'Enter admin password'
+                            : 'Enter device password',
+                        hintStyle: const TextStyle(color: Colors.white24),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 12),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                              obscure
+                                  ? Icons.visibility_off_rounded
+                                  : Icons.visibility_rounded,
+                              size: 18,
+                              color: Colors.white38),
+                          onPressed: () =>
+                              setDialogState(() => obscure = !obscure),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: BorderSide(
+                              color: error != null
+                                  ? Colors.redAccent
+                                  : Colors.white12),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: BorderSide(
+                              color: error != null
+                                  ? Colors.redAccent
+                                  : Colors.white12),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: BorderSide(
+                              color: error != null
+                                  ? Colors.redAccent
+                                  : AppColors.brandOrange
+                                      .withValues(alpha: 0.5)),
+                        ),
+                      ),
+                      onFieldSubmitted: (_) => submit(),
+                    ),
+                    if (error != null) ...[
+                      const SizedBox(height: 8),
+                      Row(children: [
+                        const Icon(Icons.error_outline_rounded,
+                            size: 14, color: Colors.redAccent),
+                        const SizedBox(width: 6),
+                        Text(error!,
+                            style: const TextStyle(
+                                color: Colors.redAccent,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500)),
+                      ]),
+                    ],
                     const SizedBox(height: 8),
                     Row(children: [
-                      const Icon(Icons.error_outline_rounded,
-                          size: 14, color: Colors.redAccent),
-                      const SizedBox(width: 6),
-                      Text(error!,
-                          style: const TextStyle(
-                              color: Colors.redAccent,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500)),
+                      SizedBox(
+                        height: 28,
+                        width: 28,
+                        child: Checkbox(
+                          value: remember,
+                          onChanged: (v) =>
+                              setDialogState(() => remember = v ?? false),
+                          activeColor: AppColors.brandOrange,
+                          checkColor: Colors.black,
+                          side: const BorderSide(color: Colors.white24),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () => setDialogState(() => remember = !remember),
+                        child: const Text('Remember password',
+                            style: TextStyle(
+                                color: Colors.white54,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500)),
+                      ),
                     ]),
                   ],
-                  const SizedBox(height: 8),
-                  Row(children: [
-                    SizedBox(
-                      height: 28,
-                      width: 28,
-                      child: Checkbox(
-                        value: remember,
-                        onChanged: (v) => setDialogState(
-                            () => remember = v ?? false),
-                        activeColor: AppColors.brandOrange,
-                        checkColor: Colors.black,
-                        side: const BorderSide(color: Colors.white24),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => setDialogState(
-                          () => remember = !remember),
-                      child: const Text('Remember password',
-                          style: TextStyle(
-                              color: Colors.white54,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500)),
-                    ),
-                  ]),
-                ],
+                ),
               ),
             ),
-          ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(false),
@@ -2938,17 +3024,16 @@ Future<void> _confirmRemoveDevice(
     builder: (ctx) => AlertDialog(
       backgroundColor: const Color(0xFF1A1A1A),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      icon: const Icon(Icons.warning_rounded,
-          color: Colors.redAccent, size: 32),
-      title: const Text('Remove Device?',
-          style: TextStyle(color: Colors.white)),
+      icon:
+          const Icon(Icons.warning_rounded, color: Colors.redAccent, size: 32),
+      title:
+          const Text('Remove Device?', style: TextStyle(color: Colors.white)),
       content: Text('Disconnect and remove "$deviceName" from paired devices.',
           style: const TextStyle(color: Colors.white54, fontSize: 13)),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(ctx).pop(false),
-          child: const Text('CANCEL',
-              style: TextStyle(color: Colors.white54)),
+          child: const Text('CANCEL', style: TextStyle(color: Colors.white54)),
         ),
         FilledButton.tonal(
           style: FilledButton.styleFrom(
@@ -2966,7 +3051,7 @@ Future<void> _confirmRemoveDevice(
 
   await dp.disconnect();
   history.removeDevice(deviceId);
-  
+
   if (context.mounted) {
     Navigator.of(context).maybePop();
   }
@@ -3013,7 +3098,9 @@ class _TelemetryItem extends StatelessWidget {
       children: [
         Text(label,
             style: const TextStyle(
-                color: Colors.white38, fontSize: 9, fontWeight: FontWeight.bold)),
+                color: Colors.white38,
+                fontSize: 9,
+                fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -3042,7 +3129,8 @@ class _TelemetryItem extends StatelessWidget {
 
 class _PairedModelConnectionState {
   final PairedDevice device;
-  final String status; // 'idle', 'scanning', 'connecting', 'connected', 'failed'
+  final String
+      status; // 'idle', 'scanning', 'connecting', 'connected', 'failed'
   final String? message;
 
   const _PairedModelConnectionState({
@@ -3146,8 +3234,11 @@ class _PairedModelsListState extends State<_PairedModelsList> {
   }
 
   PairedDevice? _findDevice(String id) {
-    return context.read<HistoryProvider>().pairedDevices
-        .where((d) => d.id == id).firstOrNull;
+    return context
+        .read<HistoryProvider>()
+        .pairedDevices
+        .where((d) => d.id == id)
+        .firstOrNull;
   }
 
   Future<void> _handleReconnect(PairedDevice device) async {
@@ -3202,8 +3293,7 @@ class _PairedModelsListState extends State<_PairedModelsList> {
 
     if (!isLive) {
       if (!mounted) return;
-      console.log(
-          'RECONNECT FAILED: Device "${device.name}" is not reachable.',
+      console.log('RECONNECT FAILED: Device "${device.name}" is not reachable.',
           level: ConsoleLogLevel.error);
       _updateStatus(device.id, 'failed',
           message: ble.errorMessage ?? 'Device is offline or out of range.');
@@ -3328,25 +3418,25 @@ class _PairedModelCard extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      icon: Icon(Icons.replay_rounded, size: 18, color: Colors.redAccent),
+                      icon: Icon(Icons.replay_rounded,
+                          size: 18, color: Colors.redAccent),
                       visualDensity: VisualDensity.compact,
                       constraints: const BoxConstraints(),
                       onPressed: onReconnect,
                     ),
                     IconButton(
-                      icon: Icon(Icons.close_rounded, size: 14, color: Colors.redAccent),
+                      icon: Icon(Icons.close_rounded,
+                          size: 14, color: Colors.redAccent),
                       visualDensity: VisualDensity.compact,
                       constraints: const BoxConstraints(),
                       onPressed: onDismissError,
                     ),
                   ],
                 )
-              : Icon(connectionIcon,
-                  size: 18,
-                  color: AppColors.connected),
+              : Icon(connectionIcon, size: 18, color: AppColors.connected),
     );
   }
-  }
+}
 
 // ── Interactive Demo Section ─────────────────────────────────────────────────
 

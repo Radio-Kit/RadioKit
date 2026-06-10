@@ -19,6 +19,7 @@ class BleProvider extends ChangeNotifier {
   String? _errorMessage;
 
   StreamSubscription<DeviceInfo>? _scanSubscription;
+  Timer? _scanLoopTimer;
 
   List<DeviceInfo> get devices => List.unmodifiable(_devices);
   bool get isScanning => _isScanning;
@@ -77,10 +78,32 @@ class BleProvider extends ChangeNotifier {
       return;
     }
 
-    debugPrint('BLE_PROVIDER: Initialization complete. Activating scanner...');
+    debugPrint('BLE_PROVIDER: Initialization complete. Starting scan loop...');
     _isScanning = true;
     notifyListeners();
 
+    _startScanLoop();
+  }
+
+  void _startScanLoop() {
+    _runScanCycle();
+  }
+
+  void _runScanCycle() {
+    if (!_isScanning) return;
+
+    // Scan for 4 seconds
+    _scanForDuration(const Duration(seconds: 4)).then((_) {
+      if (!_isScanning) return;
+
+      // Wait 4 seconds
+      _scanLoopTimer = Timer(const Duration(seconds: 4), () {
+        _runScanCycle();
+      });
+    });
+  }
+
+  Future<void> _scanForDuration(Duration duration) async {
     await _scanSubscription?.cancel();
 
     _scanSubscription = _bleService.startScan().listen(
@@ -102,16 +125,22 @@ class BleProvider extends ChangeNotifier {
       },
     );
 
-    // Auto-stop after 10 seconds
-    Future.delayed(const Duration(seconds: 10), () {
-      if (_isScanning) {
-        debugPrint('BLE_PROVIDER: Auto-stopping scan after 10s');
-        stopScan();
-      }
+    // Wait for the scan duration
+    final completer = Completer<void>();
+    Timer(duration, () {
+      if (!completer.isCompleted) completer.complete();
     });
+    await completer.future;
+
+    // Stop the current scan
+    await _scanSubscription?.cancel();
+    _scanSubscription = null;
+    await _bleService.stopScan();
   }
 
   Future<void> stopScan() async {
+    _scanLoopTimer?.cancel();
+    _scanLoopTimer = null;
     await _scanSubscription?.cancel();
     _scanSubscription = null;
     await _bleService.stopScan();
@@ -131,6 +160,7 @@ class BleProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _scanLoopTimer?.cancel();
     _scanSubscription?.cancel();
     _bleService.dispose();
     super.dispose();

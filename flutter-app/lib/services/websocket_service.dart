@@ -6,6 +6,10 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import '../models/protocol.dart';
 import 'protocol_service.dart';
 import 'transport_service.dart';
+import 'cloud_identity.dart';
+
+/// Auth state for challenge-response with the relay.
+enum _AuthState { unauth, challenged, authenticated }
 
 /// WebSocket transport service for both local WiFi (`ws://`) and cloud relay
 /// (`wss://`) connections.
@@ -62,9 +66,45 @@ class WebSocketService implements TransportService {
   /// Optional: account identifier for cloud relay join flow.
   String? account;
 
+  /// Ed25519 identity for challenge-response auth with the relay.
+  CloudIdentityService? identity;
+
+  /// Callback fired when the relay returns a device list for the account.
+  void Function(List<String> devices)? onDeviceList;
+
+  /// Callback fired when a cloud join succeeds.
+  void Function(String deviceName)? onCloudJoined;
+
+  /// Callback fired when challenge-response auth succeeds.
+  VoidCallback? onAuthSuccess;
+
+  /// Callback fired when auth fails.
+  void Function(String error)? onAuthFailed;
+
+  /// Internal auth state machine.
+  _AuthState _authState = _AuthState.unauth;
+
   @override
   Future<void> connect(String url, {int baudRate = 1000000}) async {
     _log('Connecting to $url...');
+
+    // If already connected (e.g., re-using an authenticated relay session),
+    // just send the appropriate message through the existing connection.
+    if (_connected) {
+      final uri = Uri.parse(url);
+      final hasPath = uri.pathSegments.isNotEmpty && uri.pathSegments.last.isNotEmpty;
+      if (hasPath && account != null && account!.isNotEmpty) {
+        _log('Already connected — sending join for ${uri.pathSegments.last}');
+        _sendJson({
+          'type': 'join',
+          'device': uri.pathSegments.last,
+          'account': account,
+        });
+      }
+      return;
+    }
+
+    _authState = _AuthState.unauth;
 
     try {
       final uri = Uri.parse(url);
@@ -81,15 +121,7 @@ class WebSocketService implements TransportService {
       _otaBuffer.clear();
       _settingsBuffer.clear();
 
-      // Send cloud join message if account is set and URL is secure
-      if (account != null && url.startsWith('wss://')) {
-        _sendJson({
-          'type': 'join',
-          'device': _deviceIdFromUrl(url),
-          'account': account,
-        });
-      }
-
+      // Set up stream listener first so we can receive messages
       _subscription = _channel!.stream.listen(
         _onMessage,
         onError: (error) {
@@ -102,22 +134,26 @@ class WebSocketService implements TransportService {
         },
         cancelOnError: false,
       );
+
+      // Determine connection type and send appropriate message
+      final hasPath = uri.pathSegments.isNotEmpty && uri.pathSegments.last.isNotEmpty;
+
+      if (hasPath && account != null && account!.isNotEmpty) {
+        // Direct device join (WiFi mode URL: ws://host:5555/device_name)
+        _sendJson({
+          'type': 'join',
+          'device': uri.pathSegments.last,
+          'account': account,
+        });
+      } else if (!hasPath && account != null && account!.isNotEmpty && identity != null) {
+        // Relay connection — authenticate with Ed25519 challenge-response
+        _sendJson({'type': 'auth_request', 'account': account});
+      }
     } catch (e) {
       _log('Connection failed: $e', level: 'error');
       _connected = false;
       rethrow;
     }
-  }
-
-  /// Extract device identifier from a cloud relay URL.
-  /// URL format: "wss://relay.host/RK_AA:BB:CC:DD:EE:FF"
-  String _deviceIdFromUrl(String url) {
-    try {
-      final uri = Uri.parse(url);
-      final path = uri.pathSegments;
-      if (path.isNotEmpty) return path.last;
-    } catch (_) {}
-    return url;
   }
 
   /// Send a JSON control message (cloud relay only).
@@ -127,11 +163,31 @@ class WebSocketService implements TransportService {
     _channel?.sink.add(msg);
   }
 
+  /// Ask the relay for devices registered under this account.
+  void sendListDevices() {
+    if (account == null || account!.isEmpty) return;
+    _sendJson({
+      'type': 'list_devices',
+      'account': account,
+    });
+  }
+
+  /// Join a specific device on the relay.
+  /// Call this after the user selects a device from the list.
+  void sendJoinForDevice(String deviceName) {
+    if (account == null || account!.isEmpty) return;
+    _sendJson({
+      'type': 'join',
+      'device': deviceName,
+      'account': account,
+    });
+  }
+
   /// Handle an incoming WebSocket message.
-  void _onMessage(dynamic data) {
+  Future<void> _onMessage(dynamic data) async {
     if (data is String) {
-      // JSON control message (cloud relay)
-      _handleControlMessage(data);
+      // JSON control message (cloud relay) — may need async for signing
+      await _handleControlMessage(data);
     } else if (data is List<int>) {
       // Binary = type-byte-prefixed RadioKit frame
       _handleBinaryFrame(Uint8List.fromList(data));
@@ -169,19 +225,42 @@ class WebSocketService implements TransportService {
   }
 
   /// Handle a JSON text control message (cloud relay protocol).
-  void _handleControlMessage(String text) {
+  Future<void> _handleControlMessage(String text) async {
     try {
       final msg = jsonDecode(text) as Map<String, dynamic>;
       final type = msg['type'] as String?;
 
       switch (type) {
+        case 'auth_challenge':
+          await _handleAuthChallenge(msg);
+          break;
+        case 'auth_ok':
+          _authState = _AuthState.authenticated;
+          _log('Relay auth succeeded');
+          onAuthSuccess?.call();
+          break;
+        case 'auth_failed':
+          final error = msg['error'] as String? ?? 'unknown error';
+          _log('Relay auth failed: $error', level: 'error');
+          _authState = _AuthState.unauth;
+          onAuthFailed?.call(error);
+          break;
         case 'joined':
           final ok = msg['ok'] as bool? ?? false;
           if (ok) {
-            _log('Cloud join succeeded: ${msg['device']}');
+            final deviceName = msg['device'] as String? ?? '';
+            _log('Cloud join succeeded: $deviceName');
+            onCloudJoined?.call(deviceName);
           } else {
             _log('Cloud join failed: ${msg['error']}', level: 'error');
           }
+          break;
+        case 'device_list':
+          final devices = (msg['devices'] as List<dynamic>? ?? [])
+              .map((e) => e as String)
+              .toList();
+          _log('Received device list: $devices');
+          onDeviceList?.call(devices);
           break;
         case 'pong':
           _log('Pong received');
@@ -201,6 +280,40 @@ class WebSocketService implements TransportService {
       }
     } catch (e) {
       _log('Failed to parse control message: $e', level: 'error');
+    }
+  }
+
+  /// Handle an Ed25519 auth challenge from the relay.
+  ///
+  /// Signs the 32-byte nonce with the private key and sends the response.
+  Future<void> _handleAuthChallenge(Map<String, dynamic> msg) async {
+    if (identity == null) {
+      _log('Auth challenge received but no identity configured', level: 'error');
+      return;
+    }
+
+    _authState = _AuthState.challenged;
+    final nonceB64 = msg['nonce'] as String?;
+    if (nonceB64 == null || nonceB64.isEmpty) {
+      _log('Auth challenge missing nonce', level: 'error');
+      return;
+    }
+
+    try {
+      final nonce = base64Decode(nonceB64);
+      final signature = await identity!.sign(nonce);
+      final sigB64 = base64Encode(signature);
+
+      _sendJson({
+        'type': 'auth_response',
+        'signature': sigB64,
+        'account': account,
+      });
+      _log('Auth response sent');
+    } catch (e) {
+      _log('Failed to sign auth challenge: $e', level: 'error');
+      _authState = _AuthState.unauth;
+      onAuthFailed?.call('Signing failed: $e');
     }
   }
 
@@ -305,7 +418,6 @@ class WebSocketService implements TransportService {
 
   @override
   Future<int?> getRssi() async {
-    // WebSocket doesn't have RSSI — return null
     return null;
   }
 
@@ -313,6 +425,7 @@ class WebSocketService implements TransportService {
   Future<void> disconnect() async {
     _log('Disconnecting...');
     _connected = false;
+    _authState = _AuthState.unauth;
     await _subscription?.cancel();
     _subscription = null;
     await _channel?.sink.close();
@@ -325,6 +438,7 @@ class WebSocketService implements TransportService {
 
   void _handleDisconnect(String reason) {
     _connected = false;
+    _authState = _AuthState.unauth;
     _widgetBuffer.clear();
     _fsBuffer.clear();
     _otaBuffer.clear();

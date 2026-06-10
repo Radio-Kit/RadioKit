@@ -245,6 +245,13 @@ class SystemTab extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildSettingRow(
+              Icons.language_rounded,
+              'SYSTEM_LANGUAGE',
+              'English (US)',
+              null,
+            ),
+            const SizedBox(height: 12),
+            _buildSettingRow(
               themeProvider.isDarkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
               'INTERFACE_THEME',
               themeProvider.isDarkMode ? 'Dark' : 'Light',
@@ -253,13 +260,6 @@ class SystemTab extends StatelessWidget {
                 onChanged: (v) => themeProvider.setThemeMode(v ? ThemeMode.dark : ThemeMode.light),
                 activeThumbColor: AppColors.brandOrange,
               ),
-            ),
-            const SizedBox(height: 20),
-            _buildSettingRow(
-              Icons.language_rounded,
-              'SYSTEM_LANGUAGE',
-              'English (US)',
-              null,
             ),
             const SizedBox(height: 12),
             _buildSettingRow(
@@ -334,84 +334,66 @@ class SystemTab extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Row(
           children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: AppColors.brandOrange.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.info_outline_rounded, color: AppColors.brandOrange, size: 28),
-            ),
-            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'VERSION',
-                    style: GoogleFonts.changa(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 14,
-                      letterSpacing: 1.5,
-                      color: AppColors.brandOrange,
+                    'APP_VERSION',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.5),
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'App & firmware information',
+                    'v1.0.0',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      fontSize: 11,
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
               ),
             ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  'APP_VERSION',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                  ),
+            Container(
+              width: 1,
+              height: 32,
+              color: Colors.white.withValues(alpha: 0.1),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(left: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'FIRMWARE_VERSION',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.5),
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'v4.2.0',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  'v1.0.0',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'FIRMWARE_VERSION',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'v4.2.0',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+              ),
             ),
           ],
         ),
@@ -579,19 +561,6 @@ class SystemTab extends StatelessWidget {
                 ),
               ),
             ],
-            if (!ra.isRunning && ra.lastError.isEmpty) ...[
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Icon(Icons.pause_circle_outline, size: 14, color: Colors.white.withValues(alpha: 0.4)),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Server stopped',
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
-                  ),
-                ],
-              ),
-            ],
             if (ra.isRunning && ra.logs.isNotEmpty) ...[
               const SizedBox(height: 12),
               ClipRRect(
@@ -612,77 +581,25 @@ class SystemTab extends StatelessWidget {
   }
 
   Widget _buildDangerZone(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.redAccent.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.redAccent.withValues(alpha: 0.2),
-          width: 1,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildDangerAction(
+          context,
+          icon: Icons.devices_other_rounded,
+          label: 'REMOVE_MODELS',
+          subtitle: 'Remove all paired models',
+          onPressed: () => _confirmRemoveModels(context),
         ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: Colors.redAccent.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 28),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'DANGER_ZONE',
-                        style: GoogleFonts.changa(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 14,
-                          letterSpacing: 1.5,
-                          color: Colors.redAccent,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Irreversible actions',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.6),
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            _buildDangerAction(
-              context,
-              icon: Icons.devices_other_rounded,
-              label: 'REMOVE_MODELS',
-              subtitle: 'Remove all paired models',
-              onPressed: () => _confirmRemoveModels(context),
-            ),
-            const SizedBox(height: 12),
-            _buildDangerAction(
-              context,
-              icon: Icons.folder_delete_rounded,
-              label: 'DELETE_PROJECTS',
-              subtitle: 'Delete all saved designs',
-              onPressed: () => _confirmDeleteProjects(context),
-            ),
-          ],
+        const SizedBox(height: 12),
+        _buildDangerAction(
+          context,
+          icon: Icons.folder_delete_rounded,
+          label: 'DELETE_PROJECTS',
+          subtitle: 'Delete all saved designs',
+          onPressed: () => _confirmDeleteProjects(context),
         ),
-      ),
+      ],
     );
   }
 

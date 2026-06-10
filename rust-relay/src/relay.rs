@@ -1,4 +1,5 @@
 use crate::session::{ClientSession, DeviceSession, RelayMessage};
+use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
@@ -18,6 +19,58 @@ impl Relay {
             devices: Arc::new(Mutex::new(HashMap::new())),
             clients: Arc::new(Mutex::new(HashMap::new())),
         }
+    }
+
+    /// Verify an Ed25519 signature for a challenge-response auth flow.
+    ///
+    /// `account` is the hex-encoded 32-byte Ed25519 public key.
+    /// `nonce` is the 32-byte challenge sent to the client.
+    /// `signature_b64` is the base64-encoded signature over the nonce.
+    ///
+    /// Returns true if the signature is valid for any device registered under
+    /// this account, or if no devices are registered (allows keyless setup).
+    pub async fn verify_auth(
+        &self,
+        account: &str,
+        nonce: &[u8; 32],
+        signature_b64: &str,
+    ) -> bool {
+        // If no devices are registered for this account, we can't verify
+        // (this shouldn't happen in normal use — device registers first)
+        let devices = self.devices.lock().await;
+        let has_account = devices.iter().any(|((_, acct), _)| acct == account);
+        if !has_account {
+            return false;
+        }
+        drop(devices); // Release lock before crypto
+
+        // Decode hex public key (32 bytes)
+        let pubkey_bytes = match hex::decode(account) {
+            Ok(b) if b.len() == 32 => b,
+            _ => return false,
+        };
+        let pubkey = match VerifyingKey::from_bytes(
+            &pubkey_bytes.try_into().unwrap_or([0u8; 32]),
+        ) {
+            Ok(k) => k,
+            Err(_) => return false,
+        };
+
+        // Decode base64 signature (64 bytes)
+        let sig_bytes = match base64::Engine::decode(
+            &base64::engine::general_purpose::STANDARD,
+            signature_b64,
+        ) {
+            Ok(b) if b.len() == 64 => b,
+            _ => return false,
+        };
+        let signature = match Signature::from_slice(&sig_bytes) {
+            Ok(s) => s,
+            Err(_) => return false,
+        };
+
+        // Verify the signature
+        pubkey.verify_strict(nonce, &signature).is_ok()
     }
 
     /// Handle a `register` control message from a device.
@@ -99,6 +152,19 @@ impl Relay {
             });
             (resp.to_string(), true)
         }
+    }
+
+    /// Handle a `list_devices` control message from a client.
+    ///
+    /// Expects JSON: `{"type":"list_devices","account":"..."}`.
+    /// Returns a list of device names currently registered for this account.
+    pub async fn handle_list_devices(&self, account: &str) -> Vec<String> {
+        let devices = self.devices.lock().await;
+        devices
+            .iter()
+            .filter(|((_, acct), _)| acct == account)
+            .map(|((name, _), _)| name.clone())
+            .collect()
     }
 
     /// Route a binary frame from a sender to its paired peers.

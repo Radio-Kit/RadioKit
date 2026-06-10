@@ -24,6 +24,7 @@ import '../providers/designs_provider.dart';
 import 'device_fs_service.dart';
 import 'fs_protocol_service.dart';
 import 'websocket_service.dart';
+import 'cloud_identity.dart';
 
 class RemoteAccessService {
   final DeviceProvider _deviceProvider;
@@ -199,6 +200,12 @@ class RemoteAccessService {
     router.delete('/api/designs/<id>', _handleDesignsDeleteOne);
     router.get('/api/session/route', _handleSessionRoute);
 
+    // ── Cloud relay API ────────────────────────────────────────────────
+    router.post('/api/cloud/connect', _handleCloudConnect);
+    router.get('/api/cloud/devices', _handleCloudDevices);
+    router.post('/api/cloud/join', _handleCloudJoin);
+    router.post('/api/cloud/disconnect', _handleCloudDisconnect);
+
     final pipeline = Pipeline()
         .addMiddleware(_corsMiddleware())
         .addMiddleware(_logMiddleware());
@@ -363,6 +370,19 @@ class RemoteAccessService {
   /// Current OTA upload progress — set by [_handleOtaUpload] during upload,
   /// read by [_handleOtaProgress]. Reset on upload completion/error.
   (int, int, String)? _otaProgress;
+
+  // ── Cloud relay state ───────────────────────────────────────────────────
+
+  /// Active WebSocketService for the cloud relay connection.
+  WebSocketService? _cloudWs;
+
+  /// Last device list returned by the relay.
+  List<String> _cloudDevices = [];
+
+  /// Cloud relay connection params.
+  String _cloudHost = '';
+  int _cloudPort = 0;
+  String _cloudAccount = '';
 
   // ── Route Handlers ──────────────────────────────────────────────────────────
 
@@ -1256,6 +1276,195 @@ class RemoteAccessService {
     } catch (e) {
       return _error('nvs_error', e.toString(), status: 500);
     }
+  }
+
+  // ── Cloud Relay Handlers ────────────────────────────────────────────────────
+
+  /// Handle POST /api/cloud/connect — connect to relay, authenticate, list devices.
+  /// Body: {
+  ///   "host": "10.0.0.17",      // optional, defaults to relay.radiokit.app
+  ///   "port": 9000,            // optional, defaults to 443
+  ///   "account": "<pubkey_hex>",  // required: Ed25519 public key hex
+  ///   "privateKey": "<privkey_hex>" // required: Ed25519 private key hex for signing
+  /// }
+  Future<Response> _handleCloudConnect(Request request) async {
+    final body = await _parseBody(request);
+    final rawHost = body['host'] as String? ?? '';
+    final port = (body['port'] as num?)?.toInt() ?? 443;
+    final account = body['account'] as String?;
+    final privateKeyHex = body['privateKey'] as String?;
+
+    if (account == null || account.isEmpty) {
+      return _error('invalid_params', 'account (public key hex) is required');
+    }
+    if (privateKeyHex == null || privateKeyHex.isEmpty) {
+      return _error('invalid_params', 'privateKey (Ed25519 private key hex) is required');
+    }
+
+    // Parse host:port
+    String host = rawHost.trim();
+    if (host.isEmpty) {
+      host = 'relay.radiokit.app';
+    }
+
+    final scheme = port == 443 ? 'wss' : 'ws';
+    final url = '$scheme://$host:$port';
+
+    _cloudHost = host;
+    _cloudPort = port;
+    _cloudAccount = account;
+
+    try {
+      // Clean up any existing connection
+      await _cloudWs?.disconnect();
+
+      final ws = WebSocketService()..account = account;
+      _cloudWs = ws;
+
+      // Create Ed25519 identity from the provided private key
+      final identity = CloudIdentityService();
+      await identity.importKeyPair(privateKeyHex, account);
+      ws.identity = identity;
+
+      // Use completers to bridge the async event-driven flow
+      final authCompleter = Completer<void>();
+      final listCompleter = Completer<List<String>>();
+      String? authError;
+
+      ws.onAuthSuccess = () {
+        if (!authCompleter.isCompleted) authCompleter.complete();
+      };
+
+      ws.onAuthFailed = (error) {
+        authError = error;
+        if (!authCompleter.isCompleted) authCompleter.complete();
+      };
+
+      ws.onDeviceList = (devices) {
+        _cloudDevices = devices;
+        if (!listCompleter.isCompleted) listCompleter.complete(devices);
+      };
+
+      ws.onConnectionLost = (reason) {
+        if (!authCompleter.isCompleted) {
+          authCompleter.completeError(Exception('Connection lost: $reason'));
+        }
+        if (!listCompleter.isCompleted) {
+          listCompleter.completeError(Exception('Connection lost: $reason'));
+        }
+      };
+
+      // Connect to relay — auth_request is sent automatically by WebSocketService
+      await ws.connect(url).timeout(const Duration(seconds: 10));
+
+      // Wait for auth to complete
+      await authCompleter.future.timeout(const Duration(seconds: 15));
+
+      if (authError != null) {
+        return _error('auth_failed', authError!, status: 401);
+      }
+
+      // Request device list
+      ws.sendListDevices();
+
+      // Wait for device list
+      final devices = await listCompleter.future.timeout(const Duration(seconds: 10));
+
+      return _json({
+        'ok': true,
+        'host': host,
+        'port': port,
+        'account': account,
+        'devices': devices,
+      });
+    } on TimeoutException {
+      return _error('timeout',
+          'Timed out waiting for relay response', status: 504);
+    } catch (e) {
+      return _error('cloud_error', e.toString(), status: 500);
+    }
+  }
+
+  /// Handle GET /api/cloud/devices — returns cached device list from relay.
+  Future<Response> _handleCloudDevices(Request request) async {
+    if (_cloudWs == null) {
+      return _error('not_connected', 'Not connected to a relay', status: 503);
+    }
+    return _json({
+      'connected': _cloudWs!.isConnected,
+      'host': _cloudHost,
+      'port': _cloudPort,
+      'account': _cloudAccount,
+      'devices': _cloudDevices,
+    });
+  }
+
+  /// Handle POST /api/cloud/join — join a specific device on the relay.
+  /// Body: { "device": "DeviceName" }
+  /// Wires up the DeviceProvider so widget interaction works through the cloud.
+  Future<Response> _handleCloudJoin(Request request) async {
+    if (_cloudWs == null) {
+      return _error('not_connected', 'Not connected to a relay', status: 503);
+    }
+    final body = await _parseBody(request);
+    final deviceName = body['device'] as String?;
+    if (deviceName == null || deviceName.isEmpty) {
+      return _error('invalid_params', 'device is required');
+    }
+
+    final scheme = _cloudPort == 443 ? 'wss' : 'ws';
+    final url = '$scheme://$_cloudHost:$_cloudPort/$deviceName';
+
+    try {
+      // Wire up the DeviceProvider to use the cloud WebSocket as transport.
+      // connectToDevice calls transport.connect(url) which re-authenticates
+      // with the relay and sends join with the device path automatically.
+      _deviceProvider.setTransport(_cloudWs!);
+
+      // Wait for join confirmation via onCloudJoined callback
+      final joinCompleter = Completer<bool>();
+      _cloudWs!.onCloudJoined = (joinedDevice) {
+        if (!joinCompleter.isCompleted) joinCompleter.complete(true);
+      };
+
+      await _deviceProvider.connectToDevice(
+        DeviceInfo(id: url, name: deviceName, rssi: 0, hasFs: false),
+      );
+
+      // Wait for join ACK or short delay
+      final joined = await joinCompleter.future
+          .timeout(const Duration(seconds: 5))
+          .catchError((_) => false);
+
+      // Save to history so device appears in models list
+      if (joined) {
+        await _historyProvider.saveDevice(
+          DeviceInfo(id: url, name: deviceName, rssi: 0, hasFs: false),
+          'wifi',
+          configName: deviceName,
+        );
+      }
+
+      return _json({
+        'ok': joined,
+        'device': deviceName,
+        'host': _cloudHost,
+        'port': _cloudPort,
+        'message': joined
+            ? 'Connected to $deviceName via cloud relay'
+            : 'Join timed out — device may be offline',
+      });
+    } catch (e) {
+      return _error('cloud_error', e.toString(), status: 500);
+    }
+  }
+
+  /// Handle POST /api/cloud/disconnect — disconnect from the relay.
+  Future<Response> _handleCloudDisconnect(Request request) async {
+    await _cloudWs?.disconnect();
+    _cloudWs = null;
+    _cloudDevices = [];
+    return _json({'ok': true, 'message': 'Disconnected from relay'});
   }
 
   // ── Session / Route ──────────────────────────────────────────────────────────

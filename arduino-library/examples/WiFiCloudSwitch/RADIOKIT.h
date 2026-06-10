@@ -86,8 +86,8 @@ static inline void initRadioKit() {
   //   1. Set cloud_url to your relay server address
   //   2. Set cloud_account to your account identifier
   // The relay is optional — WiFi transport works without it.
-  RadioKit.config.cloud_url     = "";      // e.g. "wss://relay.example.com:443"
-  RadioKit.config.cloud_account = "";      // e.g. "my_account"
+  RadioKit.config.cloud_url     = "10.0.0.17:9000";   // e.g. "wss://relay.example.com:443"
+  RadioKit.config.cloud_account = "4b6afa33fb4d3de07f9382ff9dbac48733d3aca7206218c82c982391210e1bed";  // Ed25519 public key hex
 
   // ── STA WiFi compile-time defaults (optional) ──────────
   // If set, the device will try to join this network on boot.
@@ -109,7 +109,7 @@ static inline void initRadioKit() {
 
   // Cloud: outbound relay connection (requires WiFi)
   // This is a no-op if cloud_url is empty.
-  // RadioKit.startCloud();  // Disabled for local-only WiFi testing
+  RadioKit.startCloud();
 }
 
 #endif // RADIOKIT_UI_H
