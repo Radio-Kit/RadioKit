@@ -7,6 +7,8 @@ import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/logo_icon.dart';
 import '../widgets/radiokit_app_bar.dart';
+import 'home/models_tab.dart';
+import 'home/designs_tab.dart';
 
 class HomeScreen extends StatefulWidget {
   final StatefulNavigationShell navigationShell;
@@ -139,18 +141,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: RadioKitAppBar(
         tabIndex: currentIdx,
-        onConnect: () {
-          // Navigate to models tab and show pair sheet
-          widget.navigationShell.goBranch(0);
-        },
-        onOpen: () {
-          // Navigate to projects tab and open file
-          widget.navigationShell.goBranch(1);
-        },
-        onCreate: () {
-          // Navigate to projects tab and create new design
-          widget.navigationShell.goBranch(1);
-        },
+        onConnect: () => showPairBottomSheet(context),
+        onOpen: () => openConfigFile(context),
+        onCreate: () => context.push('/designer'),
       ),
       body: Row(
         children: [

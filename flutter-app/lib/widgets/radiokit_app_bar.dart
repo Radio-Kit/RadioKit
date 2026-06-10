@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'logo_icon.dart';
 import '../theme/app_theme.dart';
 
@@ -19,8 +18,7 @@ class RadioKitAppBar extends AppBar {
     VoidCallback? onOpen,
     VoidCallback? onCreate,
   }) : super(
-          clipBehavior: Clip.hardEdge,
-          toolbarHeight: 30,
+          toolbarHeight: kToolbarHeight,
           title: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -71,7 +69,7 @@ class RadioKitAppBar extends AppBar {
                 backgroundColor: AppColors.brandOrange.withValues(alpha: 0.15),
                 foregroundColor: AppColors.brandOrange,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                minimumSize: const Size(0, 30),
+                minimumSize: const Size(0, 34),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
@@ -133,7 +131,7 @@ class _AppBarPillButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          height: 30,
+          height: 34,
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(20),

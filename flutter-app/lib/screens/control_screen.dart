@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../models/protocol.dart';
 import '../providers/device_provider.dart';
 import '../providers/debug_provider.dart';
 import '../providers/settings_provider.dart';
@@ -23,6 +24,7 @@ class _ControlScreenState extends State<ControlScreen> {
   void initState() {
     super.initState();
     _applyFullscreen();
+    _applyCanvasOrientation();
   }
 
   void _applyFullscreen() {
@@ -32,10 +34,30 @@ class _ControlScreenState extends State<ControlScreen> {
     }
   }
 
+  /// Lock device orientation to match the canvas orientation from the config.
+  void _applyCanvasOrientation() {
+    final device = context.read<DeviceProvider>();
+    final isLandscape = device.orientation == kOrientationLandscape;
+    SystemChrome.setPreferredOrientations([
+      if (isLandscape) ...[
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ] else ...[
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ],
+    ]);
+  }
+
   @override
   void dispose() {
-    // Restore system UI when leaving the controller
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     super.dispose();
   }
 
@@ -86,18 +108,19 @@ class _ControlScreenState extends State<ControlScreen> {
             appBar: AppBar(
               automaticallyImplyLeading: false,
               centerTitle: true,
-              leading: Padding(
-                padding: const EdgeInsets.only(left: 4),
-                child: Row(
-                  children: [
-                    // Home button — leftmost position
+              leadingWidth: 220,
+              leading: SizedBox(
+                width: 220,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Row(
+                    children: [
                     IconButton(
                       icon: const Icon(Icons.home_rounded),
                       tooltip: 'Home',
                       onPressed: () => context.go('/models'),
                     ),
                     const SizedBox(width: 4),
-                    // Connection indicator
                     Container(
                       width: 8,
                       height: 8,
@@ -115,39 +138,41 @@ class _ControlScreenState extends State<ControlScreen> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // Telemetry (if connected)
                     if (isConnected)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.05),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 0.5),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                              Icon(Icons.signal_cellular_alt_rounded, 
-                                size: 14, color: _getRssiColor(deviceProvider.rssi ?? -127)),
-                              const SizedBox(width: 4),
-                              Text('${deviceProvider.rssi ?? "--"} dBm', 
-                                style: const TextStyle(fontSize: 10, color: Colors.white70, fontWeight: FontWeight.bold)),
-                            if (deviceProvider.rssi != null && deviceProvider.latencyMs != null)
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
-                                child: Text('|', style: TextStyle(color: Colors.white.withValues(alpha: 0.1), fontSize: 10)),
-                              ),
-                              const Icon(Icons.timer_rounded, size: 14, color: Colors.white54),
-                              const SizedBox(width: 4),
-                              Text('${deviceProvider.latencyMs ?? "--"}ms', 
-                                style: const TextStyle(fontSize: 10, color: Colors.white54)),
-                          ],
+                      Flexible(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 0.5),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                                Icon(Icons.signal_cellular_alt_rounded, 
+                                  size: 14, color: _getRssiColor(deviceProvider.rssi ?? -127)),
+                                const SizedBox(width: 4),
+                                Text('${deviceProvider.rssi ?? "--"} dBm', 
+                                  style: const TextStyle(fontSize: 10, color: Colors.white70, fontWeight: FontWeight.bold)),
+                              if (deviceProvider.rssi != null && deviceProvider.latencyMs != null)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  child: Text('|', style: TextStyle(color: Colors.white.withValues(alpha: 0.1), fontSize: 10)),
+                                ),
+                                const Icon(Icons.timer_rounded, size: 14, color: Colors.white54),
+                                const SizedBox(width: 4),
+                                Text('${deviceProvider.latencyMs ?? "--"}ms', 
+                                  style: const TextStyle(fontSize: 10, color: Colors.white54)),
+                            ],
+                          ),
                         ),
                       ),
                   ],
                 ),
               ),
-              title: Text(
+            ),
+            title: Text(
                 device?.displayName ?? 'RadioKit Device',
                 style: const TextStyle(
                   fontSize: 17,

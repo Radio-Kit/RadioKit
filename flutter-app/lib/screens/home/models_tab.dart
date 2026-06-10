@@ -49,7 +49,7 @@ class ModelsTab extends StatelessWidget {
     return Scaffold(
       appBar: RadioKitAppBar(
         tabIndex: 0,
-        onConnect: () => _showPairBottomSheet(context),
+        onConnect: () => showPairBottomSheet(context),
       ),
       body: _buildContent(context, isLandscape),
     );
@@ -2509,7 +2509,7 @@ Future<void> _confirmRemoveDevice(
 
 // ── Pair Bottom Sheet ──────────────────────────────────────────────────────
 
-void _showPairBottomSheet(BuildContext context) {
+void showPairBottomSheet(BuildContext context) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -2518,18 +2518,18 @@ void _showPairBottomSheet(BuildContext context) {
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
     ),
-    builder: (ctx) => const _PairBottomSheet(),
+    builder: (ctx) => const PairBottomSheet(),
   );
 }
 
-class _PairBottomSheet extends StatefulWidget {
-  const _PairBottomSheet();
+class PairBottomSheet extends StatefulWidget {
+  const PairBottomSheet();
 
   @override
-  State<_PairBottomSheet> createState() => _PairBottomSheetState();
+  State<PairBottomSheet> createState() => _PairBottomSheetState();
 }
 
-class _PairBottomSheetState extends State<_PairBottomSheet>
+class _PairBottomSheetState extends State<PairBottomSheet>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _selectedBaud = '1000000';
@@ -2541,7 +2541,10 @@ class _PairBottomSheetState extends State<_PairBottomSheet>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_onTabChanged);
-    _startScan();
+    // Defer scanning to avoid calling notifyListeners() during build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _startScan();
+    });
   }
 
   @override
@@ -2553,7 +2556,9 @@ class _PairBottomSheetState extends State<_PairBottomSheet>
 
   void _onTabChanged() {
     if (_tabController.indexIsChanging) {
-      _startScan();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _startScan();
+      });
     }
   }
 

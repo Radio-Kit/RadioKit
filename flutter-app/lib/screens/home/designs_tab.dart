@@ -32,7 +32,7 @@ class DesignsTab extends StatelessWidget {
     return Scaffold(
       appBar: RadioKitAppBar(
         tabIndex: 1,
-        onOpen: () => _openConfigFile(context),
+        onOpen: () => openConfigFile(context),
         onCreate: () => context.push('/designer'),
       ),
       body: _buildContent(context, designs),
@@ -64,7 +64,10 @@ class DesignsTab extends StatelessWidget {
           );
   }
 
-  Future<void> _openConfigFile(BuildContext context) async {
+}
+
+/// Opens a .h or .json config file via the system file picker.
+Future<void> openConfigFile(BuildContext context) async {
     try {
       FilePickerResult? result = await FilePicker.pickFiles(
         type: FileType.custom,
@@ -119,7 +122,6 @@ class DesignsTab extends StatelessWidget {
       );
     }
   }
-}
 
 class _PillButton extends StatelessWidget {
   final IconData icon;
