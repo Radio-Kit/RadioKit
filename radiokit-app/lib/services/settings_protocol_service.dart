@@ -109,8 +109,8 @@ class SettingsProtocolService {
 
     if (name != null) fieldMask |= kSettingsSetConfName;
     if (description != null) fieldMask |= kSettingsSetConfDesc;
-    if (password != null) fieldMask |= kSettingsSetConfPwd;
-    if (adminPassword != null) fieldMask |= kSettingsSetConfAdminPwd;
+    if (password != null) fieldMask |= kSettingsSetConfDevicePwd;
+    if (adminPassword != null) fieldMask |= kSettingsSetConfUserPwd;
 
     payload.add(fieldMask & 0xFF);
     payload.add((fieldMask >> 8) & 0xFF);
@@ -130,11 +130,17 @@ class SettingsProtocolService {
     return buildFrame(kSettingsCmdSetConf, payload);
   }
 
-  /// Build SETTINGS_PWD_AUTH frame. Payload: [PWD_LEN(1)][PWD][FLAGS(1)?]
+  /// Build SETTINGS_PWD_AUTH frame. Payload: [PWD_LEN(1)][PWD]
+  /// No flags byte needed — the new auth uses a single PWD_AUTH command
+  /// and the device determines the auth level (device or user) from the
+  /// password itself.
+  /// @param password The password to authenticate with.
+  /// @param admin Ignored for new firmware (kept for backward compat with old firmware).
   static Uint8List buildPwdAuth(String password, {bool admin = false}) {
     final encoded = utf8.encode(password);
     final len = encoded.length.clamp(0, kMaxConfigPwd);
     final payload = [len, ...encoded.take(len)];
+    // For old firmware (< v5), append admin flag if requested
     if (admin) {
       payload.add(kSettingsPwdAuthFlagAdmin);
     }

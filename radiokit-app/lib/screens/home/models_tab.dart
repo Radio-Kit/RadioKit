@@ -2678,11 +2678,11 @@ class _FirmwareTabContentState extends State<_FirmwareTabContent> {
 // ── Shared Auth Dialog ─────────────────────────────────────────────────────
 
 /// Shows a reusable authentication dialog for both connection (password gate)
-/// and admin (admin upgrade) authentication.
+/// and upgrade (user→device) authentication.
 ///
-/// [isAdminAuth]: false → connection auth via [DeviceProvider.authenticate],
-///                 true  → admin auth via [DeviceProvider.authenticateAdmin].
-/// Both modes support "Remember password" via [SecureStorageService].
+/// Uses the single [DeviceProvider.authenticate] method. The device returns
+/// the granted auth level (device or user) based on which password was entered.
+/// "Remember password" is saved via [SecureStorageService.savePassword].
 /// Returns true if auth succeeded, false if cancelled or failed.
 Future<bool> _showAuthDialog(
   BuildContext context,
@@ -2692,14 +2692,12 @@ Future<bool> _showAuthDialog(
   final dp = context.read<DeviceProvider>();
   bool obscure = true;
   bool loading = false;
-  bool remember = isAdminAuth ? false : true;
+  bool remember = true;
   String? error;
   String password = '';
 
   // Load saved password
-  final saved = isAdminAuth
-      ? await SecureStorageService.loadAdminPassword(device.id)
-      : await SecureStorageService.loadPassword(device.id);
+  final saved = await SecureStorageService.loadPassword(device.id);
   if (saved != null && saved.isNotEmpty) {
     password = saved;
   }
@@ -2712,7 +2710,14 @@ Future<bool> _showAuthDialog(
     builder: (ctx) {
       return StatefulBuilder(
         builder: (context, setDialogState) {
-          // Shared submit handler
+          // Auto-dismiss when auth happens externally (e.g., via remote API)
+          final authDp = context.watch<DeviceProvider>();
+          if (authDp.isAuthenticated) {
+            Future.microtask(() {
+              if (context.mounted) Navigator.of(ctx).pop(true);
+            });
+          }
+
           Future<void> submit() async {
             if (loading) return;
             setDialogState(() {
@@ -2727,17 +2732,11 @@ Future<bool> _showAuthDialog(
               });
               return;
             }
-            final ok = isAdminAuth
-                ? await dp.authenticateAdmin(pwd)
-                : await dp.authenticate(pwd);
+            final ok = await dp.authenticate(pwd);
             if (!context.mounted) return;
             if (ok) {
               if (remember) {
-                if (isAdminAuth) {
-                  SecureStorageService.saveAdminPassword(device.id, pwd);
-                } else {
-                  SecureStorageService.savePassword(device.id, pwd);
-                }
+                SecureStorageService.savePassword(device.id, pwd);
               }
               Navigator.of(ctx).pop(true);
             } else {
@@ -2757,13 +2756,8 @@ Future<bool> _showAuthDialog(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Row(children: [
-                  Icon(
-                    isAdminAuth
-                        ? Icons.admin_panel_settings_outlined
-                        : Icons.lock_rounded,
-                    color: AppColors.brandOrange,
-                    size: 22,
-                  ),
+                  const Icon(Icons.lock_rounded,
+                      color: AppColors.brandOrange, size: 22),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -2776,7 +2770,7 @@ Future<bool> _showAuthDialog(
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  if (!isAdminAuth) const _AuthCountdown(initialSeconds: 60),
+                  const _AuthCountdown(initialSeconds: 30),
                 ]),
                 const SizedBox(height: 4),
                 Padding(
@@ -2798,12 +2792,9 @@ Future<bool> _showAuthDialog(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      isAdminAuth
-                          ? 'Enter admin password to unlock full access.'
-                          : 'Enter the device password to connect.',
-                      style:
-                          const TextStyle(color: Colors.white54, fontSize: 12),
+                    const Text(
+                      'Enter the device password to connect.',
+                      style: TextStyle(color: Colors.white54, fontSize: 12),
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -2818,9 +2809,7 @@ Future<bool> _showAuthDialog(
                       decoration: InputDecoration(
                         filled: true,
                         fillColor: Colors.white.withValues(alpha: 0.05),
-                        hintText: isAdminAuth
-                            ? 'Enter admin password'
-                            : 'Enter device password',
+                        hintText: 'Enter device password',
                         hintStyle: const TextStyle(color: Colors.white24),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 12),

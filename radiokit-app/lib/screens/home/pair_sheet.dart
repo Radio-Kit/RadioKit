@@ -10,6 +10,9 @@ import '../../providers/ble_provider.dart';
 import '../../providers/mdns_provider.dart';
 import '../../providers/serial_provider.dart';
 import '../../providers/cloud_identity_provider.dart';
+import '../../providers/account_provider.dart';
+import '../../models/account.dart';
+import 'accounts_sheet.dart';
 import '../../models/device_info.dart';
 import '../../theme/app_theme.dart';
 import '../../services/websocket_service.dart';
@@ -218,9 +221,8 @@ class _PairBottomSheetState extends State<PairBottomSheet>
 
   /// Called by `_PairCloudTab` after the user selects a device from the list.
   /// The WebSocket is already connected and has joined the device on the relay.
-  Future<void> _finalizeCloudConnection(
-      WebSocketService ws, String host, int port, String deviceName,
-      String account) async {
+  Future<void> _finalizeCloudConnection(WebSocketService ws, String host,
+      int port, String deviceName, String account) async {
     final url = '${port == 443 ? "wss" : "ws"}://$host:$port';
     final displayName = '$deviceName @ $host:$port';
     if (_connectingIds.contains(url)) return;
@@ -290,7 +292,8 @@ class _PairBottomSheetState extends State<PairBottomSheet>
               letterSpacing: 0.8,
             ),
             tabs: const [
-              Tab(child: Row(
+              Tab(
+                  child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.usb_rounded, size: 14),
@@ -298,7 +301,8 @@ class _PairBottomSheetState extends State<PairBottomSheet>
                   Text('USB'),
                 ],
               )),
-              Tab(child: Row(
+              Tab(
+                  child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.bluetooth_rounded, size: 14),
@@ -306,7 +310,8 @@ class _PairBottomSheetState extends State<PairBottomSheet>
                   Text('BLE'),
                 ],
               )),
-              Tab(child: Row(
+              Tab(
+                  child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.wifi_rounded, size: 14),
@@ -314,7 +319,8 @@ class _PairBottomSheetState extends State<PairBottomSheet>
                   Text('WiFi'),
                 ],
               )),
-              Tab(child: Row(
+              Tab(
+                  child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.cloud_rounded, size: 14),
@@ -435,8 +441,7 @@ class _PairBleTab extends StatelessWidget {
               LinearProgressIndicator(
                 value: ble.isScanning ? null : 1.0,
                 backgroundColor: const Color(0x0DFFFFFF),
-                valueColor:
-                    const AlwaysStoppedAnimation(AppColors.brandOrange),
+                valueColor: const AlwaysStoppedAnimation(AppColors.brandOrange),
                 minHeight: 1,
               ),
               const SizedBox(height: 20),
@@ -447,7 +452,8 @@ class _PairBleTab extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 40),
                     child: Text(
                       ble.isScanning ? 'Scanning...' : 'No BLE devices found',
-                      style: const TextStyle(color: Colors.white24, fontSize: 12),
+                      style:
+                          const TextStyle(color: Colors.white24, fontSize: 12),
                     ),
                   ),
                 )
@@ -536,8 +542,7 @@ class _PairUsbTab extends StatelessWidget {
               const LinearProgressIndicator(
                 value: null,
                 backgroundColor: Color(0x0DFFFFFF),
-                valueColor:
-                    AlwaysStoppedAnimation(AppColors.brandOrange),
+                valueColor: AlwaysStoppedAnimation(AppColors.brandOrange),
                 minHeight: 1,
               ),
               const SizedBox(height: 20),
@@ -621,7 +626,11 @@ class _PairWiFiTab extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isScanning ? 'SCANNING' : hasDiscovered ? 'DISCOVERED' : 'IDLE',
+                    isScanning
+                        ? 'SCANNING'
+                        : hasDiscovered
+                            ? 'DISCOVERED'
+                            : 'IDLE',
                     style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 11,
@@ -642,8 +651,7 @@ class _PairWiFiTab extends StatelessWidget {
           LinearProgressIndicator(
             value: isScanning ? null : 1.0,
             backgroundColor: const Color(0x0DFFFFFF),
-            valueColor:
-                const AlwaysStoppedAnimation(AppColors.brandOrange),
+            valueColor: const AlwaysStoppedAnimation(AppColors.brandOrange),
             minHeight: 1,
           ),
           const SizedBox(height: 16),
@@ -790,8 +798,8 @@ class _PairWiFiManualEntryState extends State<_PairWiFiManualEntry> {
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 12),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(6),
                     borderSide: const BorderSide(color: Colors.white12),
@@ -873,7 +881,11 @@ class _PairDeviceCard extends StatelessWidget {
           ? Colors.redAccent.withValues(alpha: 0.08)
           : Colors.white.withValues(alpha: 0.05),
       child: InkWell(
-        onTap: isConnecting ? null : hasError ? onRetry : onTap,
+        onTap: isConnecting
+            ? null
+            : hasError
+                ? onRetry
+                : onTap,
         borderRadius: BorderRadius.circular(4),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -1011,9 +1023,8 @@ class _PairSignalBars extends StatelessWidget {
 enum _CloudStep { idle, connectingRelay, deviceList, joiningDevice }
 
 class _PairCloudTab extends StatefulWidget {
-  final Future<void> Function(
-      WebSocketService ws, String host, int port, String deviceName,
-      String account) onFinalize;
+  final Future<void> Function(WebSocketService ws, String host, int port,
+      String deviceName, String account) onFinalize;
 
   const _PairCloudTab({required this.onFinalize});
 
@@ -1035,12 +1046,35 @@ class _PairCloudTabState extends State<_PairCloudTab> {
   @override
   void initState() {
     super.initState();
-    // Auto-fill account from Ed25519 keypair if available
+    // Auto-fill account from Ed25519 keypair or auto-select single account
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final identity = context.read<CloudIdentityProvider>();
-      if (identity.account != null) {
+      final ap = context.read<AccountProvider>();
+
+      if (ap.accounts.length == 1) {
+        final account = ap.accounts.first;
+        _accountController.text = account.publicKey;
+        if (account.relay.isNotEmpty) {
+          _hostController.text = account.relay;
+        }
+        // Auto-connect after a brief delay to let the widget tree settle
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted) _connectToRelay();
+        });
+      } else if (identity.account != null) {
         _accountController.text = identity.account!;
+        // Auto-select matching account and connect if one exists
+        final matching = ap.accounts.where((a) => a.publicKey == identity.account!).toList();
+        if (matching.isNotEmpty) {
+          final account = matching.first;
+          if (account.relay.isNotEmpty) {
+            _hostController.text = account.relay;
+          }
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (mounted) _connectToRelay();
+          });
+        }
       }
     });
   }
@@ -1108,9 +1142,7 @@ class _PairCloudTabState extends State<_PairCloudTab> {
         if (!mounted) return;
         setState(() {
           _devices = devices;
-          _step = devices.isEmpty
-              ? _CloudStep.idle
-              : _CloudStep.deviceList;
+          _step = devices.isEmpty ? _CloudStep.idle : _CloudStep.deviceList;
           if (devices.isEmpty) {
             _error = 'No devices found for account public key';
           }
@@ -1159,6 +1191,43 @@ class _PairCloudTabState extends State<_PairCloudTab> {
     }
   }
 
+  Widget _buildRelaySuffix() {
+    if (_step == _CloudStep.connectingRelay) {
+      return const Padding(
+        padding: EdgeInsets.all(14),
+        child: SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+    if (_step == _CloudStep.deviceList) {
+      return Icon(
+        Icons.check_circle_rounded,
+        size: 22,
+        color: Colors.greenAccent.withValues(alpha: 0.8),
+      );
+    }
+    if (_error != null) {
+      return Icon(
+        Icons.error_rounded,
+        size: 22,
+        color: Colors.redAccent.withValues(alpha: 0.8),
+      );
+    }
+    // Idle — tap to connect
+    return IconButton(
+      icon: Icon(
+        Icons.refresh_rounded,
+        size: 20,
+        color: AppColors.brandOrange.withValues(alpha: 0.7),
+      ),
+      onPressed: _connectToRelay,
+      tooltip: 'Connect to relay',
+    );
+  }
+
   void _joinDevice(String deviceName) {
     if (_ws == null) return;
     setState(() => _step = _CloudStep.joiningDevice);
@@ -1193,11 +1262,13 @@ class _PairCloudTabState extends State<_PairCloudTab> {
                 height: 8,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: _step == _CloudStep.deviceList
-                      ? AppColors.brandOrange
-                      : _step == _CloudStep.idle
-                          ? Colors.white12
-                          : AppColors.brandOrange,
+                  color: _error != null
+                      ? Colors.redAccent
+                      : _step == _CloudStep.deviceList
+                          ? AppColors.brandOrange
+                          : _step == _CloudStep.idle
+                              ? Colors.white12
+                              : AppColors.brandOrange,
                 ),
               ),
               const SizedBox(width: 12),
@@ -1205,28 +1276,49 @@ class _PairCloudTabState extends State<_PairCloudTab> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _step == _CloudStep.idle
-                        ? 'READY'
-                        : _step == _CloudStep.connectingRelay
-                            ? 'CONNECTING'
-                            : _step == _CloudStep.deviceList
-                                ? '${_devices.length} DEVICE(S)'
-                                : 'JOINING',
+                    _error != null
+                        ? 'ERROR'
+                        : _step == _CloudStep.idle
+                            ? 'READY'
+                            : _step == _CloudStep.connectingRelay
+                                ? 'CONNECTING'
+                                : _step == _CloudStep.deviceList
+                                    ? '${_devices.length} DEVICE(S)'
+                                    : 'JOINING',
                     style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 11,
                         letterSpacing: 1.0),
                   ),
                   Text(
-                    _step == _CloudStep.deviceList
-                        ? 'SELECT A DEVICE TO JOIN'
-                        : 'CLOUD RELAY',
-                    style: const TextStyle(color: Colors.white24, fontSize: 8),
+                    _error != null
+                        ? _error!
+                        : _step == _CloudStep.connectingRelay
+                            ? 'CONNECTING...'
+                            : _step == _CloudStep.deviceList
+                                ? 'SELECT A DEVICE TO JOIN'
+                                : 'CLOUD RELAY',
+                    style: TextStyle(
+                      color: _error != null
+                          ? Colors.redAccent
+                          : Colors.white.withValues(alpha: 0.4),
+                      fontSize: 8,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
-              if (_step != _CloudStep.idle) ...[
+              if (_step != _CloudStep.idle || _error != null) ...[
                 const Spacer(),
+                if (_error != null) ...[
+                  GestureDetector(
+                    onTap: _connectToRelay,
+                    child: const Icon(Icons.refresh_rounded,
+                        size: 18, color: Colors.white54),
+                  ),
+                  const SizedBox(width: 12),
+                ],
                 GestureDetector(
                   onTap: _disconnect,
                   child: const Icon(Icons.close_rounded,
@@ -1241,40 +1333,13 @@ class _PairCloudTabState extends State<_PairCloudTab> {
                 ? 1.0
                 : null,
             backgroundColor: const Color(0x0DFFFFFF),
-            valueColor:
-                const AlwaysStoppedAnimation(AppColors.brandOrange),
+            valueColor: const AlwaysStoppedAnimation(AppColors.brandOrange),
             minHeight: 1,
           ),
           const SizedBox(height: 20),
 
-          // ── Error ───────────────────────────────────────────────
-          if (_error != null) ...[
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.redAccent.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.error_outline_rounded,
-                      size: 16, color: Colors.redAccent),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(_error!,
-                        style: const TextStyle(
-                            color: Colors.redAccent,
-                            fontSize: 11)),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-
-          // ── Input form (idle) ───────────────────────────────────
-          if (_step == _CloudStep.idle) ...[
+          // ── Input form ──────────────────────────────────────────
+          if (_step != _CloudStep.joiningDevice) ...[
             Text('RELAY HOST (OPTIONAL)',
                 style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.5),
@@ -1295,6 +1360,7 @@ class _PairCloudTabState extends State<_PairCloudTab> {
                 hintStyle: const TextStyle(color: Colors.white24),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                suffixIcon: _buildRelaySuffix(),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(6),
                   borderSide: const BorderSide(color: Colors.white12),
@@ -1311,96 +1377,133 @@ class _PairCloudTabState extends State<_PairCloudTab> {
               ),
             ),
             const SizedBox(height: 16),
-
-Text('PUBLIC KEY (ACCOUNT)',
+            Text('PUBLIC KEY (ACCOUNT)',
                 style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.5),
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1)),
             const SizedBox(height: 8),
-            TextFormField(
-              controller: _accountController,
-              style: GoogleFonts.jetBrainsMono(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500),
-              maxLines: 2,
-              minLines: 1,
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: Colors.white.withValues(alpha: 0.05),
-                hintText: 'Auto-filled from Ed25519 keypair',
-                hintStyle: const TextStyle(color: Colors.white24),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: const BorderSide(color: Colors.white12),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: const BorderSide(color: Colors.white12),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: BorderSide(
-                      color: AppColors.brandOrange.withValues(alpha: 0.5)),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
+            Consumer<AccountProvider>(
+              builder: (context, ap, _) {
+                final accounts = ap.accounts;
+                final hasAccounts = accounts.isNotEmpty;
 
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.brandOrange,
-                  foregroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6)),
-                ),
-                onPressed: _connectToRelay,
-                child: const Text('CONNECT TO RELAY',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                        letterSpacing: 1)),
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Leave the relay host empty to use the official RadioKit relay.\n'
-              'The app authenticates with your Ed25519 keypair generated on first launch.\n'
-              'Set this public key as the account on your ESP32 device.',
-              style: TextStyle(color: Colors.white24, fontSize: 10),
-            ),
-          ],
+                String? selectedValue;
+                // Find which account's public key matches the current input
+                if (_accountController.text.isNotEmpty) {
+                  final match = accounts.cast<Account?>().firstWhere(
+                        (a) => a!.publicKey == _accountController.text,
+                        orElse: () => null,
+                      );
+                  selectedValue = match?.id;
+                }
 
-          // ── Connecting ─────────────────────────────────────────
-          if (_step == _CloudStep.connectingRelay) ...[
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 40),
-                child: Column(
-                  children: [
-                    SizedBox(
-                      width: 32,
-                      height: 32,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                return DropdownButtonFormField<String>(
+                  value: selectedValue,
+                  isExpanded: true,
+                  dropdownColor: const Color(0xFF252525),
+                  style: GoogleFonts.jetBrainsMono(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.05),
+                    hintText:
+                        hasAccounts ? 'Select an account' : 'No accounts saved',
+                    hintStyle:
+                        const TextStyle(color: Colors.white24, fontSize: 13),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: const BorderSide(color: Colors.white12),
                     ),
-                    SizedBox(height: 16),
-                    Text('Connecting to relay...',
-                        style: TextStyle(color: Colors.white38, fontSize: 12)),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: const BorderSide(color: Colors.white12),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(
+                          color: AppColors.brandOrange.withValues(alpha: 0.5)),
+                    ),
+                  ),
+                  items: [
+                    ...accounts.map((a) => DropdownMenuItem<String>(
+                          value: a.id,                              child: Row(
+                            children: [
+                              Icon(Icons.person_rounded,
+                                  size: 16,
+                                  color: AppColors.brandOrange
+                                      .withValues(alpha: 0.7)),
+                              const SizedBox(width: 10),
+                              Text(
+                                a.name,
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        )),
+                    DropdownMenuItem<String>(
+                      value: '__manage__',
+                      child: Container(
+                        decoration: hasAccounts
+                            ? BoxDecoration(
+                                border: Border(
+                                  top: BorderSide(
+                                    color: Colors.white.withValues(alpha: 0.08),
+                                  ),
+                                ),
+                              )
+                            : null,
+                        padding: EdgeInsets.only(top: hasAccounts ? 8 : 0),
+                        child: Row(
+                          children: [
+                            Icon(Icons.settings_rounded,
+                                size: 16,
+                                color: Colors.white.withValues(alpha: 0.5)),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Manage accounts',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.7),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
-                ),
-              ),
+                  onChanged: (value) {
+                    if (value == '__manage__') {
+                      AccountsSheet.show(context);
+                      return;
+                    }
+                    if (value != null) {
+                      final account = accounts.firstWhere((a) => a.id == value);
+                      _accountController.text = account.publicKey;
+                      // Auto-fill relay host from account
+                      if (account.relay.isNotEmpty) {
+                        _hostController.text = account.relay;
+                      }
+                      // Auto-connect to relay
+                      _connectToRelay();
+                    }
+                  },
+                );
+              },
             ),
           ],
 
           // ── Device list ────────────────────────────────────────
           if (_step == _CloudStep.deviceList) ...[
+            const SizedBox(height: 16),
             Text('AVAILABLE DEVICES',
                 style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.5),
@@ -1470,7 +1573,14 @@ class _PairSerialDeviceCard extends StatelessWidget {
     this.onDismissError,
   });
 
-  static const _baudRates = ['9600', '19200', '38400', '57600', '115200', '1000000'];
+  static const _baudRates = [
+    '9600',
+    '19200',
+    '38400',
+    '57600',
+    '115200',
+    '1000000'
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -1565,13 +1675,14 @@ class _PairSerialDeviceCard extends StatelessWidget {
                         size: 16, color: Colors.white38),
                   ],
                 ),
-                itemBuilder: (ctx) =>
-                    _baudRates.map((rate) => PopupMenuItem(
-                      value: rate,
-                      child: Text(rate,
-                          style: GoogleFonts.jetBrainsMono(
-                              fontSize: 12, color: Colors.white)),
-                    )).toList(),
+                itemBuilder: (ctx) => _baudRates
+                    .map((rate) => PopupMenuItem(
+                          value: rate,
+                          child: Text(rate,
+                              style: GoogleFonts.jetBrainsMono(
+                                  fontSize: 12, color: Colors.white)),
+                        ))
+                    .toList(),
               ),
             ),
             const SizedBox(width: 8),
@@ -1589,9 +1700,7 @@ class _PairSerialDeviceCard extends StatelessWidget {
                 onPressed: hasError ? onRetry : onConnect,
                 child: Text(hasError ? 'RETRY' : 'CONNECT',
                     style: GoogleFonts.changa(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 11,
-                        height: 1)),
+                        fontWeight: FontWeight.w700, fontSize: 11, height: 1)),
               ),
             ),
           ],

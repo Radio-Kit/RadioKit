@@ -40,14 +40,14 @@
 #define RK_CMD_WIFI_INFO_DATA 0x1E // Arduino → App: WiFi status payload
 
 // ── PWD_AUTH response codes (used by public API RadioKitClass::authenticate) ─
-#define RK_PWD_AUTH_OK          0x00
-#define RK_PWD_AUTH_MISMATCH    0x01
-#define RK_PWD_AUTH_ALREADY     0x02
+#define RK_PWD_AUTH_DEVICE      0x00   ///< Authenticated as device (full access)
+#define RK_PWD_AUTH_USER        0x01   ///< Authenticated as user (widgets-only)
+#define RK_PWD_AUTH_DENIED      0x02   ///< Password did not match
 
 // ─────────────────────────────────────────────
 //  Protocol version (v4 — NVS-backed config)
 // ─────────────────────────────────────────────
-#define RK_PROTOCOL_VERSION 0x04
+#define RK_PROTOCOL_VERSION 0x05
 
 // ─────────────────────────────────────────────
 //  VAR_UPDATE reliability parameters

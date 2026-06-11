@@ -38,29 +38,35 @@ const int kCmdGetWifiInfo = 0x1D;
 const int kCmdWifiInfoData = 0x1E;
 
 // ── NVS SET_CONF field mask bits ────────────────────────────────────────────
-const int kSetConfName = 1 << 0;
-const int kSetConfDesc = 1 << 1;
-const int kSetConfPwd  = 1 << 2;
-const int kSetConfAdminPwd = 1 << 3;
-const int kSetConfError = 1 << 7;
+const int kSetConfName       = 1 << 0;
+const int kSetConfDesc       = 1 << 1;
+const int kSetConfDevicePwd  = 1 << 2;  // Device password (was kSetConfPwd)
+const int kSetConfUserPwd    = 1 << 3;  // User password (was kSetConfAdminPwd)
+const int kSetConfError      = 1 << 7;
 
-// ── PWD_AUTH response codes ─────────────────────────────────────────────────
-const int kPwdAuthOk       = 0x00;
-const int kPwdAuthMismatch = 0x01;
-const int kPwdAuthAlready  = 0x02;
+// Legacy aliases for backward compatibility during migration
+const int kSetConfPwd = kSetConfDevicePwd;
+const int kSetConfAdminPwd = kSetConfUserPwd;
+
+// ── PWD_AUTH response codes (new single-auth model) ─────────────────────────
+const int kPwdAuthDevice  = 0x00;   ///< Authenticated as device (full access)
+const int kPwdAuthUser    = 0x01;   ///< Authenticated as user (widgets-only)
+const int kPwdAuthDenied  = 0x02;   ///< Password did not match
 
 // ── Feature bitmask bits (FEATURES_DATA payload) ──────────────────────────
 const int kFeatureOta = 1 << 0;
 const int kFeatureFilesystem = 1 << 1;
-const int kFeatureHasConnPassword = 1 << 2;
-const int kFeatureHasAdminPassword = 1 << 3;
+const int kFeatureHasDevicePassword = 1 << 2;  // Device password set
+const int kFeatureHasUserPassword   = 1 << 3;  // User password set
 const int kFeatureWiFi = 1 << 4;
 const int kFeatureCloud = 1 << 5;
 
 // Legacy alias
-const int kFeatureHasPassword = kFeatureHasConnPassword;
+const int kFeatureHasPassword = kFeatureHasDevicePassword;
+const int kFeatureHasConnPassword = kFeatureHasDevicePassword;
+const int kFeatureHasAdminPassword = kFeatureHasUserPassword;
 
-// ── PWD_AUTH flags byte ─────────────────────────────────────────────────────
+// ── PWD_AUTH flags byte (deprecated, kept for old firmware) ─────────────────
 const int kPwdAuthFlagAdmin = 1 << 0;
 
 // ── SET_WIFI field mask bits (settings protocol 0xDD) ─────────────────────
@@ -134,28 +140,41 @@ const int kSettingsRespSetWifiAck          = 0x8B;
 const int kSettingsNvsRawOk    = 0x00;
 const int kSettingsNvsRawError = 0x01;
 
-// PWD_AUTH status codes
-const int kSettingsPwdOk       = 0x00;
-const int kSettingsPwdMismatch = 0x01;
-const int kSettingsPwdAlready  = 0x02;
+// PWD_AUTH status codes (new single-auth model)
+const int kSettingsPwdDevice  = 0x00;  ///< Authenticated as device
+const int kSettingsPwdUser    = 0x01;  ///< Authenticated as user
+const int kSettingsPwdDenied  = 0x02;  ///< Password did not match
 
-// PWD_AUTH flags
+// Legacy aliases
+const int kSettingsPwdOk       = kSettingsPwdDevice;
+const int kSettingsPwdMismatch = kSettingsPwdDenied;
+const int kSettingsPwdAlready  = kSettingsPwdDevice;
+
+// PWD_AUTH flags (deprecated)
 const int kSettingsPwdAuthFlagAdmin = 1 << 0;
 
 // SET_CONF field mask bits
 const int kSettingsSetConfName      = 1 << 0;
 const int kSettingsSetConfDesc      = 1 << 1;
-const int kSettingsSetConfPwd       = 1 << 2;
-const int kSettingsSetConfAdminPwd  = 1 << 3;
+const int kSettingsSetConfDevicePwd = 1 << 2;  // Device password
+const int kSettingsSetConfUserPwd   = 1 << 3;  // User password
 const int kSettingsSetConfError     = 1 << 7;
+
+// Legacy aliases
+const int kSettingsSetConfPwd = kSettingsSetConfDevicePwd;
+const int kSettingsSetConfAdminPwd = kSettingsSetConfUserPwd;
 
 // Feature bitmask bits
 const int kSettingsFeatureOta           = 1 << 0;
 const int kSettingsFeatureFilesystem    = 1 << 1;
-const int kSettingsFeatureHasConnPwd    = 1 << 2;
-const int kSettingsFeatureHasAdminPwd   = 1 << 3;
+const int kSettingsFeatureHasDevicePwd  = 1 << 2;  // Device password set
+const int kSettingsFeatureHasUserPwd    = 1 << 3;  // User password set
 const int kSettingsFeatureWiFi          = 1 << 4;
 const int kSettingsFeatureCloud         = 1 << 5;
+
+// Legacy aliases
+const int kSettingsFeatureHasConnPwd  = kSettingsFeatureHasDevicePwd;
+const int kSettingsFeatureHasAdminPwd = kSettingsFeatureHasUserPwd;
 
 // OTA error codes
 const int kOtaErrOk           = 0x00;
@@ -284,7 +303,7 @@ const Map<int, int> kWidgetOutputSize = {
 };
 
 // Protocol version (v4 — NVS-backed config)
-const int kProtocolVersion = 0x04;
+const int kProtocolVersion = 0x05;
 const int kProtocolVersionV3 = 0x03;
 const int kProtocolVersionV4 = 0x04;
 

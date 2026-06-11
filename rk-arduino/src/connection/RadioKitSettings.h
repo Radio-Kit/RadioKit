@@ -80,18 +80,18 @@
 #define RK_SETTINGS_NVS_RAW_ERROR     0x01
 
 // ── PWD_AUTH status codes ───────────────────────────────────────────────────
-#define RK_SETTINGS_PWD_OK          0x00
-#define RK_SETTINGS_PWD_MISMATCH    0x01
-#define RK_SETTINGS_PWD_ALREADY     0x02
+#define RK_SETTINGS_PWD_DEVICE      0x00   ///< Authenticated as device (full access)
+#define RK_SETTINGS_PWD_USER        0x01   ///< Authenticated as user (widgets-only)
+#define RK_SETTINGS_PWD_DENIED      0x02   ///< Password did not match
 
-// ── PWD_AUTH flags byte ─────────────────────────────────────────────────────
+// ── PWD_AUTH flags byte (deprecated — no longer sent by new apps) ──────────
 #define RK_SETTINGS_PWD_FLAG_ADMIN   (1 << 0)
 
 // ── SET_CONF field mask bits ────────────────────────────────────────────────
 #define RK_SETTINGS_SET_CONF_NAME        (1 << 0)
 #define RK_SETTINGS_SET_CONF_DESC        (1 << 1)
-#define RK_SETTINGS_SET_CONF_PWD         (1 << 2)
-#define RK_SETTINGS_SET_CONF_ADMIN_PWD   (1 << 3)
+#define RK_SETTINGS_SET_CONF_DEVICE_PWD  (1 << 2)   ///< Device password (was SET_CONF_PWD)
+#define RK_SETTINGS_SET_CONF_USER_PWD    (1 << 3)   ///< User password (was SET_CONF_ADMIN_PWD)
 #define RK_SETTINGS_SET_CONF_ERROR       (1 << 7)
 
 // ── SET_WIFI field mask bits ────────────────────────────────────────────────
@@ -101,8 +101,8 @@
 // ── Feature bitmask bits ────────────────────────────────────────────────────
 #define RK_SETTINGS_FEATURE_OTA             (1 << 0)
 #define RK_SETTINGS_FEATURE_FILESYSTEM      (1 << 1)
-#define RK_SETTINGS_FEATURE_HAS_CONN_PWD    (1 << 2)
-#define RK_SETTINGS_FEATURE_HAS_ADMIN_PWD   (1 << 3)
+#define RK_SETTINGS_FEATURE_HAS_DEVICE_PWD  (1 << 2)   ///< Device password set (was HAS_CONN_PWD)
+#define RK_SETTINGS_FEATURE_HAS_USER_PWD    (1 << 3)   ///< User password set (was HAS_ADMIN_PWD)
 #define RK_SETTINGS_FEATURE_WIFI            (1 << 4)
 #define RK_SETTINGS_FEATURE_CLOUD           (1 << 5)
 

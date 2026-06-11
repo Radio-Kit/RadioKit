@@ -19,27 +19,21 @@ import 'theme/app_theme.dart';
 class ConnectionNotifier extends ChangeNotifier {
   final DeviceProvider _deviceProvider;
   bool _wasConnected;
-  bool _wasAuthenticated;
 
   ConnectionNotifier(this._deviceProvider)
-      : _wasConnected = _deviceProvider.isConnected,
-        _wasAuthenticated = _deviceProvider.isAuthenticated {
+      : _wasConnected = _deviceProvider.isConnected {
     _deviceProvider.addListener(_onUpdate);
   }
 
   void _onUpdate() {
     final isConnected = _deviceProvider.isConnected;
-    final isAuthenticated = _deviceProvider.isAuthenticated;
-    if (isConnected != _wasConnected || isAuthenticated != _wasAuthenticated) {
+    if (isConnected != _wasConnected) {
       _wasConnected = isConnected;
-      _wasAuthenticated = isAuthenticated;
       notifyListeners();
     }
   }
 
   bool get isConnected => _deviceProvider.isConnected;
-  bool get isAuthenticated => _deviceProvider.isAuthenticated;
-  bool get hasPassword => _deviceProvider.hasPassword;
 
   @override
   void dispose() {
@@ -58,13 +52,6 @@ GoRouter createRouter(ConnectionNotifier connectionNotifier) {
           state.matchedLocation == '/debug';
 
       if (isGuardedRoute && !isConnected) {
-        return '/models';
-      }
-
-      // Auth gate: if the device has a password and the user hasn't
-      // authenticated yet, redirect to the models tab. The auth dialog
-      // auto-pops up there. After successful auth, this redirect stops firing.
-      if (isGuardedRoute && connectionNotifier.hasPassword && !connectionNotifier.isAuthenticated) {
         return '/models';
       }
 

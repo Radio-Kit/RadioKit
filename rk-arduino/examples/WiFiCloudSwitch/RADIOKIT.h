@@ -7,11 +7,11 @@
   },
   "config": {
     "name": "WiFi_Cloud_Switch",
-    "description": "BLE + WiFi + Cloud demo",
+    "description": "Auth test: device_pass / user_pass",
     "type": "IOT",
     "transport": "BLE",
     "theme": "RK_DEFAULT",
-    "password": ""
+    "password": "device_pass"
   },
   "canvas": {
     "size": [200, 100],
@@ -79,37 +79,26 @@ static inline void initRadioKit() {
   RadioKit.config.theme         = RK_DEFAULT;
   RadioKit.config.baudrate      = 1000000;
 
-  // ── Cloud relay compile-time defaults ──────────────────
-  // These are written to NVS on first boot. The user can
-  // override them via the app's WiFi settings UI at runtime.
-  // To use the cloud relay:
-  //   1. Set cloud_url to your relay server address
-  //   2. Set cloud_account to your account identifier
-  // The relay is optional — WiFi transport works without it.
-  RadioKit.config.cloud_url     = "10.0.0.17:9000";   // e.g. "wss://relay.example.com:443"
-  RadioKit.config.cloud_account = "4b6afa33fb4d3de07f9382ff9dbac48733d3aca7206218c82c982391210e1bed";  // Ed25519 public key hex
+  // Cloud relay disabled for auth testing
+  RadioKit.config.cloud_url     = "";
+  RadioKit.config.cloud_account = "";
 
   // ── STA WiFi compile-time defaults (optional) ──────────
-  // If set, the device will try to join this network on boot.
-  // If empty, the device starts in AP mode (SSID: RK_WiFi_Cloud_Switch).
-  RadioKit.config.sta_ssid      = "Leap";       // e.g. "MyHomeNetwork"
-  RadioKit.config.sta_password  = "awsedrft";    // e.g. "MyPassword"
+  RadioKit.config.sta_ssid      = "Leap";
+  RadioKit.config.sta_password  = "awsedrft";
 
   led_1.setColor(0x00ff00);
 
   RadioKit.begin();
 
-  // ── Start ALL transports ──────────────────────────────
-  // BLE: local control via the RadioKit app
+  // Set user password in NVS (device password already set via JSON config)
+  // This ensures user-level auth is also required.
+  RadioKit.setConfig(nullptr, nullptr, nullptr, "user_pass");
+
+  // ── Start transports ──────────────────────────────────
   RadioKit.startBLE(RadioKit.config.name);
-
-  // WiFi: local WebSocket server on port 5555
-  // Requires -D RADIOKIT_ENABLE_WIFI in platformio.ini build_flags
   RadioKit.startWiFi();
-
-  // Cloud: outbound relay connection (requires WiFi)
-  // This is a no-op if cloud_url is empty.
-  RadioKit.startCloud();
+  // Cloud disabled for auth testing
 }
 
 #endif // RADIOKIT_UI_H

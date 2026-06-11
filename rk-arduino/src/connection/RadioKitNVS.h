@@ -23,7 +23,7 @@
 #define RK_NVS_KEY_NAME     "rk_name"
 #define RK_NVS_KEY_DESC     "rk_desc"
 #define RK_NVS_KEY_PWD      "rk_pwd"
-#define RK_NVS_KEY_ADMIN_PWD  "rk_admin_pwd"
+#define RK_NVS_KEY_USER_PWD  "rk_user_pwd"
 #define RK_NVS_KEY_PENDING_ERASE  "rk_pend_erase"
 
 // ── WiFi / Cloud NVS keys ────────────────────────────────────────────────────

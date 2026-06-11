@@ -14,7 +14,8 @@ class SecureStorageService {
   //   radiokit_admin_pwd_<device_id>  — admin password (admin mode)
 
   static String _pwdKey(String deviceId) => 'radiokit_pwd_$deviceId';
-  static String _adminPwdKey(String deviceId) => 'radiokit_admin_pwd_$deviceId';
+  // Admin password methods removed in v5 auth overhaul.
+  // The user password (stored via savePassword) replaces the old admin password.
 
   // ── Connection password persistence ─────────────────────────────────────
 
@@ -48,42 +49,9 @@ class SecureStorageService {
     }
   }
 
-  // ── Admin password persistence ──────────────────────────────────────────
-
-  /// Save an admin password to secure storage.
-  static Future<bool> saveAdminPassword(String deviceId, String password) async {
-    try {
-      await _storage.write(key: _adminPwdKey(deviceId), value: password);
-      return true;
-    } catch (e) {
-      debugPrint('SecureStorage: saveAdminPassword failed: $e');
-      return false;
-    }
-  }
-
-  /// Load a previously saved admin password for [deviceId], or null.
-  static Future<String?> loadAdminPassword(String deviceId) async {
-    try {
-      return await _storage.read(key: _adminPwdKey(deviceId));
-    } catch (e) {
-      debugPrint('SecureStorage: loadAdminPassword failed: $e');
-      return null;
-    }
-  }
-
-  /// Delete a saved admin password for [deviceId].
-  static Future<void> deleteAdminPassword(String deviceId) async {
-    try {
-      await _storage.delete(key: _adminPwdKey(deviceId));
-    } catch (e) {
-      debugPrint('SecureStorage: deleteAdminPassword failed: $e');
-    }
-  }
-
-  /// Delete all stored passwords for [deviceId] (both connection and admin).
+  /// Delete all stored passwords for [deviceId].
   static Future<void> deleteAllForDevice(String deviceId) async {
     await deletePassword(deviceId);
-    await deleteAdminPassword(deviceId);
   }
 
   /// Delete all stored keys (e.g. on sign-out or data wipe).

@@ -47,6 +47,11 @@ class _PendingUpdate {
   }) : retries = 0;
 }
 
+/// Authentication level granted by the device.
+/// Based on the password used: device password (full access)
+/// or user password (widgets-only).
+enum AuthLevel { none, user, device }
+
 /// Manages the connected device, widget configuration, and variable
 /// polling/update loop. Transport-agnostic.
 class DeviceProvider extends ChangeNotifier {
@@ -71,8 +76,9 @@ class DeviceProvider extends ChangeNotifier {
   Timer?                   _confTimeoutTimer;
   DateTime?                _lastRxAt;
   DateTime?                _lastTxAt;
-  final DebugLogSink?            _debugSink;
-  Completer<void>?         _confCompleter;  Completer<Map<String, int>>? _bleInfoCompleter;
+  final DebugLogSink?            _debugSink;  Completer<void>? _confCompleter;
+  Completer<int>? _setConfCompleter;
+  Completer<Map<String, int>>? _bleInfoCompleter;
   int _deviceFeatures = 0;
   Completer<int>? _featuresCompleter;
   Map<String, dynamic>? _chipInfo;
@@ -82,13 +88,13 @@ class DeviceProvider extends ChangeNotifier {
   Completer<int>? _nvsRawWriteCompleter;
   Completer<int>? _authCompleter;  // For CMD_PWD_AUTH response
   Timer? _authTimeoutTimer;
-  static const Duration _authTimeout = Duration(seconds: 60);
+  static const Duration _authTimeout = Duration(seconds: 30);
   DateTime? _connectedAt;
   DateTime? _authenticatedAt;
   DateTime? get authTimeoutAt =>
       _connectedAt != null ? _connectedAt!.add(_authTimeout) : null;
   Duration get remainingAuthTime {
-    if (_authenticated || _connectedAt == null) return Duration.zero;
+    if (_authLevel != AuthLevel.none || _connectedAt == null) return Duration.zero;
     final remaining = _authTimeout - DateTime.now().difference(_connectedAt!);
     return remaining.isNegative ? Duration.zero : remaining;
   }  final Map<int, _PendingUpdate> _pendingUpdates = {};
@@ -227,11 +233,17 @@ class DeviceProvider extends ChangeNotifier {
   /// Cached chip info from the device, or null if not yet fetched.
   Map<String, dynamic>? get chipInfo => _chipInfo;
 
-  /// Whether the device has a connection password set (detected via features bitmask).
-  bool get hasPassword => (_deviceFeatures & kFeatureHasConnPassword) != 0;
+  /// Whether the device has a device password set (detected via features bitmask).
+  bool get hasDevicePassword => (_deviceFeatures & kFeatureHasDevicePassword) != 0;
 
-  /// Whether the device has an admin password set.
-  bool get hasAdminPassword => (_deviceFeatures & kFeatureHasAdminPassword) != 0;
+  /// Whether the device has a user password set.
+  bool get hasUserPassword => (_deviceFeatures & kFeatureHasUserPassword) != 0;
+
+  /// Legacy alias — whether any password is set.
+  bool get hasPassword => hasDevicePassword || hasUserPassword;
+
+  /// Legacy aliases for backward compat during migration.
+  bool get hasAdminPassword => hasUserPassword;
 
   /// Whether the device supports WiFi transport.
   bool get hasWifi => (_deviceFeatures & kFeatureWiFi) != 0;
@@ -239,23 +251,29 @@ class DeviceProvider extends ChangeNotifier {
   /// Whether the device supports cloud relay.
   bool get hasCloud => (_deviceFeatures & kFeatureCloud) != 0;
 
-  /// Current authentication state (user mode).
-  bool get isAuthenticated => _authenticated;
+  /// Current auth level.
+  AuthLevel get authLevel => _authLevel;
 
-  /// Whether admin mode is active (or no admin password means auto-admin).
-  bool get isAdminMode => _authenticatedAdmin || !hasAdminPassword;
+  /// Legacy: whether any level of authentication is active.
+  bool get isAuthenticated => _authLevel != AuthLevel.none;
 
-  /// Whether user mode is active (authenticated but not admin).
-  bool get isUserMode => _authenticated && !isAdminMode;
+  /// Whether device-level (full) access is active.
+  bool get isDeviceMode => _authLevel == AuthLevel.device;
 
-  /// Start the 60s auth timeout — auto-disconnect if not authenticated.
+  /// Whether user-level (widgets-only) access is active.
+  bool get isUserMode => _authLevel == AuthLevel.user;
+
+  /// Legacy alias.
+  bool get isAdminMode => isDeviceMode;
+
+  /// Start the 30s auth timeout — auto-disconnect if not authenticated.
   void _startAuthTimeout() {
     _authTimeoutTimer?.cancel();
     _connectedAt = DateTime.now();
     _authenticatedAt = null;
     _authTimeoutTimer = Timer(_authTimeout, () {
-      if (!_authenticated && _transport.isConnected) {
-        _log('Auth timeout — disconnecting (not authenticated within 60s)',
+      if (_authLevel == AuthLevel.none && _transport.isConnected) {
+        _log('Auth timeout — disconnecting (not authenticated within 30s)',
             level: ConsoleLogLevel.warning);
         disconnect();
       }
@@ -270,8 +288,7 @@ class DeviceProvider extends ChangeNotifier {
 
   // ── NVS Config API (CMD_SET_CONF / CMD_PWD_AUTH) ─────────────────────────
 
-  bool _authenticated = false;
-  bool _authenticatedAdmin = false;
+  AuthLevel _authLevel = AuthLevel.none;
 
   /// Read a raw NVS uint8 key from the device via settings protocol.
   /// Returns (status, value) where status=0 (ok) or 1 (error).
@@ -355,20 +372,25 @@ class DeviceProvider extends ChangeNotifier {
         adminPassword: adminPassword,
       );
       await _transport.writePacket(pkt);
-      // Wait for the re-broadcasted CONF_DATA on widget protocol
-      // (Arduino _handleSettingsSetConf re-broadcasts CONF_DATA via _handleGetConf())
-      final completer = Completer<void>();
-      _confCompleter = completer;
+      // Wait for SET_CONF_ACK from the settings protocol
+      final completer = Completer<int>();
+      _setConfCompleter = completer;
       try {
-        await completer.future.timeout(const Duration(seconds: 5));
-        // Also request fresh device info to update name/desc
-        unawaited(_requestDeviceInfo());
-        return true;
+        final status = await completer.future.timeout(const Duration(seconds: 5));
+        final hasError = (status & kSettingsSetConfError) != 0;
+        if (!hasError) {
+          // Request fresh device info to update name/desc
+          unawaited(_requestDeviceInfo());
+          return true;
+        }
+        _log('sendSetConf: device returned error 0x${status.toRadixString(16)}',
+            level: ConsoleLogLevel.error);
+        return false;
       } on TimeoutException catch (_) {
         return false;
       } finally {
-        if (_confCompleter == completer) {
-          _confCompleter = null;
+        if (_setConfCompleter == completer) {
+          _setConfCompleter = null;
         }
       }
     } catch (e) {
@@ -377,37 +399,39 @@ class DeviceProvider extends ChangeNotifier {
     }
   }
 
-  /// Authenticate with the device password (connection auth).
+  /// Authenticate with a password. The device checks against both
+  /// stored device and user passwords and returns the granted level.
   ///
-  /// The entered password is sent as normal connection auth first.
-  /// If the device has an admin password and connection auth fails,
-  /// the password is automatically retried as admin auth (since admin
-  /// password can also be used for connection).
+  /// Response codes:
+  ///   0x00 → device level (full access)
+  ///   0x01 → user level (widgets-only)
+  ///   0x02 → denied (password did not match)
   ///
-  /// Returns true on success, false on mismatch or error.
+  /// Returns true on success (any level), false on mismatch or error.
   Future<bool> authenticate(String password) async {
     if (!_transport.isConnected) return false;
-    if (_authenticated && _authenticatedAdmin) return true;
+    if (_authLevel == AuthLevel.device) return true;
     try {
-      // Try connection auth first — via settings protocol (0xDD)
       final pkt = SettingsProtocolService.buildPwdAuth(password);
       await _transport.writePacket(pkt);
       final completer = Completer<int>();
       _authCompleter = completer;
       try {
         final status = await completer.future.timeout(const Duration(seconds: 5));
-        if (status == kSettingsPwdOk) {
-          _authenticated = true;
+        if (status == kSettingsPwdDevice) {
+          _authLevel = AuthLevel.device;
+          _authenticatedAt = DateTime.now();
+          _cancelAuthTimeout();
+          notifyListeners();
+          return true;
+        } else if (status == kSettingsPwdUser) {
+          _authLevel = AuthLevel.user;
           _authenticatedAt = DateTime.now();
           _cancelAuthTimeout();
           notifyListeners();
           return true;
         }
-        // Connection auth failed — retry as admin auth
-        // (admin password can also be used for connection)
-        if (hasAdminPassword) {
-          return authenticateAdmin(password);
-        }
+        // status == DENIED
         return false;
       } on TimeoutException catch (_) {
         return false;
@@ -416,39 +440,6 @@ class DeviceProvider extends ChangeNotifier {
       }
     } catch (e) {
       _log('authenticate failed: $e', level: ConsoleLogLevel.error);
-      return false;
-    }
-  }
-
-  /// Authenticate as admin with the admin password.
-  /// Uses CMD_PWD_AUTH with the admin flag byte.
-  /// Returns true on success, false on mismatch or error.
-  Future<bool> authenticateAdmin(String password) async {
-    if (!_transport.isConnected) return false;
-    if (_authenticatedAdmin) return true;
-    try {
-      final pkt = SettingsProtocolService.buildPwdAuth(password, admin: true);
-      await _transport.writePacket(pkt);
-      final completer = Completer<int>();
-      _authCompleter = completer;
-      try {
-        final status = await completer.future.timeout(const Duration(seconds: 5));
-        if (status == kSettingsPwdOk) {
-          _authenticated = true;
-          _authenticatedAdmin = true;
-          _authenticatedAt = DateTime.now();
-          _cancelAuthTimeout();
-          notifyListeners();
-          return true;
-        }
-        return false;
-      } on TimeoutException catch (_) {
-        return false;
-      } finally {
-        _authCompleter = null;
-      }
-    } catch (e) {
-      _log('authenticateAdmin failed: $e', level: ConsoleLogLevel.error);
       return false;
     }
   }
@@ -513,8 +504,7 @@ class DeviceProvider extends ChangeNotifier {
     _errorMessage    = null;
     _configName      = null;
     _description     = null;
-    _authenticated   = false;
-    _authenticatedAdmin = false;
+    _authLevel   = AuthLevel.none;
     _authCompleter   = null;
     notifyListeners();
 
@@ -1218,14 +1208,14 @@ class DeviceProvider extends ChangeNotifier {
     if (bitmask == null) return;
     _deviceFeatures = bitmask;
     _log('Features bitmask: 0x${_deviceFeatures.toRadixString(16)} '
-        '(OTA=${hasOta}, connPwd=${hasPassword}, adminPwd=${hasAdminPassword})',
+        '(OTA=${hasOta}, devicePwd=${hasDevicePassword}, userPwd=${hasUserPassword})',
         level: ConsoleLogLevel.success);
     
-    if (hasPassword && !_authenticated && _connectionState == DeviceConnectionState.connected) {
+    if (hasPassword && _authLevel == AuthLevel.none && _connectionState == DeviceConnectionState.connected) {
       _startAuthTimeout();
     }
-    if (!hasAdminPassword && _connectedDevice != null) {
-      SecureStorageService.deleteAdminPassword(_connectedDevice!.id);
+    if (!hasUserPassword && _connectedDevice != null) {
+      SecureStorageService.deletePassword(_connectedDevice!.id);
     }
     
     notifyListeners();
@@ -1294,12 +1284,12 @@ class DeviceProvider extends ChangeNotifier {
   }
 
   void _handleSettingsSetConfAck(Uint8List payload) {
-    // SET_CONF on Arduino re-broadcasts CONF_DATA via _handleGetConf(),
-    // which arrives on the widget protocol and completes _confCompleter.
-    // This ack is informational only.
-    if (payload.isNotEmpty) {
-      _log('SETTINGS_SET_CONF ACK: 0x${payload[0].toRadixString(16)}',
-          level: ConsoleLogLevel.info);
+    final status = payload.isNotEmpty ? payload[0] : kSettingsSetConfError;
+    _log('SETTINGS_SET_CONF ACK: 0x${status.toRadixString(16)}',
+        level: ConsoleLogLevel.info);
+    final completer = _setConfCompleter;
+    if (completer != null && !completer.isCompleted) {
+      completer.complete(status);
     }
   }
 
@@ -2044,8 +2034,7 @@ class DeviceProvider extends ChangeNotifier {
     _stopPolling();
     _cancelAuthTimeout();
     _connectionState = DeviceConnectionState.disconnected;
-    _authenticated   = false;
-    _authenticatedAdmin = false;
+    _authLevel   = AuthLevel.none;
     _authCompleter   = null;
     _connectedAt     = null;
     _authenticatedAt = null;
@@ -2181,6 +2170,9 @@ class DeviceProvider extends ChangeNotifier {
     if (_confCompleter != null && !_confCompleter!.isCompleted) {
       _confCompleter!.completeError(TimeoutException('Disconnected by user'));
     }
+    if (_setConfCompleter != null && !_setConfCompleter!.isCompleted) {
+      _setConfCompleter!.completeError(Exception('Disconnected'));
+    }
     await _transport.disconnect();
     _connectedDevice  = null;
     _configName       = null;
@@ -2192,8 +2184,7 @@ class DeviceProvider extends ChangeNotifier {
     _deviceFeatures   = 0;
     _chipInfo         = null;
     _authCompleter    = null;
-    _authenticated    = false;
-    _authenticatedAdmin = false;
+    _authLevel    = AuthLevel.none;
     _cancelAuthTimeout();
     _connectedAt      = null;
     _authenticatedAt  = null;

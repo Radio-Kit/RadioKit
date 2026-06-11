@@ -7,6 +7,7 @@ import 'package:shelf_router/shelf_router.dart';
 import 'package:radiokit/services/remote_access_service.dart';
 import 'package:radiokit/services/protocol_service.dart';
 import 'package:radiokit/models/protocol.dart';
+import 'package:radiokit/providers/device_provider.dart';
 
 void main() {
   group('ProtocolService — PWD_AUTH', () {
@@ -38,9 +39,9 @@ void main() {
     });
 
     test('parsePwdAuthResponse returns status code', () {
-      expect(ProtocolService.parsePwdAuthResponse([kPwdAuthOk]), kPwdAuthOk);
-      expect(ProtocolService.parsePwdAuthResponse([kPwdAuthMismatch]),
-          kPwdAuthMismatch);
+      expect(ProtocolService.parsePwdAuthResponse([kPwdAuthDevice]), kPwdAuthDevice);
+      expect(ProtocolService.parsePwdAuthResponse([kPwdAuthDenied]),
+          kPwdAuthDenied);
       expect(ProtocolService.parsePwdAuthResponse(<int>[]), isNull);
     });
   });
@@ -272,26 +273,43 @@ void main() {
       final response2 = await router(request2);
       expect(response2.statusCode, 200);
     });
-  });
-
-  group('Feature flags — protocol constants', () {
-    test('kFeatureHasConnPassword and kFeatureHasAdminPassword are distinct',
+  });    group('Feature flags — protocol constants (new auth model)', () {
+    test('kFeatureHasDevicePassword and kFeatureHasUserPassword are distinct',
         () {
       // These must be different bits so the feature bitmask can carry both
-      expect(kFeatureHasConnPassword, isNot(kFeatureHasAdminPassword));
-      expect(kFeatureHasConnPassword & kFeatureHasAdminPassword, 0);
+      expect(kFeatureHasDevicePassword, isNot(kFeatureHasUserPassword));
+      expect(kFeatureHasDevicePassword & kFeatureHasUserPassword, 0);
     });
 
-    test('kPwdAuthFlagAdmin is distinct from kPwdAuthOk', () {
-      // Admin flag byte (1) is different from the OK response code (0)
-      // Note: kPwdAuthFlagAdmin may equal kPwdAuthMismatch (both 1) —
-      // that's by design; they're used in different protocol contexts
-      // (request flag vs response code), so there's no collision.
-      expect(kPwdAuthFlagAdmin, isNot(kPwdAuthOk));
+    test('kPwdAuthFlagAdmin is deprecated but distinct from kPwdAuthDevice', () {
+      expect(kPwdAuthFlagAdmin, isNot(kPwdAuthDevice));
     });
 
-    test('kSetConfAdminPwd is the 4th bit (bit 3)', () {
-      expect(kSetConfAdminPwd, 1 << 3);
+    test('kSetConfUserPwd replaces kSetConfAdminPwd (same bit position)', () {
+      expect(kSetConfUserPwd, 1 << 3);
+      expect(kSetConfUserPwd, kSetConfAdminPwd); // legacy alias
+    });
+
+    test('AuthLevel enum has none/user/device values', () {
+      expect(AuthLevel.none.index, 0);
+      expect(AuthLevel.user.index, 1);
+      expect(AuthLevel.device.index, 2);
+    });
+
+    test('New PWD_AUTH status codes match spec', () {
+      expect(kPwdAuthDevice, 0x00); // Device (full access)
+      expect(kPwdAuthUser, 0x01);   // User (widgets-only)
+      expect(kPwdAuthDenied, 0x02); // Denied
+    });
+
+    test('K_SETTINGS_PWD codes match widget protocol codes', () {
+      expect(kSettingsPwdDevice, kPwdAuthDevice);
+      expect(kSettingsPwdUser, kPwdAuthUser);
+      expect(kSettingsPwdDenied, kPwdAuthDenied);
+    });
+
+    test('Protocol version bumped to 0x05', () {
+      expect(kProtocolVersion, 0x05);
     });
   });
 }

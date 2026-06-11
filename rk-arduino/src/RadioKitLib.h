@@ -120,27 +120,27 @@ public:
      * Writes to NVS, updates BLE advertisement name if changed,
      * and re-broadcasts CONF_DATA.
      * Pass nullptr for fields you don't want to change.
-     * @param password       Connection password (user mode). Empty string clears it.
-     * @param adminPassword  Admin password (admin mode). Empty string clears it.
+     * @param devicePassword  Device password (full access). Empty string clears it.
+     * @param userPassword    User password (widgets-only). Ignored if devicePassword is empty.
      */
     void setConfig(const char* name, const char* description,
-                   const char* password = nullptr,
-                   const char* adminPassword = nullptr);
+                   const char* devicePassword = nullptr,
+                   const char* userPassword = nullptr);
 
     /**
-     * Authenticate with the device password.
+     * Authenticate with a password. The device checks against both
+     * stored device and user passwords and returns the granted level.
      * @param password   The password to authenticate with.
-     * @param asAdmin    If true, authenticate as admin (against admin password).
-     *                   If false, authenticate as user (against connection password).
-     * Returns 0x00 (OK), 0x01 (mismatch), 0x02 (already authed).
+     * Returns 0x00 (device/full), 0x01 (user/widgets-only), 0x02 (denied).
      */
-    uint8_t authenticate(const char* password, bool asAdmin = false);
+    uint8_t authenticate(const char* password);
 
-    /// True if user-mode authentication has succeeded (or no password is set).
-    bool isAuthenticated() const { return _authenticated || _authenticatedAdmin; }
+    /// True if any level of authentication has succeeded (or no passwords set).
+    bool isAuthenticated() const { return _deviceAuthenticated || _userAuthenticated; }
 
-    /// True if admin-mode authentication has succeeded.
-    bool isAdmin() const { return _authenticatedAdmin || _nvsAdminPwd[0] == '\0'; }
+    /// True if device-level (full) access has been granted.
+    /// Returns true when no device password is set (pre-authenticated).
+    bool hasFullAccess() const { return _deviceAuthenticated || _nvsPwd[0] == '\0'; }
 
     // ── Status ───────────────────────────────────────────────
     bool    isConnected() const;
@@ -239,10 +239,10 @@ private:
     char _nvsName[RADIOKIT_MAX_NAME + 1];
     char _nvsDesc[RADIOKIT_MAX_DESC + 1];
     char _nvsPwd[RADIOKIT_MAX_PWD + 1];
-    char _nvsAdminPwd[RADIOKIT_MAX_ADMIN_PWD + 1];
+    char _nvsUserPwd[RADIOKIT_MAX_USER_PWD + 1];
     bool _nvsActive;        ///< True once NVS values have been loaded
-    bool _authenticated;    ///< User-mode auth flag
-    bool _authenticatedAdmin;  ///< Admin-mode auth flag
+    bool _deviceAuthenticated;   ///< Device-level (full) auth flag
+    bool _userAuthenticated;     ///< User-level (widgets-only) auth flag
 
     // WiFi / Cloud NVS buffers
     char _nvsStaSsid[RADIOKIT_MAX_SSID + 1];
