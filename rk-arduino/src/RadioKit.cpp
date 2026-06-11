@@ -163,6 +163,15 @@ void RadioKitClass::pushMetaUpdate(uint8_t widgetId) {
 }
 
 void RadioKitClass::startBLE(const char* deviceName) {
+    // Check NVS enable flag
+    if (_nvsActive) {
+        uint8_t bleOn = 1;
+        RKNvs::readU8("rk_ble_on", &bleOn);
+        if (bleOn == 0) {
+            Serial.println("BLE: Disabled by NVS config (rk_ble_on=0)");
+            return;
+        }
+    }
     // Use NVS-backed name if available, else fall back to provided name or config.name
     const char* baseName;
     if (_nvsActive && _nvsName[0] != '\0') {
@@ -197,6 +206,15 @@ void RadioKitClass::startSerial(Stream& stream) {
 }
 
 void RadioKitClass::startWiFi() {
+    // Check NVS enable flag
+    if (_nvsActive) {
+        uint8_t wifiOn = 0;
+        RKNvs::readU8("rk_wifi_on", &wifiOn);
+        if (wifiOn == 0) {
+            Serial.println("WiFi: Disabled by NVS config (rk_wifi_on=0)");
+            return;
+        }
+    }
 #if defined(ESP32)
     const char* baseName = (_nvsActive && _nvsName[0]) ? _nvsName :
                            (config.name ? config.name : "RadioKit");
@@ -224,6 +242,16 @@ void RadioKitClass::startCloud() {
     if (!_wifiActive) {
         Serial.println("Cloud: startWiFi() must be called before startCloud() — ignoring");
         return;
+    }
+
+    // Check NVS enable flag
+    if (_nvsActive) {
+        uint8_t cloudOn = 0;
+        RKNvs::readU8("rk_cloud_on", &cloudOn);
+        if (cloudOn == 0) {
+            Serial.println("Cloud: Disabled by NVS config (rk_cloud_on=0)");
+            return;
+        }
     }
 
 #if defined(ESP32)
@@ -402,7 +430,8 @@ void RadioKitClass::_onSettingsPacket(uint8_t subCmd,
     } else if (!isDeviceAuthed) {
         // User-authenticated: block device-level-only commands
         if (subCmd == RK_SETTINGS_CMD_SET_CONF || subCmd == RK_SETTINGS_CMD_FACTORY_RESET ||
-            subCmd == RK_SETTINGS_CMD_NVS_RAW_WRITE || subCmd == RK_SETTINGS_CMD_SET_WIFI) {
+            subCmd == RK_SETTINGS_CMD_NVS_RAW_WRITE || subCmd == RK_SETTINGS_CMD_SET_WIFI ||
+            subCmd == RK_SETTINGS_CMD_REBOOT) {
             Serial.printf("RK: Rejected SETTINGS 0x%02X — device password required\n", subCmd);
             uint8_t status = RK_SETTINGS_PWD_DENIED;
             uint8_t respSub = subCmd | 0x80;
@@ -426,6 +455,8 @@ void RadioKitClass::_onSettingsPacket(uint8_t subCmd,
         case RK_SETTINGS_CMD_NVS_RAW_READ:  s_instance->_handleSettingsNvsRawRead(payload, payloadLen); break;
         case RK_SETTINGS_CMD_NVS_RAW_WRITE: s_instance->_handleSettingsNvsRawWrite(payload, payloadLen); break;
         case RK_SETTINGS_CMD_SET_WIFI:      s_instance->_handleSettingsSetWifi(payload, payloadLen);      break;
+        case RK_SETTINGS_CMD_GET_CLOUD_INFO: s_instance->_handleSettingsGetCloudInfo();                        break;
+        case RK_SETTINGS_CMD_REBOOT:         s_instance->_handleSettingsReboot();                                break;
         default:
             Serial.printf("RK: Unknown SETTINGS sub-command 0x%02X\n", subCmd);
             break;
@@ -514,6 +545,26 @@ void RadioKitClass::_handleSettingsGetFeatures() {
     }
     uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
         RK_SETTINGS_RESP_FEATURES_DATA, &bitmask, 1);
+    _sendSettingsFrame(frameLen);
+}
+
+void RadioKitClass::_handleSettingsGetCloudInfo() {
+    uint8_t buf[1 + RADIOKIT_MAX_CLOUD_URL + 1 + RADIOKIT_MAX_CLOUD_ACCOUNT];
+    uint16_t offset = 0;
+    uint8_t urlLen = (uint8_t)strnlen(_nvsCloudUrl, RADIOKIT_MAX_CLOUD_URL);
+    buf[offset++] = urlLen;
+    if (urlLen > 0) {
+        memcpy(&buf[offset], _nvsCloudUrl, urlLen);
+        offset += urlLen;
+    }
+    uint8_t accLen = (uint8_t)strnlen(_nvsCloudAccount, RADIOKIT_MAX_CLOUD_ACCOUNT);
+    buf[offset++] = accLen;
+    if (accLen > 0) {
+        memcpy(&buf[offset], _nvsCloudAccount, accLen);
+        offset += accLen;
+    }
+    uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+        RK_SETTINGS_RESP_CLOUD_INFO_DATA, buf, offset);
     _sendSettingsFrame(frameLen);
 }
 
@@ -1295,6 +1346,25 @@ void RadioKitClass::_handleSettingsFactoryReset() {
     esp_restart();
 #else
     Serial.println("FACTORY RESET: Reboot not supported on this platform");
+#endif
+}
+
+// ── Reboot (no erase) ───────────────────────────────────────────────────────
+
+void RadioKitClass::_handleSettingsReboot() {
+    Serial.println("REBOOT: Rebooting device (NVS preserved)...");
+
+    // Send ACK before reboot
+    uint8_t status = RK_SETTINGS_PWD_DEVICE;
+    uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+        RK_SETTINGS_RESP_REBOOT_ACK, &status, 1);
+    _sendSettingsFrame(frameLen);
+
+    delay(100);
+#if defined(ESP32)
+    esp_restart();
+#else
+    Serial.println("REBOOT: Reboot not supported on this platform");
 #endif
 }
 

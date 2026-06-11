@@ -122,6 +122,8 @@ const int kSettingsCmdGetDeviceInfo  = 0x08;
 const int kSettingsCmdNvsRawRead     = 0x09;
 const int kSettingsCmdNvsRawWrite    = 0x0A;
 const int kSettingsCmdSetWifi        = 0x0B;
+const int kSettingsCmdGetCloudInfo   = 0x0C;
+const int kSettingsCmdReboot          = 0x0D;
 
 // MCU → App sub-commands (response = request | 0x80)
 const int kSettingsRespTelemetryData      = 0x81;
@@ -135,6 +137,8 @@ const int kSettingsRespDeviceInfoData     = 0x88;
 const int kSettingsRespNvsRawReadData     = 0x89;
 const int kSettingsRespNvsRawWriteAck     = 0x8A;
 const int kSettingsRespSetWifiAck          = 0x8B;
+const int kSettingsRespCloudInfoData       = 0x8C;
+const int kSettingsRespRebootAck           = 0x8D;
 
 // NVS raw read/write status codes
 const int kSettingsNvsRawOk    = 0x00;

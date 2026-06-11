@@ -8,6 +8,7 @@ import '../../providers/designs_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/skin_provider.dart';
 import '../../providers/remote_access_provider.dart';
+import '../../providers/device_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/radiokit_app_bar.dart';
 import '../../widgets/api_log_view.dart';
@@ -688,6 +689,13 @@ class SystemTab extends StatelessWidget {
           subtitle: 'Delete all saved designs',
           onPressed: () => _confirmDeleteProjects(context),
         ),
+        const SizedBox(height: 12),
+        _buildDangerAction(
+          context,
+          icon: Icons.restart_alt_rounded,
+          label: 'REBOOT_DEVICE',
+          subtitle: 'Reboot the connected device',            onPressed: () => _confirmRebootDevice(context),
+        ),
       ],
     );
   }
@@ -765,6 +773,58 @@ class SystemTab extends StatelessWidget {
               );
             },
             child: Text('REMOVE_ALL', style: GoogleFonts.changa(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1.0)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmRebootDevice(BuildContext context) {
+    final dp = context.read<DeviceProvider>();
+    if (!dp.isConnected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No device connected'),
+          backgroundColor: Colors.orangeAccent,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        icon: const Icon(Icons.restart_alt_rounded,
+            color: Colors.orangeAccent, size: 32),
+        title: const Text('Reboot Device?'),
+        content: const Text(
+          'This will restart the connected device without erasing any settings.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('CANCEL', style: TextStyle(color: Colors.white38)),
+          ),
+          FilledButton.tonal(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.orangeAccent.withValues(alpha: 0.2),
+              foregroundColor: Colors.orangeAccent,
+            ),              onPressed: () async {
+              Navigator.pop(ctx);
+              final ok = await dp.sendReboot();
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(ok
+                      ? 'Reboot sent — device restarting...'
+                      : 'Failed to send reboot command'),
+                  backgroundColor:
+                      ok ? Colors.orangeAccent : Colors.redAccent,
+                ),
+              );
+            },
+            child: const Text('REBOOT'),
           ),
         ],
       ),

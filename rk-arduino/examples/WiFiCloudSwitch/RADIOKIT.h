@@ -81,7 +81,7 @@ static inline void initRadioKit() {
 
   // ── Cloud relay config ─────────────────────────────────
   RadioKit.config.cloud_url     = "10.0.0.17:9000";  // Local relay server
-  RadioKit.config.cloud_account = "ecc5d5fa88ae5ce735dca88a60b68b20849fb1302192770f386207f5bfadaf0a";
+  RadioKit.config.cloud_account = "c29abe914b26b6349a299db2e5b9b2755f73ec85df83e3361abe1b1914a85992";
 
   // ── STA WiFi compile-time defaults ────────────────────
   RadioKit.config.sta_ssid      = "Leap";
@@ -95,10 +95,15 @@ static inline void initRadioKit() {
   // This ensures user-level auth is also required.
   RadioKit.setConfig(nullptr, nullptr, nullptr, "user_pass");
 
+  // Enable WiFi and Cloud transports in NVS (defaults after erase are 0)
+  RKNvs::writeU8("rk_wifi_on", 1);
+  RKNvs::writeU8("rk_cloud_on", 1);
+  RKNvs::commit();
+
   // ── Start ALL transports ──────────────────────────────
   RadioKit.startBLE(RadioKit.config.name);
   RadioKit.startWiFi();
-  RadioKit.startCloud();  // Outbound relay connection to 10.0.0.17:9000
+  RadioKit.startCloud();  // Cloud relay requires WiFi + relay server running
 }
 
 #endif // RADIOKIT_UI_H

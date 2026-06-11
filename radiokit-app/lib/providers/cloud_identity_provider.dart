@@ -28,9 +28,9 @@ class CloudIdentityProvider extends ChangeNotifier {
       // Debug: import the test keypair matching the ESP32 firmware's account
       await _identity.importKeyPair(
         // PRIVATE_KEY_HEX (32 bytes)
-        '1f2919214484bb4100aad318e572ca75a605b551ef68a2111b3cff56165fb654',
+        '6d6a8cca4b7f06d1f41e0bfdcc271fefa546ed7751bd22dea8fc378d8b20e85c',
         // PUBLIC_KEY_HEX (32 bytes) = account
-        '4b6afa33fb4d3de07f9382ff9dbac48733d3aca7206218c82c982391210e1bed',
+        'c29abe914b26b6349a299db2e5b9b2755f73ec85df83e3361abe1b1914a85992',
       );
     }
     notifyListeners();

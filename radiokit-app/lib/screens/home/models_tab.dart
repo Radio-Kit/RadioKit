@@ -19,6 +19,7 @@ import '../../models/console_entry.dart';
 import '../../models/device_info.dart';
 import '../../models/fs_entry.dart';
 import '../../models/fs_info.dart';
+import '../../models/protocol.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/radiokit_app_bar.dart';
 import '../../services/device_fs_service.dart';
@@ -34,6 +35,7 @@ import '../../services/websocket_service.dart';
 import '../../services/ble_service_impl.dart';
 import '../../services/serial_service_native.dart';
 import '../../services/serial_service_linux.dart';
+import '../../services/cloud_identity.dart';
 import 'pair_sheet.dart';
 
 class ModelsTab extends StatelessWidget {
@@ -646,7 +648,7 @@ class _DeviceInfoTabsState extends State<_DeviceInfoTabs>
 
 // ── Info Tab Content ─────────────────────────────────────────────────────────
 
-class _InfoTabContent extends StatelessWidget {
+class _InfoTabContent extends StatefulWidget {
   final DeviceInfo device;
   final Map<String, dynamic>? bleInfo;
   final bool loadingBleInfo;
@@ -658,10 +660,30 @@ class _InfoTabContent extends StatelessWidget {
   });
 
   @override
+  State<_InfoTabContent> createState() => _InfoTabContentState();
+}
+
+class _InfoTabContentState extends State<_InfoTabContent> {
+  /// Status message shown below transport badges during a transport switch.
+  /// null = no switch in progress.
+  String? _transportSwitchMessage;
+
+  @override
   Widget build(BuildContext context) {
+    final device = widget.device;
     final dp = context.watch<DeviceProvider>();
     final chipInfo = dp.chipInfo;
     final isDemo = device.id.startsWith('demo_');
+
+    // Determine transport states
+    final isConnected = dp.isConnected;
+    final currentTransport = dp.currentTransport;
+    final isBleConnected = currentTransport is BleService;
+    final isWifiConnected = currentTransport is WebSocketService;
+    final isCloudConnected = false; // cloud detection TBD
+
+    final hasWifi = dp.hasWifi;
+    final hasCloud = dp.hasCloud;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
@@ -704,7 +726,7 @@ class _InfoTabContent extends StatelessWidget {
               ),
             ],
           ),
-          if (loadingBleInfo)
+          if (widget.loadingBleInfo)
             const Padding(
               padding: EdgeInsets.only(top: 12),
               child: Text('Fetching connection info...',
@@ -713,13 +735,88 @@ class _InfoTabContent extends StatelessWidget {
           else ...[
             const SizedBox(height: 12),
             Text(
-              'Connection: ${bleInfo?['connIntervalMs'] ?? dp.latencyMs ?? '--'}ms '
-              '| MTU: ${bleInfo?['negotiatedMtu'] ?? '--'}'
-              ' | Signal: ${bleInfo?['rssi'] ?? dp.rssi ?? device.rssi ?? '--'} dBm',
+              'Connection: ${widget.bleInfo?['connIntervalMs'] ?? dp.latencyMs ?? '--'}ms '
+              '| MTU: ${widget.bleInfo?['negotiatedMtu'] ?? '--'}'
+              ' | Signal: ${widget.bleInfo?['rssi'] ?? dp.rssi ?? device.rssi ?? '--'} dBm',
               style: const TextStyle(color: Colors.white54, fontSize: 11),
             ),
           ],
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+          // ── Transport Badges ────────────────────────────────
+          Row(
+            children: [
+              _TransportBadge(
+                type: 'BLE',
+                icon: Icons.bluetooth_rounded,
+                connected: isConnected && isBleConnected,
+                available: true,
+                rssi: (isConnected && isBleConnected) ? (dp.rssi ?? device.rssi) : null,
+                onTap: isConnected && !isBleConnected
+                    ? () => _onTransportTap(context, dp, device, 'ble')
+                    : null,
+              ),
+              const SizedBox(width: 8),
+              _TransportBadge(
+                type: 'WiFi',
+                icon: Icons.wifi_rounded,
+                connected: isConnected && isWifiConnected,
+                available: hasWifi || isWifiConnected,
+                rssi: (isConnected && isWifiConnected) ? (dp.rssi ?? device.rssi) : null,
+                onTap: hasWifi && isConnected && !isWifiConnected
+                    ? () => _onTransportTap(context, dp, device, 'wifi')
+                    : null,
+              ),
+              const SizedBox(width: 8),
+              _TransportBadge(
+                type: 'Cloud',
+                icon: Icons.cloud_rounded,
+                connected: isConnected && isCloudConnected,
+                available: hasCloud || isCloudConnected,
+                rssi: null,
+                onTap: hasCloud && isConnected && !isCloudConnected
+                    ? () => _onTransportTap(context, dp, device, 'cloud')
+                    : null,
+              ),
+            ],
+          ),
+          // ── Transport Switch Progress ────────────────────────
+          if (_transportSwitchMessage != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                    color: Colors.orange.withValues(alpha: 0.25)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.orange,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      _transportSwitchMessage!,
+                      style: const TextStyle(
+                        color: Colors.orange,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
           const Divider(height: 1, color: Colors.white12),
           const SizedBox(height: 24),
           // ── Chip Info ───────────────────────────────────────
@@ -805,6 +902,112 @@ class _InfoTabContent extends StatelessWidget {
     );
   }
 
+  void _onTransportTap(BuildContext context, DeviceProvider dp, DeviceInfo device, String targetTransport) async {
+    // Determine current transport label for dialog message
+    final currentTransport = dp.currentTransport;
+    String currentLabel;
+    if (currentTransport is BleService) {
+      currentLabel = 'BLE';
+    } else if (currentTransport is WebSocketService) {
+      currentLabel = 'WiFi';
+    } else {
+      currentLabel = 'current';
+    }
+
+    final targetLabel = targetTransport.toUpperCase();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.swap_horiz_rounded,
+            color: AppColors.brandOrange, size: 32),
+        title: Text('Switch to $targetLabel?'),
+        content: Text(
+          'Connected via $currentLabel. Switching to $targetLabel '
+          'connects the new transport first, then seamlessly disconnects '
+          'the old one.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('CANCEL', style: TextStyle(color: Colors.white54)),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.brandOrange,
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('SWITCH TO $targetLabel'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    // Show transport switch progress below badges
+    setState(() {
+      if (targetTransport == 'wifi') {
+        _transportSwitchMessage = 'Getting WiFi info from device...';
+      } else if (targetTransport == 'ble') {
+        _transportSwitchMessage = 'Connecting via BLE...';
+      } else {
+        _transportSwitchMessage = 'Connecting via $targetLabel...';
+      }
+    });
+
+    // Delegate transport switch to DeviceProvider
+    final success = await dp.switchTransport(targetTransport);
+    if (!context.mounted) return;
+
+    if (success) {
+      setState(() {
+        _transportSwitchMessage = 'Connected via $targetLabel';
+      });
+      // Persist transport preference
+      if (dp.connectedDevice != null) {
+        try {
+          final hp = context.read<HistoryProvider>();
+          hp.saveDevice(
+            device.copyWith(preferredTransport: targetTransport),
+            targetTransport == 'wifi' ? 'wifi' : 'ble',
+          );
+        } catch (_) {}
+      }
+      // Show success briefly then clear
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) setState(() => _transportSwitchMessage = null);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Connected via $targetLabel'),
+          backgroundColor: Colors.greenAccent,
+        ),
+      );
+    } else {
+      setState(() {
+        _transportSwitchMessage =
+            'Failed to switch to $targetLabel — staying on $currentLabel';
+      });
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) setState(() => _transportSwitchMessage = null);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'Failed to switch to $targetLabel — staying on $currentLabel'),
+          backgroundColor: Colors.orangeAccent,
+        ),
+      );
+    }
+    // Close the info sheet
+    // Note: we close after the switch so the progress indicator
+    // is visible in the info sheet during the operation.
+    if (mounted) Navigator.of(context).maybePop();
+  }
+
   List<Widget> _chipFields(Map<String, String> fields) {
     return fields.entries
         .map((e) => Padding(
@@ -863,6 +1066,7 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
   bool _bleEnabled = true;
   bool _wifiEnabled = false;
   bool _cloudEnabled = false;
+  bool _cloudMatched = false;
 
   @override
   void initState() {
@@ -874,6 +1078,33 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
     _descCtrl = TextEditingController(text: _originalDesc);
     _pwdCtrl = TextEditingController();
     _adminPwdCtrl = TextEditingController();
+
+    // Load NVS transport enable states
+    _loadTransportNvsKeys(dp);
+  }
+
+  Future<void> _loadTransportNvsKeys(DeviceProvider dp) async {
+    if (!dp.isConnected) return;
+    final bleResult = await dp.readNvsRawKey('rk_ble_on');
+    final wifiResult = await dp.readNvsRawKey('rk_wifi_on');
+    final cloudResult = await dp.readNvsRawKey('rk_cloud_on');
+    if (!mounted) return;
+    setState(() {
+      _bleEnabled = (bleResult.value ?? 1) != 0;
+      _wifiEnabled = (wifiResult.value ?? 0) != 0;
+      _cloudEnabled = (cloudResult.value ?? 0) != 0;
+    });
+
+    // Check cloud account match
+    try {
+      final cloudInfo = await dp.sendGetCloudInfo();
+      if (cloudInfo != null && mounted) {
+        final identityService = CloudIdentityService();
+        await identityService.initialize();
+        _cloudMatched =
+            identityService.hasIdentity && identityService.account == cloudInfo.account;
+      }
+    } catch (_) {}
   }
 
   @override
@@ -998,6 +1229,7 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
                 if (!ok) return;
               }
               setState(() => _bleEnabled = v);
+              await _writeTransportKey(dp, 'rk_ble_on', v ? 1 : 0);
             },
           ),
           const SizedBox(height: 12),
@@ -1047,6 +1279,7 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
                           _wifiEnabled = v;
                           if (!v) _cloudEnabled = false;
                         });
+                        await _writeTransportKey(dp, 'rk_wifi_on', v ? 1 : 0);
                       },
                       activeThumbColor: AppColors.brandOrange,
                     ),
@@ -1060,16 +1293,52 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
                   _buildSettingRow(
                     Icons.cloud_rounded,
                     'CLOUD',
-                    'Remote access over internet',
+                    _cloudMatched
+                        ? 'Remote access over internet'
+                        : 'Configure in Pairing',
                     Switch(
-                      value: _cloudEnabled,
-                      onChanged: (v) => setState(() => _cloudEnabled = v),
+                      value: _cloudEnabled && _cloudMatched,
+                      onChanged: _cloudMatched
+                          ? (v) async {
+                              setState(() => _cloudEnabled = v);
+                              await _writeTransportKey(dp, 'rk_cloud_on', v ? 1 : 0);
+                            }
+                          : null,
                       activeThumbColor: AppColors.brandOrange,
                     ),
                   ),
                 ],
               ],
             ),
+          ),
+          const SizedBox(height: 32),
+          _buildSectionTag('REBOOT'),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.orangeAccent,
+                side: BorderSide(
+                    color: Colors.orangeAccent.withValues(alpha: 0.5)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6)),
+              ),
+              icon: const Icon(Icons.restart_alt_rounded, size: 20),
+              label: Text('REBOOT DEVICE',
+                  style: GoogleFonts.changa(
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1,
+                      fontSize: 12)),
+              onPressed: () => _confirmReboot(dp),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Restart the device without erasing any settings. '
+            'Useful after changing transport configuration.',
+            style: TextStyle(color: Colors.white38, fontSize: 11),
           ),
           const SizedBox(height: 32),
           _buildSectionTag('FACTORY_RESET'),
@@ -1085,7 +1354,7 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(6)),
               ),
-              icon: const Icon(Icons.restart_alt_rounded, size: 20),
+              icon: const Icon(Icons.delete_forever_rounded, size: 20),
               label: Text('FACTORY RESET',
                   style: GoogleFonts.changa(
                       fontWeight: FontWeight.w700,
@@ -1345,6 +1614,116 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
       SnackBar(
         content: Text(ok ? 'Field saved to device' : 'Failed to save'),
         backgroundColor: ok ? Colors.greenAccent : Colors.redAccent,
+      ),
+    );
+  }
+
+  Future<void> _writeTransportKey(DeviceProvider dp, String key, int value) async {
+    final status = await dp.writeNvsRawKey(key, value);
+    if (!mounted) return;
+
+    if (status != kSettingsNvsRawOk) {
+      // Show error — likely auth issue (NVS_RAW_WRITE requires device-level auth)
+      final isDevMode = dp.isDeviceMode;
+      final msg = isDevMode
+          ? 'Failed to write to device NVS (status=$status).'
+          : 'Device-level access required. Authenticate with the device password '
+              'before changing transport settings. ';
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          backgroundColor: Colors.redAccent,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
+    // Show reboot confirmation
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.restart_alt_rounded,
+            color: Colors.orangeAccent, size: 32),
+        title: const Text('Reboot to Apply?'),
+        content: const Text(
+          'Transport change saved. The device must reboot for the change '
+          'to take effect. Reboot now?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('LATER', style: TextStyle(color: Colors.white54)),
+          ),
+          FilledButton.tonal(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.orangeAccent.withValues(alpha: 0.2),
+              foregroundColor: Colors.orangeAccent,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('REBOOT'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    await dp.sendReboot();
+    if (!mounted) return;
+    dp.disconnect();
+    if (context.mounted) context.go('/models');
+  }
+
+  Future<void> _confirmReboot(DeviceProvider dp) async {
+    if (!dp.isConnected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No device connected'),
+          backgroundColor: Colors.orangeAccent,
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.restart_alt_rounded,
+            color: Colors.orangeAccent, size: 32),
+        title: const Text('Reboot Device?'),
+        content: const Text(
+          'Restart the device without erasing any settings. '
+          'The device will disconnect and reconnect.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton.tonal(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.orangeAccent.withValues(alpha: 0.2),
+              foregroundColor: Colors.orangeAccent,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('REBOOT'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final ok = await dp.sendReboot();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok
+            ? 'Reboot sent — device restarting...'
+            : 'Failed to send reboot command'),
+        backgroundColor: ok ? Colors.orangeAccent : Colors.redAccent,
       ),
     );
   }
@@ -2670,6 +3049,105 @@ class _FirmwareTabContentState extends State<_FirmwareTabContent> {
                   fontSize: 12,
                   fontWeight: FontWeight.w500)),
         ],
+      ),
+    );
+  }
+}
+
+// ── Transport Badge Widget ──────────────────────────────────────────────────
+
+/// Compact transport status pill shown in the Info tab.
+/// Shows an icon, label, green dot if connected, gray if available, dimmed if not.
+class _TransportBadge extends StatelessWidget {
+  final String type;
+  final IconData icon;
+  final bool connected;
+  final bool available;
+  final int? rssi;
+  final VoidCallback? onTap;
+
+  const _TransportBadge({
+    required this.type,
+    required this.icon,
+    required this.connected,
+    required this.available,
+    this.rssi,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: connected
+              ? AppColors.connected.withValues(alpha: 0.15)
+              : available
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : Colors.white.withValues(alpha: 0.02),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: connected
+                ? AppColors.connected.withValues(alpha: 0.3)
+                : available
+                    ? Colors.white12
+                    : Colors.white.withValues(alpha: 0.04),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Green/gray dot
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: connected
+                    ? AppColors.connected
+                    : available
+                        ? Colors.white38
+                        : Colors.white.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Icon(icon,
+                size: 14,
+                color: connected
+                    ? Colors.white
+                    : available
+                        ? Colors.white54
+                        : Colors.white.withValues(alpha: 0.15)),
+            const SizedBox(width: 4),
+            Text(type.toUpperCase(),
+                style: TextStyle(
+                    color: connected
+                        ? Colors.white
+                        : available
+                            ? Colors.white54
+                            : Colors.white.withValues(alpha: 0.15),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1)),
+            if (rssi != null) ...[
+              const SizedBox(width: 4),
+              Text('${rssi}dBm',
+                  style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.5),
+                      fontSize: 8,
+                      fontFamily: 'monospace')),
+            ],
+            if (onTap != null) ...[
+              const SizedBox(width: 4),
+              Icon(Icons.swap_horiz_rounded,
+                  size: 12,
+                  color: AppColors.brandOrange.withValues(alpha: 0.6)),
+            ],
+          ],
+        ),
       ),
     );
   }

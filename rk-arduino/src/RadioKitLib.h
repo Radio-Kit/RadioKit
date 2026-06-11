@@ -217,6 +217,8 @@ private:
     void _handleSettingsNvsRawRead(const uint8_t* payload, uint16_t len);
     void _handleSettingsNvsRawWrite(const uint8_t* payload, uint16_t len);
     void _handleSettingsSetWifi(const uint8_t* payload, uint16_t len);
+    void _handleSettingsGetCloudInfo();
+    void _handleSettingsReboot();
     void _handleGetWifiInfo();
     void _sendSettingsFrame(uint16_t len);
 

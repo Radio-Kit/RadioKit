@@ -8,20 +8,27 @@ class DeviceInfo {
   /// Demos hardcode `true`; real devices need a probe (TODO).
   final bool hasFs;
 
+  /// Preferred transport for connecting to this device.
+  /// `null` or `'auto'` means auto-detect (use whatever was used last).
+  /// `'ble'`, `'wifi'`, `'cloud'` for explicit preference.
+  final String? preferredTransport;
+
   const DeviceInfo({
     required this.id,
     required this.name,
     required this.rssi,
     this.hasFs = false,
+    this.preferredTransport,
   });
 
   /// Return a new [DeviceInfo] with the given fields replaced.
-  DeviceInfo copyWith({String? name, int? rssi, bool? hasFs}) {
+  DeviceInfo copyWith({String? name, int? rssi, bool? hasFs, String? preferredTransport}) {
     return DeviceInfo(
       id: id,
       name: name ?? this.name,
       rssi: rssi ?? this.rssi,
       hasFs: hasFs ?? this.hasFs,
+      preferredTransport: preferredTransport ?? this.preferredTransport,
     );
   }
 

@@ -11,6 +11,7 @@ class PairedDevice {
   final String type;
   final String? configName;
   final String? description;
+  final String? preferredTransport;
   final DateTime lastConnected;
 
   PairedDevice({
@@ -19,6 +20,7 @@ class PairedDevice {
     required this.type,
     this.configName,
     this.description,
+    this.preferredTransport,
     required this.lastConnected,
   });
 
@@ -28,6 +30,7 @@ class PairedDevice {
         'type': type,
         'configName': configName,
         'description': description,
+        'preferredTransport': preferredTransport,
         'lastConnected': lastConnected.toIso8601String(),
       };
 
@@ -37,10 +40,16 @@ class PairedDevice {
         type: json['type'],
         configName: json['configName'],
         description: json['description'],
+        preferredTransport: json['preferredTransport'] as String?,
         lastConnected: DateTime.parse(json['lastConnected']),
       );
 
-  DeviceInfo toDeviceInfo() => DeviceInfo(id: id, name: name, rssi: 0);
+  DeviceInfo toDeviceInfo() => DeviceInfo(
+    id: id,
+    name: name,
+    rssi: 0,
+    preferredTransport: preferredTransport,
+  );
 }
 
 /// Manages persistent history of connected devices.
@@ -85,6 +94,7 @@ class HistoryProvider extends ChangeNotifier {
         type: type,
         configName: configName,
         description: description,
+        preferredTransport: device.preferredTransport,
         lastConnected: now,
       );
     } else {
@@ -96,6 +106,7 @@ class HistoryProvider extends ChangeNotifier {
           type: type,
           configName: configName,
           description: description,
+          preferredTransport: device.preferredTransport,
           lastConnected: now,
         ),
       );

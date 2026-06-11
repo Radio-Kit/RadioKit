@@ -14,10 +14,14 @@ import '../services/settings_protocol_service.dart';
 import '../services/debug_transport.dart';
 import '../services/demo_transport.dart';
 import '../services/demo_fs_transport.dart';
+import '../services/ble_service.dart';
+import '../services/websocket_service.dart';
+import '../services/cloud_identity.dart';
 
 import '../providers/console_provider.dart';
 import '../providers/skin_provider.dart';
 import '../providers/debug_provider.dart';
+
 import '../models/console_entry.dart';
 import '../models/fs_entry.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
@@ -442,6 +446,107 @@ class DeviceProvider extends ChangeNotifier {
       _log('authenticate failed: $e', level: ConsoleLogLevel.error);
       return false;
     }
+  }
+
+  // ── Transport switch (detect-first) ─────────────────────────────────────────
+
+  /// Switch to a different transport (ble, wifi, cloud).
+  /// Connect-first approach: sets up callbacks on target transport,
+  /// connects to it while source is still active, then disconnects
+  /// the source transport only after the target is confirmed connected.
+  /// Clears source transport's connectionLost callback before disconnecting
+  /// to prevent it from triggering a spurious disconnect state change.
+  /// Returns true on success, false if the target transport is unreachable.
+  Future<bool> switchTransport(String target) async {
+    final device = _connectedDevice;
+    if (device == null || !_transport.isConnected) return false;
+
+    final currentSrc = _transport;
+    TransportService? targetTransport;
+    String targetId = device.id;
+
+    if (target == 'ble') {
+      // BLE: reuse existing device ID
+      final BleService? ble = currentSrc is BleService ? currentSrc : null;
+      targetTransport = ble ?? BleService();
+    } else if (target == 'wifi') {
+      // WiFi: try to get IP from device while on current transport
+      String? ip;
+      try {
+        final wifiInfo = await sendGetWifiInfo();
+        if (wifiInfo != null && wifiInfo.ip.isNotEmpty) {
+          ip = wifiInfo.ip;
+        }
+      } catch (_) {}
+
+      // Fallback: check if current ID already is a WebSocket URL
+      if (ip == null && (device.id.startsWith('ws://') || device.id.startsWith('wss://'))) {
+        final uri = Uri.tryParse(device.id);
+        if (uri != null) ip = uri.host;
+      }
+
+      if (ip == null) {
+        _log('Cannot switch to WiFi: device IP unknown', level: ConsoleLogLevel.error);
+        return false;
+      }
+
+      targetId = 'ws://$ip:${kDefaultWifiPort}';
+      targetTransport = WebSocketService();
+    } else if (target == 'cloud') {
+      String? url;
+      try {
+        final cloudInfo = await sendGetCloudInfo();
+        if (cloudInfo != null && cloudInfo.url.isNotEmpty && cloudInfo.account.isNotEmpty) {
+          url = cloudInfo.url;
+        }
+      } catch (_) {}
+
+      if (url == null) {
+        _log('Cannot switch to Cloud: no relay URL', level: ConsoleLogLevel.error);
+        return false;
+      }
+
+      targetId = 'cloud://$url';
+      targetTransport = WebSocketService();
+    } else {
+      return false;
+    }
+
+    if (targetTransport == null) return false;
+
+    // Connect to target FIRST (while source is still active)
+    _log('Switching transport to $target ($targetId)...', level: ConsoleLogLevel.info);
+    try {
+      await targetTransport.connect(targetId);
+      if (!targetTransport.isConnected) {
+        _log('Failed to connect via $target — staying on current transport',
+            level: ConsoleLogLevel.warning);
+        return false;
+      }
+    } catch (e) {
+      _log('Switch to $target failed: $e', level: ConsoleLogLevel.error);
+      return false;
+    }
+
+    // Clear old transport's connectionLost callback to prevent it from
+    // triggering a spurious disconnect/state-clear when we disconnect it.
+    currentSrc.onConnectionLost = null;
+
+    // Swap transport — setTransport handles DebugTransport wrapping + callbacks
+    setTransport(targetTransport);
+
+    if (_connectedDevice != null) {
+      _connectedDevice = _connectedDevice!.copyWith(preferredTransport: target);
+    }
+
+    // Disconnect source transport
+    try {
+      await currentSrc.disconnect();
+    } catch (_) {}
+
+    _log('Transport switched to $target', level: ConsoleLogLevel.success);
+    notifyListeners();
+    return true;
   }
 
   // ── Transport swap ───────────────────────────────────────────────────────────
@@ -1150,9 +1255,14 @@ class DeviceProvider extends ChangeNotifier {
         break;
       case kSettingsRespFactoryResetAck:
         _log('Factory reset ACK received', level: ConsoleLogLevel.success);
-        break;
-      case kSettingsRespDeviceInfoData:
+        break;        case kSettingsRespDeviceInfoData:
         _handleSettingsDeviceInfoData(packet.payload);
+        break;
+      case kSettingsRespCloudInfoData:
+        _handleSettingsCloudInfoData(packet.payload);
+        break;
+      case kSettingsRespRebootAck:
+        _log('Reboot ACK received — device rebooting', level: ConsoleLogLevel.success);
         break;
       case kSettingsRespNvsRawReadData:
         _handleSettingsNvsRawReadData(packet.payload);
@@ -1290,6 +1400,51 @@ class DeviceProvider extends ChangeNotifier {
     final completer = _setConfCompleter;
     if (completer != null && !completer.isCompleted) {
       completer.complete(status);
+    }
+  }
+
+  /// Send GET_CLOUD_INFO and wait for response.
+  /// Returns (url, account) or null on timeout.
+  Future<({String url, String account})?> sendGetCloudInfo() async {
+    if (!_transport.isConnected) return null;
+    final completer = Completer<({String url, String account})>();
+    _cloudInfoCompleter = completer;
+    try {
+      await _writePacket(SettingsProtocolService.buildGetCloudInfo());
+    } catch (e) {
+      _cloudInfoCompleter = null;
+      return null;
+    }
+    try {
+      final result = await completer.future.timeout(const Duration(seconds: 3));
+      _cloudInfo = result;
+      return result;
+    } on TimeoutException catch (_) {
+      _cloudInfoCompleter = null;
+      return null;
+    } catch (_) {
+      _cloudInfoCompleter = null;
+      return null;
+    }
+  }
+
+  void _handleSettingsCloudInfoData(Uint8List payload) {
+    final parsed = SettingsProtocolService.parseCloudInfoData(payload.toList());
+    if (parsed == null) {
+      _log('CLOUD_INFO_DATA parse failed', level: ConsoleLogLevel.error);
+      final completer = _cloudInfoCompleter;
+      if (completer != null && !completer.isCompleted) {
+        completer.completeError(Exception('Parse failed'));
+      }
+      return;
+    }
+    _log('Cloud info: URL="${parsed.url}" account="${parsed.account.length > 16 ? parsed.account.substring(0, 16) + '...' : parsed.account}"',
+        level: ConsoleLogLevel.success);
+    _cloudInfo = parsed;
+    notifyListeners();
+    final completer = _cloudInfoCompleter;
+    if (completer != null && !completer.isCompleted) {
+      completer.complete(parsed);
     }
   }
 
@@ -1564,6 +1719,25 @@ class DeviceProvider extends ChangeNotifier {
     }
 
     _writePacket(ProtocolService.buildAck(seq)).catchError((_) {});
+  }
+
+  /// Cached cloud info from the device.
+  ({String url, String account})? _cloudInfo;
+
+  /// Completer for GET_CLOUD_INFO response.
+  Completer<({String url, String account})>? _cloudInfoCompleter;
+
+  /// Send REBOOT command via settings protocol (preserves NVS).
+  /// Returns true if the command was sent successfully (device will reboot).
+  Future<bool> sendReboot() async {
+    if (!_transport.isConnected) return false;
+    try {
+      await _transport.writePacket(SettingsProtocolService.buildReboot());
+      return true;
+    } catch (e) {
+      _log('sendReboot failed: $e', level: ConsoleLogLevel.error);
+      return false;
+    }
   }
 
   /// Cached WiFi info from the device.

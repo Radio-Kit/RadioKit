@@ -38,6 +38,8 @@
 #define RK_CMD_SET_INPUT 0x0C   // Arduino → App: force sync input widget
 #define RK_CMD_GET_WIFI_INFO 0x1D   // App → Arduino: request WiFi status
 #define RK_CMD_WIFI_INFO_DATA 0x1E // Arduino → App: WiFi status payload
+// Settings sub-commands are in RadioKitSettings.h (0xDD protocol).
+// REBOOT: 0x0D in settings protocol — reboot without erasing NVS.
 
 // ── PWD_AUTH response codes (used by public API RadioKitClass::authenticate) ─
 #define RK_PWD_AUTH_DEVICE      0x00   ///< Authenticated as device (full access)

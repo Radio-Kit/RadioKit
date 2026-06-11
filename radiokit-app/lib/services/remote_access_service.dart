@@ -161,8 +161,10 @@ class RemoteAccessService {
     router.post('/api/settings/nvs', _handleNvsSet);
     router.post('/api/settings/nvs/authenticate', _handleNvsAuthenticate);
     router.post('/api/settings/nvs/factory-reset', _handleNvsFactoryReset);
+    router.post('/api/settings/nvs/reboot', _handleNvsReboot);
     router.get('/api/settings/nvs/raw/<key>', _handleNvsRawRead);
     router.post('/api/settings/nvs/raw/<key>', _handleNvsRawWrite);
+    router.get('/api/settings/nvs/cloud-info', _handleNvsCloudInfo);
     router.get('/api/pair/devices', _handlePairDevices);
     router.post('/api/pair/scan', _handlePairScan);
     router.get('/api/connection', _handleConnection);
@@ -1222,6 +1224,31 @@ class RemoteAccessService {
     }
   }
 
+  /// Handle GET /api/settings/nvs/cloud-info — read cloud relay URL + account
+  /// from the device via GET_CLOUD_INFO protocol command.
+  Future<Response> _handleNvsCloudInfo(Request request) async {
+    if (!_deviceProvider.isConnected) {
+      return _error('not_connected', 'Not connected to a device', status: 503);
+    }
+    try {
+      final cloudInfo = await _deviceProvider.sendGetCloudInfo();
+      if (cloudInfo != null) {
+        return _json({
+          'ok': true,
+          'url': cloudInfo.url,
+          'account': cloudInfo.account,
+        });
+      }
+      return _json({
+        'ok': true,
+        'url': null,
+        'account': null,
+      });
+    } catch (e) {
+      return _error('cloud_info_error', e.toString(), status: 500);
+    }
+  }
+
   /// Handle POST /api/settings/nvs/raw/<key> — write a raw uint8 value to an NVS key.
   /// Body: { "value": <int> }
   Future<Response> _handleNvsRawWrite(Request request, String key) async {
@@ -1265,14 +1292,33 @@ class RemoteAccessService {
     try {
       final ok = await _deviceProvider.sendFactoryReset();
       if (ok) {
-        // The device will process the command and reboot, disconnecting
-        // the BLE connection naturally — no need to disconnect locally.
         return _json({
           'ok': true,
           'message': 'Factory reset sent — device will reboot',
         });
       }
       return _error('nvs_error', 'Failed to send factory reset', status: 500);
+    } catch (e) {
+      return _error('nvs_error', e.toString(), status: 500);
+    }
+  }
+
+  /// Handle POST /api/settings/nvs/reboot — reboot the device without erasing NVS.
+  /// The device's NVS keys (rk_ble_on, rk_wifi_on, etc.) are preserved.
+  Future<Response> _handleNvsReboot(Request request) async {
+    if (!_deviceProvider.isConnected) {
+      return _error('not_connected', 'Not connected to a device', status: 503);
+    }
+
+    try {
+      final ok = await _deviceProvider.sendReboot();
+      if (ok) {
+        return _json({
+          'ok': true,
+          'message': 'Reboot sent — device will reboot (NVS preserved)',
+        });
+      }
+      return _error('nvs_error', 'Failed to send reboot', status: 500);
     } catch (e) {
       return _error('nvs_error', e.toString(), status: 500);
     }

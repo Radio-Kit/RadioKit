@@ -50,6 +50,8 @@ class SettingsProtocolService {
   static Uint8List buildGetChipInfo() => buildFrame(kSettingsCmdGetChipInfo);
   static Uint8List buildGetDeviceInfo() => buildFrame(kSettingsCmdGetDeviceInfo);
   static Uint8List buildFactoryReset() => buildFrame(kSettingsCmdFactoryReset);
+  static Uint8List buildGetCloudInfo() => buildFrame(kSettingsCmdGetCloudInfo);
+  static Uint8List buildReboot() => buildFrame(kSettingsCmdReboot);
 
   /// Build NVS_RAW_READ frame. Payload: [KEY_LEN(1)][KEY...]
   static Uint8List buildNvsRawRead(String key) {
@@ -209,6 +211,25 @@ class SettingsProtocolService {
   static int? parseFeaturesData(List<int> payload) {
     if (payload.isEmpty) return null;
     return payload[0];
+  }
+
+  /// Parse CLOUD_INFO_DATA: [URL_LEN(1)][URL...][ACCOUNT_LEN(1)][ACCOUNT...]
+  /// Returns (url, account) on success, null on parse failure.
+  static ({String url, String account})? parseCloudInfoData(List<int> payload) {
+    if (payload.length < 2) return null;
+    int offset = 0;
+    final urlLen = payload[offset++];
+    if (offset + urlLen > payload.length) return null;
+    final url = utf8.decode(payload.sublist(offset, offset + urlLen),
+        allowMalformed: true);
+    offset += urlLen;
+    if (offset >= payload.length) return null;
+    final accLen = payload[offset++];
+    final account = (offset + accLen <= payload.length)
+        ? utf8.decode(payload.sublist(offset, offset + accLen),
+            allowMalformed: true)
+        : '';
+    return (url: url, account: account);
   }
 
   /// Parse DEVICE_INFO_DATA: [PROTO_VER(1)][NAME_LEN(1)][NAME][DESC_LEN(1)][DESC]
