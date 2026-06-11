@@ -32,6 +32,9 @@
 #define RK_NVS_KEY_CLOUD_URL      "rk_cloud_url"
 #define RK_NVS_KEY_CLOUD_ACCOUNT  "rk_cloud_account"
 
+// ── Device identity ─────────────────────────────────────────────────────────
+#define RK_NVS_KEY_DEVICE_UID     "rk_device_uid"
+
 // ── Pending erase mode values (stored in rk_pend_erase) ──────────────────────
 #define RK_PENDING_ERASE_NONE     0  ///< No erase — cleared after operation completes
 #define RK_PENDING_ERASE_BOTH     1  ///< Erase NVS config + format LittleFS

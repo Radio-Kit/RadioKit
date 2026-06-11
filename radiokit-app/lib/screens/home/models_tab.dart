@@ -128,32 +128,28 @@ class ModelsTab extends StatelessWidget {
     );
   }
 }
+/// Returns (transport label, icon) for a device based on its current transport type.
+(String, IconData) _transportDisplay(DeviceInfo device) {
+  switch (device.currentTransport) {
+    case TransportType.ble:
+      return ("BLUETOOTH LE", Icons.bluetooth_rounded);
+    case TransportType.wifi:
+      return ("WiFi", Icons.wifi_rounded);
+    case TransportType.cloud:
+      return ("CLOUD", Icons.cloud_rounded);
+    case TransportType.serial:
+      return ("SERIAL", Icons.usb_rounded);
+    case TransportType.demo:
+      return ("DEMO", Icons.wifi_tethering_rounded);
+  }
+}
+
 
 /// Returns the active link card layout — stacks transport info on the right
 /// side above the telemetry divider.
 Widget _buildActiveLinkCard(
     BuildContext context, DeviceProvider dp, DeviceInfo device) {
-  final isWs =
-      device.id.startsWith('ws://') || device.id.startsWith('wss://');
-  final isCloudRelay = isWs && device.id.contains('relay');
-  final transportType = device.id.startsWith('demo_')
-      ? 'DEMO'
-      : isCloudRelay
-          ? 'CLOUD'
-          : isWs
-              ? 'WiFi'
-              : device.id.startsWith('COM') || device.id.contains('serial')
-                  ? 'USB'
-                  : 'BLE';
-  final transportIcon = device.id.startsWith('demo_')
-      ? Icons.wifi_tethering_rounded
-      : isCloudRelay
-          ? Icons.cloud_rounded
-          : isWs
-              ? Icons.wifi_rounded
-              : device.id.startsWith('COM') || device.id.contains('serial')
-                  ? Icons.usb_rounded
-                  : Icons.bluetooth_rounded;
+  final (transportType, transportIcon) = _transportDisplay(device);
   final latencyMs = dp.latencyMs;
   final signal = dp.rssi ?? device.rssi;
   final description = dp.description;
@@ -668,23 +664,69 @@ class _InfoTabContentState extends State<_InfoTabContent> {
   /// null = no switch in progress.
   String? _transportSwitchMessage;
 
+  /// NVS transport enable states (null = not yet loaded).
+  bool _nvsBleOn = true;
+  bool _nvsWifiOn = false;
+  bool _nvsCloudOn = false;
+  bool _nvsLoading = true;
+
+  /// Flag to avoid repeatedly scheduling auto-close pop on disconnect.
+  bool _sheetAutoClosed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadNvsStates());
+  }
+
+  Future<void> _loadNvsStates() async {
+    final dp = context.read<DeviceProvider>();
+    if (!dp.isConnected) {
+      if (mounted) setState(() => _nvsLoading = false);
+      return;
+    }
+    final bleResult = await dp.readNvsRawKey('rk_ble_on');
+    final wifiResult = await dp.readNvsRawKey('rk_wifi_on');
+    final cloudResult = await dp.readNvsRawKey('rk_cloud_on');
+    if (!mounted) return;
+    setState(() {
+      _nvsBleOn = (bleResult.value ?? 1) != 0;
+      _nvsWifiOn = (wifiResult.value ?? 0) != 0;
+      _nvsCloudOn = (cloudResult.value ?? 0) != 0;
+      _nvsLoading = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final device = widget.device;
     final dp = context.watch<DeviceProvider>();
-    final chipInfo = dp.chipInfo;
-    final isDemo = device.id.startsWith('demo_');
 
-    // Determine transport states
+    // Close the sheet when device disconnects (fire once per disconnect)
+    if (!dp.isConnected && !_sheetAutoClosed) {
+      _sheetAutoClosed = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.of(context).maybePop();
+      });
+    }
+    // Reset flag if device reconnects (unlikely in this flow, but safe)
+    if (dp.isConnected && _sheetAutoClosed) {
+      _sheetAutoClosed = false;
+    }
+
+    final chipInfo = dp.chipInfo;
+    final isDemo = device.currentTransport == TransportType.demo;
+
+    // Determine transport states from actual current transport
     final isConnected = dp.isConnected;
-    final currentTransport = dp.currentTransport;
-    final isBleConnected = currentTransport is BleService;
-    final isWifiConnected = currentTransport is WebSocketService;
+    final trans = dp.currentTransport;
+    final isBleConnected = trans is BleService;
+    final isWifiConnected = trans is WebSocketService;
     final isCloudConnected = false; // cloud detection TBD
 
+    final hasBle = dp.hasBle;
     final hasWifi = dp.hasWifi;
     final hasCloud = dp.hasCloud;
-
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
       child: Column(
@@ -743,42 +785,60 @@ class _InfoTabContentState extends State<_InfoTabContent> {
           ],
           const SizedBox(height: 16),
           // ── Transport Badges ────────────────────────────────
-          Row(
-            children: [
-              _TransportBadge(
-                type: 'BLE',
-                icon: Icons.bluetooth_rounded,
-                connected: isConnected && isBleConnected,
-                available: true,
-                rssi: (isConnected && isBleConnected) ? (dp.rssi ?? device.rssi) : null,
-                onTap: isConnected && !isBleConnected
-                    ? () => _onTransportTap(context, dp, device, 'ble')
-                    : null,
+          // Only show badges for transports enabled via NVS on the ESP32
+          if (_nvsLoading) ...[
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
               ),
-              const SizedBox(width: 8),
-              _TransportBadge(
-                type: 'WiFi',
-                icon: Icons.wifi_rounded,
-                connected: isConnected && isWifiConnected,
-                available: hasWifi || isWifiConnected,
-                rssi: (isConnected && isWifiConnected) ? (dp.rssi ?? device.rssi) : null,
-                onTap: hasWifi && isConnected && !isWifiConnected
-                    ? () => _onTransportTap(context, dp, device, 'wifi')
-                    : null,
-              ),
-              const SizedBox(width: 8),
-              _TransportBadge(
-                type: 'Cloud',
-                icon: Icons.cloud_rounded,
-                connected: isConnected && isCloudConnected,
-                available: hasCloud || isCloudConnected,
-                rssi: null,
-                onTap: hasCloud && isConnected && !isCloudConnected
-                    ? () => _onTransportTap(context, dp, device, 'cloud')
-                    : null,
-              ),
-            ],
-          ),
+            ),
+          ] else ...[
+            Row(
+              children: [
+                // BLE badge — shown only if NVS-enabled
+                if (_nvsBleOn)
+                  _TransportBadge(
+                    type: 'BLE',
+                    icon: Icons.bluetooth_rounded,
+                    connected: isConnected && isBleConnected,
+                    available: true,
+                    rssi: (isConnected && isBleConnected) ? (dp.rssi ?? device.rssi) : null,
+                    onTap: isConnected && !isBleConnected
+                        ? () => _onTransportTap(context, dp, device, TransportType.ble)
+                        : null,
+                  ),
+                if (_nvsBleOn) const SizedBox(width: 8),
+                // WiFi badge — shown only if NVS-enabled and device has WiFi feature
+                if (_nvsWifiOn && (hasWifi || isWifiConnected))
+                  _TransportBadge(
+                    type: 'WiFi',
+                    icon: Icons.wifi_rounded,
+                    connected: isConnected && isWifiConnected,
+                    available: hasWifi || isWifiConnected,
+                    rssi: (isConnected && isWifiConnected) ? (dp.rssi ?? device.rssi) : null,
+                    onTap: hasWifi && isConnected && !isWifiConnected
+                        ? () => _onTransportTap(context, dp, device, TransportType.wifi)
+                        : null,
+                  ),
+                if (_nvsWifiOn && (hasWifi || isWifiConnected)) const SizedBox(width: 8),
+                // Cloud badge — shown only if NVS-enabled and device has Cloud feature
+                if (_nvsCloudOn && (hasCloud || isCloudConnected))
+                  _TransportBadge(
+                    type: 'Cloud',
+                    icon: Icons.cloud_rounded,
+                    connected: isConnected && isCloudConnected,
+                    available: hasCloud || isCloudConnected,
+                    rssi: null,
+                    onTap: hasCloud && isConnected && !isCloudConnected
+                        ? () => _onTransportTap(context, dp, device, TransportType.cloud)
+                        : null,
+                  ),
+              ],
+            ),
+          ],
           // ── Transport Switch Progress ────────────────────────
           if (_transportSwitchMessage != null) ...[
             const SizedBox(height: 8),
@@ -902,19 +962,29 @@ class _InfoTabContentState extends State<_InfoTabContent> {
     );
   }
 
-  void _onTransportTap(BuildContext context, DeviceProvider dp, DeviceInfo device, String targetTransport) async {
+  void _onTransportTap(BuildContext context, DeviceProvider dp, DeviceInfo device, TransportType targetTransport) async {
     // Determine current transport label for dialog message
-    final currentTransport = dp.currentTransport;
+    final currentTransportObj = dp.currentTransport;
     String currentLabel;
-    if (currentTransport is BleService) {
+    if (currentTransportObj is BleService) {
       currentLabel = 'BLE';
-    } else if (currentTransport is WebSocketService) {
+    } else if (currentTransportObj is WebSocketService) {
       currentLabel = 'WiFi';
     } else {
       currentLabel = 'current';
     }
 
-    final targetLabel = targetTransport.toUpperCase();
+    String transportLabel(TransportType t) {
+      switch (t) {
+        case TransportType.ble:    return 'BLE';
+        case TransportType.wifi:   return 'WiFi';
+        case TransportType.cloud:  return 'Cloud';
+        case TransportType.serial: return 'Serial';
+        case TransportType.demo:   return 'Demo';
+      }
+    }
+
+    final targetLabel = transportLabel(targetTransport);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -949,9 +1019,9 @@ class _InfoTabContentState extends State<_InfoTabContent> {
 
     // Show transport switch progress below badges
     setState(() {
-      if (targetTransport == 'wifi') {
+      if (targetTransport == TransportType.wifi) {
         _transportSwitchMessage = 'Getting WiFi info from device...';
-      } else if (targetTransport == 'ble') {
+      } else if (targetTransport == TransportType.ble) {
         _transportSwitchMessage = 'Connecting via BLE...';
       } else {
         _transportSwitchMessage = 'Connecting via $targetLabel...';
@@ -964,20 +1034,10 @@ class _InfoTabContentState extends State<_InfoTabContent> {
 
     if (success) {
       setState(() {
-        _transportSwitchMessage = 'Connected via $targetLabel';
+        _transportSwitchMessage = 'Connected via $targetLabel \u2713';
       });
-      // Persist transport preference
-      if (dp.connectedDevice != null) {
-        try {
-          final hp = context.read<HistoryProvider>();
-          hp.saveDevice(
-            device.copyWith(preferredTransport: targetTransport),
-            targetTransport == 'wifi' ? 'wifi' : 'ble',
-          );
-        } catch (_) {}
-      }
       // Show success briefly then clear
-      Future.delayed(const Duration(seconds: 2), () {
+      Future.delayed(const Duration(seconds: 3), () {
         if (mounted) setState(() => _transportSwitchMessage = null);
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -991,7 +1051,7 @@ class _InfoTabContentState extends State<_InfoTabContent> {
         _transportSwitchMessage =
             'Failed to switch to $targetLabel — staying on $currentLabel';
       });
-      Future.delayed(const Duration(seconds: 3), () {
+      Future.delayed(const Duration(seconds: 4), () {
         if (mounted) setState(() => _transportSwitchMessage = null);
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1002,10 +1062,8 @@ class _InfoTabContentState extends State<_InfoTabContent> {
         ),
       );
     }
-    // Close the info sheet
-    // Note: we close after the switch so the progress indicator
-    // is visible in the info sheet during the operation.
-    if (mounted) Navigator.of(context).maybePop();
+    // Note: sheet stays open so the user sees the transport switch result.
+    // They can close it manually via drag handle or by tapping elsewhere.
   }
 
   List<Widget> _chipFields(Map<String, String> fields) {
@@ -3643,7 +3701,7 @@ class _PairedModelsListState extends State<_PairedModelsList> {
         deviceProvider.isConnected ? deviceProvider.connectedDevice?.id : null;
     final allDevices = history.pairedDevices;
     final filteredDevices =
-        allDevices.where((d) => d.id != connectedId).toList();
+        allDevices.where((d) => d.uid != connectedId).toList();
 
     if (filteredDevices.isEmpty) return const SizedBox.shrink();
 
@@ -3660,12 +3718,12 @@ class _PairedModelsListState extends State<_PairedModelsList> {
   }
 
   Widget _buildCard(PairedDevice device) {
-    final connectionState = _connectionStates[device.id] ??
+    final connectionState = _connectionStates[device.uid] ??
         _PairedModelConnectionState(device: device);
     return _PairedModelCard(
       state: connectionState,
       onReconnect: () => _handleReconnect(device),
-      onDismissError: () => _clearStatus(device.id),
+      onDismissError: () => _clearStatus(device.uid),
       onTap: () => _handleReconnect(device),
     );
   }
@@ -3711,7 +3769,7 @@ class _PairedModelsListState extends State<_PairedModelsList> {
     return context
         .read<HistoryProvider>()
         .pairedDevices
-        .where((d) => d.id == id)
+        .where((d) => d.uid == id)
         .firstOrNull;
   }
 
@@ -3721,7 +3779,7 @@ class _PairedModelsListState extends State<_PairedModelsList> {
     final serial = context.read<SerialProvider>();
     final deviceProvider = context.read<DeviceProvider>();
 
-    _updateStatus(device.id, 'scanning', message: 'Scanning...');
+    _updateStatus(device.uid, 'scanning', message: 'Scanning...');
 
     console.log('RE-INITIALIZING SOURCE: ${device.type.toUpperCase()}',
         level: ConsoleLogLevel.info);
@@ -3741,13 +3799,13 @@ class _PairedModelsListState extends State<_PairedModelsList> {
       await ble.startScan();
       await Future.delayed(const Duration(milliseconds: 2500));
       await ble.stopScan();
-      isLive = ble.devices.any((d) => d.id == device.id);
+      isLive = ble.devices.any((d) => d.id == device.uid);
     } else if (device.type == 'serial') {
       await serial.startScan();
-      isLive = serial.ports.any((p) => p.id == device.id);
+      isLive = serial.ports.any((p) => p.id == device.uid);
     } else if (device.type == 'wifi') {
       // WiFi: try a quick TCP connection to verify the device is reachable.
-      final uri = Uri.tryParse(device.id);
+      final uri = Uri.tryParse(device.uid);
       if (uri != null && (uri.scheme == 'ws' || uri.scheme == 'wss')) {
         try {
           final socket = await Socket.connect(
@@ -3769,13 +3827,13 @@ class _PairedModelsListState extends State<_PairedModelsList> {
       if (!mounted) return;
       console.log('RECONNECT FAILED: Device "${device.name}" is not reachable.',
           level: ConsoleLogLevel.error);
-      _updateStatus(device.id, 'failed',
+      _updateStatus(device.uid, 'failed',
           message: ble.errorMessage ?? 'Device is offline or out of range.');
       return;
     }
 
     if (!mounted) return;
-    _updateStatus(device.id, 'connecting', message: 'Connecting...');
+    _updateStatus(device.uid, 'connecting', message: 'Connecting...');
 
     try {
       await deviceProvider.connectToDevice(device.toDeviceInfo());
@@ -3783,20 +3841,20 @@ class _PairedModelsListState extends State<_PairedModelsList> {
       if (deviceProvider.isConnected) {
         console.log('RESYNC SUCCESSFUL: ${device.name}',
             level: ConsoleLogLevel.success);
-        _updateStatus(device.id, 'connected', message: 'Connected!');
+        _updateStatus(device.uid, 'connected', message: 'Connected!');
         // Clear status after a brief delay
         Future.delayed(const Duration(seconds: 2), () {
-          if (mounted) _clearStatus(device.id);
+          if (mounted) _clearStatus(device.uid);
         });
       } else {
         final error = deviceProvider.errorMessage ?? 'Connection failed';
         console.log('RESYNC FAILED: $error', level: ConsoleLogLevel.error);
-        _updateStatus(device.id, 'failed', message: error);
+        _updateStatus(device.uid, 'failed', message: error);
       }
     } catch (e) {
       if (!mounted) return;
       console.log('RUNTIME ERROR: $e', level: ConsoleLogLevel.error);
-      _updateStatus(device.id, 'failed', message: '$e');
+      _updateStatus(device.uid, 'failed', message: '$e');
     }
   }
 }

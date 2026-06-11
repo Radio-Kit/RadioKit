@@ -21,6 +21,7 @@ import '../services/cloud_identity.dart';
 import '../providers/console_provider.dart';
 import '../providers/skin_provider.dart';
 import '../providers/debug_provider.dart';
+import '../providers/history_provider.dart';
 
 import '../models/console_entry.dart';
 import '../models/fs_entry.dart';
@@ -204,10 +205,12 @@ class DeviceProvider extends ChangeNotifier {
     DebugLogSink? debugSink,
     ConsoleProvider? console,
     SkinProvider? skinProvider,
+    HistoryProvider? historyProvider,
   })  : _debugSink = debugSink,
         _console = console,
         _skinProvider = skinProvider,
         _transport = transport {
+    this.historyProvider = historyProvider;
     setTransport(transport);
   }
 
@@ -248,6 +251,9 @@ class DeviceProvider extends ChangeNotifier {
 
   /// Legacy aliases for backward compat during migration.
   bool get hasAdminPassword => hasUserPassword;
+
+  /// Whether the device supports BLE transport.
+  bool get hasBle => (_deviceFeatures & kFeatureBle) != 0;
 
   /// Whether the device supports WiFi transport.
   bool get hasWifi => (_deviceFeatures & kFeatureWiFi) != 0;
@@ -346,11 +352,16 @@ class DeviceProvider extends ChangeNotifier {
   }
 
   /// Send factory reset command via settings protocol — erases NVS config and reboots.
+  /// Also removes the device from history automatically.
   /// Returns true if the command was sent successfully (device will reboot).
   Future<bool> sendFactoryReset() async {
     if (!_transport.isConnected) return false;
     try {
       await _transport.writePacket(SettingsProtocolService.buildFactoryReset());
+      // Remove from history
+      if (_connectedDevice != null) {
+        historyProvider?.removeDevice(_connectedDevice!.id);
+      }
       return true;
     } catch (e) {
       _log('sendFactoryReset failed: $e', level: ConsoleLogLevel.error);
@@ -457,19 +468,21 @@ class DeviceProvider extends ChangeNotifier {
   /// Clears source transport's connectionLost callback before disconnecting
   /// to prevent it from triggering a spurious disconnect state change.
   /// Returns true on success, false if the target transport is unreachable.
-  Future<bool> switchTransport(String target) async {
+  Future<bool> switchTransport(TransportType target) async {
     final device = _connectedDevice;
     if (device == null || !_transport.isConnected) return false;
 
     final currentSrc = _transport;
     TransportService? targetTransport;
-    String targetId = device.id;
+    String targetAddress;
+    TransportType? targetType;
 
-    if (target == 'ble') {
-      // BLE: reuse existing device ID
-      final BleService? ble = currentSrc is BleService ? currentSrc : null;
-      targetTransport = ble ?? BleService();
-    } else if (target == 'wifi') {
+    if (target == TransportType.ble) {
+      // BLE: use device's bleAddress from history or current transport's address
+      targetTransport = currentSrc is BleService ? currentSrc : BleService();
+      targetAddress = device.transportAddress ?? device.id;
+      targetType = TransportType.ble;
+    } else if (target == TransportType.wifi) {
       // WiFi: try to get IP from device while on current transport
       String? ip;
       try {
@@ -479,20 +492,15 @@ class DeviceProvider extends ChangeNotifier {
         }
       } catch (_) {}
 
-      // Fallback: check if current ID already is a WebSocket URL
-      if (ip == null && (device.id.startsWith('ws://') || device.id.startsWith('wss://'))) {
-        final uri = Uri.tryParse(device.id);
-        if (uri != null) ip = uri.host;
-      }
-
       if (ip == null) {
         _log('Cannot switch to WiFi: device IP unknown', level: ConsoleLogLevel.error);
         return false;
       }
 
-      targetId = 'ws://$ip:${kDefaultWifiPort}';
+      targetAddress = 'ws://$ip:${kDefaultWifiPort}';
       targetTransport = WebSocketService();
-    } else if (target == 'cloud') {
+      targetType = TransportType.wifi;
+    } else if (target == TransportType.cloud) {
       String? url;
       try {
         final cloudInfo = await sendGetCloudInfo();
@@ -506,8 +514,9 @@ class DeviceProvider extends ChangeNotifier {
         return false;
       }
 
-      targetId = 'cloud://$url';
+      targetAddress = 'cloud://$url';
       targetTransport = WebSocketService();
+      targetType = TransportType.cloud;
     } else {
       return false;
     }
@@ -515,16 +524,16 @@ class DeviceProvider extends ChangeNotifier {
     if (targetTransport == null) return false;
 
     // Connect to target FIRST (while source is still active)
-    _log('Switching transport to $target ($targetId)...', level: ConsoleLogLevel.info);
+    _log('Switching transport to ${target.name} ($targetAddress)...', level: ConsoleLogLevel.info);
     try {
-      await targetTransport.connect(targetId);
+      await targetTransport.connect(targetAddress);
       if (!targetTransport.isConnected) {
-        _log('Failed to connect via $target — staying on current transport',
+        _log('Failed to connect via ${target.name} — staying on current transport',
             level: ConsoleLogLevel.warning);
         return false;
       }
     } catch (e) {
-      _log('Switch to $target failed: $e', level: ConsoleLogLevel.error);
+      _log('Switch to ${target.name} failed: $e', level: ConsoleLogLevel.error);
       return false;
     }
 
@@ -536,7 +545,11 @@ class DeviceProvider extends ChangeNotifier {
     setTransport(targetTransport);
 
     if (_connectedDevice != null) {
-      _connectedDevice = _connectedDevice!.copyWith(preferredTransport: target);
+      _connectedDevice = _connectedDevice!.copyWith(
+        preferredTransport: _transportTypeToString(target),
+        transportAddress: targetAddress,
+        currentTransport: targetType,
+      );
     }
 
     // Disconnect source transport
@@ -544,7 +557,7 @@ class DeviceProvider extends ChangeNotifier {
       await currentSrc.disconnect();
     } catch (_) {}
 
-    _log('Transport switched to $target', level: ConsoleLogLevel.success);
+    _log('Transport switched to ${target.name}', level: ConsoleLogLevel.success);
     notifyListeners();
     return true;
   }
@@ -613,9 +626,12 @@ class DeviceProvider extends ChangeNotifier {
     _authCompleter   = null;
     notifyListeners();
 
-    _log('CONNECTING TO: ${device.name} (${device.id})');
+    // Use transportAddress for actual connection, fallback to id (which may be
+    // a transport address at scan time, or a UID for reconnections)
+    final connectAddress = device.transportAddress ?? device.id;
+    _log('CONNECTING TO: ${device.name} via $connectAddress');
     try {
-      await _transport.connect(device.id, baudRate: baudRate);
+      await _transport.connect(connectAddress, baudRate: baudRate);
       if (_connectionState == DeviceConnectionState.disconnected) return;
     } catch (e) {
       _log('CONNECTION FAILED: $e', level: ConsoleLogLevel.error);
@@ -678,10 +694,11 @@ class DeviceProvider extends ChangeNotifier {
 
   Future<void> loadDemo(String demoId) async {
     _connectionState = DeviceConnectionState.connecting;      _connectedDevice = DeviceInfo(
-      id: 'demo_$demoId',
+      id: 'DEMO_$demoId',
       name: demoId.replaceAll('_', ' '),
       rssi: -50,
       hasFs: true,
+      currentTransport: TransportType.demo,
     );
     _deviceFeatures = 0;
     _errorMessage = null;
@@ -1318,7 +1335,8 @@ class DeviceProvider extends ChangeNotifier {
     if (bitmask == null) return;
     _deviceFeatures = bitmask;
     _log('Features bitmask: 0x${_deviceFeatures.toRadixString(16)} '
-        '(OTA=${hasOta}, devicePwd=${hasDevicePassword}, userPwd=${hasUserPassword})',
+        '(BLE=${hasBle}, WiFi=${hasWifi}, Cloud=${hasCloud}, OTA=${hasOta}, '
+        'devicePwd=${hasDevicePassword}, userPwd=${hasUserPassword})',
         level: ConsoleLogLevel.success);
     
     if (hasPassword && _authLevel == AuthLevel.none && _connectionState == DeviceConnectionState.connected) {
@@ -1454,15 +1472,46 @@ class DeviceProvider extends ChangeNotifier {
       _log('DEVICE_INFO_DATA parse failed', level: ConsoleLogLevel.error);
       return;
     }
-    _log('Device info: v${parsed.version} "${parsed.name}" "${parsed.description}"',
+    _log('Device info: v${parsed.version} "${parsed.name}" "${parsed.description}" uid="${parsed.uid}"',
         level: ConsoleLogLevel.success);
     _deviceInfoProtocolVersion = parsed.version.toString();
     _configName = parsed.name.isNotEmpty ? parsed.name : _configName;
     _description = parsed.description.isNotEmpty ? parsed.description : _description;
+
+    // Update _connectedDevice.id with the device UID (from NVS)
+    if (_connectedDevice != null && parsed.uid.isNotEmpty) {
+      final oldId = _connectedDevice!.id;
+      _connectedDevice!.id = parsed.uid;
+
+      // Save to history with the real UID
+      // If there was a previous entry with the transport address, remove it
+      if (historyProvider != null) {
+        historyProvider!.removeDevice(oldId);
+        historyProvider!.saveDevice(
+          _connectedDevice!,
+          _transportTypeToString(_connectedDevice!.currentTransport),
+          configName: _configName,
+          description: _description,
+        );
+      }
+      _log('UID set: ${parsed.uid} (was: $oldId)', level: ConsoleLogLevel.success);
+    }
+
     notifyListeners();
     final completer = _deviceInfoCompleter;
     if (completer != null && !completer.isCompleted) {
       completer.complete();
+    }
+  }
+
+  /// Convert [TransportType] to its string form for history persistence.
+  static String _transportTypeToString(TransportType t) {
+    switch (t) {
+      case TransportType.ble:    return 'ble';
+      case TransportType.wifi:   return 'wifi';
+      case TransportType.cloud:  return 'cloud';
+      case TransportType.serial: return 'serial';
+      case TransportType.demo:   return 'demo';
     }
   }
 
@@ -1726,6 +1775,10 @@ class DeviceProvider extends ChangeNotifier {
 
   /// Completer for GET_CLOUD_INFO response.
   Completer<({String url, String account})>? _cloudInfoCompleter;
+
+  /// Optional reference to the HistoryProvider for auto-saving on UID receipt.
+  /// Set from `app.dart` after construction.
+  HistoryProvider? historyProvider;
 
   /// Send REBOOT command via settings protocol (preserves NVS).
   /// Returns true if the command was sent successfully (device will reboot).

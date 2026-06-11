@@ -109,6 +109,7 @@
 #define RK_SETTINGS_FEATURE_HAS_USER_PWD    (1 << 3)   ///< User password set (was HAS_ADMIN_PWD)
 #define RK_SETTINGS_FEATURE_WIFI            (1 << 4)
 #define RK_SETTINGS_FEATURE_CLOUD           (1 << 5)
+#define RK_SETTINGS_FEATURE_BLE             (1 << 6)   ///< BLE transport compiled in
 
 // ── Callback signature ───────────────────────────────────────────────────────
 typedef void (*RK_SettingsPacketCallback)(uint8_t subCmd,

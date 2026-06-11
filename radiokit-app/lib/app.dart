@@ -69,6 +69,7 @@ class _RadioKitAppState extends State<RadioKitApp> {
       debugSink: _debugProvider,
       console: _consoleProvider,
       skinProvider: _skinProvider,
+      historyProvider: _historyProvider,
     );
 
     _remoteAccessProvider = RemoteAccessProvider(

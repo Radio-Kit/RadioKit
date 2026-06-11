@@ -60,6 +60,7 @@ RadioKitClass::RadioKitClass()
     memset(_nvsStaPwd, 0, sizeof(_nvsStaPwd));
     memset(_nvsCloudUrl, 0, sizeof(_nvsCloudUrl));
     memset(_nvsCloudAccount, 0, sizeof(_nvsCloudAccount));
+    memset(_nvsDeviceUid, 0, sizeof(_nvsDeviceUid));
     s_instance = this;
 }
 
@@ -126,6 +127,22 @@ void RadioKitClass::begin() {
             RKNvs::writeString(RK_NVS_KEY_STA_PWD, config.sta_password ? config.sta_password : "");
             RKNvs::writeString(RK_NVS_KEY_CLOUD_URL, config.cloud_url ? config.cloud_url : "");
             RKNvs::writeString(RK_NVS_KEY_CLOUD_ACCOUNT, config.cloud_account ? config.cloud_account : "");
+            RKNvs::commit();
+        }
+
+        // ── Generate device UID if missing ─────────────────────────────
+        char uidBuf[17];
+        if (!RKNvs::readString(RK_NVS_KEY_DEVICE_UID, uidBuf, sizeof(uidBuf))) {
+            uint8_t uid[8];
+            for (int i = 0; i < 8; i++) {
+                uid[i] = esp_random() & 0xFF;
+            }
+            char uidHex[17];
+            for (int i = 0; i < 8; i++) {
+                sprintf(&uidHex[i*2], "%02x", uid[i]);
+            }
+            uidHex[16] = '\0';
+            RKNvs::writeString(RK_NVS_KEY_DEVICE_UID, uidHex);
             RKNvs::commit();
         }
 
@@ -543,6 +560,9 @@ void RadioKitClass::_handleSettingsGetFeatures() {
     if (_cloudActive) {
         bitmask |= RK_SETTINGS_FEATURE_CLOUD;
     }
+#if defined(ESP32)
+    bitmask |= RK_SETTINGS_FEATURE_BLE;   // BLE transport compiled-in on ESP32
+#endif
     uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
         RK_SETTINGS_RESP_FEATURES_DATA, &bitmask, 1);
     _sendSettingsFrame(frameLen);
@@ -618,8 +638,8 @@ void RadioKitClass::_handleSettingsGetChipInfo() {
 
 void RadioKitClass::_handleSettingsDeviceInfo() {
     if (!_transport) return;
-    // Payload: [PROTO_VER(1)][NAME_LEN(1)][NAME][DESC_LEN(1)][DESC]
-    uint8_t buf[1 + 1 + RADIOKIT_MAX_NAME + 1 + RADIOKIT_MAX_DESC];
+    // Payload: [PROTO_VER(1)][NAME_LEN(1)][NAME][DESC_LEN(1)][DESC][UID_LEN(1)][UID(16)]
+    uint8_t buf[1 + 1 + RADIOKIT_MAX_NAME + 1 + RADIOKIT_MAX_DESC + 1 + 16];
     uint16_t offset = 0;
     buf[offset++] = RK_PROTOCOL_VERSION;
     const char* name = _nvsActive && _nvsName[0] ? _nvsName : (config.name ? config.name : "");
@@ -630,6 +650,15 @@ void RadioKitClass::_handleSettingsDeviceInfo() {
     memcpy(&buf[offset], name, nameLen); offset += nameLen;
     buf[offset++] = descLen;
     memcpy(&buf[offset], desc, descLen); offset += descLen;
+
+    // Append device UID
+    uint8_t uidLen = (uint8_t)strnlen(_nvsDeviceUid, 16);
+    buf[offset++] = uidLen;
+    if (uidLen > 0) {
+        memcpy(&buf[offset], _nvsDeviceUid, uidLen);
+        offset += uidLen;
+    }
+
     uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
         RK_SETTINGS_RESP_DEVICE_INFO_DATA, buf, offset);
     _sendSettingsFrame(frameLen);
@@ -1417,10 +1446,16 @@ void RadioKitClass::_syncNvsToBuffers() {
         strncpy(_nvsCloudAccount, config.cloud_account ? config.cloud_account : "", sizeof(_nvsCloudAccount) - 1);
     }
 
-    RK_DEBUG_PRINT("NVS: Loaded name='%s', desc='%s', device_pwd=%s, user_pwd=%s\n",
+    // ── Device UID ───────────────────────────────────────────────────
+    if (!RKNvs::readString(RK_NVS_KEY_DEVICE_UID, _nvsDeviceUid, sizeof(_nvsDeviceUid))) {
+        _nvsDeviceUid[0] = '\0';
+    }
+
+    RK_DEBUG_PRINT("NVS: Loaded name='%s', desc='%s', device_pwd=%s, user_pwd=%s, uid='%s'\n",
         _nvsName, _nvsDesc,
         _nvsPwd[0] ? "***" : "(none)",
-        _nvsUserPwd[0] ? "***" : "(none)");
+        _nvsUserPwd[0] ? "***" : "(none)",
+        _nvsDeviceUid);
 }
 
 void RadioKitClass::_setBleAdvertisingName(const char* name) {

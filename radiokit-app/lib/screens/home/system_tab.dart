@@ -14,6 +14,12 @@ import '../../widgets/radiokit_app_bar.dart';
 import '../../widgets/api_log_view.dart';
 import '../donate_screen.dart';
 import 'accounts_sheet.dart';
+import '../../services/websocket_service.dart';
+import '../../services/ble_service_impl.dart';
+import '../../services/serial_service_native.dart';
+import '../../services/serial_service_linux.dart';
+import '../../services/cloud_identity.dart';
+import '../../models/protocol.dart';
 
 class SystemTab extends StatelessWidget {
   Widget _buildProVersionCard(BuildContext context) {
@@ -175,11 +181,15 @@ class SystemTab extends StatelessWidget {
             _buildAdvancedOptionsCard(context),
 
             const SizedBox(height: 32),
-            _buildSectionTag(context, '05. VERSION'),
+            _buildSectionTag(context, '05. DEVICE_CONNECTION'),
+            const _DeviceTransportToggles(),
+
+            const SizedBox(height: 32),
+            _buildSectionTag(context, '06. VERSION'),
             _buildAboutCard(context),
 
             const SizedBox(height: 32),
-            _buildSectionTag(context, '06. DANGER_ZONE'),
+            _buildSectionTag(context, '07. DANGER_ZONE'),
             _buildDangerZone(context),
             const SizedBox(height: 32),
           ],
@@ -862,6 +872,346 @@ class SystemTab extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+// ── Device transport toggles section ───────────────────────────────────────
+
+class _DeviceTransportToggles extends StatefulWidget {
+  const _DeviceTransportToggles();
+
+  @override
+  State<_DeviceTransportToggles> createState() => _DeviceTransportTogglesState();
+}
+
+class _DeviceTransportTogglesState extends State<_DeviceTransportToggles> {
+  bool _bleEnabled = true;
+  bool _wifiEnabled = false;
+  bool _cloudEnabled = false;
+  bool _cloudMatched = false;
+  bool _loading = true;
+  bool _lastConnected = false;
+  bool _initialized = false;
+
+  Future<void> _loadStates() async {
+    final dp = context.read<DeviceProvider>();
+    if (!dp.isConnected) {
+      _lastConnected = false;
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    _lastConnected = true;
+    setState(() => _loading = true);
+    final bleResult = await dp.readNvsRawKey('rk_ble_on');
+    final wifiResult = await dp.readNvsRawKey('rk_wifi_on');
+    final cloudResult = await dp.readNvsRawKey('rk_cloud_on');
+    if (!mounted) return;
+    setState(() {
+      _bleEnabled = (bleResult.value ?? 1) != 0;
+      _wifiEnabled = (wifiResult.value ?? 0) != 0;
+      _cloudEnabled = (cloudResult.value ?? 0) != 0;
+      _loading = false;
+    });
+
+    // Check cloud account match
+    try {
+      final cloudInfo = await dp.sendGetCloudInfo();
+      if (cloudInfo != null && mounted) {
+        final identityService = CloudIdentityService();
+        await identityService.initialize();
+        _cloudMatched =
+            identityService.hasIdentity && identityService.account == cloudInfo.account;
+        if (mounted) setState(() {});
+      }
+    } catch (_) {}
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final dp = context.watch<DeviceProvider>();
+    final shouldLoad = !_initialized || (dp.isConnected != _lastConnected);
+    if (shouldLoad) {
+      _initialized = true;
+      _loadStates();
+    }
+  }
+
+  String? _connectedTransportName(DeviceProvider dp) {
+    if (!dp.isConnected) return null;
+    final t = dp.currentTransport;
+    if (t is BleService) return 'BLE';
+    if (t is WebSocketService) return 'WIFI';
+    if (t is LinuxSerialService || t is SerialService) return 'Serial';
+    return null;
+  }
+
+  Future<bool> _confirmDisable(DeviceProvider dp, String transport) async {
+    final connectedVia = _connectedTransportName(dp);
+    if (connectedVia != transport) return true;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.warning_rounded,
+            color: Colors.orangeAccent, size: 32),
+        title: const Text('Disconnect Device?'),
+        content: Text(
+          'Connected via $transport. Disabling this will cause the device to disconnect.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton.tonal(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.orangeAccent.withValues(alpha: 0.2),
+              foregroundColor: Colors.orangeAccent,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('DISABLE'),
+          ),
+        ],
+      ),
+    );
+    return confirmed ?? false;
+  }
+
+  Future<void> _writeKey(DeviceProvider dp, String key, int value) async {
+    final status = await dp.writeNvsRawKey(key, value);
+    if (!mounted) return;
+    if (status != kSettingsNvsRawOk) {
+      final isDevMode = dp.isDeviceMode;
+      final msg = isDevMode
+          ? 'Failed to write to device NVS (status=$status).'
+          : 'Device-level access required. Authenticate with the device password '
+              'before changing transport settings. ';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: Colors.redAccent, duration: const Duration(seconds: 4)),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.restart_alt_rounded,
+            color: Colors.orangeAccent, size: 32),
+        title: const Text('Reboot to Apply?'),
+        content: const Text(
+          'Transport change saved. The device must reboot for the change '
+          'to take effect. Reboot now?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('LATER', style: TextStyle(color: Colors.white54)),
+          ),
+          FilledButton.tonal(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.orangeAccent.withValues(alpha: 0.2),
+              foregroundColor: Colors.orangeAccent,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('REBOOT'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await dp.sendReboot();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Reboot sent — device restarting...'),
+        backgroundColor: Colors.orangeAccent,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dp = context.watch<DeviceProvider>();
+    final isConnected = dp.isConnected;
+
+    if (!isConnected) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.brandOrange.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.link_off_rounded, color: AppColors.brandOrange, size: 28),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'NO DEVICE CONNECTED',
+                      style: GoogleFonts.changa(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                        letterSpacing: 1.5,
+                        color: AppColors.brandOrange,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Connect to a device to configure transport settings',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.6),
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_loading) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Padding(
+          padding: EdgeInsets.all(20),
+          child: Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            _buildSettingRow(
+              Icons.bluetooth_rounded,
+              'BLE',
+              'Bluetooth Low Energy',
+              Switch(
+                value: _bleEnabled,
+                onChanged: (v) async {
+                  if (!v) {
+                    final ok = await _confirmDisable(dp, 'BLE');
+                    if (!ok) return;
+                  }
+                  setState(() => _bleEnabled = v);
+                  await _writeKey(dp, 'rk_ble_on', v ? 1 : 0);
+                },
+                activeThumbColor: AppColors.brandOrange,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildSettingRow(
+              Icons.wifi_rounded,
+              'WIFI',
+              'Wireless network',
+              Switch(
+                value: _wifiEnabled,
+                onChanged: (v) async {
+                  if (!v) {
+                    final ok = await _confirmDisable(dp, 'WIFI');
+                    if (!ok) return;
+                  }
+                  setState(() {
+                    _wifiEnabled = v;
+                    if (!v) _cloudEnabled = false;
+                  });
+                  await _writeKey(dp, 'rk_wifi_on', v ? 1 : 0);
+                },
+                activeThumbColor: AppColors.brandOrange,
+              ),
+            ),
+            if (_wifiEnabled) ...[
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Divider(height: 1, color: Colors.white10),
+              ),
+              _buildSettingRow(
+                Icons.cloud_rounded,
+                'CLOUD',
+                _cloudMatched
+                    ? 'Remote access over internet'
+                    : 'Configure in Pairing',
+                Switch(
+                  value: _cloudEnabled && _cloudMatched,
+                  onChanged: _cloudMatched
+                      ? (v) async {
+                          setState(() => _cloudEnabled = v);
+                          await _writeKey(dp, 'rk_cloud_on', v ? 1 : 0);
+                        }
+                      : null,
+                  activeThumbColor: AppColors.brandOrange,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingRow(IconData icon, String label, String subtitle, Widget trailing) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: AppColors.brandOrange.withValues(alpha: 0.7)),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.6),
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+        trailing,
+      ],
     );
   }
 }

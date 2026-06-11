@@ -149,7 +149,7 @@ class BleProvider extends ChangeNotifier {
   }
 
   void useMockDevice() {
-    final mock = const DeviceInfo(
+    final mock = DeviceInfo(
       id: 'MOCK-UUID-1234',
       name: 'RadioKit Mock Device',
       rssi: -45,

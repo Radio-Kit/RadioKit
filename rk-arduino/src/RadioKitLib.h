@@ -252,6 +252,9 @@ private:
     char _nvsCloudUrl[RADIOKIT_MAX_CLOUD_URL + 1];
     char _nvsCloudAccount[RADIOKIT_MAX_CLOUD_ACCOUNT + 1];
 
+    // Device UID (16 hex chars + null)
+    char _nvsDeviceUid[17];
+
     // Internal helpers
     void _syncNvsToBuffers();
     void _setBleAdvertisingName(const char* name);

@@ -636,7 +636,7 @@ class RemoteAccessService {
 
   Future<Response> _handleModels(Request request) async {
     final models = _historyProvider.pairedDevices.map((d) => {
-      'id': d.id,
+      'id': d.uid,
       'name': d.name,
       'type': d.type,
       'configName': d.configName,
@@ -652,7 +652,7 @@ class RemoteAccessService {
 
   Future<Response> _handleModelsDeleteOne(Request request, String id) async {
     final devices = _historyProvider.pairedDevices;
-    final exists = devices.any((d) => d.id == id);
+    final exists = devices.any((d) => d.uid == id);
     if (!exists) {
       return _error('not_found', "No model with id '$id'", status: 404);
     }

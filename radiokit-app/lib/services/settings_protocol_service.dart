@@ -232,8 +232,8 @@ class SettingsProtocolService {
     return (url: url, account: account);
   }
 
-  /// Parse DEVICE_INFO_DATA: [PROTO_VER(1)][NAME_LEN(1)][NAME][DESC_LEN(1)][DESC]
-  static ({int version, String name, String description})? parseDeviceInfoData(
+  /// Parse DEVICE_INFO_DATA: [PROTO_VER(1)][NAME_LEN(1)][NAME][DESC_LEN(1)][DESC][UID_LEN(1)][UID]
+  static ({int version, String name, String description, String uid})? parseDeviceInfoData(
       List<int> payload) {
     if (payload.length < 3) return null;
     int offset = 0;
@@ -249,6 +249,17 @@ class SettingsProtocolService {
         ? utf8.decode(payload.sublist(offset, offset + descLen),
             allowMalformed: true)
         : '';
-    return (version: version, name: name, description: description);
+    offset += descLen;
+    // Parse UID (always present in protocol v5)
+    String uid = '';
+    if (offset + 1 <= payload.length) {
+      final uidLen = payload[offset++];
+      if (offset + uidLen <= payload.length && uidLen == 16) {
+        uid = utf8.decode(payload.sublist(offset, offset + uidLen),
+            allowMalformed: true);
+        // offset += uidLen; // not needed further
+      }
+    }
+    return (version: version, name: name, description: description, uid: uid);
   }
 }

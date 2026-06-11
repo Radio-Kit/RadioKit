@@ -1,6 +1,13 @@
-/// Represents a discovered BLE device during scanning.
+/// Transport type for the current connection.
+enum TransportType { ble, wifi, cloud, serial, demo }
+
+/// Represents a discovered device. [id] serves as a temporary transport
+/// address during scanning, then is overwritten with the device UID once
+/// GET_DEVICE_INFO returns the real UID.
 class DeviceInfo {
-  final String id;
+  /// Device identity — transport address at scan time, UID after connection.
+  String id;
+
   final String name;
   final int rssi;
 
@@ -13,22 +20,40 @@ class DeviceInfo {
   /// `'ble'`, `'wifi'`, `'cloud'` for explicit preference.
   final String? preferredTransport;
 
-  const DeviceInfo({
+  /// The connection address for the active transport
+  /// (e.g., BLE MAC, WebSocket URL, serial path).
+  final String? transportAddress;
+
+  /// Which transport is currently active for this device.
+  final TransportType currentTransport;
+
+  DeviceInfo({
     required this.id,
     required this.name,
     required this.rssi,
     this.hasFs = false,
     this.preferredTransport,
+    this.transportAddress,
+    this.currentTransport = TransportType.ble,
   });
 
   /// Return a new [DeviceInfo] with the given fields replaced.
-  DeviceInfo copyWith({String? name, int? rssi, bool? hasFs, String? preferredTransport}) {
+  DeviceInfo copyWith({
+    String? name,
+    int? rssi,
+    bool? hasFs,
+    String? preferredTransport,
+    String? transportAddress,
+    TransportType? currentTransport,
+  }) {
     return DeviceInfo(
       id: id,
       name: name ?? this.name,
       rssi: rssi ?? this.rssi,
       hasFs: hasFs ?? this.hasFs,
       preferredTransport: preferredTransport ?? this.preferredTransport,
+      transportAddress: transportAddress ?? this.transportAddress,
+      currentTransport: currentTransport ?? this.currentTransport,
     );
   }
 
@@ -65,7 +90,7 @@ class DeviceInfo {
   int get hashCode => id.hashCode;
 
   @override
-  String toString() => 'DeviceInfo(id=$id, name=$name, rssi=$rssi)';
+  String toString() => 'DeviceInfo(id=$id, name=$name, rssi=$rssi, transport=$currentTransport)';
 }
 
 enum SignalStrength { excellent, good, fair, weak }

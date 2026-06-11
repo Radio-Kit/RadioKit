@@ -60,6 +60,7 @@ const int kFeatureHasDevicePassword = 1 << 2;  // Device password set
 const int kFeatureHasUserPassword   = 1 << 3;  // User password set
 const int kFeatureWiFi = 1 << 4;
 const int kFeatureCloud = 1 << 5;
+const int kFeatureBle = 1 << 6;
 
 // Legacy alias
 const int kFeatureHasPassword = kFeatureHasDevicePassword;
