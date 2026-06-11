@@ -246,6 +246,7 @@ class _AccountDialogState extends State<_AccountDialog> {
   late TextEditingController _nameCtrl;
   late TextEditingController _relayCtrl;
   bool _isNew = false;
+  bool _obscurePrivateKey = true;
 
   @override
   void initState() {
@@ -310,13 +311,10 @@ class _AccountDialogState extends State<_AccountDialog> {
                 ),
               ),
               const SizedBox(height: 4),
-              SelectableText(
-                widget.account!.publicKey,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.6),
-                  fontSize: 11,
-                  fontFamily: 'monospace',
-                ),
+              _KeyRow(
+                text: widget.account!.publicKey,
+                obscured: false,
+                keyLabel: 'Public',
               ),
               const SizedBox(height: 12),
               Text(
@@ -328,13 +326,11 @@ class _AccountDialogState extends State<_AccountDialog> {
                 ),
               ),
               const SizedBox(height: 4),
-              SelectableText(
-                widget.account!.privateKey,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.6),
-                  fontSize: 11,
-                  fontFamily: 'monospace',
-                ),
+              _KeyRow(
+                text: widget.account!.privateKey,
+                obscured: _obscurePrivateKey,
+                keyLabel: 'Private',
+                onToggleObscured: () => setState(() => _obscurePrivateKey = !_obscurePrivateKey),
               ),
             ],
           ],
@@ -372,5 +368,75 @@ class _AccountDialogState extends State<_AccountDialog> {
     }
 
     Navigator.pop(context);
+  }
+}
+
+class _KeyRow extends StatelessWidget {
+  final String text;
+  final bool obscured;
+  final String keyLabel;
+  final VoidCallback? onToggleObscured;
+
+  const _KeyRow({
+    required this.text,
+    required this.obscured,
+    required this.keyLabel,
+    this.onToggleObscured,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: SelectableText(
+              obscured ? '•' * text.length : text,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.6),
+                fontSize: 11,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ),
+          if (onToggleObscured != null) ...[
+            IconButton(
+              icon: Icon(
+                obscured ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                size: 18,
+                color: Colors.white.withValues(alpha: 0.5),
+              ),
+              onPressed: onToggleObscured,
+              tooltip: obscured ? 'Show' : 'Hide',
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
+          IconButton(
+            icon: Icon(
+              Icons.copy_rounded,
+              size: 18,
+              color: Colors.white.withValues(alpha: 0.5),
+            ),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: text));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('$keyLabel key copied'),
+                  backgroundColor: AppColors.brandOrange,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
+            tooltip: 'Copy',
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+    );
   }
 }

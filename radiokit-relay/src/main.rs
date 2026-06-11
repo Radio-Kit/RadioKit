@@ -1,20 +1,24 @@
 mod relay;
 mod session;
 mod rate_limiter;
+mod relay_stats;
 
 use futures_util::{SinkExt, StreamExt};
 use rand::RngCore;
 use rate_limiter::RateLimiter;
 use relay::Relay;
+use relay_stats::{snapshot, render_html, render_json, RelayStats};
 use session::RelayMessage;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio_tungstenite::accept_async;
 use tokio_tungstenite::tungstenite::Message;
 
 const DEFAULT_PORT: u16 = 443;
+const DEFAULT_STATS_PORT: u16 = 8080;
 
 #[tokio::main]
 async fn main() {
@@ -23,18 +27,88 @@ async fn main() {
         .and_then(|v| v.parse().ok())
         .unwrap_or(DEFAULT_PORT);
 
+    let stats_port = std::env::var("RADIOKIT_STATS_PORT")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(DEFAULT_STATS_PORT);
+
     let addr = format!("0.0.0.0:{}", port);
-    let listener = TcpListener::bind(&addr).await.expect("Failed to bind TCP listener");
-    eprintln!("RadioKit Relay listening on {}", addr);
+    let ws_listener = TcpListener::bind(&addr).await.expect("Failed to bind TCP listener");
+    eprintln!("RadioKit Relay: WS on {}", addr);
 
     let relay = Arc::new(Relay::new());
     let rate_limiter = Arc::new(RateLimiter::new());
+    let stats = Arc::new(RelayStats::new());
 
-    while let Ok((stream, peer_addr)) = listener.accept().await {
+    // ── Stats HTTP server ────────────────────────────────────────────────
+    let stats_addr = format!("0.0.0.0:{}", stats_port);
+    let stats_listener = TcpListener::bind(&stats_addr).await
+        .expect("Failed to bind stats HTTP listener");
+    eprintln!("RadioKit Relay: Stats HTTP on {}", stats_addr);
+
+    let stats_for_http = stats.clone();
+    let relay_for_http = relay.clone();
+    let stats_handle = tokio::spawn(async move {
+        loop {
+            let (stream, peer) = match stats_listener.accept().await {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+            let relay = relay_for_http.clone();
+            let stats = stats_for_http.clone();
+            tokio::spawn(async move {
+                handle_stats_http(stream, peer, relay, stats).await;
+            });
+        }
+    });
+
+    // ── WebSocket server ────────────────────────────────────────────────
+    while let Ok((stream, peer_addr)) = ws_listener.accept().await {
         let relay = relay.clone();
         let rate_limiter = rate_limiter.clone();
-        tokio::spawn(handle_connection(stream, peer_addr, relay, rate_limiter));
+        let stats = stats.clone();
+        tokio::spawn(handle_connection(stream, peer_addr, relay, rate_limiter, stats));
     }
+
+    let _ = stats_handle.await;
+}
+
+/// Handle an HTTP request on the stats port.
+async fn handle_stats_http(
+    mut stream: TcpStream,
+    _peer: SocketAddr,
+    relay: Arc<Relay>,
+    stats: Arc<RelayStats>,
+) {
+    let mut buf = [0u8; 1024];
+    let n = match stream.read(&mut buf).await {
+        Ok(n) if n > 0 => n,
+        _ => return,
+    };
+
+    let request = String::from_utf8_lossy(&buf[..n]);
+    let path = request.lines().next()
+        .and_then(|l| l.split_whitespace().nth(1))
+        .unwrap_or("/");
+
+    let mut snap = snapshot(&stats);
+    // Query relay for live account counts (overrides atomic counters)
+    snap.current_accounts = relay.active_accounts().await;
+    snap.total_accounts = relay.total_accounts_count().await as u64;
+
+    let (body, content_type) = match path {
+        "/api" | "/api/" => (render_json(&snap), "application/json"),
+        _ => (render_html(&snap), "text/html"),
+    };
+
+    let response = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: {}; charset=utf-8\r\nContent-Length: {}\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n{}",
+        content_type,
+        body.len(),
+        body
+    );
+
+    let _ = stream.write_all(response.as_bytes()).await;
 }
 
 /// Handle a single WebSocket connection.
@@ -43,14 +117,21 @@ async fn handle_connection(
     peer_addr: SocketAddr,
     relay: Arc<Relay>,
     rate_limiter: Arc<RateLimiter>,
+    stats: Arc<RelayStats>,
 ) {
+    stats.total_connections.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    stats.current_connections.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
     let ws_stream = match accept_async(stream).await {
         Ok(ws) => ws,
         Err(e) => {
             eprintln!("WebSocket handshake error from {}: {}", peer_addr, e);
+            stats.current_connections.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
             return;
         }
     };
+
+    stats.current_clients.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
     let (ws_write, ws_read) = ws_stream.split();
     let (tx, mut rx) = mpsc::unbounded_channel::<RelayMessage>();
@@ -104,6 +185,7 @@ async fn handle_connection(
                                 let account = json["account"].as_str().unwrap_or("");
 
                                 if !rate_limiter.try_register_device(peer_addr) {
+                                    stats.rate_limits_hit.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                                     send_json(&tx, serde_json::json!({
                                         "type": "error",
                                         "code": "rate_limited",
@@ -112,9 +194,16 @@ async fn handle_connection(
                                     break;
                                 }
 
+                                let is_first_account = relay.is_new_account(account).await;
                                 let (resp, _) = relay.handle_register(name, account, tx.clone()).await;
                                 session_key = Some((name.to_string(), account.to_string()));
                                 is_device = true;
+                                relay.record_authenticated_account(account).await;
+                                stats.total_devices_registered.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                                stats.current_devices.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                                if is_first_account {
+                                    stats.total_accounts.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                                }
                                 send_text(&tx, resp);
                             }
 
@@ -168,8 +257,10 @@ async fn handle_connection(
 
                                 if relay.verify_auth(account, &nonce, signature_b64).await {
                                     authenticated = true;
+                                    relay.record_authenticated_account(account).await;
                                     send_json(&tx, serde_json::json!({"type": "auth_ok"}));
                                 } else {
+                                    stats.failed_auths.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                                     send_json(&tx, serde_json::json!({
                                         "type": "auth_failed",
                                         "error": "signature_mismatch"
@@ -191,6 +282,7 @@ async fn handle_connection(
                                 let account = json["account"].as_str().unwrap_or("");
 
                                 if !rate_limiter.try_register_client(peer_addr) {
+                                    stats.rate_limits_hit.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                                     send_json(&tx, serde_json::json!({
                                         "type": "error",
                                         "code": "rate_limited",
@@ -202,6 +294,7 @@ async fn handle_connection(
                                 let (resp, _) = relay.handle_join(device_name, account, tx.clone()).await;
                                 session_key = Some((device_name.to_string(), account.to_string()));
                                 is_device = false;
+                                stats.total_clients_joined.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                                 send_text(&tx, resp);
                             }
 
@@ -251,9 +344,12 @@ async fn handle_connection(
             }
 
             Some(Ok(Message::Binary(data))) => {
+                let len = data.len();
                 if let Some(ref key) = session_key {
                     relay.route_data(data, key.clone(), is_device).await;
                 }
+                stats.total_bytes_routed.fetch_add(len as u64, std::sync::atomic::Ordering::Relaxed);
+                stats.total_messages_routed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             }
 
             Some(Ok(Message::Close(_))) => break,
@@ -273,16 +369,19 @@ async fn handle_connection(
         }
     }
 
-    // Cleanup
+    // Cleanup — remove session and decrement stats counters
     if let Some(ref key) = session_key {
         if is_device {
             relay.remove_device(key).await;
             rate_limiter.unregister_device(peer_addr);
+            stats.current_devices.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
         } else {
             relay.remove_client(key, &tx).await;
             rate_limiter.unregister_client(peer_addr);
         }
     }
+    stats.current_clients.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+    stats.current_connections.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
 
     forward_handle.abort();
 }

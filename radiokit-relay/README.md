@@ -25,17 +25,25 @@ src/
 ├── main.rs           # WebSocket server, connection handling, auth state machine
 ├── relay.rs          # Core routing: register, join, list_devices, route_data
 ├── session.rs        # Data types: DeviceSession, ClientSession, RelayMessage
-└── rate_limiter.rs   # Per-IP connection limits for devices and clients
+├── rate_limiter.rs   # Per-IP connection limits for devices and clients
+└── relay_stats.rs    # Live stats page (HTML + JSON API)
 ```
 
-### main.rs — Connection handler
+### main.rs — Connection handler & Stats HTTP server
 
 Each WebSocket connection is handled by an async task that:
 1. Accepts the WebSocket handshake
 2. Spawns a forward task (dispatches `RelayMessage` variants to correct WebSocket opcode)
 3. Reads JSON control messages and binary frames in a loop
 4. Manages auth state: nonce generation, challenge-response verification
-5. Cleans up sessions on disconnect
+5. Tracks statistics via atomic counters (devices, clients, bytes, auths, rate limits)
+6. Cleans up sessions on disconnect, decrementing stats counters
+
+A separate **stats HTTP server** runs on `RADIOKIT_STATS_PORT` (default 8080):
+- `GET /` → Live-updating HTML page (auto-refreshes every second via JS)
+- `GET /api` → JSON snapshot of all counters for programmatic access
+
+The stats page has zero external dependencies — the HTTP server is built on raw `tokio::net::TcpListener` and parses the HTTP request manually.
 
 ### relay.rs — Core routing
 
@@ -44,6 +52,8 @@ Each WebSocket connection is handled by an async task that:
 - **`handle_list_devices(account)`**: Returns all device names registered for an account (auth-gated).
 - **`route_data(data, key, is_device)`**: Forwards binary frames: device→clients or client→device.
 - **`verify_auth(account, nonce, signature_b64)`**: Ed25519 signature verification against hex-encoded public key.
+- **`is_new_account(account)`**: Checks whether any device is registered under this account (used for account counting).
+- **`all_device_names()`**: Returns all registered device names across all accounts (used by the stats page).
 
 ### session.rs — Data types
 
@@ -65,6 +75,24 @@ Per-IP tracking of device and client connections:
 |---------|---------|-------------|
 | `RADIOKIT_MAX_DEVICES_PER_IP` | 10 | Max device connections per IP |
 | `RADIOKIT_MAX_CLIENTS_PER_IP` | 50 | Max client connections per IP |
+
+### relay_stats.rs — Live statistics
+
+Exposes a lightweight HTTP server with real-time relay metrics via atomic counters:
+
+| Counter | Type | Description |
+|---------|------|-------------|
+| `total_bytes_routed` | `AtomicU64` | Total bytes forwarded across all connections |
+| `total_messages_routed` | `AtomicU64` | Total binary messages routed |
+| `current_devices` | `AtomicUsize` | Currently connected devices |
+| `current_clients` | `AtomicUsize` | Currently connected clients |
+| `current_connections` | `AtomicUsize` | Total active WebSocket connections |
+| `current_accounts` | `AtomicUsize` | Accounts with at least one registered device |
+| `total_accounts` | `AtomicU64` | Unique accounts seen (all time) |
+| `failed_auths` | `AtomicU64` | Failed Ed25519 auth attempts |
+| `rate_limits_hit` | `AtomicU64` | Connections rejected due to per-IP limits |
+
+The HTML page renders them in a minimal, auto-refreshing layout.
 
 ## Message Protocol
 
@@ -149,6 +177,7 @@ Environment variables:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `RADIOKIT_PORT` | `443` | WebSocket listen port |
+| `RADIOKIT_STATS_PORT` | `8080` | Stats HTTP server port (HTML page + JSON API) |
 | `RADIOKIT_MAX_DEVICES_PER_IP` | `10` | Max device connections per IP |
 | `RADIOKIT_MAX_CLIENTS_PER_IP` | `50` | Max client connections per IP |
 
@@ -158,17 +187,28 @@ Environment variables:
 
 ```bash
 cd radiokit-relay
-RADIOKIT_PORT=9000 cargo run --release
+
+# Use the convenience script:
+./run.sh
+
+# Or run directly:
+RADIOKIT_PORT=9000 RADIOKIT_STATS_PORT=8080 cargo run --release
 ```
 
-The relay listens on `0.0.0.0:9000`.
+The relay listens on `0.0.0.0:<RADIOKIT_PORT>` (default 443).
+
+Open the stats dashboard at **http://localhost:8080/** — a live-updating page showing traffic, connections, accounts, and errors.
 
 ### Docker
 
 ```bash
 cd radiokit-relay
 docker build -t radiokit-relay .
-docker run -d --restart unless-stopped -p 443:443 --name radiokit-relay radiokit-relay
+docker run -d --restart unless-stopped \
+  -p 443:443 \
+  -p 8080:8080 \
+  -e RADIOKIT_STATS_PORT=8080 \
+  --name radiokit-relay radiokit-relay
 ```
 
 The Dockerfile uses a two-stage build:
@@ -204,19 +244,48 @@ server {
 
 ## Testing
 
-Run the unit tests:
+### Unit tests
 
 ```bash
 cd radiokit-relay
 cargo test
 ```
 
-Tests cover:
+17 tests covering:
 - Device registration and deduplication
 - Client join, reject on missing device, reject on wrong account
 - Binary data routing (device→client, client→device, multi-client broadcast)
 - Device removal with client notification
 - Full lifecycle integration
+
+### Integration tests
+
+**Stats page test** — builds and starts the relay, verifies the HTML page and JSON API render correctly, then tests WebSocket device registration with live stats updates.
+
+```bash
+bash tests/stats_integration_test.sh
+```
+
+**Auth flow test** — generates an Ed25519 keypair and exercises the full protocol:
+1. Device registers with public key as account
+2. Client authenticates via challenge-response (sign nonce with private key)
+3. Client discovers and joins the device
+4. Ping/pong heartbeat from both peers
+5. Binary frame routing from device to client
+6. Clean disconnect, stats counters decrement
+
+```bash
+bash tests/auth_flow_test.sh
+```
+
+Helpful test scripts:
+
+| Script | Purpose |
+|--------|---------|
+| `tests/stats_integration_test.sh` | 37 assertions — HTML page, JSON API, WS register, stats cleanup |
+| `tests/auth_flow_test.sh` | 20 assertions — full Ed25519 auth flow, binary routing, ping/pong |
+| `tests/ws_client.py` | Python helper for single WebSocket operations (register, auth_join, raw) |
+| `tests/ws_auth_flow_test.py` | Python test engine for the auth flow test |
 
 Full integration test with the Flutter app is documented in [llm-docs/AGENT-TEST.md](../llm-docs/AGENT-TEST.md).
 

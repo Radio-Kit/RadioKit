@@ -84,6 +84,9 @@ class WebSocketService implements TransportService {
   /// Internal auth state machine.
   _AuthState _authState = _AuthState.unauth;
 
+  /// Pending device name to join after relay auth completes.
+  String? _pendingJoinDevice;
+
   @override
   Future<void> connect(String url, {int baudRate = 1000000}) async {
     _log('Connecting to $url...');
@@ -105,6 +108,7 @@ class WebSocketService implements TransportService {
     }
 
     _authState = _AuthState.unauth;
+    _pendingJoinDevice = null;
 
     try {
       final uri = Uri.parse(url);
@@ -137,17 +141,21 @@ class WebSocketService implements TransportService {
 
       // Determine connection type and send appropriate message
       final hasPath = uri.pathSegments.isNotEmpty && uri.pathSegments.last.isNotEmpty;
+      final isRelay = identity != null && account != null && account!.isNotEmpty;
 
-      if (hasPath && account != null && account!.isNotEmpty) {
-        // Direct device join (WiFi mode URL: ws://host:5555/device_name)
+      if (isRelay) {
+        // Cloud relay — always authenticate first, join after auth_ok
+        if (hasPath) {
+          _pendingJoinDevice = uri.pathSegments.last;
+        }
+        _sendJson({'type': 'auth_request', 'account': account});
+      } else if (hasPath && account != null && account!.isNotEmpty) {
+        // Direct WiFi device — join immediately (no relay auth needed)
         _sendJson({
           'type': 'join',
           'device': uri.pathSegments.last,
           'account': account,
         });
-      } else if (!hasPath && account != null && account!.isNotEmpty && identity != null) {
-        // Relay connection — authenticate with Ed25519 challenge-response
-        _sendJson({'type': 'auth_request', 'account': account});
       }
     } catch (e) {
       _log('Connection failed: $e', level: 'error');
@@ -237,12 +245,23 @@ class WebSocketService implements TransportService {
         case 'auth_ok':
           _authState = _AuthState.authenticated;
           _log('Relay auth succeeded');
+          // If we have a pending device join, send it now
+          if (_pendingJoinDevice != null) {
+            _log('Sending pending join for $_pendingJoinDevice');
+            _sendJson({
+              'type': 'join',
+              'device': _pendingJoinDevice,
+              'account': account,
+            });
+            _pendingJoinDevice = null;
+          }
           onAuthSuccess?.call();
           break;
         case 'auth_failed':
           final error = msg['error'] as String? ?? 'unknown error';
           _log('Relay auth failed: $error', level: 'error');
           _authState = _AuthState.unauth;
+          _pendingJoinDevice = null;
           onAuthFailed?.call(error);
           break;
         case 'joined':
@@ -426,6 +445,7 @@ class WebSocketService implements TransportService {
     _log('Disconnecting...');
     _connected = false;
     _authState = _AuthState.unauth;
+    _pendingJoinDevice = null;
     await _subscription?.cancel();
     _subscription = null;
     await _channel?.sink.close();
@@ -439,6 +459,7 @@ class WebSocketService implements TransportService {
   void _handleDisconnect(String reason) {
     _connected = false;
     _authState = _AuthState.unauth;
+    _pendingJoinDevice = null;
     _widgetBuffer.clear();
     _fsBuffer.clear();
     _otaBuffer.clear();

@@ -1,6 +1,6 @@
 use crate::session::{ClientSession, DeviceSession, RelayMessage};
-use ed25519_dalek::{Signature, Verifier, VerifyingKey};
-use std::collections::HashMap;
+use ed25519_dalek::{Signature, VerifyingKey};
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
 
@@ -11,6 +11,8 @@ type SessionKey = (String, String);
 pub struct Relay {
     pub devices: Arc<Mutex<HashMap<SessionKey, DeviceSession>>>,
     pub clients: Arc<Mutex<HashMap<SessionKey, Vec<ClientSession>>>>,
+    /// All public keys that have ever successfully authenticated (device register or client auth).
+    authenticated_accounts: Arc<Mutex<HashSet<String>>>,
 }
 
 impl Relay {
@@ -18,6 +20,7 @@ impl Relay {
         Self {
             devices: Arc::new(Mutex::new(HashMap::new())),
             clients: Arc::new(Mutex::new(HashMap::new())),
+            authenticated_accounts: Arc::new(Mutex::new(HashSet::new())),
         }
     }
 
@@ -226,6 +229,41 @@ impl Relay {
                 clients.remove(key);
             }
         }
+    }
+
+    /// Return the count of unique accounts with at least one registered device.
+    pub async fn active_accounts(&self) -> usize {
+        let devices = self.devices.lock().await;
+        let mut accounts = std::collections::HashSet::new();
+        for (_, acct) in devices.keys() {
+            accounts.insert(acct.clone());
+        }
+        accounts.len()
+    }
+
+    /// Check whether this account already has any registered devices.
+    pub async fn is_new_account(&self, account: &str) -> bool {
+        let devices = self.devices.lock().await;
+        !devices.keys().any(|(_, acct)| acct == account)
+    }
+
+    /// Record a public key as having successfully authenticated.
+    /// Called after device registration and after client auth_response.
+    pub async fn record_authenticated_account(&self, account: &str) {
+        let mut accounts = self.authenticated_accounts.lock().await;
+        accounts.insert(account.to_string());
+    }
+
+    /// Return the total number of unique public keys that have ever authenticated.
+    pub async fn total_accounts_count(&self) -> usize {
+        let accounts = self.authenticated_accounts.lock().await;
+        accounts.len()
+    }
+
+    /// Return the set of public keys that have ever authenticated (for display).
+    pub async fn authenticated_accounts_keys(&self) -> Vec<String> {
+        let accounts = self.authenticated_accounts.lock().await;
+        accounts.iter().cloned().collect()
     }
 }
 
