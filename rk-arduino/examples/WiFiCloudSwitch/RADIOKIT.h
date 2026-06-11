@@ -79,11 +79,11 @@ static inline void initRadioKit() {
   RadioKit.config.theme         = RK_DEFAULT;
   RadioKit.config.baudrate      = 1000000;
 
-  // Cloud relay disabled for auth testing
-  RadioKit.config.cloud_url     = "";
-  RadioKit.config.cloud_account = "";
+  // ── Cloud relay config ─────────────────────────────────
+  RadioKit.config.cloud_url     = "10.0.0.17:9000";  // Local relay server
+  RadioKit.config.cloud_account = "ecc5d5fa88ae5ce735dca88a60b68b20849fb1302192770f386207f5bfadaf0a";
 
-  // ── STA WiFi compile-time defaults (optional) ──────────
+  // ── STA WiFi compile-time defaults ────────────────────
   RadioKit.config.sta_ssid      = "Leap";
   RadioKit.config.sta_password  = "awsedrft";
 
@@ -95,10 +95,10 @@ static inline void initRadioKit() {
   // This ensures user-level auth is also required.
   RadioKit.setConfig(nullptr, nullptr, nullptr, "user_pass");
 
-  // ── Start transports ──────────────────────────────────
+  // ── Start ALL transports ──────────────────────────────
   RadioKit.startBLE(RadioKit.config.name);
   RadioKit.startWiFi();
-  // Cloud disabled for auth testing
+  RadioKit.startCloud();  // Outbound relay connection to 10.0.0.17:9000
 }
 
 #endif // RADIOKIT_UI_H

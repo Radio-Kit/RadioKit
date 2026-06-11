@@ -158,53 +158,84 @@ class SystemTab extends StatelessWidget {
             _buildProVersionCard(context),
             const SizedBox(height: 16),
             
-            _buildSectionTag(context, '01. ENVIRONMENT'),
+            _buildSectionTag(context, '01. CLOUD'),
+            _buildCloudCard(context),
+            
+            const SizedBox(height: 32),
+            _buildSectionTag(context, '02. ENVIRONMENT'),
             _buildApplicationCard(context, themeProvider),
             
             const SizedBox(height: 32),
-            _buildSectionTag(context, '02. SKIN_PACKS'),
+            _buildSectionTag(context, '03. SKIN_PACKS'),
             _buildSkinPacksCard(context),
 
             const SizedBox(height: 32),
-            _buildSectionTag(context, '03. ADVANCED_OPTIONS'),
+            _buildSectionTag(context, '04. ADVANCED_OPTIONS'),
             _buildAdvancedOptionsCard(context),
 
             const SizedBox(height: 32),
-            _buildSectionTag(context, '04. VERSION'),
+            _buildSectionTag(context, '05. VERSION'),
             _buildAboutCard(context),
 
             const SizedBox(height: 32),
-            _buildSectionTag(context, '05. DANGER_ZONE'),
+            _buildSectionTag(context, '06. DANGER_ZONE'),
             _buildDangerZone(context),
-
-            const SizedBox(height: 32),
-            _buildAccountsButton(context),
             const SizedBox(height: 32),
           ],
         ),
       );
   }
 
-  Widget _buildAccountsButton(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: () => AccountsSheet.show(context),
-        icon: Icon(Icons.cloud_rounded, size: 20, color: AppColors.brandOrange),
-        label: Text(
-          'ACCOUNTS',
-          style: GoogleFonts.changa(
-            color: AppColors.brandOrange,
-            fontWeight: FontWeight.w700,
-            fontSize: 14,
-            letterSpacing: 1.5,
-          ),
-        ),
-        style: OutlinedButton.styleFrom(
-          side: BorderSide(color: AppColors.brandOrange.withValues(alpha: 0.3)),
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+  Widget _buildCloudCard(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => AccountsSheet.show(context),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.brandOrange.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.cloud_rounded, color: AppColors.brandOrange, size: 28),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'MANAGE_ACCOUNTS',
+                      style: GoogleFonts.changa(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                        letterSpacing: 1.5,
+                        color: AppColors.brandOrange,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Create or edit cloud relay accounts',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.6),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded,
+                  color: Colors.white.withValues(alpha: 0.3)),
+            ],
           ),
         ),
       ),
