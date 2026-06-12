@@ -178,6 +178,7 @@ class RemoteAccessService {
     router.delete('/api/models/<id>', _handleModelsDeleteOne);
     router.post('/api/transport/send', _handleTransportSend);
     router.post('/api/transport/ping', _handleTransportPing);
+    router.post('/api/transport/wifi_info', _handleTransportWifiInfo);
     router.post('/api/transport/<cmd>', _handleTransportQuick);
     router.get('/api/widgets', _handleWidgets);
     router.get('/api/widgets/<id>', _handleWidget);
@@ -755,6 +756,29 @@ class RemoteAccessService {
       return _error('not_connected', 'Not connected to a device', status: 503);
     }
     return _json({'ok': true});
+  }
+
+  /// Handle POST /api/transport/wifi_info — get WiFi info from connected device.
+  /// Sends GET_WIFI_INFO protocol command and returns the parsed response.
+  Future<Response> _handleTransportWifiInfo(Request request) async {
+    if (!_deviceProvider.isConnected) {
+      return _error('not_connected', 'Not connected to a device', status: 503);
+    }
+    try {
+      final wifiInfo = await _deviceProvider.sendGetWifiInfo();
+      if (wifiInfo == null) {
+        return _error('wifi_info_timeout', 'Failed to get WiFi info (no response)', status: 500);
+      }
+      return _json({
+        'ok': true,
+        'ip': wifiInfo.ip,
+        'mode': wifiInfo.mode == 0 ? 'sta' : 'ap',
+        'ssid': wifiInfo.ssid,
+        'rssi': wifiInfo.rssi,
+      });
+    } catch (e) {
+      return _error('wifi_info_error', e.toString(), status: 500);
+    }
   }
 
   Future<Response> _handleTransportQuick(Request request, String cmd) async {

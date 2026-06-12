@@ -1,6 +1,6 @@
-name: Arduino Build
+name: Pioarduino Build
 
-# Build all 5 PlatformIO environments on every push and PR to catch
+# Build all PlatformIO examples on every push and PR to catch
 # Arduino-side regressions early. Does not run on `*-flatpak` or `v*`
 # tags (those use the release workflow instead).
 
@@ -15,7 +15,7 @@ on:
 
 jobs:
   pio:
-    name: PlatformIO (${{ matrix.env }})
+    name: Pioarduino (${{ matrix.env }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -26,7 +26,7 @@ jobs:
           - JoystickMotor
           - SliderServo
           - BLE_RC_Truck
-          - FilesystemDemo
+          - Filesystem_LED
     steps:
       - uses: actions/checkout@v4
 
@@ -42,10 +42,10 @@ jobs:
           path: |
             ~/.platformio
             .pio
-          key: pio-${{ matrix.env }}-${{ hashFiles('rk-arduino/platformio.ini', 'rk-arduino/**/library.properties', 'rk-arduino/**/library.json') }}
+          key: pio-${{ matrix.env }}-${{ hashFiles('rk-arduino/**/library.properties', 'rk-arduino/**/library.json') }}
           restore-keys: |
             pio-${{ matrix.env }}-
 
       - name: Build ${{ matrix.env }}
-        working-directory: rk-arduino
-        run: pio run -e ${{ matrix.env }}
+        working-directory: rk-arduino/examples/${{ matrix.env }}
+        run: pio run

@@ -97,9 +97,19 @@ static inline void initRadioKit() {
 
   // ── Start ALL transports ──────────────────────────────
   // Transport NVS defaults are set by RadioKit.begin() on first boot:
-  // BLE=1, WiFi=1, Cloud=0. Cloud must be explicitly enabled here.
-  RKNvs::writeU8("rk_cloud_on", 1);
-  RKNvs::commit();
+  // BLE=1, WiFi=1, Cloud=0. Enable cloud here unless the user has
+  // explicitly disabled it via NVS_RAW_WRITE (rk_cloud_on=0).
+  // Use readU8()'s return value to distinguish "key doesn't exist"
+  // (first boot: write default 1) from "key exists with value 0"
+  // (user disabled: respect choice and skip write).
+  {
+    uint8_t _rkCloudOn = 0;
+    bool _rkCloudExists = RKNvs::readU8("rk_cloud_on", &_rkCloudOn);
+    if (!_rkCloudExists) {
+      RKNvs::writeU8("rk_cloud_on", 1);
+      RKNvs::commit();
+    }
+  }
 
   RadioKit.startBLE(RadioKit.config.name);
   RadioKit.startWiFi();

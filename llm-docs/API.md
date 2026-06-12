@@ -728,6 +728,41 @@ Quick-send a PING frame. Shorthand for `{"cmd": 1, "payload": ""}`.
 }
 ```
 
+### `POST /api/transport/wifi_info`
+
+Get WiFi connection info from the connected device. Sends a GET_WIFI_INFO protocol command and returns the current network status.
+
+> **Guard**: Returns `503` if not connected to a device.
+
+**Response `200`:**
+
+```json
+{
+  "ok": true,
+  "ip": "192.168.1.42",
+  "mode": "sta",
+  "ssid": "MyHomeNetwork",
+  "rssi": -65
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ip` | string | Device IP address on the network |
+| `mode` | string | WiFi mode: `"sta"` (station/client) or `"ap"` (access point) |
+| `ssid` | string | Connected SSID (STA mode only) |
+| `rssi` | int | WiFi signal strength in dBm |
+
+**Response `200` (timeout):**
+
+```json
+{
+  "ok": false,
+  "error": "wifi_info_timeout",
+  "message": "Device did not respond to WiFi info request in time"
+}
+```
+
 ### `POST /api/transport/{cmd}`
 
 Quick-send predefined commands (shorthand names):

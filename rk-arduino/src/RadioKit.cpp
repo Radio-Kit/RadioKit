@@ -806,9 +806,13 @@ void RadioKitClass::_handleSettingsGetFeatures() {
     }
     if (_wifiActive) {
         bitmask |= RK_SETTINGS_FEATURE_WIFI;
-    }
-    if (_cloudActive) {
-        bitmask |= RK_SETTINGS_FEATURE_CLOUD;
+        // Cloud depends on WiFi — only report cloud capability when WiFi is active.
+        // This avoids confusion when rk_wifi_on=0 disables WiFi: the cloud bit
+        // is suppressed even if rk_cloud_on=1, because cloud cannot function
+        // without a WiFi transport.
+        if (_cloudActive) {
+            bitmask |= RK_SETTINGS_FEATURE_CLOUD;
+        }
     }
 #if defined(ESP32)
     bitmask |= RK_SETTINGS_FEATURE_BLE;   // BLE transport compiled-in on ESP32
@@ -1672,7 +1676,7 @@ void RadioKitClass::_handleSettingsFactoryReset() {
     _deviceAuthenticated = true;
     _userAuthenticated = true;
     
-    delay(100);
+    delay(500);
 #if defined(ESP32)
     esp_restart();
 #else
@@ -1693,7 +1697,13 @@ void RadioKitClass::_handleSettingsReboot() {
         RK_SETTINGS_RESP_REBOOT_ACK, &status, 1);
     _sendSettingsFrame(frameLen);
 
-    delay(100);
+    // Flush NVS to flash and wait for write to complete before rebooting.
+    // This ensures any pending NVS writes (e.g. transport enable/disable)
+    // are fully persisted to flash before esp_restart().
+    if (_nvsActive) {
+        RKNvs::commit();
+    }
+    delay(500);
 #if defined(ESP32)
     esp_restart();
 #else
@@ -2103,7 +2113,7 @@ void RadioKitClass::_handleSettingsSetWifi(const uint8_t* payload, uint16_t len)
     Serial.printf("NVS: SETTINGS_SET_WIFI applied mask=0x%04X — rebooting...\n", fieldMask);
 
     // Auto-reboot to apply new credentials
-    delay(100);
+    delay(500);
 #if defined(ESP32)
     esp_restart();
 #endif

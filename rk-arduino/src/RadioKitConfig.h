@@ -164,7 +164,7 @@
 //  Print stream buffer size
 // ─────────────────────────────────────────────
 #ifndef RK_PRINT_BUF_SIZE
-#define RK_PRINT_BUF_SIZE 256
+#define RK_PRINT_BUF_SIZE 1024
 #endif
 
 // ─────────────────────────────────────────────
