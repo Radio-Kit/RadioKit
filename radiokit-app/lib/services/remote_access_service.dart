@@ -171,6 +171,7 @@ class RemoteAccessService {
     router.get('/api/connection/params', _handleConnectionParams);
     router.post('/api/connection/connect', _handleConnect);
     router.post('/api/connection/disconnect', _handleDisconnect);
+    router.post('/api/connection/switch', _handleConnectionSwitch);
     router.post('/api/connection/reconnect', _handleReconnect);
     router.get('/api/models', _handleModels);
     router.delete('/api/models', _handleModelsDeleteAll);
@@ -507,6 +508,7 @@ class RemoteAccessService {
         'description': _deviceProvider.description,
         'hasFs': device.hasFs,
         'hasOta': _deviceProvider.hasOta,
+        'deviceIcon': device.deviceIcon,
       },
       'configJson': _deviceProvider.deviceConfigJson,
       'latencyMs': _deviceProvider.latencyMs,
@@ -563,12 +565,14 @@ class RemoteAccessService {
       if (!id.startsWith('ws://') && !id.startsWith('wss://')) {
         return _error('invalid_url', 'WiFi ID must be a WebSocket URL (ws:// or wss://)');
       }
-      target = DeviceInfo(
-        id: id,
-        name: Uri.tryParse(id)?.host ?? id,
-        rssi: 0,
-        hasFs: false,
-      );
+    target = DeviceInfo(
+      id: id,
+      name: Uri.tryParse(id)?.host ?? id,
+      rssi: 0,
+      hasFs: false,
+      currentTransport: TransportType.wifi,
+      transportAddress: id,
+    );
       _deviceProvider.setTransport(WebSocketService());
     } else {
       return _error('invalid_type', "type must be 'ble', 'serial', or 'wifi'");
@@ -597,6 +601,52 @@ class RemoteAccessService {
   Future<Response> _handleDisconnect(Request request) async {
     await _deviceProvider.disconnect();
     return _json({'ok': true, 'message': 'Disconnected'});
+  }
+
+  /// Handle POST /api/connection/switch — switch transport (ble, wifi, cloud).
+  /// Body: { "transport": "wifi" }
+  /// Does connect-first: connects to target while source is still active,
+  /// then disconnects source on success.
+  Future<Response> _handleConnectionSwitch(Request request) async {
+    if (!_deviceProvider.isConnected) {
+      return _error('not_connected', 'Not connected to a device', status: 503);
+    }
+    final body = await _parseBody(request);
+    final transportStr = body['transport'] as String?;
+    if (transportStr == null) {
+      return _error('invalid_params', 'transport is required (ble, wifi, cloud)');
+    }
+
+    TransportType target;
+    switch (transportStr) {
+      case 'ble':
+        target = TransportType.ble;
+        break;
+      case 'wifi':
+        target = TransportType.wifi;
+        break;
+      case 'cloud':
+        target = TransportType.cloud;
+        break;
+      default:
+        return _error('invalid_transport', "transport must be 'ble', 'wifi', or 'cloud'");
+    }
+
+    try {
+      final ok = await _deviceProvider.switchTransport(target);
+      if (ok) {
+        return _json({
+          'ok': true,
+          'message': 'Switched to $transportStr',
+          'transport': transportStr,
+        });
+      }
+      return _error('switch_failed',
+          'Failed to switch to $transportStr — target transport unreachable',
+          status: 500);
+    } catch (e) {
+      return _error('switch_error', e.toString(), status: 500);
+    }
   }
 
   Future<Response> _handleReconnect(Request request) async {
@@ -641,6 +691,7 @@ class RemoteAccessService {
       'type': d.type,
       'configName': d.configName,
       'description': d.description,
+      'deviceIcon': d.deviceIcon,
     }).toList();
     return _json({'models': models});
   }
@@ -1142,10 +1193,11 @@ class RemoteAccessService {
     final description = body['description'] as String?;
     final password = body['password'] as String?;
     final adminPassword = body['adminPassword'] as String?;
+    final icon = body['icon'] as String?;
 
-    if (name == null && description == null && password == null && adminPassword == null) {
+    if (name == null && description == null && password == null && adminPassword == null && icon == null) {
       return _error(
-          'invalid_params', 'At least one of: name, description, password, adminPassword');
+          'invalid_params', 'At least one of: name, description, password, adminPassword, icon');
     }
 
     if (name != null && (name.length < 1 || name.length > kMaxConfigName)) {
@@ -1164,6 +1216,10 @@ class RemoteAccessService {
       return _error('invalid_admin_password',
           'Admin password must be at most ${kMaxConfigPwd} characters');
     }
+    if (icon != null && icon.length > kMaxDeviceIcon) {
+      return _error('invalid_icon',
+          'Icon must be at most ${kMaxDeviceIcon} characters');
+    }
 
     try {
       final ok = await _deviceProvider.sendSetConf(
@@ -1171,6 +1227,7 @@ class RemoteAccessService {
         description: description,
         password: password,
         adminPassword: adminPassword,
+        icon: icon,
       );
       if (ok) {
         return _json({'ok': true, 'message': 'Config saved to NVS'});
@@ -1209,14 +1266,20 @@ class RemoteAccessService {
   }
 
   /// Handle GET /api/settings/nvs/raw/<key> — read a raw NVS key from the device.
+  /// Supports both uint8 and string keys.
   Future<Response> _handleNvsRawRead(Request request, String key) async {
     if (!_deviceProvider.isConnected) {
       return _error('not_connected', 'Not connected to a device', status: 503);
     }
     try {
       final result = await _deviceProvider.readNvsRawKey(key);
-      if (result.status == kSettingsNvsRawOk && result.value != null) {
-        return _json({'ok': true, 'key': key, 'value': result.value});
+      if (result.status == kSettingsNvsRawOk) {
+        if (result.rawString != null) {
+          return _json({'ok': true, 'key': key, 'value': result.rawString});
+        }
+        if (result.value != null) {
+          return _json({'ok': true, 'key': key, 'value': result.value});
+        }
       }
       return _json({'ok': true, 'key': key, 'value': null});
     } catch (e) {
@@ -1471,11 +1534,16 @@ class RemoteAccessService {
       final joinCompleter = Completer<bool>();
       _cloudWs!.onCloudJoined = (joinedDevice) {
         if (!joinCompleter.isCompleted) joinCompleter.complete(true);
-      };
-
-      await _deviceProvider.connectToDevice(
-        DeviceInfo(id: url, name: deviceName, rssi: 0, hasFs: false),
-      );
+      };        await _deviceProvider.connectToDevice(
+          DeviceInfo(
+            id: url,
+            name: deviceName,
+            rssi: 0,
+            hasFs: false,
+            currentTransport: TransportType.wifi,
+            transportAddress: url,
+          ),
+        );
 
       // Wait for join ACK or short delay
       final joined = await joinCompleter.future
@@ -1485,7 +1553,14 @@ class RemoteAccessService {
       // Save to history so device appears in models list
       if (joined) {
         await _historyProvider.saveDevice(
-          DeviceInfo(id: url, name: deviceName, rssi: 0, hasFs: false),
+          DeviceInfo(
+            id: url,
+            name: deviceName,
+            rssi: 0,
+            hasFs: false,
+            currentTransport: TransportType.wifi,
+            transportAddress: url,
+          ),
           'wifi',
           configName: deviceName,
         );

@@ -100,11 +100,15 @@ class SettingsProtocolService {
   }
 
   /// Build SETTINGS_SET_CONF frame. Payload: [FIELD_MASK(2 LE)] [FIELD_DATA...]
+  /// Field mask bits (must match RadioKitSettings.h):
+  ///   bit 0 = name, bit 1 = description, bit 2 = device pwd, bit 3 = user pwd, bit 4 = icon
   static Uint8List buildSetConf({
     String? name,
     String? description,
     String? password,
     String? adminPassword,
+    String? icon,
+    bool clearIcon = false,
   }) {
     final payload = <int>[];
     int fieldMask = 0;
@@ -113,6 +117,7 @@ class SettingsProtocolService {
     if (description != null) fieldMask |= kSettingsSetConfDesc;
     if (password != null) fieldMask |= kSettingsSetConfDevicePwd;
     if (adminPassword != null) fieldMask |= kSettingsSetConfUserPwd;
+    if (icon != null || clearIcon) fieldMask |= kSettingsSetConfIcon;
 
     payload.add(fieldMask & 0xFF);
     payload.add((fieldMask >> 8) & 0xFF);
@@ -128,6 +133,8 @@ class SettingsProtocolService {
     if (description != null) addString(description, kMaxConfigDesc);
     if (password != null) addString(password, kMaxConfigPwd);
     if (adminPassword != null) addString(adminPassword, kMaxConfigPwd);
+    if (icon != null) addString(icon, kMaxDeviceIcon);
+    if (clearIcon) addString('', kMaxDeviceIcon);
 
     return buildFrame(kSettingsCmdSetConf, payload);
   }
@@ -163,16 +170,25 @@ class SettingsProtocolService {
   // ── Response parsers ────────────────────────────────────────────────────
 
   /// Parse NVS_RAW_READ_DATA: [STATUS(1)][VALUE_LEN(1)][VALUE...]
-  /// Returns (status, value) on success, null on parse failure.
-  static ({int status, int? value})? parseNvsRawReadData(List<int> payload) {
+  /// Returns (status, value, rawBytes) on success, null on parse failure.
+  /// - For uint8 values: value = payload[2], rawBytes = null
+  /// - For string values: value = null, rawBytes = payload[2..2+valueLen]
+  static ({int status, int? value, List<int>? rawBytes})? parseNvsRawReadData(List<int> payload) {
     if (payload.length < 2) return null;
     final status = payload[0];
     final valueLen = payload[1];
     int? value;
-    if (status == kSettingsNvsRawOk && valueLen >= 1 && payload.length >= 3) {
-      value = payload[2];
+    List<int>? rawBytes;
+    if (status == kSettingsNvsRawOk && valueLen >= 1 && payload.length >= 2 + valueLen) {
+      if (valueLen == 1) {
+        // uint8 value
+        value = payload[2];
+      } else {
+        // string value — return raw bytes for decoding
+        rawBytes = payload.sublist(2, 2 + valueLen);
+      }
     }
-    return (status: status, value: value);
+    return (status: status, value: value, rawBytes: rawBytes);
   }
 
   /// Parse NVS_RAW_WRITE_ACK: single byte status code.
@@ -232,8 +248,9 @@ class SettingsProtocolService {
     return (url: url, account: account);
   }
 
-  /// Parse DEVICE_INFO_DATA: [PROTO_VER(1)][NAME_LEN(1)][NAME][DESC_LEN(1)][DESC][UID_LEN(1)][UID]
-  static ({int version, String name, String description, String uid})? parseDeviceInfoData(
+  /// Parse DEVICE_INFO_DATA: [PROTO_VER(1)][NAME_LEN(1)][NAME][DESC_LEN(1)][DESC][UID_LEN(1)][UID][ICON_LEN(1)][ICON...]
+  /// Icon field is optional (protocol v5+). Returns null if icon is absent.
+  static ({int version, String name, String description, String uid, String? icon})? parseDeviceInfoData(
       List<int> payload) {
     if (payload.length < 3) return null;
     int offset = 0;
@@ -257,9 +274,19 @@ class SettingsProtocolService {
       if (offset + uidLen <= payload.length && uidLen == 16) {
         uid = utf8.decode(payload.sublist(offset, offset + uidLen),
             allowMalformed: true);
-        // offset += uidLen; // not needed further
+        offset += uidLen;
       }
     }
-    return (version: version, name: name, description: description, uid: uid);
+    // Parse optional icon string (protocol v5+)
+    String? icon;
+    if (offset + 1 <= payload.length) {
+      final iconLen = payload[offset++];
+      if (iconLen > 0 && offset + iconLen <= payload.length) {
+        icon = utf8.decode(payload.sublist(offset, offset + iconLen),
+            allowMalformed: true);
+      }
+      // If iconLen == 0, icon remains null (not set)
+    }
+    return (version: version, name: name, description: description, uid: uid, icon: icon);
   }
 }

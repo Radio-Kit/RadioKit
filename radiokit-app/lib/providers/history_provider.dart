@@ -26,6 +26,7 @@ class PairedDevice {
   final String? configName;
   final String? description;
   final String? preferredTransport;
+  final String? deviceIcon;
 
   /// Per-transport connection addresses for reconnection.
   final String? bleAddress;
@@ -45,6 +46,7 @@ class PairedDevice {
     this.configName,
     this.description,
     this.preferredTransport,
+    this.deviceIcon,
     this.bleAddress,
     this.wifiAddress,
     this.cloudAddress,
@@ -60,6 +62,7 @@ class PairedDevice {
         'configName': configName,
         'description': description,
         'preferredTransport': preferredTransport,
+        'deviceIcon': deviceIcon,
         'bleAddress': bleAddress,
         'wifiAddress': wifiAddress,
         'cloudAddress': cloudAddress,
@@ -75,6 +78,7 @@ class PairedDevice {
         configName: json['configName'],
         description: json['description'],
         preferredTransport: json['preferredTransport'] as String?,
+        deviceIcon: json['deviceIcon'] as String?,
         bleAddress: json['bleAddress'] as String?,
         wifiAddress: json['wifiAddress'] as String?,
         cloudAddress: json['cloudAddress'] as String?,
@@ -119,6 +123,7 @@ class PairedDevice {
         name: name,
         rssi: 0,
         preferredTransport: preferredTransport,
+        deviceIcon: deviceIcon,
         currentTransport: TransportType.demo,
       );
     }
@@ -128,6 +133,7 @@ class PairedDevice {
       name: name,
       rssi: 0,
       preferredTransport: preferredTransport,
+      deviceIcon: deviceIcon,
       transportAddress: address,
       currentTransport: transport,
     );
@@ -187,6 +193,7 @@ class HistoryProvider extends ChangeNotifier {
         configName: configName ?? existing.configName,
         description: description ?? existing.description,
         preferredTransport: device.preferredTransport ?? existing.preferredTransport,
+        deviceIcon: device.deviceIcon ?? existing.deviceIcon,
         bleAddress: device.currentTransport == TransportType.ble
             ? device.transportAddress : existing.bleAddress,
         wifiAddress: device.currentTransport == TransportType.wifi
@@ -209,6 +216,7 @@ class HistoryProvider extends ChangeNotifier {
           configName: configName,
           description: description,
           preferredTransport: device.preferredTransport,
+          deviceIcon: device.deviceIcon,
           bleAddress: device.currentTransport == TransportType.ble
               ? device.transportAddress : null,
           wifiAddress: device.currentTransport == TransportType.wifi

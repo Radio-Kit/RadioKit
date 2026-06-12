@@ -89,7 +89,7 @@ class DeviceProvider extends ChangeNotifier {
   Map<String, dynamic>? _chipInfo;
   Completer<void>? _chipInfoCompleter;
   Completer<int>? _otaCompleter;
-  Completer<({int status, int? value})>? _nvsRawReadCompleter;
+  Completer<({int status, int? value, List<int>? rawBytes})>? _nvsRawReadCompleter;
   Completer<int>? _nvsRawWriteCompleter;
   Completer<int>? _authCompleter;  // For CMD_PWD_AUTH response
   Timer? _authTimeoutTimer;
@@ -224,6 +224,7 @@ class DeviceProvider extends ChangeNotifier {
   DeviceConnectionState get connectionState  => _connectionState;
   String?               get configName       => _configName;
   String?               get description      => _description;
+  String?               get deviceIcon       => _connectedDevice?.deviceIcon;
   List<WidgetConfig>    get widgets          => List.unmodifiable(_widgets);
   int                   get orientation      => _orientation;
   RadioWidgetState?     get widgetState      => _widgetState;
@@ -300,30 +301,39 @@ class DeviceProvider extends ChangeNotifier {
 
   AuthLevel _authLevel = AuthLevel.none;
 
-  /// Read a raw NVS uint8 key from the device via settings protocol.
-  /// Returns (status, value) where status=0 (ok) or 1 (error).
-  /// Value is null on error or timeout.
-  Future<({int status, int? value})> readNvsRawKey(String key) async {
+  /// Read a raw NVS uint8/string key from the device via settings protocol.
+  /// Returns (status, value, rawString) where status=0 (ok) or 1 (error).
+  /// - For uint8 keys: value is set, rawString is null
+  /// - For string keys: value is null, rawString is set
+  Future<({int status, int? value, String? rawString})> readNvsRawKey(String key) async {
     if (!_transport.isConnected) {
-      return (status: kSettingsNvsRawError, value: null);
+      return (status: kSettingsNvsRawError, value: null, rawString: null);
     }
-    final completer = Completer<({int status, int? value})>();
+    final completer = Completer<({int status, int? value, List<int>? rawBytes})>();
     _nvsRawReadCompleter = completer;
     try {
       await _writePacket(SettingsProtocolService.buildNvsRawRead(key));
     } catch (e) {
       _nvsRawReadCompleter = null;
       _log('readNvsRawKey failed: $e', level: ConsoleLogLevel.error);
-      return (status: kSettingsNvsRawError, value: null);
+      return (status: kSettingsNvsRawError, value: null, rawString: null);
     }
     try {
-      return await completer.future.timeout(const Duration(seconds: 5));
+      final result = await completer.future.timeout(const Duration(seconds: 5));
+      final rawString = result.rawBytes != null
+          ? utf8Decode(result.rawBytes!)
+          : null;
+      return (
+        status: result.status,
+        value: result.value,
+        rawString: rawString,
+      );
     } on TimeoutException catch (_) {
       _nvsRawReadCompleter = null;
-      return (status: kSettingsNvsRawError, value: null);
+      return (status: kSettingsNvsRawError, value: null, rawString: null);
     } catch (_) {
       _nvsRawReadCompleter = null;
-      return (status: kSettingsNvsRawError, value: null);
+      return (status: kSettingsNvsRawError, value: null, rawString: null);
     }
   }
 
@@ -377,6 +387,8 @@ class DeviceProvider extends ChangeNotifier {
     String? description,
     String? password,
     String? adminPassword,
+    String? icon,
+    bool clearIcon = false,
   }) async {
     if (!_transport.isConnected) return false;
     try {
@@ -385,6 +397,8 @@ class DeviceProvider extends ChangeNotifier {
         description: description,
         password: password,
         adminPassword: adminPassword,
+        icon: icon,
+        clearIcon: clearIcon,
       );
       await _transport.writePacket(pkt);
       // Wait for SET_CONF_ACK from the settings protocol
@@ -394,6 +408,14 @@ class DeviceProvider extends ChangeNotifier {
         final status = await completer.future.timeout(const Duration(seconds: 5));
         final hasError = (status & kSettingsSetConfError) != 0;
         if (!hasError) {
+          // Update local state with icon if provided
+          if (icon != null && _connectedDevice != null) {
+            _connectedDevice = _connectedDevice!.copyWith(deviceIcon: icon);
+            notifyListeners();
+          } else if (clearIcon && _connectedDevice != null) {
+            _connectedDevice = _connectedDevice!.copyWith(deviceIcon: null);
+            notifyListeners();
+          }
           // Request fresh device info to update name/desc
           unawaited(_requestDeviceInfo());
           return true;
@@ -478,12 +500,14 @@ class DeviceProvider extends ChangeNotifier {
     TransportType? targetType;
 
     if (target == TransportType.ble) {
-      // BLE: use device's bleAddress from history or current transport's address
+      // BLE: use device's persistent bleAddress, then fall back to transportAddress or id
       targetTransport = currentSrc is BleService ? currentSrc : BleService();
-      targetAddress = device.transportAddress ?? device.id;
+      targetAddress = device.bleAddress ?? device.transportAddress ?? device.id;
       targetType = TransportType.ble;
+      _log('Switching to BLE — using address: $targetAddress', level: ConsoleLogLevel.info);
     } else if (target == TransportType.wifi) {
       // WiFi: try to get IP from device while on current transport
+      // Fall back to persistent wifiAddress if device isn't reachable via current transport
       String? ip;
       try {
         final wifiInfo = await sendGetWifiInfo();
@@ -492,14 +516,21 @@ class DeviceProvider extends ChangeNotifier {
         }
       } catch (_) {}
 
-      if (ip == null) {
+      // Fallback: use cached wifiAddress from a previous WiFi connection
+      // (preserves scheme, host, and port from the cached URL)
+      if (ip == null && device.wifiAddress != null) {
+        targetAddress = device.wifiAddress!;
+        targetTransport = WebSocketService();
+        targetType = TransportType.wifi;
+        _log('Using cached WiFi address: $targetAddress', level: ConsoleLogLevel.info);
+      } else if (ip != null) {
+        targetAddress = 'ws://$ip:${kDefaultWifiPort}';
+        targetTransport = WebSocketService();
+        targetType = TransportType.wifi;
+      } else {
         _log('Cannot switch to WiFi: device IP unknown', level: ConsoleLogLevel.error);
         return false;
       }
-
-      targetAddress = 'ws://$ip:${kDefaultWifiPort}';
-      targetTransport = WebSocketService();
-      targetType = TransportType.wifi;
     } else if (target == TransportType.cloud) {
       String? url;
       try {
@@ -514,7 +545,10 @@ class DeviceProvider extends ChangeNotifier {
         return false;
       }
 
-      targetAddress = 'cloud://$url';
+      // Preserve ws:// or wss:// if already present, otherwise prepend ws://
+      targetAddress = (url.startsWith('ws://') || url.startsWith('wss://'))
+          ? url
+          : 'ws://$url';
       targetTransport = WebSocketService();
       targetType = TransportType.cloud;
     } else {
@@ -549,6 +583,10 @@ class DeviceProvider extends ChangeNotifier {
         preferredTransport: _transportTypeToString(target),
         transportAddress: targetAddress,
         currentTransport: targetType,
+        // Persist WiFi address so we can switch back from any transport
+        wifiAddress: target == TransportType.wifi
+            ? targetAddress
+            : _connectedDevice!.wifiAddress,
       );
     }
 
@@ -630,6 +668,13 @@ class DeviceProvider extends ChangeNotifier {
     // a transport address at scan time, or a UID for reconnections)
     final connectAddress = device.transportAddress ?? device.id;
     _log('CONNECTING TO: ${device.name} via $connectAddress');
+
+    // Save BLE address if we're connecting via BLE and don't have one yet
+    // Check currentTransport rather than _transport type to handle DebugTransport wrapping
+    if (device.bleAddress == null && device.currentTransport == TransportType.ble) {
+      _connectedDevice = _connectedDevice!.copyWith(bleAddress: connectAddress);
+    }
+
     try {
       await _transport.connect(connectAddress, baudRate: baudRate);
       if (_connectionState == DeviceConnectionState.disconnected) return;
@@ -647,7 +692,8 @@ class DeviceProvider extends ChangeNotifier {
 
     await _requestConfig();
 
-    // Request device info (name, description, proto version) via settings protocol        unawaited(_requestDeviceInfo());
+    // Request device info (name, description, proto version) via settings protocol
+    unawaited(_requestDeviceInfo());
 
     // Request features after config loads — fire-and-forget
     // Auth timeout is started in _handleFeaturesData() when hasPassword is detected.
@@ -1367,11 +1413,14 @@ class DeviceProvider extends ChangeNotifier {
       _log('NVS_RAW_READ_DATA parse failed', level: ConsoleLogLevel.error);
       final completer = _nvsRawReadCompleter;
       if (completer != null && !completer.isCompleted) {
-        completer.complete((status: kSettingsNvsRawError, value: null));
+        completer.complete((status: kSettingsNvsRawError, value: null, rawBytes: null));
       }
       return;
     }
-    _log('NVS raw read: status=${parsed.status} value=${parsed.value}',
+    final displayVal = parsed.rawBytes != null
+        ? utf8Decode(parsed.rawBytes!)
+        : parsed.value?.toString() ?? 'null';
+    _log('NVS raw read: status=${parsed.status} value=$displayVal',
         level: ConsoleLogLevel.info);
     final completer = _nvsRawReadCompleter;
     if (completer != null && !completer.isCompleted) {
@@ -1421,6 +1470,43 @@ class DeviceProvider extends ChangeNotifier {
     }
   }
 
+  /// Request device info with retry. Tries up to 3 times on timeout.
+  Future<void> _requestDeviceInfo() async {
+    if (!_transport.isConnected) return;
+    for (int attempt = 0; attempt < 3; attempt++) {
+      if (!_transport.isConnected) return;
+      final completer = Completer<void>();
+      _deviceInfoCompleter = completer;
+      try {
+        await _writePacket(SettingsProtocolService.buildGetDeviceInfo());
+      } catch (_) {
+        _deviceInfoCompleter = null;
+        if (attempt < 2) {
+          await Future.delayed(const Duration(milliseconds: 500));
+          continue;
+        }
+        return;
+      }
+      try {
+        await completer.future.timeout(const Duration(seconds: 5));
+        _deviceInfoCompleter = null;
+        return; // Success
+      } on TimeoutException catch (_) {
+        _deviceInfoCompleter = null;
+        _log('DEVICE_INFO request timeout (attempt ${attempt + 1}/3)',
+            level: ConsoleLogLevel.warning);
+        if (attempt < 2) {
+          await Future.delayed(const Duration(milliseconds: 1000));
+        }
+      } catch (_) {
+        _deviceInfoCompleter = null;
+        return;
+      }
+    }
+    _log('DEVICE_INFO: All 3 attempts timed out — device may not support GET_DEVICE_INFO',
+        level: ConsoleLogLevel.warning);
+  }
+
   /// Send GET_CLOUD_INFO and wait for response.
   /// Returns (url, account) or null on timeout.
   Future<({String url, String account})?> sendGetCloudInfo() async {
@@ -1466,6 +1552,16 @@ class DeviceProvider extends ChangeNotifier {
     }
   }
 
+  /// Migrate saved password from old device ID to new UID.
+  Future<void> _migratePassword(String oldId, String newId) async {
+    if (oldId == newId) return;
+    final saved = await SecureStorageService.loadPassword(oldId);
+    if (saved != null && saved.isNotEmpty) {
+      await SecureStorageService.savePassword(newId, saved);
+      await SecureStorageService.deletePassword(oldId);
+    }
+  }
+
   void _handleSettingsDeviceInfoData(Uint8List payload) {
     final parsed = SettingsProtocolService.parseDeviceInfoData(payload.toList());
     if (parsed == null) {
@@ -1478,9 +1574,22 @@ class DeviceProvider extends ChangeNotifier {
     _configName = parsed.name.isNotEmpty ? parsed.name : _configName;
     _description = parsed.description.isNotEmpty ? parsed.description : _description;
 
+    // Update _connectedDevice with parsed icon (on first connection, or refresh)
+    if (_connectedDevice != null && parsed.icon != null) {
+      _connectedDevice = _connectedDevice!.copyWith(deviceIcon: parsed.icon);
+    } else if (_connectedDevice != null && parsed.icon == null && _connectedDevice!.deviceIcon != null) {
+      // Icon was cleared on device — sync
+      _connectedDevice = _connectedDevice!.copyWith(deviceIcon: null);
+    }
+
     // Update _connectedDevice.id with the device UID (from NVS)
+    // Preserve bleAddress across the ID transition
     if (_connectedDevice != null && parsed.uid.isNotEmpty) {
       final oldId = _connectedDevice!.id;
+      _connectedDevice = _connectedDevice!.copyWith(
+        // Use copyWith to avoid losing bleAddress; null fields are retained
+        bleAddress: _connectedDevice!.bleAddress,
+      );
       _connectedDevice!.id = parsed.uid;
 
       // Save to history with the real UID
@@ -1494,6 +1603,12 @@ class DeviceProvider extends ChangeNotifier {
           description: _description,
         );
       }
+
+      // Migrate saved password from old transport-address key to UID key
+      if (oldId != parsed.uid) {
+        unawaited(_migratePassword(oldId, parsed.uid));
+      }
+
       _log('UID set: ${parsed.uid} (was: $oldId)', level: ConsoleLogLevel.success);
     }
 
@@ -1515,24 +1630,7 @@ class DeviceProvider extends ChangeNotifier {
     }
   }
 
-  /// Request device info (name, description, protocol version) via settings protocol.
-  Future<void> _requestDeviceInfo() async {
-    if (!_transport.isConnected) return;
-    final completer = Completer<void>();
-    _deviceInfoCompleter = completer;
-    try {
-      await _writePacket(SettingsProtocolService.buildGetDeviceInfo());
-    } catch (_) {
-      _deviceInfoCompleter = null;
-      return;
-    }
-    try {
-      await completer.future.timeout(const Duration(seconds: 3));
-    } on TimeoutException catch (_) {
-      // Device may be running older firmware without settings protocol
-    } catch (_) {}
-    _deviceInfoCompleter = null;
-  }
+
 
   /// Request features from the device via settings protocol. Fire-and-forget.
   Future<void> _requestFeatures() async {

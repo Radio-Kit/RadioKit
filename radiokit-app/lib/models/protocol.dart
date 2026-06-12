@@ -89,6 +89,7 @@ const int kDefaultWifiPort = 5555;
 const int kMaxConfigName = 32;
 const int kMaxConfigDesc = 128;
 const int kMaxConfigPwd  = 32;
+const int kMaxDeviceIcon = 32;
 
 // ── OTA protocol constants ─────────────────────────────────────────────────
 const int kOtaStartByte = 0xBB;
@@ -163,6 +164,7 @@ const int kSettingsSetConfName      = 1 << 0;
 const int kSettingsSetConfDesc      = 1 << 1;
 const int kSettingsSetConfDevicePwd = 1 << 2;  // Device password
 const int kSettingsSetConfUserPwd   = 1 << 3;  // User password
+const int kSettingsSetConfIcon      = 1 << 4;  // Device icon string
 const int kSettingsSetConfError     = 1 << 7;
 
 // Legacy aliases

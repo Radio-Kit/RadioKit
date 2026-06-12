@@ -60,6 +60,7 @@ RadioKitClass::RadioKitClass()
     memset(_nvsStaPwd, 0, sizeof(_nvsStaPwd));
     memset(_nvsCloudUrl, 0, sizeof(_nvsCloudUrl));
     memset(_nvsCloudAccount, 0, sizeof(_nvsCloudAccount));
+    memset(_nvsDeviceIcon, 0, sizeof(_nvsDeviceIcon));
     memset(_nvsDeviceUid, 0, sizeof(_nvsDeviceUid));
     s_instance = this;
 }
@@ -127,6 +128,7 @@ void RadioKitClass::begin() {
             RKNvs::writeString(RK_NVS_KEY_STA_PWD, config.sta_password ? config.sta_password : "");
             RKNvs::writeString(RK_NVS_KEY_CLOUD_URL, config.cloud_url ? config.cloud_url : "");
             RKNvs::writeString(RK_NVS_KEY_CLOUD_ACCOUNT, config.cloud_account ? config.cloud_account : "");
+            RKNvs::writeString(RK_NVS_KEY_DEVICE_ICON, config.device_icon ? config.device_icon : "");
             RKNvs::commit();
         }
 
@@ -158,6 +160,7 @@ void RadioKitClass::begin() {
         memset(_nvsStaPwd, 0, sizeof(_nvsStaPwd));
         memset(_nvsCloudUrl, 0, sizeof(_nvsCloudUrl));
         memset(_nvsCloudAccount, 0, sizeof(_nvsCloudAccount));
+        memset(_nvsDeviceIcon, 0, sizeof(_nvsDeviceIcon));
     }
 
     // Reset auth state on boot
@@ -638,8 +641,11 @@ void RadioKitClass::_handleSettingsGetChipInfo() {
 
 void RadioKitClass::_handleSettingsDeviceInfo() {
     if (!_transport) return;
-    // Payload: [PROTO_VER(1)][NAME_LEN(1)][NAME][DESC_LEN(1)][DESC][UID_LEN(1)][UID(16)]
-    uint8_t buf[1 + 1 + RADIOKIT_MAX_NAME + 1 + RADIOKIT_MAX_DESC + 1 + 16];
+    Serial.printf("DEVICE_INFO: Sending name='%s' uid='%s'\n",
+        _nvsActive && _nvsName[0] ? _nvsName : (config.name ? config.name : ""),
+        _nvsDeviceUid);
+    // Payload: [PROTO_VER(1)][NAME_LEN(1)][NAME][DESC_LEN(1)][DESC][UID_LEN(1)][UID(16)][ICON_LEN(1)][ICON...]
+    uint8_t buf[1 + 1 + RADIOKIT_MAX_NAME + 1 + RADIOKIT_MAX_DESC + 1 + 16 + 1 + RADIOKIT_MAX_DEVICE_ICON];
     uint16_t offset = 0;
     buf[offset++] = RK_PROTOCOL_VERSION;
     const char* name = _nvsActive && _nvsName[0] ? _nvsName : (config.name ? config.name : "");
@@ -657,6 +663,15 @@ void RadioKitClass::_handleSettingsDeviceInfo() {
     if (uidLen > 0) {
         memcpy(&buf[offset], _nvsDeviceUid, uidLen);
         offset += uidLen;
+    }
+
+    // Append device icon (optional)
+    const char* icon = _nvsActive && _nvsDeviceIcon[0] ? _nvsDeviceIcon : (config.device_icon ? config.device_icon : "");
+    uint8_t iconLen = (uint8_t)strnlen(icon, RADIOKIT_MAX_DEVICE_ICON);
+    buf[offset++] = iconLen;
+    if (iconLen > 0) {
+        memcpy(&buf[offset], icon, iconLen);
+        offset += iconLen;
     }
 
     uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
@@ -1284,6 +1299,7 @@ void RadioKitClass::_handleSettingsNvsRawRead(const uint8_t* payload, uint16_t l
     memcpy(key, &payload[1], keyLen);
     key[keyLen] = '\0';
 
+    // Try uint8 read first
     uint8_t value = 0;
     bool found = RKNvs::readU8(key, &value);
 
@@ -1292,13 +1308,30 @@ void RadioKitClass::_handleSettingsNvsRawRead(const uint8_t* payload, uint16_t l
         uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
             RK_SETTINGS_RESP_NVS_RAW_READ_DATA, resp, 3);
         _sendSettingsFrame(frameLen);
-        Serial.printf("NVS: Raw read key='%s' = %u\n", key, value);
+        Serial.printf("NVS: Raw read (u8) key='%s' = %u\n", key, value);
     } else {
-        uint8_t resp[2] = {RK_SETTINGS_NVS_RAW_ERROR, 0};
-        uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
-            RK_SETTINGS_RESP_NVS_RAW_READ_DATA, resp, 2);
-        _sendSettingsFrame(frameLen);
-        Serial.printf("NVS: Raw read key='%s' not found\n", key);
+        // Try string read as fallback (e.g., rk_device_uid)
+        char strVal[64] = {0};
+        bool strFound = RKNvs::readString(key, strVal, sizeof(strVal));
+        if (strFound && strVal[0] != '\0') {
+            uint8_t strLen = (uint8_t)strnlen(strVal, sizeof(strVal) - 1);
+            // Response: [STATUS(1)][VALUE_LEN(1)][VALUE...] where status uses a special
+            // value to indicate string type (status=0xFE for string)
+            uint8_t resp[2 + 64];
+            resp[0] = RK_SETTINGS_NVS_RAW_OK;
+            resp[1] = strLen;
+            memcpy(&resp[2], strVal, strLen);
+            uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+                RK_SETTINGS_RESP_NVS_RAW_READ_DATA, resp, 2 + strLen);
+            _sendSettingsFrame(frameLen);
+            Serial.printf("NVS: Raw read (str) key='%s' = '%s'\n", key, strVal);
+        } else {
+            uint8_t resp[2] = {RK_SETTINGS_NVS_RAW_ERROR, 0};
+            uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+                RK_SETTINGS_RESP_NVS_RAW_READ_DATA, resp, 2);
+            _sendSettingsFrame(frameLen);
+            Serial.printf("NVS: Raw read key='%s' not found\n", key);
+        }
     }
 }
 
@@ -1451,11 +1484,17 @@ void RadioKitClass::_syncNvsToBuffers() {
         _nvsDeviceUid[0] = '\0';
     }
 
-    RK_DEBUG_PRINT("NVS: Loaded name='%s', desc='%s', device_pwd=%s, user_pwd=%s, uid='%s'\n",
+    // ── Device icon ───────────────────────────────────────────────────
+    if (!RKNvs::readString(RK_NVS_KEY_DEVICE_ICON, _nvsDeviceIcon, sizeof(_nvsDeviceIcon))) {
+        strncpy(_nvsDeviceIcon, config.device_icon ? config.device_icon : "", sizeof(_nvsDeviceIcon) - 1);
+    }
+
+    RK_DEBUG_PRINT("NVS: Loaded name='%s', desc='%s', device_pwd=%s, user_pwd=%s, uid='%s', icon='%s'\n",
         _nvsName, _nvsDesc,
         _nvsPwd[0] ? "***" : "(none)",
         _nvsUserPwd[0] ? "***" : "(none)",
-        _nvsDeviceUid);
+        _nvsDeviceUid,
+        _nvsDeviceIcon);
 }
 
 void RadioKitClass::_setBleAdvertisingName(const char* name) {
@@ -1643,6 +1682,20 @@ void RadioKitClass::_handleSettingsSetConf(const uint8_t* payload, uint16_t len)
                 memcpy(_nvsPwd, &payload[offset], strLen);
                 _nvsPwd[strLen] = '\0';
                 RKNvs::writeString(RK_NVS_KEY_PWD, _nvsPwd);
+            }
+            offset += strLen;
+        }
+    }
+
+    // Device icon
+    if (fieldMask & RK_SETTINGS_SET_CONF_ICON) {
+        if (offset < len) {
+            uint8_t strLen = payload[offset++];
+            if (strLen > RADIOKIT_MAX_DEVICE_ICON) strLen = RADIOKIT_MAX_DEVICE_ICON;
+            if (offset + strLen <= len) {
+                memcpy(_nvsDeviceIcon, &payload[offset], strLen);
+                _nvsDeviceIcon[strLen] = '\0';
+                RKNvs::writeString(RK_NVS_KEY_DEVICE_ICON, _nvsDeviceIcon);
             }
             offset += strLen;
         }

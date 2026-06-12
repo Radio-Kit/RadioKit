@@ -24,6 +24,19 @@ class DeviceInfo {
   /// (e.g., BLE MAC, WebSocket URL, serial path).
   final String? transportAddress;
 
+  /// Persistent BLE MAC address, preserved across transport switches.
+  /// Set on first BLE connection so we can switch back to BLE later.
+  final String? bleAddress;
+
+  /// Persistent WiFi WS URL (e.g. ws://192.168.1.42:5555), preserved
+  /// across transport switches so we can switch back to WiFi from
+  /// any transport without needing re-discovery.
+  final String? wifiAddress;
+
+  /// Device icon name from kDesignerIcons registry (e.g. "drone", "car", "robot").
+  /// null or empty = not set, show generic default icon.
+  final String? deviceIcon;
+
   /// Which transport is currently active for this device.
   final TransportType currentTransport;
 
@@ -34,6 +47,9 @@ class DeviceInfo {
     this.hasFs = false,
     this.preferredTransport,
     this.transportAddress,
+    this.bleAddress,
+    this.wifiAddress,
+    this.deviceIcon,
     this.currentTransport = TransportType.ble,
   });
 
@@ -44,6 +60,9 @@ class DeviceInfo {
     bool? hasFs,
     String? preferredTransport,
     String? transportAddress,
+    String? bleAddress,
+    String? wifiAddress,
+    String? deviceIcon,
     TransportType? currentTransport,
   }) {
     return DeviceInfo(
@@ -53,6 +72,9 @@ class DeviceInfo {
       hasFs: hasFs ?? this.hasFs,
       preferredTransport: preferredTransport ?? this.preferredTransport,
       transportAddress: transportAddress ?? this.transportAddress,
+      bleAddress: bleAddress ?? this.bleAddress,
+      wifiAddress: wifiAddress ?? this.wifiAddress,
+      deviceIcon: deviceIcon ?? this.deviceIcon,
       currentTransport: currentTransport ?? this.currentTransport,
     );
   }

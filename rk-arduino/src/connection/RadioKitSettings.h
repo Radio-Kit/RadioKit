@@ -96,6 +96,7 @@
 #define RK_SETTINGS_SET_CONF_DESC        (1 << 1)
 #define RK_SETTINGS_SET_CONF_DEVICE_PWD  (1 << 2)   ///< Device password (was SET_CONF_PWD)
 #define RK_SETTINGS_SET_CONF_USER_PWD    (1 << 3)   ///< User password (was SET_CONF_ADMIN_PWD)
+#define RK_SETTINGS_SET_CONF_ICON        (1 << 4)   ///< Device icon string
 #define RK_SETTINGS_SET_CONF_ERROR       (1 << 7)
 
 // ── SET_WIFI field mask bits ────────────────────────────────────────────────

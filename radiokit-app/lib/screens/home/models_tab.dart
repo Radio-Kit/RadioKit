@@ -23,6 +23,8 @@ import '../../models/protocol.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/radiokit_app_bar.dart';
 import '../../services/device_fs_service.dart';
+import '../designer/widgets/inspector_field_builders.dart';
+import 'package:radiokit_widgets/src/utils/icon_registry.dart';
 import '../devtools/filesystem/fs_helpers.dart';
 import '../devtools/filesystem/fs_breadcrumbs.dart';
 import '../devtools/filesystem/fs_file_tile.dart';
@@ -260,17 +262,12 @@ Widget _buildActiveLinkCard(
                       ),
                     ),
                     SizedBox(width: gapIconName),
-                    // Icon
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2A2A2A),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Icon(Icons.local_shipping_rounded,
-                          color: AppColors.brandOrange, size: 36),
+                    // Device icon (from NVS config) or transport icon fallback
+                    _DeviceIconWidget(
+                      deviceIcon: device.deviceIcon,
+                      fallbackIcon: transportIcon,
+                      size: 60,
+                      iconSize: 36,
                     ),
                   ],
                 ),
@@ -1125,6 +1122,8 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
   bool _wifiEnabled = false;
   bool _cloudEnabled = false;
   bool _cloudMatched = false;
+  String _deviceIcon = '';
+  bool _iconChanged = false;
 
   @override
   void initState() {
@@ -1132,6 +1131,7 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
     final dp = context.read<DeviceProvider>();
     _originalName = dp.configName ?? '';
     _originalDesc = dp.description ?? '';
+    _deviceIcon = dp.deviceIcon ?? '';
     _nameCtrl = TextEditingController(text: _originalName);
     _descCtrl = TextEditingController(text: _originalDesc);
     _pwdCtrl = TextEditingController();
@@ -1249,6 +1249,8 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
             onSave: () => _saveField(dp, 'description'),
             maxLines: 2,
           ),
+          const SizedBox(height: 16),
+          _buildIconPicker(dp),
           const SizedBox(height: 16),
           _buildSaveField(
             label: 'CONNECTION PASSWORD (leave empty to clear)',
@@ -1630,6 +1632,138 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
         ),
       ],
     );
+  }
+
+  Widget _buildIconPicker(DeviceProvider dp) {
+    final iconData = _deviceIcon.isNotEmpty && kDesignerIcons.containsKey(_deviceIcon)
+        ? kDesignerIcons[_deviceIcon]!
+        : Icons.memory_rounded;
+    final iconChanged = _deviceIcon != (dp.deviceIcon ?? '');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          Text('ICON',
+              style: const TextStyle(
+                  color: Colors.white54, fontSize: 10,
+                  fontWeight: FontWeight.bold)),
+        ]),
+        const SizedBox(height: 6),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: InkWell(
+                onTap: () => _pickIcon(context, dp),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.white12),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2A2A2A),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Icon(iconData,
+                            color: AppColors.brandOrange, size: 28),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _deviceIcon.isNotEmpty ? _deviceIcon : 'Tap to select',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: _deviceIcon.isNotEmpty
+                                    ? Colors.white
+                                    : Colors.white38,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _deviceIcon.isNotEmpty
+                                  ? 'Tap to change'
+                                  : 'Choose a device icon',
+                              style: const TextStyle(
+                                  color: Colors.white38, fontSize: 10),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right_rounded,
+                          size: 18, color: Colors.white24),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            if (iconChanged) ...[
+              const SizedBox(width: 8),
+              SizedBox(
+                height: 40,
+                width: 40,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.brandOrange,
+                    foregroundColor: Colors.black,
+                    padding: EdgeInsets.zero,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4)),
+                  ),
+                  onPressed: () => _saveIcon(dp),
+                  child: const Icon(Icons.save_rounded, size: 18),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickIcon(BuildContext context, DeviceProvider dp) async {
+    IconFieldBuilder.openIconPickerDialog(
+      context,
+      currentIconName: _deviceIcon.isNotEmpty ? _deviceIcon : null,
+      onChanged: (newIcon) {
+        if (!mounted) return;
+        setState(() => _deviceIcon = newIcon ?? '');
+      },
+    );
+  }
+
+  Future<void> _saveIcon(DeviceProvider dp) async {
+    final icon = _deviceIcon.isNotEmpty ? _deviceIcon : null;
+    final ok = await dp.sendSetConf(icon: icon, clearIcon: icon == null);
+    if (!mounted) return;
+    if (ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Device icon saved'),
+          backgroundColor: Colors.greenAccent,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to save icon'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
   }
 
   Future<void> _saveField(DeviceProvider dp, String field) async {
@@ -3799,13 +3933,13 @@ class _PairedModelsListState extends State<_PairedModelsList> {
       await ble.startScan();
       await Future.delayed(const Duration(milliseconds: 2500));
       await ble.stopScan();
-      isLive = ble.devices.any((d) => d.id == device.uid);
+      isLive = ble.devices.any((d) => d.id == (device.bleAddress ?? device.uid));
     } else if (device.type == 'serial') {
       await serial.startScan();
-      isLive = serial.ports.any((p) => p.id == device.uid);
+      isLive = serial.ports.any((p) => p.id == (device.serialAddress ?? device.uid));
     } else if (device.type == 'wifi') {
       // WiFi: try a quick TCP connection to verify the device is reachable.
-      final uri = Uri.tryParse(device.uid);
+      final uri = Uri.tryParse(device.wifiAddress ?? device.uid);
       if (uri != null && (uri.scheme == 'ws' || uri.scheme == 'wss')) {
         try {
           final socket = await Socket.connect(
@@ -3827,11 +3961,16 @@ class _PairedModelsListState extends State<_PairedModelsList> {
       if (!mounted) return;
       console.log('RECONNECT FAILED: Device "${device.name}" is not reachable.',
           level: ConsoleLogLevel.error);
+      final errMsg = device.type == 'ble'
+          ? (ble.errorMessage ?? 'Device is offline or out of range.')
+          : device.type == 'serial'
+              ? (serial.errorMessage ?? 'Device is offline or out of range.')
+              : 'Device is offline or out of range.';
       _updateStatus(device.uid, 'failed',
-          message: ble.errorMessage ?? 'Device is offline or out of range.');
+          message: errMsg);
+
       return;
     }
-
     if (!mounted) return;
     _updateStatus(device.uid, 'connecting', message: 'Connecting...');
 
@@ -3884,20 +4023,54 @@ class _PairedModelCard extends StatelessWidget {
     final isBusy = status == 'scanning' || status == 'connecting';
     final isFailed = status == 'failed';
 
+    // Device icon from history (or default memory icon)
+    final iconName = device.deviceIcon;
+    final deviceIconData = iconName != null && iconName.isNotEmpty && kDesignerIcons.containsKey(iconName)
+        ? kDesignerIcons[iconName]!
+        : null;
+
     return ModelCard(
       onTap: onTap,
-      leading: Container(
-        padding: const EdgeInsets.all(4),
-        width: 60,
-        height: 60,
-        decoration: BoxDecoration(
-          color: const Color(0xFF2A2A2A),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Center(
-          child: Icon(connectionIcon,
-              color: AppColors.brandOrange.withValues(alpha: 0.7), size: 36),
-        ),
+      leading: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: const Color(0xFF2A2A2A),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Center(
+              child: Icon(
+                deviceIconData ?? connectionIcon,
+                color: AppColors.brandOrange.withValues(alpha: deviceIconData != null ? 1.0 : 0.7),
+                size: 36,
+              ),
+            ),
+          ),
+          // Transport badge overlay (small icon in corner)
+          Positioned(
+            right: -2,
+            bottom: -2,
+            child: Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1A1A),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Center(
+                child: Icon(
+                  connectionIcon,
+                  size: 12,
+                  color: AppColors.brandOrange.withValues(alpha: 0.7),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       title: FittedBox(
         fit: BoxFit.scaleDown,
@@ -4085,4 +4258,46 @@ class _DemoTile {
     required this.subtitle,
     required this.onTap,
   });
+}
+
+// ── Device Icon Widget ───────────────────────────────────────────────────────
+
+/// A square container showing the device icon (from kDesignerIcons) or a
+/// fallback transport icon when no custom icon is set.
+class _DeviceIconWidget extends StatelessWidget {
+  final String? deviceIcon;
+  final IconData fallbackIcon;
+  final double size;
+  final double iconSize;
+
+  const _DeviceIconWidget({
+    required this.deviceIcon,
+    required this.fallbackIcon,
+    required this.size,
+    required this.iconSize,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final iconData = deviceIcon != null &&
+            deviceIcon!.isNotEmpty &&
+            kDesignerIcons.containsKey(deviceIcon)
+        ? kDesignerIcons[deviceIcon!]!
+        : null;
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2A2A),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Icon(
+        iconData ?? fallbackIcon,
+        color: AppColors.brandOrange,
+        size: iconSize,
+      ),
+    );
+  }
 }

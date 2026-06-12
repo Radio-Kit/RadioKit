@@ -34,6 +34,7 @@
 
 // ── Device identity ─────────────────────────────────────────────────────────
 #define RK_NVS_KEY_DEVICE_UID     "rk_device_uid"
+#define RK_NVS_KEY_DEVICE_ICON    "rk_device_icon"
 
 // ── Pending erase mode values (stored in rk_pend_erase) ──────────────────────
 #define RK_PENDING_ERASE_NONE     0  ///< No erase — cleared after operation completes

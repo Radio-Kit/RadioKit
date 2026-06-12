@@ -48,6 +48,9 @@ struct RK_Config {
     const char* cloud_url     = "";      ///< Cloud relay URL (e.g. "wss://relay.radiokit.com")
     const char* cloud_account = "";      ///< Account identifier for cloud relay
 
+    // ── Device icon (from kDesignerIcons registry) ────────────
+    const char* device_icon   = "";      ///< Icon name for this device
+
     // ── Read-only (set by library) ────────────────────────────
     uint8_t     architecture = RK_ARCH_DETECTED;
     const char* libversion   = RK_LIB_VERSION;
@@ -251,6 +254,9 @@ private:
     char _nvsStaPwd[RADIOKIT_MAX_WIFI_PWD + 1];
     char _nvsCloudUrl[RADIOKIT_MAX_CLOUD_URL + 1];
     char _nvsCloudAccount[RADIOKIT_MAX_CLOUD_ACCOUNT + 1];
+
+    // Device icon name (from kDesignerIcons registry)
+    char _nvsDeviceIcon[RADIOKIT_MAX_DEVICE_ICON + 1];
 
     // Device UID (16 hex chars + null)
     char _nvsDeviceUid[17];

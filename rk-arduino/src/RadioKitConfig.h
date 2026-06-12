@@ -149,6 +149,11 @@
 #define RADIOKIT_MAX_CLOUD_ACCOUNT  64  ///< Account identifier max chars
 
 // ─────────────────────────────────────────────
+//  Device icon limits
+// ─────────────────────────────────────────────
+#define RADIOKIT_MAX_DEVICE_ICON   32  ///< Device icon name max chars
+
+// ─────────────────────────────────────────────
 //  Feature flags
 // ─────────────────────────────────────────────
 #ifndef RADIOKIT_FEATURE_FS

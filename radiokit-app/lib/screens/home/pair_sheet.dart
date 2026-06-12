@@ -239,12 +239,17 @@ class _PairBottomSheetState extends State<PairBottomSheet>
         name: displayName,
         rssi: 0,
         hasFs: false,
+        currentTransport: TransportType.wifi,
+        transportAddress: url,
       ));
       if (!mounted) return;
 
       if (deviceProvider.isConnected) {
         await history.saveDevice(
-          DeviceInfo(id: url, name: displayName, rssi: 0, hasFs: false),
+          DeviceInfo(id: url, name: displayName, rssi: 0, hasFs: false,
+          currentTransport: TransportType.wifi,
+          transportAddress: url,
+        ),
           'wifi',
           configName: deviceProvider.configName,
           description: deviceProvider.description,
@@ -729,6 +734,8 @@ class _PairWiFiTab extends StatelessWidget {
                 name: host,
                 rssi: 0,
                 hasFs: false,
+                currentTransport: TransportType.wifi,
+                transportAddress: url,
               );
               return onConnect(device);
             },
@@ -1517,6 +1524,8 @@ class _PairCloudTabState extends State<_PairCloudTab> {
                     name: name,
                     rssi: 0,
                     hasFs: false,
+                    currentTransport: TransportType.cloud,
+                    transportAddress: name,
                   ),
                   isConnecting: _step == _CloudStep.joiningDevice,
                   onTap: () => _joinDevice(name),
