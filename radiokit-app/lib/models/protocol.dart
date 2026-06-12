@@ -7,6 +7,7 @@ const String kRadioKitCharWidgetUuid  = '0000FFE1-0000-1000-8000-00805F9B34FB'; 
 const String kRadioKitCharFsUuid      = '0000FFE2-0000-1000-8000-00805F9B34FB';  // FS protocol (0xAA)
 const String kRadioKitCharOtaUuid     = '0000FFE3-0000-1000-8000-00805F9B34FB';  // OTA protocol (0xBB)
 const String kRadioKitCharSettingsUuid = '0000FFE4-0000-1000-8000-00805F9B34FB';  // Settings protocol (0xDD)
+const String kRadioKitCharPrintUuid    = '0000FFE5-0000-1000-8000-00805F9B34FB';  // Print stream (0xEE, notify only)
 
 // Packet framing
 const int kStartByte = 0x55;
@@ -178,6 +179,8 @@ const int kSettingsFeatureHasDevicePwd  = 1 << 2;  // Device password set
 const int kSettingsFeatureHasUserPwd    = 1 << 3;  // User password set
 const int kSettingsFeatureWiFi          = 1 << 4;
 const int kSettingsFeatureCloud         = 1 << 5;
+const int kSettingsFeatureBle           = 1 << 6;
+const int kSettingsFeaturePrintStream   = 1 << 7;
 
 // Legacy aliases
 const int kSettingsFeatureHasConnPwd  = kSettingsFeatureHasDevicePwd;
@@ -204,6 +207,9 @@ String otaErrorName(int code) {
     default:                  return 'UNKNOWN';
   }
 }
+
+// ── Print stream protocol ─────────────────────────────────────────────────
+const int kPrintStartByte = 0xEE;
 
 // ── Filesystem bulk protocol ─────────────────────────────────────────────────
 // Uses a different start byte (0xAA) and has its own sub-command namespace.

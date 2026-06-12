@@ -40,6 +40,7 @@ public:
     void setFsCallback(RK_FsPacketCallback cb) override;
     void setOtaCallback(RK_OtaPacketCallback cb) override;
     void setSettingsCallback(RK_SettingsPacketCallback cb) override;
+    void setPrintCallback(RK_PrintPacketCallback cb) override;
 
     void update()                                      override;
     void sendPacket(const uint8_t* buf, uint16_t len)  override;
@@ -55,6 +56,7 @@ private:
     RK_FsPacketCallback _fsCb;
     RK_OtaPacketCallback _otaCb;
     RK_SettingsPacketCallback _settingsCb;
+    RK_PrintPacketCallback _printCb;
     uint32_t            _lastPacketMs;
     uint32_t            _lastByteMs;
     bool                _everReceived;

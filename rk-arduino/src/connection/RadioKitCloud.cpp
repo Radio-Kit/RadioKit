@@ -16,6 +16,7 @@
 #include "RadioKitCloud.h"
 #include "../RadioKitProtocol.h"
 #include "../RadioKitConfig.h"
+#include "../RadioKitLib.h"
 #include "RadioKitFS.h"
 #include "RadioKitOTA.h"
 #include "RadioKitSettings.h"
@@ -87,11 +88,13 @@ void RadioKitCloud::begin(const char* name, RK_PacketCallback cb) {
     }
 
     if (_host[0] == '\0') {
+        RadioKit.print("Cloud: No relay URL configured — transport disabled\n");
         Serial.println("Cloud: No relay URL configured — transport disabled");
         return;
     }
 
 #if defined(ESP32) && defined(RADIOKIT_ENABLE_WIFI)
+    RadioKit.printf("Cloud: Connecting to relay at %s:%u...\n", _host, _port);
     Serial.printf("Cloud: Connecting to relay at %s:%u...\n", _host, _port);
 
     // Use SSL for port 443, plain WS otherwise
@@ -112,6 +115,7 @@ void RadioKitCloud::begin(const char* name, RK_PacketCallback cb) {
     _reconnectDelaySec = RK_CLOUD_RECONNECT_MIN;
 #else
     (void)cb;
+    RadioKit.print("Cloud: Transport not available on this platform\n");
     Serial.println("Cloud: Transport not available on this platform");
 #endif
 }
@@ -128,10 +132,15 @@ void RadioKitCloud::setSettingsCallback(RK_SettingsPacketCallback cb) {
     _settingsCb = cb;
 }
 
+void RadioKitCloud::setPrintCallback(RK_PrintPacketCallback cb) {
+    _printCb = cb;
+}
+
 #if defined(ESP32) && defined(RADIOKIT_ENABLE_WIFI)
 
 void RadioKitCloud::_sendRegister() {
     if (_deviceName[0] == '\0' || _account[0] == '\0') {
+        RadioKit.print("Cloud: Cannot register — device name or account not set\n");
         Serial.println("Cloud: Cannot register — device name or account not set");
         return;
     }
@@ -143,6 +152,7 @@ void RadioKitCloud::_sendRegister() {
         _deviceName, _account);
     if (len > 0) {
         _ws.sendTXT(buf, (size_t)len);
+        RadioKit.printf("Cloud: Sent register for '%s' account='%s'\n", _deviceName, _account);
         Serial.printf("Cloud: Sent register for '%s' account='%s'\n", _deviceName, _account);
     }
 }
@@ -158,12 +168,14 @@ void RadioKitCloud::_handleText(uint8_t* payload, size_t length) {
         _registered = true;
         _reconnectDelaySec = RK_CLOUD_RECONNECT_MIN;  // Reset backoff
         _lastPacketMs = millis();
+        RadioKit.print("Cloud: Registered successfully\n");
         Serial.printf("Cloud: Registered successfully (sid: ...)\n");
         return;
     }
 
     if (strstr(json, "\"type\":\"client_joined\"")) {
         _lastPacketMs = millis();
+        RadioKit.print("Cloud: Client joined — ready for PWD_AUTH\n");
         Serial.println("Cloud: Client joined — ready for PWD_AUTH");
         return;
     }
@@ -179,6 +191,7 @@ void RadioKitCloud::_handleText(uint8_t* payload, size_t length) {
     }
 
     if (strstr(json, "\"type\":\"error\"")) {
+        RadioKit.printf("Cloud: Server error: %s\n", json);
         Serial.printf("Cloud: Server error: %s\n", json);
         return;
     }
@@ -190,12 +203,14 @@ void RadioKitCloud::_onWsEvent(WStype_t type, uint8_t* payload, size_t length) {
             _wsConnected = false;
             _registered = false;
             _lastPacketMs = 0;
+            // Serial-only to avoid spamming the print buffer during reconnect loop
             Serial.println("Cloud: Disconnected from relay");
             break;
 
         case WStype_CONNECTED:
             _wsConnected = true;
             _lastPacketMs = millis();
+            RadioKit.printf("Cloud: Connected to %s:%u\n", _host, _port);
             Serial.printf("Cloud: Connected to %s:%u\n", _host, _port);
             _sendRegister();
             break;
@@ -211,6 +226,7 @@ void RadioKitCloud::_onWsEvent(WStype_t type, uint8_t* payload, size_t length) {
             break;
 
         case WStype_ERROR:
+            RadioKit.print("Cloud: WebSocket error\n");
             Serial.printf("Cloud: WebSocket error\n");
             break;
 
@@ -257,8 +273,7 @@ void RadioKitCloud::_feedBytes(const uint8_t* data, size_t len) {
                 }
             }
             break;
-        }
-        case RK_SETTINGS_START_BYTE: { // 0xDD
+        }        case RK_SETTINGS_START_BYTE: { // 0xDD
             uint8_t subCmd; const uint8_t* payload; uint16_t payloadLen;
             for (size_t i = 0; i < frameLen; i++) {
                 if (rk_settingsRxFeedByte(frameData[i], subCmd, payload, payloadLen)) {
@@ -267,10 +282,19 @@ void RadioKitCloud::_feedBytes(const uint8_t* data, size_t len) {
             }
             break;
         }
+        case RK_PRINT_START_BYTE: { // 0xEE
+            const uint8_t* payload; uint16_t payloadLen;
+            for (size_t i = 0; i < frameLen; i++) {
+                if (rk_printRxFeedByte(frameData[i], payload, payloadLen)) {
+                    if (_printCb) _printCb(payload, payloadLen);
+                }
+            }
+            break;
+        }
         default:
             break;
+        }
     }
-}
 
 void RadioKitCloud::update() {
     _ws.loop();
@@ -285,6 +309,7 @@ void RadioKitCloud::update() {
 
     // Timeout detection
     if (_wsConnected && (now - _lastPacketMs) > RK_CLOUD_TIMEOUT_MS) {
+        // Serial-only to avoid spamming the print buffer during reconnect loop
         Serial.println("Cloud: Timeout — no packets for 15s, disconnecting");
         _ws.disconnect();
         _wsConnected = false;
@@ -296,6 +321,7 @@ void RadioKitCloud::update() {
         unsigned long elapsed = (now - _lastReconnectMs) / 1000;
         if (elapsed >= _reconnectDelaySec) {
             _lastReconnectMs = now;
+            // Serial-only to avoid spamming the print buffer during reconnect loop
             Serial.printf("Cloud: Reconnecting (backoff=%us)...\n", _reconnectDelaySec);
 
             if (_port == 443) {
@@ -329,6 +355,8 @@ void RadioKitCloud::sendPacket(const uint8_t* buf, uint16_t len) {
         typeByte = RK_OTA_START_BYTE;
     } else if (buf[0] == RK_SETTINGS_START_BYTE) {
         typeByte = RK_SETTINGS_START_BYTE;
+    } else if (buf[0] == RK_PRINT_START_BYTE) {
+        typeByte = RK_PRINT_START_BYTE;
     } else {
         typeByte = RK_START_BYTE;
     }

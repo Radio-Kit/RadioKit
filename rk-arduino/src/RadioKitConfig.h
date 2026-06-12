@@ -161,6 +161,13 @@
 #endif
 
 // ─────────────────────────────────────────────
+//  Print stream buffer size
+// ─────────────────────────────────────────────
+#ifndef RK_PRINT_BUF_SIZE
+#define RK_PRINT_BUF_SIZE 256
+#endif
+
+// ─────────────────────────────────────────────
 //  Rotation helper
 // ─────────────────────────────────────────────
 #define RK_ROT(deg) ((int16_t)(deg))

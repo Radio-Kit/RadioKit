@@ -21,6 +21,7 @@
 #include "connection/RadioKitFsHandlers.h"
 #include "connection/RadioKitOTA.h"
 #include "connection/RadioKitSettings.h"
+#include "connection/RadioKitPrint.h"
 #include "connection/RadioKitNVS.h"
 #include "connection/RadioKitWiFi.h"
 #include "connection/RadioKitCloud.h"
@@ -145,6 +146,49 @@ public:
     /// Returns true when no device password is set (pre-authenticated).
     bool hasFullAccess() const { return _deviceAuthenticated || _nvsPwd[0] == '\0'; }
 
+    // ── Print API (transport-agnostic) ─────────────────────────
+
+    /// Print a C-string (no trailing newline).
+    size_t print(const char* s);
+    /// Print an Arduino String (no trailing newline).
+    size_t print(const String& s);
+    /// Print an int (no trailing newline). Default base DEC.
+    size_t print(int val, int base = DEC);
+    /// Print an unsigned int (no trailing newline).
+    size_t print(unsigned int val, int base = DEC);
+    /// Print a long (no trailing newline).
+    size_t print(long val, int base = DEC);
+    /// Print an unsigned long (no trailing newline).
+    size_t print(unsigned long val, int base = DEC);
+    /// Print a double (no trailing newline). Precision = decimal places.
+    size_t print(double val, int precision = 2);
+    /// Print a single char (no trailing newline).
+    size_t print(char c);
+    /// Print C-string with trailing newline.
+    size_t println(const char* s);
+    /// Print Arduino String with trailing newline.
+    size_t println(const String& s);
+    /// Print int with trailing newline.
+    size_t println(int val, int base = DEC);
+    /// Print unsigned int with trailing newline.
+    size_t println(unsigned int val, int base = DEC);
+    /// Print long with trailing newline.
+    size_t println(long val, int base = DEC);
+    /// Print unsigned long with trailing newline.
+    size_t println(unsigned long val, int base = DEC);
+    /// Print double with trailing newline.
+    size_t println(double val, int precision = 2);
+    /// Print char with trailing newline.
+    size_t println(char c);
+    /// Just a newline.
+    size_t println();
+
+    /// Formatted print (printf-style). Supports %d, %u, %x, %X, %s, %f, %c, %lu, %ld.
+    size_t printf(const char* format, ...);
+
+    /// Flush the print buffer immediately, sending all pending data.
+    void printFlush();
+
     // ── Status ───────────────────────────────────────────────
     bool    isConnected() const;
     int8_t  getRssi();
@@ -233,6 +277,8 @@ private:
     static void _onOtaPacket(uint8_t subCmd,
                               const uint8_t* payload,
                               uint16_t payloadLen);
+    static void _onPrintPacket(const uint8_t* payload,
+                               uint16_t payloadLen);
     void _handleOtaBegin(const uint8_t* payload, uint16_t len);
     void _handleOtaChunk(const uint8_t* payload, uint16_t len);
     void _handleOtaEnd(const uint8_t* payload, uint16_t len);
@@ -260,6 +306,17 @@ private:
 
     // Device UID (16 hex chars + null)
     char _nvsDeviceUid[17];
+
+    // ── Print stream circular buffer ─────────────────────────
+    static constexpr uint16_t kPrintBufSize = RK_PRINT_BUF_SIZE;
+    uint8_t  _printBuf[kPrintBufSize];
+    uint16_t _printHead;   ///< Write position (next byte to write)
+    uint16_t _printTail;   ///< Read position (next byte to send)
+    uint16_t _printLineStart;  ///< Start of current buffered line
+
+    void _flushPrintBuffer();
+    uint16_t _printSpace() const;  ///< Available space in circular buffer
+    void _printByte(uint8_t b);    ///< Write single byte to circular buffer
 
     // Internal helpers
     void _syncNvsToBuffers();

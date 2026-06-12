@@ -50,9 +50,9 @@ public:
 
     void begin(const char* name, RK_PacketCallback cb) override;
     void setFsCallback(RK_FsPacketCallback cb) override;
-    void setOtaCallback(RK_OtaPacketCallback cb) override;
-    void setSettingsCallback(RK_SettingsPacketCallback cb) override;
-    void update() override;
+    void setOtaCallback(RK_OtaPacketCallback cb) override;    void setSettingsCallback(RK_SettingsPacketCallback cb) override;
+    void setPrintCallback(RK_PrintPacketCallback cb) override;
+    void update()                                              override;
     void sendPacket(const uint8_t* buf, uint16_t len) override;
     bool isConnected() const override;
     int8_t getRssi() override;
@@ -75,6 +75,7 @@ private:
     RK_FsPacketCallback _fsCb;
     RK_OtaPacketCallback _otaCb;
     RK_SettingsPacketCallback _settingsCb;
+    RK_PrintPacketCallback _printCb;
 
     // Credential buffers
     char _staSsid[RADIOKIT_MAX_SSID + 1];

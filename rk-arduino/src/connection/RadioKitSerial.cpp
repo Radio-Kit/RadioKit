@@ -8,6 +8,7 @@
 #include "RadioKitFS.h"
 #include "RadioKitOTA.h"
 #include "RadioKitSettings.h"
+#include "RadioKitPrint.h"
 
 RadioKitSerialTransport RadioKitSerialInstance;
 
@@ -44,6 +45,10 @@ void RadioKitSerialTransport::setOtaCallback(RK_OtaPacketCallback cb) {
 
 void RadioKitSerialTransport::setSettingsCallback(RK_SettingsPacketCallback cb) {
     _settingsCb = cb;
+}
+
+void RadioKitSerialTransport::setPrintCallback(RK_PrintPacketCallback cb) {
+    _printCb = cb;
 }
 
 void RadioKitSerialTransport::update() {
@@ -86,6 +91,16 @@ void RadioKitSerialTransport::update() {
             _everReceived = true;
             _lastPacketMs = millis();
             if (_settingsCb) _settingsCb(cmd, payload, payloadLen);
+            continue;
+        }
+
+        // Route to Print stream state machine (0xEE — unidirectional)
+        const uint8_t* printPayload;
+        uint16_t printPayloadLen;
+        if (rk_printRxFeedByte(byte, printPayload, printPayloadLen)) {
+            _everReceived = true;
+            _lastPacketMs = millis();
+            if (_printCb) _printCb(printPayload, printPayloadLen);
         }
     }
 
@@ -95,6 +110,7 @@ void RadioKitSerialTransport::update() {
         rk_fsRxReset();
         rk_otaRxReset();
         rk_settingsRxReset();
+        rk_printRxReset();
         _lastByteMs = 0;
     }
 }

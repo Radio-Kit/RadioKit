@@ -80,6 +80,7 @@ void RadioKitWiFi::begin(const char* name, RK_PacketCallback cb) {
     // Determine mode based on STA credentials
     if (_staSsid[0] != '\0') {
         // Try STA first
+        RadioKit.printf("WiFi: Attempting STA connection to '%s'...\n", _staSsid);
         Serial.printf("WiFi: Attempting STA connection to '%s'...\n", _staSsid);
         WiFi.mode(WIFI_STA);
         if (_connectSta(_staSsid, _staPwd)) {
@@ -91,11 +92,14 @@ void RadioKitWiFi::begin(const char* name, RK_PacketCallback cb) {
                 _onWsEvent(num, type, payload, length);
             });
             _initMdns("sta");
+            RadioKit.printf("WiFi: STA connected, WebSocket server on %s:%d\n",
+                WiFi.localIP().toString().c_str(), RK_WIFI_WS_PORT);
             Serial.printf("WiFi: STA connected, WebSocket server on %s:%d\n",
                 WiFi.localIP().toString().c_str(), RK_WIFI_WS_PORT);
             return;
         }
         // STA failed — fall through to AP mode with background retry
+        RadioKit.print("WiFi: STA connection failed — starting AP mode with background retry\n");
         Serial.println("WiFi: STA connection failed — starting AP mode with background retry");
     }
 
@@ -103,6 +107,7 @@ void RadioKitWiFi::begin(const char* name, RK_PacketCallback cb) {
     _startAp();
 #else
     (void)cb;
+    RadioKit.print("WiFi: Transport not available on this platform\n");
     Serial.println("WiFi: Transport not available on this platform");
 #endif
 }
@@ -117,6 +122,10 @@ void RadioKitWiFi::setOtaCallback(RK_OtaPacketCallback cb) {
 
 void RadioKitWiFi::setSettingsCallback(RK_SettingsPacketCallback cb) {
     _settingsCb = cb;
+}
+
+void RadioKitWiFi::setPrintCallback(RK_PrintPacketCallback cb) {
+    _printCb = cb;
 }
 
 #if defined(ESP32) && defined(RADIOKIT_ENABLE_WIFI)
@@ -137,6 +146,7 @@ void RadioKitWiFi::_startAp() {
     // at the WebSocket level (0xDD settings channel, sub-command 0x06).
     // Clients have 30 seconds to authenticate or they are disconnected.
     WiFi.softAP(apSsid);
+    RadioKit.printf("WiFi: AP started — SSID='%s' (OPEN — auth via PWD_AUTH)\n", apSsid);
     Serial.printf("WiFi: AP started — SSID='%s' (OPEN — auth via PWD_AUTH)\n", apSsid);
 
     _apMode = true;
@@ -194,6 +204,7 @@ void RadioKitWiFi::_onWsEvent(uint8_t num, WStype_t type, uint8_t* payload, size
                 _activeClientCount--;
                 if (_activeClientCount < 0) _activeClientCount = 0;
             }
+            RadioKit.printf("WiFi: WebSocket client %d disconnected\n", num);
             Serial.printf("WiFi: WebSocket client %d disconnected\n", num);
             break;
 
@@ -212,8 +223,10 @@ void RadioKitWiFi::_onWsEvent(uint8_t num, WStype_t type, uint8_t* payload, size
                 }
             }
             if (_clients[num].authLevel == RK_WIFI_AUTH_DEVICE) {
+                RadioKit.printf("WiFi: WebSocket client %d connected (pre-authenticated)\n", num);
                 Serial.printf("WiFi: WebSocket client %d connected (pre-authenticated)\n", num);
             } else {
+                RadioKit.printf("WiFi: WebSocket client %d connected (auth required)\n", num);
                 Serial.printf("WiFi: WebSocket client %d connected (auth required)\n", num);
             }
             break;
@@ -285,6 +298,7 @@ void RadioKitWiFi::_feedBytes(uint8_t clientNum, const uint8_t* data, size_t len
                             respSub, &respPayload, 1);
                         _sendToClient(clientNum, rk_settingsTxBuf(), respLen);
 
+                        RadioKit.printf("WiFi: Client %d PWD_AUTH result=0x%02X\n", clientNum, authResult);
                         Serial.printf("WiFi: Client %d PWD_AUTH result=0x%02X\n", clientNum, authResult);
                         return;
                     }
@@ -337,6 +351,19 @@ void RadioKitWiFi::_feedBytes(uint8_t clientNum, const uint8_t* data, size_t len
         return;
     }
 
+    // ── Print protocol (0xEE) — unidirectional, no auth needed ──────────
+    // The app never sends 0xEE frames to the device, but we handle it
+    // silently to avoid orphan bytes confusing the parser.
+    if (protocolType == RK_PRINT_START_BYTE) {
+        const uint8_t* payload; uint16_t payloadLen;
+        for (size_t i = 0; i < frameLen; i++) {
+            if (rk_printRxFeedByte(frameData[i], payload, payloadLen)) {
+                if (_printCb) _printCb(payload, payloadLen);
+            }
+        }
+        return;
+    }
+
     // ── FS protocol (0xAA) — requires device-level auth ─────────────────
     if (protocolType == RK_FS_START_BYTE) {
         if (clientNum < RK_WIFI_MAX_CLIENTS && _clients[clientNum].authLevel < RK_WIFI_AUTH_DEVICE) {
@@ -383,6 +410,8 @@ void RadioKitWiFi::update() {
         if (_clients[i].active && _clients[i].authLevel == RK_WIFI_AUTH_NONE) {
             unsigned long elapsed = now - _clients[i].connectTime;
             if (elapsed > RK_WIFI_AUTH_TIMEOUT_MS) {
+                RadioKit.printf("WiFi: Client %d auth timeout (%lu ms) — disconnecting\n",
+                    i, elapsed);
                 Serial.printf("WiFi: Client %d auth timeout (%lu ms) — disconnecting\n",
                     i, elapsed);
                 _disconnectClient(i);
@@ -395,6 +424,7 @@ void RadioKitWiFi::update() {
         if (now - _lastStaRetryMs > RK_WIFI_STA_RETRY_MS) {
             _lastStaRetryMs = now;
 
+            RadioKit.printf("WiFi: Retrying STA connection to '%s'...\n", _staSsid);
             Serial.printf("WiFi: Retrying STA connection to '%s'...\n", _staSsid);
             WiFi.mode(WIFI_AP_STA);
 
@@ -403,6 +433,8 @@ void RadioKitWiFi::update() {
                 WiFi.mode(WIFI_STA);
                 _initMdns("sta");
                 _apMode = false;
+                RadioKit.printf("WiFi: STA connected after retry, IP=%s\n",
+                    WiFi.localIP().toString().c_str());
                 Serial.printf("WiFi: STA connected after retry, IP=%s\n",
                     WiFi.localIP().toString().c_str());
             }
@@ -426,6 +458,8 @@ void RadioKitWiFi::_sendToClient(uint8_t clientNum, const uint8_t* buf, uint16_t
         typeByte = RK_OTA_START_BYTE;
     } else if (buf[0] == RK_SETTINGS_START_BYTE) {
         typeByte = RK_SETTINGS_START_BYTE;
+    } else if (buf[0] == RK_PRINT_START_BYTE) {
+        typeByte = RK_PRINT_START_BYTE;
     } else {
         typeByte = RK_START_BYTE;
     }

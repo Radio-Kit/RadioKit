@@ -306,6 +306,79 @@ curl -s http://$APP_IP:7007/api/console
 curl -s -X DELETE http://$APP_IP:7007/api/console
 ```
 
+### Print Stream (0xEE) Test
+
+The print stream transmits `RadioKit.print/println/printf` messages from the MCU to the app as 0xEE-framed packets over the active transport. Messages appear in the console with `"level":"print"` and are styled in cyan with a `[PRINT]` prefix.
+
+#### Verification procedure
+
+1. **Build firmware** with `RadioKit.print()` calls (all boot/status/auth messages are dual-printed alongside `Serial.print`)
+2. **Flash** to ESP32
+3. **Launch app** and connect via BLE, WiFi, or Serial
+4. **Check console** for `"level":"print"` entries:
+
+```bash
+# Get console entries and filter for print messages
+curl -s http://$APP_IP:7007/api/console | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+entries = data.get('entries', data) if isinstance(data, dict) else data
+print(f'Total console entries: {len(entries)}')
+for entry in entries:
+    msg = entry.get('message', str(entry))
+    level = entry.get('level', '')
+    if level == 'print':
+        print(f'[PRINT] {msg.rstrip()}')
+"
+```
+
+#### Expected output (BLE test)
+
+When connected via BLE to a device with the print stream enabled, the console should show `"level":"print"` entries like:
+
+```
+BLE: MTU negotiated to 498
+BLE: Widget char subscribed (subValue=1)
+BLE: FS char subscribed (subValue=1)
+BLE: OTA char subscribed (subValue=1)
+BLE: Settings char subscribed (subValue=1)
+BLE: Print char subscribed (subValue=1)
+DEVICE_INFO: Sending name='WiFi_Cloud_Switch' uid='<uid>'
+```
+
+#### What messages are included
+
+All messages in the firmware that have `RadioKit.print/println/printf` calls are transmitted as 0xEE frames:
+
+| Category | Examples |
+|----------|----------|
+| Boot | `BOOT: Pending erase flag=...`, `BOOT: Erasing NVS config...`, `BOOT: Erase complete — rebooting...` |
+| Transport | `BLE: Initializing stack...`, `BLE: Client connected...`, `WiFi: STA connected...`, `Cloud: Connected to...` |
+| Auth | `NVS: Device authentication successful — full access`, `RK: Rejected CMD 0x... — not authenticated` |
+| OTA | `OTA: Update.begin failed`, `OTA: Write error`, `OTA: Complete — rebooting...` |
+| NVS | `NVS: Raw write key='...' = ...`, `NVS: Config updated and committed` |
+| Debug (verbose) | `[DBG] shadow MISMATCH for widget`, `RK: Dispatching CMD...` (via `RK_DEBUG_PRINT` macro) |
+
+#### Transport-internal messages (Serial-only)
+
+These messages are NOT sent via the print stream to avoid feedback loops and buffer spam:
+
+**BLE sendPacket error paths** (would cause recursive buffer re-entry):
+- `BLE: Cannot send (not connected)`
+- `BLE: Cannot send (no char for protocol...)`
+- `BLE: sendPacket timeout / aborted / notify failed`
+
+**Cloud reconnect loop** (would flood the 256-byte print buffer):
+- `Cloud: Timeout — no packets for 15s, disconnecting`
+- `Cloud: Reconnecting (backoff=%us)...`
+- `Cloud: Disconnected from relay`
+
+They remain visible on the hardware Serial monitor but do not enter the app console.
+
+#### Debug log level
+
+The `RK_DEBUG_PRINT` macro (enabled when `RK_DEBUG_VERBOSE=1`) also transmits debug messages via the print stream, prefixed with `[DBG]`.
+
 ### API Log
 
 ```bash

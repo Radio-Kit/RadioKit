@@ -309,7 +309,30 @@ class _ActiveLinkSectionState extends State<_ActiveLinkSection> {
           if (mounted) setState(() => _authDialogShown = false);
         });
       }
-      return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: SizedBox(
+          width: double.infinity,
+          child: FilledButton.tonal(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.brandOrange.withValues(alpha: 0.15),
+              foregroundColor: AppColors.brandOrange,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              minimumSize: const Size(0, 40),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            onPressed: () => showPairBottomSheet(context),
+            child: Text('+ New device',
+                style: GoogleFonts.changa(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                    fontSize: 15,
+                    color: AppColors.brandOrange)),
+          ),
+        ),
+      );
     }
 
     final device = deviceProvider.connectedDevice!;
@@ -535,6 +558,7 @@ class _DeviceInfoTabsState extends State<_DeviceInfoTabs>
   bool _loadingBleInfo = true;
   TabController? _tabController;
   int _tabCount = 0;
+  bool _sheetAutoClosed = false;
 
   @override
   void initState() {
@@ -576,6 +600,23 @@ class _DeviceInfoTabsState extends State<_DeviceInfoTabs>
   Widget build(BuildContext context) {
     final dp = context.watch<DeviceProvider>();
     final device = widget.device;
+
+    // Close the sheet automatically when the device disconnects
+    if (!dp.isConnected && !_sheetAutoClosed) {
+      _sheetAutoClosed = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          // Dismiss any open dialogs first (they're on the root navigator)
+          Navigator.of(context, rootNavigator: true).maybePop();
+          // Then close the bottom sheet
+          Navigator.of(context).maybePop();
+        }
+      });
+    }
+    if (dp.isConnected && _sheetAutoClosed) {
+      _sheetAutoClosed = false;
+    }
+
     final hasFs = device.hasFs;
     final hasOta = dp.hasOta;
 
@@ -703,7 +744,12 @@ class _InfoTabContentState extends State<_InfoTabContent> {
     if (!dp.isConnected && !_sheetAutoClosed) {
       _sheetAutoClosed = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.of(context).maybePop();
+        if (mounted) {
+          // Dismiss any open dialogs first (they're on the root navigator)
+          Navigator.of(context, rootNavigator: true).maybePop();
+          // Then close the bottom sheet
+          Navigator.of(context).maybePop();
+        }
       });
     }
     // Reset flag if device reconnects (unlikely in this flow, but safe)
@@ -1122,6 +1168,7 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
   bool _wifiEnabled = false;
   bool _cloudEnabled = false;
   bool _cloudMatched = false;
+  bool _transportChanged = false;
   String _deviceIcon = '';
   bool _iconChanged = false;
 
@@ -1188,6 +1235,17 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
     return null;
   }
 
+  /// Returns true if disabling this transport would leave NO transports enabled.
+  bool _willAllTransportsDisabled(String transport) {
+    final othersOn = switch (transport) {
+      'BLE'   => _wifiEnabled || _cloudEnabled,
+      'WIFI'  => _bleEnabled,  // cloud is also turned off when wifi is disabled
+      'CLOUD' => _bleEnabled || _wifiEnabled,
+      _       => true,
+    };
+    return !othersOn;
+  }
+
   Future<bool> _confirmDisableTransport(
       DeviceProvider dp, String transport) async {
     final connectedVia = _connectedTransportName(dp);
@@ -1219,6 +1277,37 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
       ),
     );
 
+    return confirmed ?? false;
+  }
+
+  Future<bool> _confirmDisableAllTransports(String transport) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.error_rounded,
+            color: Colors.redAccent, size: 32),
+        title: const Text('All Transports Disabled?'),
+        content: Text(
+          'Disabling $transport will leave no transports enabled on this device. '
+          'It will become unreachable until manually reconnected via a wired connection or factory reset.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('CANCEL',
+                style: TextStyle(color: Colors.white54)),
+          ),
+          FilledButton.tonal(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.redAccent.withValues(alpha: 0.2),
+              foregroundColor: Colors.redAccent,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('DISABLE ANYWAY'),
+          ),
+        ],
+      ),
+    );
     return confirmed ?? false;
   }
 
@@ -1285,8 +1374,13 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
             enabled: _bleEnabled,
             onChanged: (v) async {
               if (!v) {
-                final ok = await _confirmDisableTransport(dp, 'BLE');
-                if (!ok) return;
+                if (_willAllTransportsDisabled('BLE')) {
+                  final ok = await _confirmDisableAllTransports('BLE');
+                  if (!ok) return;
+                } else {
+                  final ok = await _confirmDisableTransport(dp, 'BLE');
+                  if (!ok) return;
+                }
               }
               setState(() => _bleEnabled = v);
               await _writeTransportKey(dp, 'rk_ble_on', v ? 1 : 0);
@@ -1332,8 +1426,13 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
                       value: _wifiEnabled,
                       onChanged: (v) async {
                         if (!v) {
-                          final ok = await _confirmDisableTransport(dp, 'WIFI');
-                          if (!ok) return;
+                          if (_willAllTransportsDisabled('WIFI')) {
+                            final ok = await _confirmDisableAllTransports('WIFI');
+                            if (!ok) return;
+                          } else {
+                            final ok = await _confirmDisableTransport(dp, 'WIFI');
+                            if (!ok) return;
+                          }
                         }
                         setState(() {
                           _wifiEnabled = v;
@@ -1360,6 +1459,10 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
                       value: _cloudEnabled && _cloudMatched,
                       onChanged: _cloudMatched
                           ? (v) async {
+                              if (!v && _willAllTransportsDisabled('CLOUD')) {
+                                final ok = await _confirmDisableAllTransports('CLOUD');
+                                if (!ok) return;
+                              }
                               setState(() => _cloudEnabled = v);
                               await _writeTransportKey(dp, 'rk_cloud_on', v ? 1 : 0);
                             }
@@ -1371,6 +1474,45 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
               ],
             ),
           ),
+          if (_transportChanged) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.brandOrange,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () => _applyTransportAndReboot(dp),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('CONFIRM TO APPLY',
+                        style: GoogleFonts.changa(
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.5,
+                            fontSize: 14,
+                            color: Colors.black)),
+                    Text('& REBOOT NOW',
+                        style: GoogleFonts.changa(
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 1.5,
+                            fontSize: 11,
+                            color: Colors.black.withValues(alpha: 0.7))),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Transport changes only take effect after reboot. '
+              'Close without applying to keep current configuration.',
+              style: TextStyle(color: Colors.white38, fontSize: 11),
+            ),
+          ],
           const SizedBox(height: 32),
           _buildSectionTag('REBOOT'),
           const SizedBox(height: 16),
@@ -1832,21 +1974,25 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
       return;
     }
 
-    // Show reboot confirmation
+    // Mark transport as changed — show Apply & Reboot button instead of dialog
+    setState(() => _transportChanged = true);
+  }
+
+  Future<void> _applyTransportAndReboot(DeviceProvider dp) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         icon: const Icon(Icons.restart_alt_rounded,
             color: Colors.orangeAccent, size: 32),
-        title: const Text('Reboot to Apply?'),
+        title: const Text('Reboot to Apply Changes?'),
         content: const Text(
-          'Transport change saved. The device must reboot for the change '
-          'to take effect. Reboot now?',
+          'The device will reboot to apply the transport changes. '
+          'After reboot, you may need to reconnect via the new transport.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('LATER', style: TextStyle(color: Colors.white54)),
+            child: const Text('CANCEL', style: TextStyle(color: Colors.white54)),
           ),
           FilledButton.tonal(
             style: FilledButton.styleFrom(

@@ -164,6 +164,10 @@ class _ConsoleLogViewState extends State<ConsoleLogView> {
       case ConsoleLogLevel.raw:
         textColor = Colors.white38;
         break;
+      case ConsoleLogLevel.print:
+        textColor = Colors.cyanAccent;
+        prefix = '[PRINT] ';
+        break;
     }
 
     return Padding(

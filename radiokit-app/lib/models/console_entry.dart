@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-enum ConsoleLogLevel { info, success, warning, error, raw }
+enum ConsoleLogLevel { info, success, warning, error, raw, print }
 
 @immutable
 class ConsoleEntry {

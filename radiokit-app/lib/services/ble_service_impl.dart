@@ -10,6 +10,7 @@ import '../models/device_info.dart';
 import 'protocol_service.dart';
 import 'transport_service.dart';
 import 'ota_protocol_service.dart';
+import 'settings_protocol_service.dart';
 
 // Conditionally import JS bridge for Web Mock
 import 'ble_js_bridge_stub.dart' if (dart.library.js) 'ble_js_bridge_web.dart';
@@ -72,12 +73,14 @@ class BleService implements TransportService {
   final List<int> _receiveFsBuffer = [];      // FS (0xAA)
   final List<int> _receiveOtaBuffer = [];     // OTA (0xBB)
   final List<int> _receiveSettingsBuffer = []; // Settings (0xDD)
+  final List<int> _receivePrintBuffer = [];   // Print (0xEE)
 
   // Discovered characteristic UUIDs (actual, from BLE discovery)
   String? _charWidgetId;
   String? _charFsId;
   String? _charOtaId;
   String? _charSettingsId;
+  String? _charPrintId;
 
   /// Negotiated BLE MTU (default 23). Updated after MTU exchange completes.
   /// Used by [writePacket] to fragment large payloads into MTU-sized chunks.
@@ -199,6 +202,10 @@ class BleService implements TransportService {
       } else if (_charWidgetId != null && charId == _charWidgetId!.toLowerCase()) {
         _receiveBuffer.addAll(value);
         _processWidgetBuffer();
+      } else if (_charPrintId != null && charId == _charPrintId!.toLowerCase()) {
+        // Print stream (0xEE) — unidirectional, log as print message
+        _receivePrintBuffer.addAll(value);
+        _processPrintBuffer();
       } else {
         // Unknown characteristic — try widget as fallback
         _log('Unknown char $characteristicId, routing to widget buffer');
@@ -310,6 +317,9 @@ class BleService implements TransportService {
       _charFsId = null;
       _charOtaId = null;
       _charSettingsId = null;
+      _charPrintId = null;
+
+      final printCharUuid = kRadioKitCharPrintUuid.toLowerCase();
 
       for (var s in services) {
         if (s.uuid.toLowerCase().contains(serviceUuid)) {
@@ -330,6 +340,9 @@ class BleService implements TransportService {
             if (cuuid.contains(settingsCharUuid) || settingsCharUuid.contains(cuuid)) {
               _charSettingsId = c.uuid;
             }
+            if (cuuid.contains(printCharUuid) || printCharUuid.contains(cuuid)) {
+              _charPrintId = c.uuid;
+            }
           }
         }
       }
@@ -339,7 +352,7 @@ class BleService implements TransportService {
         return;
       }
 
-      _log('Discovered chars: widget=$_charWidgetId, fs=$_charFsId, ota=$_charOtaId, settings=$_charSettingsId');
+      _log('Discovered chars: widget=$_charWidgetId, fs=$_charFsId, ota=$_charOtaId, settings=$_charSettingsId, print=$_charPrintId');
 
       // Subscribe to all discovered characteristics
       if (_charWidgetId != null) {
@@ -374,11 +387,20 @@ class BleService implements TransportService {
         _log('WARNING - Settings char not found (0xFFE4)');
       }
 
+      if (_charPrintId != null) {
+        _log('Subscribing to Print char $_charPrintId...');
+        await UniversalBle.subscribeNotifications(deviceId, actualServiceId, _charPrintId!);
+        _log('Print subscription SUCCESS');
+      } else {
+        _log('WARNING - Print char not found (0xFFE5)');
+      }
+
       // Clear all buffers
       _receiveBuffer.clear();
       _receiveFsBuffer.clear();
       _receiveOtaBuffer.clear();
       _receiveSettingsBuffer.clear();
+      _receivePrintBuffer.clear();
     } catch (e) {
       _log('Connection ERROR: $e');
       _connectedDeviceId = null;
@@ -406,6 +428,7 @@ class BleService implements TransportService {
     _charFsId = null;
     _charOtaId = null;
     _charSettingsId = null;
+    _charPrintId = null;
   }
 
   void _handleDisconnect(String reason) {
@@ -419,6 +442,7 @@ class BleService implements TransportService {
     _charFsId = null;
     _charOtaId = null;
     _charSettingsId = null;
+    _charPrintId = null;
     _mtu = 23;
     onConnectionLost?.call(reason);
   }
@@ -558,6 +582,32 @@ class BleService implements TransportService {
         _log('Unexpected Settings packet on OTA buffer');
         onSettingsPacketReceived?.call(drained.settingsPacket!);
       }
+    }
+  }
+
+  void _processPrintBuffer() {
+    // Print stream (0xEE) frames are simpler — just forward the raw payload
+    // to the onSettingsPacketReceived callback (re-using it as a generic
+    // data callback). The device provider routes by the kPrintStartByte marker.
+    while (_receivePrintBuffer.length >= 3) {
+      final startByte = _receivePrintBuffer[0];
+      if (startByte != kPrintStartByte) {
+        _receivePrintBuffer.removeAt(0);
+        continue;
+      }
+      final length = _receivePrintBuffer[1] | (_receivePrintBuffer[2] << 8);
+      if (length < 3 || length > 0x100) {
+        _receivePrintBuffer.removeAt(0);
+        continue;
+      }
+      if (_receivePrintBuffer.length < length) break;
+      final frameBytes = Uint8List.fromList(_receivePrintBuffer.sublist(0, length));
+      _receivePrintBuffer.removeRange(0, length);
+      // Route to settings handler with a special subCmd marker
+      final payload = frameBytes.sublist(3); // strip start(1) + len(2)
+      onSettingsPacketReceived?.call(
+        ParsedSettingsPacket(subCmd: kPrintStartByte, payload: Uint8List.fromList(payload)),
+      );
     }
   }
 

@@ -6,6 +6,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import '../models/protocol.dart';
 import 'protocol_service.dart';
 import 'transport_service.dart';
+import 'settings_protocol_service.dart';
 import 'cloud_identity.dart';
 
 /// Auth state for challenge-response with the relay.
@@ -38,6 +39,7 @@ class WebSocketService implements TransportService {
   final List<int> _fsBuffer = [];
   final List<int> _otaBuffer = [];
   final List<int> _settingsBuffer = [];
+  final List<int> _printBuffer = [];
 
   final _logController = StreamController<String>.broadcast();
   @override
@@ -227,6 +229,10 @@ class WebSocketService implements TransportService {
         _settingsBuffer.addAll(frameData);
         _processSettingsBuffer();
         break;
+      case kPrintStartByte:
+        _printBuffer.addAll(frameData);
+        _processPrintBuffer();
+        break;
       default:
         _log('Unknown protocol type byte: 0x${typeByte.toRadixString(16)}', level: 'warn');
     }
@@ -386,6 +392,28 @@ class WebSocketService implements TransportService {
     }
   }
 
+  void _processPrintBuffer() {
+    // 0xEE print frames: [START(1)][LEN_LO(1)][LEN_HI(1)][PAYLOAD...]
+    // Forward the raw payload via the settings callback with kPrintStartByte marker
+    while (_printBuffer.length >= 3) {
+      if (_printBuffer[0] != kPrintStartByte) {
+        _printBuffer.removeAt(0);
+        continue;
+      }
+      final length = _printBuffer[1] | (_printBuffer[2] << 8);
+      if (length < 3 || length > 0x100) {
+        _printBuffer.removeAt(0);
+        continue;
+      }
+      if (_printBuffer.length < length) break;
+      final payload = Uint8List.fromList(_printBuffer.sublist(3, length));
+      _printBuffer.removeRange(0, length);
+      onSettingsPacketReceived?.call(
+        ParsedSettingsPacket(subCmd: kPrintStartByte, payload: payload),
+      );
+    }
+  }
+
   void _processSettingsBuffer() {
     while (true) {
       final drained = ProtocolService.drainBuffer(_settingsBuffer);
@@ -419,6 +447,8 @@ class WebSocketService implements TransportService {
         framed[0] = kOtaStartByte;
       } else if (data[0] == kSettingsStartByte) {
         framed[0] = kSettingsStartByte;
+      } else if (data[0] == kPrintStartByte) {
+        framed[0] = kPrintStartByte;
       } else {
         framed[0] = kStartByte;
       }
@@ -454,6 +484,7 @@ class WebSocketService implements TransportService {
     _fsBuffer.clear();
     _otaBuffer.clear();
     _settingsBuffer.clear();
+    _printBuffer.clear();
   }
 
   void _handleDisconnect(String reason) {
@@ -464,6 +495,7 @@ class WebSocketService implements TransportService {
     _fsBuffer.clear();
     _otaBuffer.clear();
     _settingsBuffer.clear();
+    _printBuffer.clear();
     onConnectionLost?.call(reason);
   }
 

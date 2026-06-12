@@ -6,7 +6,9 @@
 #include "RadioKitLib.h"
 #include "connection/RadioKitFsHandlers.h"
 #include "connection/RadioKitOTA.h"
+#include "connection/RadioKitPrint.h"
 #include <string.h>
+#include <stdarg.h>
 
 // ── OTA support (ESP32 Update.h + esp_ota_ops) ──────────────────────────────
 #if defined(ESP32)
@@ -22,7 +24,7 @@
 #define RK_DEBUG_VERBOSE 0
 
 #if RK_DEBUG_VERBOSE
-#define RK_DEBUG_PRINT(fmt, ...) Serial.printf(fmt, ##__VA_ARGS__)
+#define RK_DEBUG_PRINT(fmt, ...) do { RadioKit.printf(fmt, ##__VA_ARGS__); Serial.printf(fmt, ##__VA_ARGS__); } while(0)
 #else
 #define RK_DEBUG_PRINT(fmt, ...)
 #endif
@@ -48,6 +50,9 @@ RadioKitClass::RadioKitClass()
     , _cloudActive(false)
     , _deviceAuthenticated(false)
     , _userAuthenticated(false)
+    , _printHead(0)
+    , _printTail(0)
+    , _printLineStart(0)
 {
     memset(_widgets, 0, sizeof(_widgets));
     memset(_txBuf,   0, sizeof(_txBuf));
@@ -62,6 +67,7 @@ RadioKitClass::RadioKitClass()
     memset(_nvsCloudAccount, 0, sizeof(_nvsCloudAccount));
     memset(_nvsDeviceIcon, 0, sizeof(_nvsDeviceIcon));
     memset(_nvsDeviceUid, 0, sizeof(_nvsDeviceUid));
+    memset(_printBuf, 0, sizeof(_printBuf));
     s_instance = this;
 }
 
@@ -93,15 +99,18 @@ void RadioKitClass::begin() {
         uint8_t pendingErase = 0;
         if (RKNvs::readU8(RK_NVS_KEY_PENDING_ERASE, &pendingErase) &&
             pendingErase != RK_PENDING_ERASE_NONE) {
+            RadioKit.printf("BOOT: Pending erase flag=%d — performing erase...\n", pendingErase);
             Serial.printf("BOOT: Pending erase flag=%d — performing erase...\n", pendingErase);
 
             if (pendingErase == RK_PENDING_ERASE_BOTH || pendingErase == RK_PENDING_ERASE_NVS) {
+                RadioKit.print("BOOT: Erasing NVS config...\n");
                 Serial.println("BOOT: Erasing NVS config...");
                 RKNvs::eraseAll();
                 RKNvs::commit();
             }
 
             if (pendingErase == RK_PENDING_ERASE_BOTH || pendingErase == RK_PENDING_ERASE_FS) {
+                RadioKit.print("BOOT: Formatting LittleFS...\n");
                 Serial.println("BOOT: Formatting LittleFS...");
                 RKFs::format();
             }
@@ -110,6 +119,7 @@ void RadioKitClass::begin() {
             RKNvs::eraseKey(RK_NVS_KEY_PENDING_ERASE);
             RKNvs::commit();
 
+            RadioKit.print("BOOT: Erase complete — rebooting...\n");
             Serial.println("BOOT: Erase complete — rebooting...");
             delay(100);
             esp_restart();
@@ -129,6 +139,10 @@ void RadioKitClass::begin() {
             RKNvs::writeString(RK_NVS_KEY_CLOUD_URL, config.cloud_url ? config.cloud_url : "");
             RKNvs::writeString(RK_NVS_KEY_CLOUD_ACCOUNT, config.cloud_account ? config.cloud_account : "");
             RKNvs::writeString(RK_NVS_KEY_DEVICE_ICON, config.device_icon ? config.device_icon : "");
+            // Transport enable defaults: BLE on, WiFi on, Cloud off
+            RKNvs::writeU8("rk_ble_on", 1);
+            RKNvs::writeU8("rk_wifi_on", 1);
+            RKNvs::writeU8("rk_cloud_on", 0);
             RKNvs::commit();
         }
 
@@ -188,6 +202,7 @@ void RadioKitClass::startBLE(const char* deviceName) {
         uint8_t bleOn = 1;
         RKNvs::readU8("rk_ble_on", &bleOn);
         if (bleOn == 0) {
+            RadioKit.print("BLE: Disabled by NVS config (rk_ble_on=0)\n");
             Serial.println("BLE: Disabled by NVS config (rk_ble_on=0)");
             return;
         }
@@ -213,6 +228,8 @@ void RadioKitClass::startBLE(const char* deviceName) {
     _transport->setOtaCallback(RadioKitClass::_onOtaPacket);
     rk_settingsSetCallback(RadioKitClass::_onSettingsPacket);
     _transport->setSettingsCallback(RadioKitClass::_onSettingsPacket);
+    // Print stream callback — 0xEE frames over BLE are sent via _charPrint notify
+    // No incoming 0xEE handler needed (unidirectional)
 }
 
 void RadioKitClass::startSerial(Stream& stream) {
@@ -223,14 +240,18 @@ void RadioKitClass::startSerial(Stream& stream) {
     RadioKitSerialInstance.setOtaCallback(RadioKitClass::_onOtaPacket);
     rk_settingsSetCallback(RadioKitClass::_onSettingsPacket);
     RadioKitSerialInstance.setSettingsCallback(RadioKitClass::_onSettingsPacket);
+    // Print stream callback — catch incoming 0xEE frames on Serial
+    // (mainly for diagnostic/debug use; print stream is normally device→app)
+    RadioKitSerialInstance.setPrintCallback(RadioKitClass::_onPrintPacket);
 }
 
 void RadioKitClass::startWiFi() {
     // Check NVS enable flag
     if (_nvsActive) {
-        uint8_t wifiOn = 0;
+        uint8_t wifiOn = 1;  // default: enabled
         RKNvs::readU8("rk_wifi_on", &wifiOn);
         if (wifiOn == 0) {
+            RadioKit.print("WiFi: Disabled by NVS config (rk_wifi_on=0)\n");
             Serial.println("WiFi: Disabled by NVS config (rk_wifi_on=0)");
             return;
         }
@@ -250,17 +271,21 @@ void RadioKitClass::startWiFi() {
     RadioKitWiFiInstance.setOtaCallback(RadioKitClass::_onOtaPacket);
     rk_settingsSetCallback(RadioKitClass::_onSettingsPacket);
     RadioKitWiFiInstance.setSettingsCallback(RadioKitClass::_onSettingsPacket);
+    // Print stream callback — catch incoming 0xEE frames on WiFi
+    RadioKitWiFiInstance.setPrintCallback(RadioKitClass::_onPrintPacket);
 
     _wifiActive = true;
-    Serial.println("WiFi: Transport started");
+    RadioKit.print("WiFi: Transport started\n");
 #else
+    RadioKit.print("WiFi: Transport not available on this platform\n");
     Serial.println("WiFi: Transport not available on this platform");
 #endif
 }
 
 void RadioKitClass::startCloud() {
     if (!_wifiActive) {
-        Serial.println("Cloud: startWiFi() must be called before startCloud() — ignoring");
+        RadioKit.print("Cloud: startWiFi() must be called before startCloud() — ignoring\n");
+    Serial.println("Cloud: startWiFi() must be called before startCloud() — ignoring");
         return;
     }
 
@@ -269,6 +294,7 @@ void RadioKitClass::startCloud() {
         uint8_t cloudOn = 0;
         RKNvs::readU8("rk_cloud_on", &cloudOn);
         if (cloudOn == 0) {
+            RadioKit.print("Cloud: Disabled by NVS config (rk_cloud_on=0)\n");
             Serial.println("Cloud: Disabled by NVS config (rk_cloud_on=0)");
             return;
         }
@@ -288,10 +314,13 @@ void RadioKitClass::startCloud() {
     RadioKitCloudInstance.setOtaCallback(RadioKitClass::_onOtaPacket);
     rk_settingsSetCallback(RadioKitClass::_onSettingsPacket);
     RadioKitCloudInstance.setSettingsCallback(RadioKitClass::_onSettingsPacket);
+    // Print stream callback — catch incoming 0xEE frames on Cloud
+    RadioKitCloudInstance.setPrintCallback(RadioKitClass::_onPrintPacket);
 
     _cloudActive = true;
-    Serial.println("Cloud: Transport started");
+    RadioKit.print("Cloud: Transport started\n");
 #else
+    RadioKit.print("Cloud: Transport not available on this platform\n");
     Serial.println("Cloud: Transport not available on this platform");
 #endif
 }
@@ -313,6 +342,9 @@ void RadioKitClass::update() {
         // All transports disconnected — reset auth
         _deviceAuthenticated = (_nvsPwd[0] == '\0');
         _userAuthenticated = _deviceAuthenticated;
+    } else if (!s_lastConnected && nowConnected) {
+        // Transport just connected — flush any buffered print messages
+        _flushPrintBuffer();
     }
     s_lastConnected = nowConnected;
 
@@ -332,6 +364,9 @@ void RadioKitClass::update() {
             }
         }
     }
+
+    // ── Flush any pending print data to all transports ───────────
+    _flushPrintBuffer();
 
     // ── Batch-fire all pending VAR_UPDATE / SET_INPUT ─────────────
     if (_pendingUpdatesMask != 0 && isConnected()) {
@@ -380,6 +415,197 @@ void RadioKitClass::update() {
     }
 }
 
+// ── Print stream circular buffer ──────────────────────────────────────
+
+/// Available space in the circular buffer (0..kPrintBufSize-1).
+uint16_t RadioKitClass::_printSpace() const {
+    uint16_t used;
+    if (_printHead >= _printTail) {
+        used = _printHead - _printTail;
+    } else {
+        used = kPrintBufSize - (_printTail - _printHead);
+    }
+    return kPrintBufSize - used - 1;  // keep one slot empty to distinguish full vs empty
+}
+
+/// Write a single byte to the circular buffer. Silently drops on overflow.
+void RadioKitClass::_printByte(uint8_t b) {
+    if (_printSpace() == 0) {
+        // Buffer full — advance tail (oldest byte discarded)
+        _printTail = (_printTail + 1) % kPrintBufSize;
+    }
+    _printBuf[_printHead] = b;
+    _printHead = (_printHead + 1) % kPrintBufSize;
+}
+
+/// Flush buffered print data: frame any complete lines or all data
+/// as 0xEE packets and send via _sendToAllTransports().
+void RadioKitClass::_flushPrintBuffer() {
+    if (_printTail == _printHead) return;  // nothing to send
+
+    // Don't consume buffer data if no transport can send it.
+    // This preserves boot-time messages until a client connects
+    // (the flush-on-connect edge trigger in update() will drain them).
+    if (!isConnected()) return;
+
+    // Use a temp buffer to build the frame payload
+    uint8_t payload[RK_PRINT_MAX_PAYLOAD];
+    uint16_t idx = 0;
+
+    while (_printTail != _printHead && idx < RK_PRINT_MAX_PAYLOAD) {
+        payload[idx++] = _printBuf[_printTail];
+        _printTail = (_printTail + 1) % kPrintBufSize;
+
+        // Flush on newline or buffer full
+        if (idx > 0 && payload[idx - 1] == '\n') {
+            uint16_t frameLen = rk_printBuildFrame(rk_printTxBuf(), payload, idx);
+            if (frameLen > 0) {
+                _sendToAllTransports(rk_printTxBuf(), frameLen);
+            }
+            idx = 0;
+        }
+    }
+
+    // Send any remaining data (incomplete line) if forced (printFlush) or buffer near-full
+    if (idx > 0) {
+        uint16_t frameLen = rk_printBuildFrame(rk_printTxBuf(), payload, idx);
+        if (frameLen > 0) {
+            _sendToAllTransports(rk_printTxBuf(), frameLen);
+        }
+    }
+}
+
+// ── Print API implementations ───────────────────────────────────────────
+
+size_t RadioKitClass::print(const char* s) {
+    if (!s) return 0;
+    size_t len = 0;
+    while (*s) {
+        _printByte((uint8_t)*s);
+        s++;
+        len++;
+    }
+    return len;
+}
+
+size_t RadioKitClass::print(const String& s) {
+    size_t len = s.length();
+    for (size_t i = 0; i < len; i++) {
+        _printByte((uint8_t)s[i]);
+    }
+    return len;
+}
+
+size_t RadioKitClass::print(int val, int base) {
+    char buf[34];
+    itoa(val, buf, base);
+    return print((const char*)buf);
+}
+
+size_t RadioKitClass::print(unsigned int val, int base) {
+    char buf[34];
+    utoa(val, buf, base);
+    return print((const char*)buf);
+}
+
+size_t RadioKitClass::print(long val, int base) {
+    char buf[34];
+    ltoa(val, buf, base);
+    return print((const char*)buf);
+}
+
+size_t RadioKitClass::print(unsigned long val, int base) {
+    char buf[34];
+    ultoa(val, buf, base);
+    return print((const char*)buf);
+}
+
+size_t RadioKitClass::print(double val, int precision) {
+    char buf[64];
+    dtostrf(val, 1, precision, buf);
+    return print((const char*)buf);
+}
+
+size_t RadioKitClass::print(char c) {
+    _printByte((uint8_t)c);
+    return 1;
+}
+
+// ── println overloads ───────────────────────────────────────────────────
+
+size_t RadioKitClass::println() {
+    _printByte('\r');
+    _printByte('\n');
+    return 2;
+}
+
+size_t RadioKitClass::println(const char* s) {
+    size_t n = print(s);
+    n += println();
+    return n;
+}
+
+size_t RadioKitClass::println(const String& s) {
+    size_t n = print(s);
+    n += println();
+    return n;
+}
+
+size_t RadioKitClass::println(int val, int base) {
+    size_t n = print(val, base);
+    n += println();
+    return n;
+}
+
+size_t RadioKitClass::println(unsigned int val, int base) {
+    size_t n = print(val, base);
+    n += println();
+    return n;
+}
+
+size_t RadioKitClass::println(long val, int base) {
+    size_t n = print(val, base);
+    n += println();
+    return n;
+}
+
+size_t RadioKitClass::println(unsigned long val, int base) {
+    size_t n = print(val, base);
+    n += println();
+    return n;
+}
+
+size_t RadioKitClass::println(double val, int precision) {
+    size_t n = print(val, precision);
+    n += println();
+    return n;
+}
+
+size_t RadioKitClass::println(char c) {
+    size_t n = print(c);
+    n += println();
+    return n;
+}
+
+// ── printf ──────────────────────────────────────────────────────────────
+
+size_t RadioKitClass::printf(const char* format, ...) {
+    char buf[RK_PRINT_BUF_SIZE];
+    va_list args;
+    va_start(args, format);
+    size_t len = vsnprintf(buf, sizeof(buf), format, args);
+    va_end(args);
+    if (len > sizeof(buf) - 1) len = sizeof(buf) - 1;
+    buf[len] = '\0';
+    return print((const char*)buf);
+}
+
+// ── printFlush ──────────────────────────────────────────────────────────
+
+void RadioKitClass::printFlush() {
+    _flushPrintBuffer();
+}
+
 bool RadioKitClass::isConnected() const {
     if (_transport && _transport->isConnected()) return true;
     if (_wifiActive && RadioKitWiFiInstance.isConnected()) return true;
@@ -400,6 +626,7 @@ void RadioKitClass::_onPacket(uint8_t cmd,
     bool isDeviceAuthed = s_instance->_deviceAuthenticated || s_instance->_nvsPwd[0] == '\0';
     bool isUserAuthed = isDeviceAuthed || s_instance->_userAuthenticated || s_instance->_nvsUserPwd[0] == '\0';
     if (!isUserAuthed && cmd != RK_CMD_GET_CONF) {
+        RadioKit.printf("RK: Rejected CMD 0x%02X — not authenticated\n", cmd);
         Serial.printf("RK: Rejected CMD 0x%02X — not authenticated\n", cmd);
         uint8_t err = RK_SETTINGS_PWD_DENIED;
         uint16_t len = rk_buildPacket(s_instance->_txBuf, RK_CMD_ACK, &err, 1);
@@ -418,6 +645,7 @@ void RadioKitClass::_onPacket(uint8_t cmd,
         case RK_CMD_META_UPDATE:s_instance->_handleMetaUpdate(payload, payloadLen); break;
         case RK_CMD_GET_WIFI_INFO: s_instance->_handleGetWifiInfo();                          break;
         default: 
+            RadioKit.printf("RK: Unknown CMD %s (0x%02X)\n", rk_cmdName(cmd), cmd);
             Serial.printf("RK: Unknown CMD %s (0x%02X)\n", rk_cmdName(cmd), cmd);
             break;
     }
@@ -440,6 +668,7 @@ void RadioKitClass::_onSettingsPacket(uint8_t subCmd,
         if (subCmd != RK_SETTINGS_CMD_PWD_AUTH &&
             subCmd != RK_SETTINGS_CMD_GET_FEATURES &&
             subCmd != RK_SETTINGS_CMD_GET_DEVICE_INFO) {
+            RadioKit.printf("RK: Rejected SETTINGS 0x%02X — not authenticated\n", subCmd);
             Serial.printf("RK: Rejected SETTINGS 0x%02X — not authenticated\n", subCmd);
             uint8_t status = RK_SETTINGS_PWD_DENIED;
             uint8_t respSub = subCmd | 0x80;
@@ -452,6 +681,7 @@ void RadioKitClass::_onSettingsPacket(uint8_t subCmd,
         if (subCmd == RK_SETTINGS_CMD_SET_CONF || subCmd == RK_SETTINGS_CMD_FACTORY_RESET ||
             subCmd == RK_SETTINGS_CMD_NVS_RAW_WRITE || subCmd == RK_SETTINGS_CMD_SET_WIFI ||
             subCmd == RK_SETTINGS_CMD_REBOOT) {
+            RadioKit.printf("RK: Rejected SETTINGS 0x%02X — device password required\n", subCmd);
             Serial.printf("RK: Rejected SETTINGS 0x%02X — device password required\n", subCmd);
             uint8_t status = RK_SETTINGS_PWD_DENIED;
             uint8_t respSub = subCmd | 0x80;
@@ -478,8 +708,25 @@ void RadioKitClass::_onSettingsPacket(uint8_t subCmd,
         case RK_SETTINGS_CMD_GET_CLOUD_INFO: s_instance->_handleSettingsGetCloudInfo();                        break;
         case RK_SETTINGS_CMD_REBOOT:         s_instance->_handleSettingsReboot();                                break;
         default:
+            RadioKit.printf("RK: Unknown SETTINGS sub-command 0x%02X\n", subCmd);
             Serial.printf("RK: Unknown SETTINGS sub-command 0x%02X\n", subCmd);
             break;
+    }
+}
+
+// ── Print stream callback (0xEE) ──────────────────────────────────────
+
+void RadioKitClass::_onPrintPacket(const uint8_t* payload,
+                                   uint16_t payloadLen)
+{
+    // Incoming 0xEE frames from transports (e.g., Serial loopback, diagnostic
+    // tools sending print frames). Logged to the hardware serial for debugging.
+    // The main print flow is device→app via _flushPrintBuffer(), which is
+    // unidirectional. This handler exists for completeness.
+    if (payload && payloadLen > 0) {
+        // Write directly to Serial (the hardware serial, not the print buffer)
+        // to avoid feedback loop (print buffer → 0xEE → transport → ...)
+        Serial.write(payload, payloadLen);
     }
 }
 
@@ -566,6 +813,7 @@ void RadioKitClass::_handleSettingsGetFeatures() {
 #if defined(ESP32)
     bitmask |= RK_SETTINGS_FEATURE_BLE;   // BLE transport compiled-in on ESP32
 #endif
+    bitmask |= RK_SETTINGS_FEATURE_PRINT_STREAM;  // 0xEE print stream always enabled
     uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
         RK_SETTINGS_RESP_FEATURES_DATA, &bitmask, 1);
     _sendSettingsFrame(frameLen);
@@ -641,6 +889,9 @@ void RadioKitClass::_handleSettingsGetChipInfo() {
 
 void RadioKitClass::_handleSettingsDeviceInfo() {
     if (!_transport) return;
+    RadioKit.printf("DEVICE_INFO: Sending name='%s' uid='%s'\n",
+        _nvsActive && _nvsName[0] ? _nvsName : (config.name ? config.name : ""),
+        _nvsDeviceUid);
     Serial.printf("DEVICE_INFO: Sending name='%s' uid='%s'\n",
         _nvsActive && _nvsName[0] ? _nvsName : (config.name ? config.name : ""),
         _nvsDeviceUid);
@@ -1014,7 +1265,8 @@ void RadioKitClass::_onOtaPacket(uint8_t subCmd,
         case RK_OTA_CMD_ABORT:          s_instance->_handleOtaAbort();                    break;
         case RK_OTA_CMD_SET_ERASE_FLAG: s_instance->_handleOtaSetEraseFlag(payload, payloadLen); break;
         default:
-            Serial.printf("RK: Unknown OTA sub-command 0x%02X\n", subCmd);
+            RadioKit.printf("RK: Unknown OTA sub-command 0x%02X\n", subCmd);
+        Serial.printf("RK: Unknown OTA sub-command 0x%02X\n", subCmd);
             break;
     }
 }
@@ -1055,6 +1307,7 @@ void RadioKitClass::_handleOtaBegin(const uint8_t* payload, uint16_t len) {
         uint8_t err = RK_OTA_ERR_NO_SPACE;
         uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
         _sendOtaFrame(rk_otaTxBuf(), frameLen);
+        RadioKit.printf("OTA: Update.begin failed (no space?)\n");
         Serial.printf("OTA: Update.begin failed (no space?)\n");
         return;
     }
@@ -1096,6 +1349,8 @@ void RadioKitClass::_handleOtaChunk(const uint8_t* payload, uint16_t len) {
     // ESP32's Update class only increments progress when a full flash sector
     // (4096 bytes) is flushed, not on every Update.write() call.
     if (chunkOffset != s_otaBytesWritten) {
+        RadioKit.printf("OTA: Offset mismatch — got %u, expected %u\n",
+            chunkOffset, s_otaBytesWritten);
         Serial.printf("OTA: Offset mismatch — got %u, expected %u\n",
             chunkOffset, s_otaBytesWritten);
         uint8_t err = RK_OTA_ERR_SEQ;
@@ -1106,6 +1361,7 @@ void RadioKitClass::_handleOtaChunk(const uint8_t* payload, uint16_t len) {
 
     size_t written = Update.write((uint8_t*)(&payload[4]), dataLen);
     if (written != dataLen) {
+        RadioKit.printf("OTA: Write error — wrote %u of %u bytes\n", written, dataLen);
         Serial.printf("OTA: Write error — wrote %u of %u bytes\n", written, dataLen);
         uint8_t err = RK_OTA_ERR_FLASH;
         uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
@@ -1174,6 +1430,7 @@ void RadioKitClass::_handleOtaEnd(const uint8_t* payload, uint16_t len) {
 
     if (!Update.end()) {
         // Flash write error during finalisation
+        RadioKit.printf("OTA: Update.end() failed\n");
         Serial.printf("OTA: Update.end() failed\n");
         uint8_t err = RK_OTA_ERR_FLASH;
         uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
@@ -1187,6 +1444,7 @@ void RadioKitClass::_handleOtaEnd(const uint8_t* payload, uint16_t len) {
     const esp_partition_t* running = esp_ota_get_running_partition();
     const esp_partition_t* next = esp_ota_get_next_update_partition(running);
     if (!next) {
+        RadioKit.printf("OTA: No next OTA partition found\n");
         Serial.printf("OTA: No next OTA partition found\n");
         uint8_t err = RK_OTA_ERR_FLASH;
         uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
@@ -1197,6 +1455,7 @@ void RadioKitClass::_handleOtaEnd(const uint8_t* payload, uint16_t len) {
 
     esp_err_t err = esp_ota_set_boot_partition(next);
     if (err != ESP_OK) {
+        RadioKit.printf("OTA: esp_ota_set_boot_partition failed: %d\n", err);
         Serial.printf("OTA: esp_ota_set_boot_partition failed: %d\n", err);
         uint8_t errCode = RK_OTA_ERR_FLASH;
         uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &errCode, 1);
@@ -1226,8 +1485,10 @@ void RadioKitClass::_handleOtaAbort() {
     RK_DEBUG_PRINT("OTA: Abort requested\n");
     Update.abort();
     s_otaBytesWritten = 0;
+    RadioKit.print("OTA: Aborted — partition released, ready for new OTA\n");
     Serial.println("OTA: Aborted — partition released, ready for new OTA");
 #else
+    RadioKit.print("OTA: Abort ignored — OTA not supported\n");
     Serial.println("OTA: Abort ignored — OTA not supported");
 #endif
 }
@@ -1257,8 +1518,10 @@ void RadioKitClass::_handleOtaSetEraseFlag(const uint8_t* payload, uint16_t len)
     ok = RKNvs::commit() && ok;
 
     if (ok) {
+        RadioKit.printf("OTA: Erase flag=%d written to NVS\n", eraseMode);
         Serial.printf("OTA: Erase flag=%d written to NVS\n", eraseMode);
     } else {
+        RadioKit.printf("OTA: Erase flag=%d NVS write FAILED\n", eraseMode);
         Serial.printf("OTA: Erase flag=%d NVS write FAILED\n", eraseMode);
     }
 
@@ -1308,6 +1571,7 @@ void RadioKitClass::_handleSettingsNvsRawRead(const uint8_t* payload, uint16_t l
         uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
             RK_SETTINGS_RESP_NVS_RAW_READ_DATA, resp, 3);
         _sendSettingsFrame(frameLen);
+        RadioKit.printf("NVS: Raw read (u8) key='%s' = %u\n", key, value);
         Serial.printf("NVS: Raw read (u8) key='%s' = %u\n", key, value);
     } else {
         // Try string read as fallback (e.g., rk_device_uid)
@@ -1324,12 +1588,14 @@ void RadioKitClass::_handleSettingsNvsRawRead(const uint8_t* payload, uint16_t l
             uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
                 RK_SETTINGS_RESP_NVS_RAW_READ_DATA, resp, 2 + strLen);
             _sendSettingsFrame(frameLen);
+            RadioKit.printf("NVS: Raw read (str) key='%s' = '%s'\n", key, strVal);
             Serial.printf("NVS: Raw read (str) key='%s' = '%s'\n", key, strVal);
         } else {
             uint8_t resp[2] = {RK_SETTINGS_NVS_RAW_ERROR, 0};
             uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
                 RK_SETTINGS_RESP_NVS_RAW_READ_DATA, resp, 2);
             _sendSettingsFrame(frameLen);
+            RadioKit.printf("NVS: Raw read key='%s' not found\n", key);
             Serial.printf("NVS: Raw read key='%s' not found\n", key);
         }
     }
@@ -1370,8 +1636,10 @@ void RadioKitClass::_handleSettingsNvsRawWrite(const uint8_t* payload, uint16_t 
     _sendSettingsFrame(frameLen);
 
     if (ok) {
+        RadioKit.printf("NVS: Raw write key='%s' = %u\n", key, value);
         Serial.printf("NVS: Raw write key='%s' = %u\n", key, value);
     } else {
+        RadioKit.printf("NVS: Raw write key='%s' FAILED\n", key);
         Serial.printf("NVS: Raw write key='%s' FAILED\n", key);
     }
 }
@@ -1379,6 +1647,7 @@ void RadioKitClass::_handleSettingsNvsRawWrite(const uint8_t* payload, uint16_t 
 // ── Factory Reset ───────────────────────────────────────────────────────────
 
 void RadioKitClass::_handleSettingsFactoryReset() {
+    RadioKit.print("FACTORY RESET: Erasing NVS config and rebooting...\n");
     Serial.println("FACTORY RESET: Erasing NVS config and rebooting...");
     
     // Send ACK before reboot
@@ -1407,6 +1676,7 @@ void RadioKitClass::_handleSettingsFactoryReset() {
 #if defined(ESP32)
     esp_restart();
 #else
+    RadioKit.print("FACTORY RESET: Reboot not supported on this platform\n");
     Serial.println("FACTORY RESET: Reboot not supported on this platform");
 #endif
 }
@@ -1414,6 +1684,7 @@ void RadioKitClass::_handleSettingsFactoryReset() {
 // ── Reboot (no erase) ───────────────────────────────────────────────────────
 
 void RadioKitClass::_handleSettingsReboot() {
+    RadioKit.print("REBOOT: Rebooting device (NVS preserved)...\n");
     Serial.println("REBOOT: Rebooting device (NVS preserved)...");
 
     // Send ACK before reboot
@@ -1426,6 +1697,7 @@ void RadioKitClass::_handleSettingsReboot() {
 #if defined(ESP32)
     esp_restart();
 #else
+    RadioKit.print("REBOOT: Reboot not supported on this platform\n");
     Serial.println("REBOOT: Reboot not supported on this platform");
 #endif
 }
@@ -1506,6 +1778,7 @@ void RadioKitClass::_setBleAdvertisingName(const char* name) {
         static char bleAdvName[RADIOKIT_MAX_NAME + 4];
         snprintf(bleAdvName, sizeof(bleAdvName), "RK_%s", name ? name : "RadioKit");
         RadioKitBLEInstance.updateAdvertisingName(bleAdvName);
+        RadioKit.printf("NVS: BLE advertising name updated to '%s'\n", bleAdvName);
         Serial.printf("NVS: BLE advertising name updated to '%s'\n", bleAdvName);
     }
 #else
@@ -1517,6 +1790,7 @@ void RadioKitClass::_setBleAdvertisingName(const char* name) {
 
 void RadioKitClass::setConfig(const char* name, const char* description, const char* devicePassword, const char* userPassword) {
     if (!_nvsActive) {
+        RadioKit.print("NVS: Cannot set config — NVS not available\n");
         Serial.println("NVS: Cannot set config — NVS not available");
         return;
     }
@@ -1553,6 +1827,7 @@ void RadioKitClass::setConfig(const char* name, const char* description, const c
         if (_nvsPwd[0] == '\0' && _nvsUserPwd[0] != '\0') {
             _nvsUserPwd[0] = '\0';
             RKNvs::eraseKey(RK_NVS_KEY_USER_PWD);
+            RadioKit.print("NVS: Cleared user password (device password removed)\n");
             Serial.println("NVS: Cleared user password (device password removed)");
         }
     }
@@ -1560,7 +1835,8 @@ void RadioKitClass::setConfig(const char* name, const char* description, const c
     if (userPassword && strncmp(userPassword, _nvsUserPwd, RADIOKIT_MAX_USER_PWD) != 0) {
         // Validate: user password requires device password to be set
         if (_nvsPwd[0] == '\0') {
-            Serial.println("NVS: Cannot set user password — device password not set");
+            RadioKit.print("NVS: Cannot set user password — device password not set\n");
+        Serial.println("NVS: Cannot set user password — device password not set");
         } else {
             strncpy(_nvsUserPwd, userPassword, sizeof(_nvsUserPwd) - 1);
             RKNvs::writeString(RK_NVS_KEY_USER_PWD, _nvsUserPwd);
@@ -1575,6 +1851,7 @@ void RadioKitClass::setConfig(const char* name, const char* description, const c
 
     if (changed) {
         RKNvs::commit();
+        RadioKit.print("NVS: Config updated and committed\n");
         Serial.println("NVS: Config updated and committed");
     }
 }
@@ -1592,6 +1869,8 @@ uint8_t RadioKitClass::authenticate(const char* password) {
         // Try device password for upgrade
         if (_nvsPwd[0] != '\0' && strncmp(password, _nvsPwd, RADIOKIT_MAX_PWD) == 0) {
             _deviceAuthenticated = true;
+            RadioKit.print("NVS: Auth upgrade to device level\n");
+            RadioKit.print("NVS: Auth upgrade to device level\n");
             Serial.println("NVS: Auth upgrade to device level");
             return RK_PWD_AUTH_DEVICE;
         }
@@ -1614,6 +1893,7 @@ uint8_t RadioKitClass::authenticate(const char* password) {
     if (strncmp(password, _nvsPwd, RADIOKIT_MAX_PWD) == 0) {
         _deviceAuthenticated = true;
         _userAuthenticated = true;
+        RadioKit.print("NVS: Device authentication successful — full access\n");
         Serial.println("NVS: Device authentication successful — full access");
         return RK_PWD_AUTH_DEVICE;
     }
@@ -1621,6 +1901,7 @@ uint8_t RadioKitClass::authenticate(const char* password) {
     // Try user password
     if (_nvsUserPwd[0] != '\0' && strncmp(password, _nvsUserPwd, RADIOKIT_MAX_USER_PWD) == 0) {
         _userAuthenticated = true;
+        RadioKit.print("NVS: User authentication successful — widgets only\n");
         Serial.println("NVS: User authentication successful — widgets only");
         return RK_PWD_AUTH_USER;
     }
@@ -1632,6 +1913,7 @@ uint8_t RadioKitClass::authenticate(const char* password) {
 
 void RadioKitClass::_handleSettingsSetConf(const uint8_t* payload, uint16_t len) {
     if (!_nvsActive || len < 2) {
+        RadioKit.print("NVS: SETTINGS_SET_CONF ignored — NVS not available or payload too short\n");
         Serial.println("NVS: SETTINGS_SET_CONF ignored — NVS not available or payload too short");
         uint8_t status = RK_SETTINGS_SET_CONF_ERROR;
         uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
@@ -1709,8 +1991,10 @@ void RadioKitClass::_handleSettingsSetConf(const uint8_t* payload, uint16_t len)
             if (offset + strLen <= len) {
                 // Validate: user password requires device password
                 if (_nvsPwd[0] == '\0' && strLen > 0) {
-                    Serial.println("NVS: Cannot set user password — device password not set");
-                    appliedOk = false;
+            RadioKit.print("NVS: Cannot set user password — device password not set\n");
+            RadioKit.print("NVS: Cannot set user password — device password not set\n");
+        Serial.println("NVS: Cannot set user password — device password not set");
+            appliedOk = false;
                 } else {
                     memcpy(_nvsUserPwd, &payload[offset], strLen);
                     _nvsUserPwd[strLen] = '\0';
@@ -1760,6 +2044,7 @@ void RadioKitClass::_handleSettingsSetConf(const uint8_t* payload, uint16_t len)
         _handleSettingsDeviceInfo();
     }
 
+    RadioKit.printf("NVS: SETTINGS_SET_CONF applied mask=0x%04X\n", fieldMask);
     Serial.printf("NVS: SETTINGS_SET_CONF applied mask=0x%04X\n", fieldMask);
 }
 
@@ -1814,6 +2099,7 @@ void RadioKitClass::_handleSettingsSetWifi(const uint8_t* payload, uint16_t len)
         RK_SETTINGS_RESP_SET_WIFI_ACK, &status, 1);
     _sendSettingsFrame(frameLen);
 
+    RadioKit.printf("NVS: SETTINGS_SET_WIFI applied mask=0x%04X — rebooting...\n", fieldMask);
     Serial.printf("NVS: SETTINGS_SET_WIFI applied mask=0x%04X — rebooting...\n", fieldMask);
 
     // Auto-reboot to apply new credentials
@@ -1861,6 +2147,7 @@ void RadioKitClass::_handleSettingsPwdAuth(const uint8_t* payload, uint16_t len)
     if (_userAuthenticated) {
         if (_nvsPwd[0] != '\0' && strncmp(enteredPwd, _nvsPwd, pwdLen) == 0) {
             _deviceAuthenticated = true;
+            RadioKit.print("NVS: Auth upgrade to device level\n");
             Serial.println("NVS: Auth upgrade to device level");
             uint8_t status = RK_SETTINGS_PWD_DEVICE;
             uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
@@ -1875,6 +2162,7 @@ void RadioKitClass::_handleSettingsPwdAuth(const uint8_t* payload, uint16_t len)
         } else if (_nvsPwd[0] != '\0' && strncmp(enteredPwd, _nvsPwd, pwdLen) == 0 && pwdLen == strnlen(_nvsPwd, RADIOKIT_MAX_PWD)) {
             // Full match on device password — upgrade
             _deviceAuthenticated = true;
+            RadioKit.print("NVS: Auth upgrade to device level\n");
             Serial.println("NVS: Auth upgrade to device level");
             uint8_t status = RK_SETTINGS_PWD_DEVICE;
             uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
@@ -1906,6 +2194,7 @@ void RadioKitClass::_handleSettingsPwdAuth(const uint8_t* payload, uint16_t len)
         pwdLen == strnlen(_nvsPwd, RADIOKIT_MAX_PWD)) {
         _deviceAuthenticated = true;
         _userAuthenticated = true;
+        RadioKit.print("NVS: Device authentication successful — full access\n");
         Serial.println("NVS: Device authentication successful — full access");
         uint8_t status = RK_SETTINGS_PWD_DEVICE;
         uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
@@ -1919,6 +2208,7 @@ void RadioKitClass::_handleSettingsPwdAuth(const uint8_t* payload, uint16_t len)
         strncmp(enteredPwd, _nvsUserPwd, pwdLen) == 0 &&
         pwdLen == strnlen(_nvsUserPwd, RADIOKIT_MAX_USER_PWD)) {
         _userAuthenticated = true;
+        RadioKit.print("NVS: User authentication successful — widgets only\n");
         Serial.println("NVS: User authentication successful — widgets only");
         uint8_t status = RK_SETTINGS_PWD_USER;
         uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
@@ -1931,5 +2221,6 @@ void RadioKitClass::_handleSettingsPwdAuth(const uint8_t* payload, uint16_t len)
     uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
         RK_SETTINGS_RESP_PWD_AUTH_ACK, &status, 1);
     _sendSettingsFrame(frameLen);
+    RadioKit.print("NVS: Authentication failed — password mismatch\n");
     Serial.println("NVS: Authentication failed — password mismatch");
 }

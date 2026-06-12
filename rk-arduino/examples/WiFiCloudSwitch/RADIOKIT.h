@@ -95,12 +95,12 @@ static inline void initRadioKit() {
   // This ensures user-level auth is also required.
   RadioKit.setConfig(nullptr, nullptr, nullptr, "user_pass");
 
-  // Enable WiFi and Cloud transports in NVS (defaults after erase are 0)
-  RKNvs::writeU8("rk_wifi_on", 1);
+  // ── Start ALL transports ──────────────────────────────
+  // Transport NVS defaults are set by RadioKit.begin() on first boot:
+  // BLE=1, WiFi=1, Cloud=0. Cloud must be explicitly enabled here.
   RKNvs::writeU8("rk_cloud_on", 1);
   RKNvs::commit();
 
-  // ── Start ALL transports ──────────────────────────────
   RadioKit.startBLE(RadioKit.config.name);
   RadioKit.startWiFi();
   RadioKit.startCloud();  // Cloud relay requires WiFi + relay server running

@@ -262,6 +262,9 @@ class DeviceProvider extends ChangeNotifier {
   /// Whether the device supports cloud relay.
   bool get hasCloud => (_deviceFeatures & kFeatureCloud) != 0;
 
+  /// Whether the device supports the 0xEE print stream.
+  bool get hasPrintStream => (_deviceFeatures & kSettingsFeaturePrintStream) != 0;
+
   /// Current auth level.
   AuthLevel get authLevel => _authLevel;
 
@@ -1327,6 +1330,9 @@ class DeviceProvider extends ChangeNotifier {
       case kSettingsRespRebootAck:
         _log('Reboot ACK received — device rebooting', level: ConsoleLogLevel.success);
         break;
+      case kPrintStartByte:
+        _handlePrintData(packet.payload);
+        return;
       case kSettingsRespNvsRawReadData:
         _handleSettingsNvsRawReadData(packet.payload);
         break;
@@ -1586,30 +1592,36 @@ class DeviceProvider extends ChangeNotifier {
     // Preserve bleAddress across the ID transition
     if (_connectedDevice != null && parsed.uid.isNotEmpty) {
       final oldId = _connectedDevice!.id;
-      _connectedDevice = _connectedDevice!.copyWith(
-        // Use copyWith to avoid losing bleAddress; null fields are retained
-        bleAddress: _connectedDevice!.bleAddress,
-      );
-      _connectedDevice!.id = parsed.uid;
 
-      // Save to history with the real UID
-      // If there was a previous entry with the transport address, remove it
-      if (historyProvider != null) {
-        historyProvider!.removeDevice(oldId);
-        historyProvider!.saveDevice(
-          _connectedDevice!,
-          _transportTypeToString(_connectedDevice!.currentTransport),
-          configName: _configName,
-          description: _description,
+      // Skip if UID hasn't changed — prevents duplicate history saves
+      // when _requestDeviceInfo() is called multiple times
+      if (oldId == parsed.uid) {
+        _log('UID unchanged: ${parsed.uid} (skipping history update)',
+            level: ConsoleLogLevel.info);
+      } else {
+        _connectedDevice = _connectedDevice!.copyWith(
+          // Use copyWith to avoid losing bleAddress; null fields are retained
+          bleAddress: _connectedDevice!.bleAddress,
         );
-      }
+        _connectedDevice!.id = parsed.uid;
 
-      // Migrate saved password from old transport-address key to UID key
-      if (oldId != parsed.uid) {
+        // Save to history with the real UID
+        // If there was a previous entry with the transport address, remove it
+        if (historyProvider != null) {
+          historyProvider!.removeDevice(oldId);
+          historyProvider!.saveDevice(
+            _connectedDevice!,
+            _transportTypeToString(_connectedDevice!.currentTransport),
+            configName: _configName,
+            description: _description,
+          );
+        }
+
+        // Migrate saved password from old transport-address key to UID key
         unawaited(_migratePassword(oldId, parsed.uid));
-      }
 
-      _log('UID set: ${parsed.uid} (was: $oldId)', level: ConsoleLogLevel.success);
+        _log('UID set: ${parsed.uid} (was: $oldId)', level: ConsoleLogLevel.success);
+      }
     }
 
     notifyListeners();
@@ -1866,6 +1878,13 @@ class DeviceProvider extends ChangeNotifier {
     }
 
     _writePacket(ProtocolService.buildAck(seq)).catchError((_) {});
+  }
+
+  /// Handle incoming 0xEE print data — log to console with PRINT level.
+  void _handlePrintData(Uint8List payload) {
+    if (payload.isEmpty) return;
+    final text = utf8Decode(payload.toList());
+    _log(text, level: ConsoleLogLevel.print);
   }
 
   /// Cached cloud info from the device.

@@ -38,6 +38,11 @@ typedef void (*RK_SettingsPacketCallback)(uint8_t subCmd,
                                           const uint8_t* payload,
                                           uint16_t payloadLen);
 
+/// Callback signature: called by the transport when a complete
+/// Print-stream (0xEE) frame has been received.
+typedef void (*RK_PrintPacketCallback)(const uint8_t* payload,
+                                       uint16_t payloadLen);
+
 class RadioKitTransport {
 public:
     virtual ~RadioKitTransport() {}
@@ -58,6 +63,9 @@ public:
 
     /** Register the Settings callback. Optional — only needed for settings support. */
     virtual void setSettingsCallback(RK_SettingsPacketCallback cb) { (void)cb; }
+
+    /** Register the Print callback. Optional — only needed for print stream support. */
+    virtual void setPrintCallback(RK_PrintPacketCallback cb) { (void)cb; }
 
     /** Poll for incoming data / handle async events. Call every loop(). */
     virtual void update() = 0;

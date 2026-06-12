@@ -26,6 +26,7 @@ class NimBLECharacteristic;
 #define RK_BLE_CHAR_FS_UUID        "0000FFE2-0000-1000-8000-00805F9B34FB"
 #define RK_BLE_CHAR_OTA_UUID       "0000FFE3-0000-1000-8000-00805F9B34FB"
 #define RK_BLE_CHAR_SETTINGS_UUID  "0000FFE4-0000-1000-8000-00805F9B34FB"
+#define RK_BLE_CHAR_PRINT_UUID     "0000FFE5-0000-1000-8000-00805F9B34FB"
 
 // Default MTU (negotiated value is cached after connection)
 #define RK_BLE_MTU 20
@@ -44,6 +45,7 @@ public:
     void setFsCallback(RK_FsPacketCallback cb) override;
     void setOtaCallback(RK_OtaPacketCallback cb) override;
     void setSettingsCallback(RK_SettingsPacketCallback cb) override;
+    void setPrintCallback(RK_PrintPacketCallback cb) override;
     void update()                                            override;
     void sendPacket(const uint8_t* buf, uint16_t len)       override;
     bool isConnected() const                                override { return _connected; }
@@ -72,10 +74,12 @@ private:
     NimBLECharacteristic* _charFs;        // 0xFFE2 — filesystem protocol (0xAA)
     NimBLECharacteristic* _charOta;       // 0xFFE3 — OTA protocol (0xBB)
     NimBLECharacteristic* _charSettings;  // 0xFFE4 — settings protocol (0xDD)
+    NimBLECharacteristic* _charPrint;     // 0xFFE5 — print stream (0xEE, notify only)
     RK_PacketCallback     _packetCallback;
     RK_FsPacketCallback   _fsPacketCallback;
     RK_OtaPacketCallback  _otaPacketCallback;
     RK_SettingsPacketCallback _settingsPacketCallback;
+    RK_PrintPacketCallback _printPacketCallback;
     volatile bool _connected;
     volatile bool         _sending;          // Re-entrancy guard for sendPacket (cross-task)
     bool                  _needRestartAdv;
