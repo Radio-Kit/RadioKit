@@ -1558,6 +1558,13 @@ class DeviceProvider extends ChangeNotifier {
     _configName = parsed.name.isNotEmpty ? parsed.name : _configName;
     _description = parsed.description.isNotEmpty ? parsed.description : _description;
 
+    // Update DeviceInfo name to match the device's configured name,
+    // not the transport address (e.g. "WiFi_Cloud_Switch", not "10.0.0.5").
+    if (_configName != null && _configName!.isNotEmpty &&
+        _connectedDevice != null && _connectedDevice!.name != _configName) {
+      _connectedDevice = _connectedDevice!.copyWith(name: _configName!);
+    }
+
     // Update _connectedDevice with parsed icon (on first connection, or refresh)
     if (_connectedDevice != null && parsed.icon != null) {
       _connectedDevice = _connectedDevice!.copyWith(deviceIcon: parsed.icon);

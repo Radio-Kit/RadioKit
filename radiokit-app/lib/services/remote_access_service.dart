@@ -659,10 +659,43 @@ class RemoteAccessService {
     final last = devices.first;
     DeviceInfo info = last.toDeviceInfo();
 
-    if (last.type == 'ble') {
-      _deviceProvider.setTransport(_bleProvider.bleService);
-    } else {
-      _deviceProvider.setTransport(_serialProvider.serialService);
+    // Set the correct transport based on DeviceInfo.currentTransport.
+    // This properly handles reconnection via WiFi even when the model
+    // was originally created via BLE (the type field is always 'ble').
+    switch (info.currentTransport) {
+      case TransportType.ble:
+        _deviceProvider.setTransport(_bleProvider.bleService);
+        break;
+      case TransportType.wifi:
+        _deviceProvider.setTransport(WebSocketService());
+        break;
+      case TransportType.cloud:
+        // Try to reuse existing cloud WebSocket if still connected
+        if (_cloudWs != null && _cloudWs!.isConnected &&
+            _cloudWs!.account != null && _cloudWs!.identity != null) {
+          _deviceProvider.setTransport(_cloudWs!);
+        } else {
+          // Load Ed25519 identity from secure storage for relay auth
+          final identity = CloudIdentityService();
+          await identity.initialize();
+          if (!identity.hasIdentity || identity.account == null) {
+            return _error('no_identity',
+                'No cloud identity found. Connect to cloud relay first.',
+                status: 400);
+          }
+          final ws = WebSocketService()
+            ..account = identity.account
+            ..identity = identity;
+          _cloudWs = ws;
+          _deviceProvider.setTransport(ws);
+        }
+        break;
+      case TransportType.serial:
+        _deviceProvider.setTransport(_serialProvider.serialService);
+        break;
+      case TransportType.demo:
+        return _error('demo_only', 'Cannot reconnect to demo devices',
+            status: 400);
     }
 
     try {
@@ -1558,13 +1591,15 @@ class RemoteAccessService {
       final joinCompleter = Completer<bool>();
       _cloudWs!.onCloudJoined = (joinedDevice) {
         if (!joinCompleter.isCompleted) joinCompleter.complete(true);
-      };        await _deviceProvider.connectToDevice(
+      };
+
+      await _deviceProvider.connectToDevice(
           DeviceInfo(
             id: url,
             name: deviceName,
             rssi: 0,
             hasFs: false,
-            currentTransport: TransportType.wifi,
+            currentTransport: TransportType.cloud,
             transportAddress: url,
           ),
         );
@@ -1574,20 +1609,27 @@ class RemoteAccessService {
           .timeout(const Duration(seconds: 5))
           .catchError((_) => false);
 
-      // Save to history so device appears in models list
+      // Save to history so device appears in models list.
+      // Only save if no model with matching configName already exists
+      // (UID may have already been received by _handleSettingsDeviceInfoData
+      // during connectToDevice, which saves the model with correct UID).
       if (joined) {
-        await _historyProvider.saveDevice(
-          DeviceInfo(
-            id: url,
-            name: deviceName,
-            rssi: 0,
-            hasFs: false,
-            currentTransport: TransportType.wifi,
-            transportAddress: url,
-          ),
-          'wifi',
-          configName: deviceName,
-        );
+        final alreadySaved = _historyProvider.pairedDevices
+            .any((d) => d.configName == deviceName);
+        if (!alreadySaved) {
+          await _historyProvider.saveDevice(
+            DeviceInfo(
+              id: url,
+              name: deviceName,
+              rssi: 0,
+              hasFs: false,
+              currentTransport: TransportType.cloud,
+              transportAddress: url,
+            ),
+            'cloud',
+            configName: deviceName,
+          );
+        }
       }
 
       return _json({

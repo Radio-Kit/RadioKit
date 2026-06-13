@@ -1,0 +1,488 @@
+# RadioKit Arduino Library Reference
+
+> For AI agents working with RadioKit on ESP32 projects.
+> This document reflects the **rk fields** API (v2.0). All widget state is accessed through the `rk` struct. There are no `.get()`, `.set()`, `.clicked()`, `.isPressed()`, `.on()`, `.off()` methods.
+
+## Quick Start
+
+```cpp
+#include <RadioKitLib.h>  // Single include for everything
+
+// Declare widgets globally with minimal constructors (self-registering)
+RK_PushButton btn(20, 60, 20);                      // x, y, height
+RK_Slider slider(100, 60, 12, 80);                   // x, y, height, width
+RK_LED led(20, 20, 15);                              // x, y, height
+RK_Text display(20, 10);                             // x, y, height
+RK_Joystick stick(160, 50, 40);                      // x, y, height
+RK_Knob knob(170, 40, 30);                           // x, y, height
+RK_SlideSwitch sw(20, 40, 10);                       // x, y, height
+RK_ToggleButton toggle(20, 80, 15);                  // x, y, height
+RK_MultipleButton modes(60, 30, 20);                 // x, y, height
+
+void setup() {
+    Serial.begin(115200);
+    RadioKit.config.name = "MyDevice";
+    RadioKit.config.description = "Controller";
+    RadioKit.config.theme = RK_DEFAULT;
+    RadioKit.config.password = "secret";  // Optional
+    RadioKit.begin();
+    RadioKit.startBLE("MyDevice");  // or startSerial(Serial)
+
+    // Post-construction configuration via rk fields
+    btn.rk.onText = "PUSH";
+    btn.rk.offText = "IDLE";
+    slider.rk.centering = RK_SPRING_CENTER;
+    led.rk.color = 0x00FF00;
+    led.rk.shape = RK_LED_SHAPE_CIRCLE;
+    sw.rk.onText = "ON";
+    sw.rk.offText = "OFF";
+    sw.rk.labelHidden = true;
+    modes.rk.items[0] = {"Auto", "cpu", 255};
+    modes.rk.items[1] = {"Manual", "hand", 255};
+    modes.rk.itemCount = 2;
+}
+
+void loop() {
+    RadioKit.update();  // MUST call every loop iteration
+
+    // Read inputs via rk fields
+    if (btn.rk.state) { /* button is pressed/held */ }
+    int8_t val = slider.rk.value;   // -100 to +100
+    int8_t jx = stick.rk.xvalue;    // -100 to +100
+    int8_t jy = stick.rk.yvalue;    // -100 to +100
+    uint8_t sel = modes.rk.value;   // selected index (or bitmask for MultiSelect)
+    bool switchOn = sw.rk.state;
+
+    // Update outputs via rk fields
+    led.rk.color = (val > 0) ? 0x00FF00 : 0xFF0000;
+    led.rk.state = (val != 0);
+    display.rk.content = "Speed: 42";
+}
+```
+
+## Library Metadata
+
+- **Version**: 2.0.0 (Protocol v5)
+- **Platform**: ESP32 (esp32 architecture)
+- **Dependencies**: NimBLE-Arduino (BLE), WebSockets (WiFi/Cloud)
+- **License**: MIT
+- **Max widgets**: 16 per device
+
+## Widget Types & rk Fields
+
+Each widget has a public `rk` struct that holds all configurable and readable state. Set fields before `RadioKit.begin()` for initial values, or anytime after.
+
+### Spatial Fields (all widgets)
+
+Every `rk` struct includes these spatial fields, set by the constructor and reassignable:
+```
+uint8_t  x, y          // Position on virtual canvas (0-200)
+uint8_t  height         // Height in grid units
+uint8_t  width          // Width (0 = auto from aspect ratio)
+int16_t  rotation       // Degrees, default 0
+```
+
+### RK_PushButton / RK_ToggleButton
+
+```cpp
+RK_PushButton btn(x, y, height, width = 0, rotation = 0);
+RK_ToggleButton toggle(x, y, height, width = 0, rotation = 0);
+
+// rk fields (RK_ButtonFields):
+bool        state       // Read: pressed/on state. Write: set initial state.
+const char* icon        // Icon name string (Lucide icons)
+const char* onText      // Text when ON (push: "PRESSED", toggle: "ON")
+const char* offText     // Text when OFF (push: "RELEASED", toggle: "OFF")
+const char* label       // Display label
+```
+
+| Widget | Input | Output |
+|--------|-------|--------|
+| PushButton | bool (momentary) | - |
+| ToggleButton | bool (latched) | - |
+
+### RK_Slider / RK_GasPedal
+
+```cpp
+RK_Slider slider(x, y, height, width = 0, rotation = 0);
+RK_GasPedal gas(x, y, height, width = 0, rotation = 0);
+// GasPedal auto-sets variant to alt shape + spring center
+
+// rk fields (RK_SliderFields):
+int8_t      value       // -100 to +100
+uint8_t     centering   // RK_SPRING_NONE, RK_SPRING_CENTER, etc.
+uint8_t     detents     // Snap positions (0 = continuous)
+const char* label       // Display label
+```
+
+| Widget | Input | Output |
+|--------|-------|--------|
+| Slider | int8 (-100..+100) | - |
+| GasPedal | int8 (spring-center) | - |
+
+### RK_Joystick
+
+```cpp
+RK_Joystick stick(x, y, height, width = 0, rotation = 0);
+
+// rk fields (RK_JoystickFields):
+int8_t      xvalue      // X-axis -100 to +100
+int8_t      yvalue      // Y-axis -100 to +100
+bool        enabled     // Enable/disable joystick
+uint8_t     centering   // Spring centering mode
+const char* icon        // Icon name
+const char* label       // Display label
+```
+
+| Widget | Input | Output |
+|--------|-------|--------|
+| Joystick | 2x int8 (-100..+100) | - |
+
+### RK_Knob / RK_SteeringWheel
+
+```cpp
+RK_Knob knob(x, y, height, width = 0, rotation = 0);
+RK_SteeringWheel wheel(x, y, height, width = 0, rotation = 0);
+// SteeringWheel auto-sets variant to alt shape
+
+// rk fields (RK_KnobFields):
+int8_t      value       // -100 to +100
+uint8_t     centering   // Spring centering mode
+uint8_t     detents     // Snap positions (0 = continuous)
+int16_t     startAngle  // Arc start in degrees, default -135
+int16_t     endAngle    // Arc end in degrees, default 135
+const char* icon        // Icon name
+const char* label       // Display label
+const char* centerIcon  // Center icon (steering wheel hub)
+```
+
+| Widget | Input | Output |
+|--------|-------|--------|
+| Knob | int8 (-100..+100) | - |
+| SteeringWheel | int8 (spring-center) | - |
+
+### RK_SlideSwitch / RK_RockerSwitch
+
+```cpp
+RK_SlideSwitch sw(x, y, height, width = 0, rotation = 0);
+RK_RockerSwitch rocker(x, y, height, width = 0, rotation = 0);
+
+// rk fields (RK_SlideSwitchFields):
+bool        state       // ON=true, OFF=false
+const char* onText      // Label when ON (default "ON")
+const char* offText     // Label when OFF (default "OFF")
+const char* icon        // Icon name
+const char* label       // Display label
+bool        labelHidden // Hide the label in UI
+```
+
+| Widget | Input | Output |
+|--------|-------|--------|
+| SlideSwitch | bool | - |
+| RockerSwitch | bool | - |
+
+### RK_LED
+
+```cpp
+RK_LED led(x, y, height, width = 0, rotation = 0);
+
+// rk fields (RK_LedFields):
+bool        state       // ON=true, OFF=false
+uint32_t    color       // 0xRRGGBB (use RK_RED, RK_GREEN, etc.)
+uint8_t     shape       // RK_LED_SHAPE_CIRCLE/SQUARE/DIAMOND/STAR
+uint8_t     ledState    // RK_LED_STATE_OFF/ON/BLINK/BREATHE
+uint16_t    timing      // Blink interval in ms (default 500)
+const char* label       // Display label
+```
+
+| Widget | Input | Output |
+|--------|-------|--------|
+| LED | - | 5 bytes (state, R, G, B, opacity) |
+
+### RK_Text / RK_Serial / RK_SerialMonitor
+
+```cpp
+RK_Text text(x, y, height, width = 0);
+RK_Serial serial(x, y, height, width = 0);
+RK_SerialMonitor monitor(x, y, height, width = 0);
+
+// rk fields (RK_TextFields):
+const char* content     // Text content (assign string literal)
+const char* label       // Display label
+
+// RK_Serial extends both RK_Text (widget) and Print (Arduino Print):
+serial.println("Hello");  // Print API works
+serial.rk.content = "Update";  // Direct rk field for push
+```
+
+| Widget | Input | Output |
+|--------|-------|--------|
+| Text | - | dynamic UTF-8 string |
+| Serial | - | dynamic (Text + Print subclass) |
+
+### RK_MultipleButton / RK_MultipleSelect
+
+```cpp
+RK_MultipleButton btn(x, y, height, width = 0, rotation = 0);
+RK_MultipleSelect sel(x, y, height, width = 0, rotation = 0);
+
+// rk fields (RK_MultipleFields):
+uint8_t     value       // Selected index (Button) or bitmask (Select)
+uint8_t     variant     // 0=Segments, 1=Grid, 2=Wheel
+RK_Item     items[8]    // Item pool: {label, icon, pos}
+uint8_t     itemCount   // Number of active items
+const char* label       // Display label
+
+// Setting up items:
+modes.rk.items[0] = {"Auto",   "cpu",  255};  // pos=255 = auto
+modes.rk.items[1] = {"Manual", "hand", 255};
+modes.rk.items[2] = {"Off",    "off",  255};
+modes.rk.itemCount = 3;
+```
+
+| Widget | Input | Output |
+|--------|-------|--------|
+| MultipleButton | uint8 (index) | - |
+| MultipleSelect | uint8 (bitmask) | - |
+
+### RK_Telemetry
+
+```cpp
+RK_Telemetry telem("sensor_label");  // Constructor takes label string
+
+// rk fields (RK_TelemetryFields):
+const char* content     // Dynamic text value
+const char* icon        // Icon name
+const char* unit        // Unit string (metadata)
+const char* label       // Display label
+
+// Update the value:
+telem.rk.content = "42.5 °C";
+```
+
+| Widget | Input | Output |
+|--------|-------|--------|
+| Telemetry | - | dynamic UTF-8 string |
+
+## Communication Transports
+
+### BLE (Default)
+
+```cpp
+RadioKit.startBLE("DeviceName");  // Starts BLE advertising
+```
+
+- Uses NimBLE-Arduino library
+- 6 BLE characteristics for different protocols
+- Advertising name prefixed with `RK_`
+- Best for mobile app connections
+
+### Serial
+
+```cpp
+RadioKit.startSerial(Serial);  // or Serial1, etc.
+```
+
+- Works with any Arduino Stream
+- Recommended baud: 1000000
+- Connection detection: 3s timeout after last packet
+
+### WiFi
+
+```cpp
+RadioKit.config.sta_ssid = "MyNetwork";
+RadioKit.config.sta_password = "MyPass";
+RadioKit.startWiFi();  // Requires -D RADIOKIT_ENABLE_WIFI
+```
+
+- WebSocket server on port 5555
+- AP mode: SSID `RK_<name>` (always open)
+- STA mode: connects to configured network
+- mDNS advertising (`_radiokit._tcp`)
+
+### Cloud
+
+```cpp
+RadioKit.config.cloud_url = "wss://relay.example.com:443";
+RadioKit.config.cloud_account = "<64-char-hex-public-key>";
+RadioKit.startCloud();  // Requires WiFi + -D RADIOKIT_ENABLE_WIFI
+```
+
+- WebSocket client to Rust relay server
+- Ed25519 authentication
+- Auto-reconnect with exponential backoff
+
+## Multi-Transport
+
+Multiple transports run simultaneously. `isConnected()` returns true if ANY transport is connected.
+
+```cpp
+RadioKit.startBLE("Device");
+RadioKit.startSerial(Serial);
+RadioKit.startWiFi();  // All three active
+```
+
+## Configuration
+
+```cpp
+RadioKit.config.name = "DeviceName";        // Max 32 chars
+RadioKit.config.description = "Description"; // Max 128 chars
+RadioKit.config.password = "secret";         // Max 32 chars, optional
+RadioKit.config.theme = RK_DEFAULT;          // UI skin
+RadioKit.config.orientation = RK_LANDSCAPE;  // or RK_PORTRAIT
+RadioKit.config.width = 0;                   // Canvas width (0=auto)
+RadioKit.config.height = 0;                  // Canvas height (0=auto)
+RadioKit.config.baudrate = 1000000;          // Serial baud rate
+RadioKit.config.device_icon = "zap";         // Icon name from kDesignerIcons
+```
+
+### Themes
+
+`RK_DEBUG`, `RK_DEFAULT`, `RK_FUTURISTIC`, `RK_RETRO`, `RK_MILITARY`, `RK_CYBERPUNK`, `RK_NEON`, `RK_MINIMAL`
+
+### Widget Styles
+
+`RK_PRIMARY`, `RK_DIM`, `RK_SUCCESS`, `RK_WARNING`, `RK_DANGER`
+
+## Authentication
+
+Two-level password system:
+- **Device password**: Full access (FS, OTA, settings, widgets)
+- **User password**: Widgets-only access (requires device password set first)
+
+```cpp
+RadioKit.config.password = "admin";     // Device password (in RADIOKIT.h)
+
+// In runtime:
+RadioKit.setConfig(nullptr, nullptr, "newpass", "userpass");  // Set or change passwords
+uint8_t result = RadioKit.authenticate("password");
+// Returns: 0x00 (device/full), 0x01 (user/widgets-only), 0x02 (denied)
+```
+
+No password set = pre-authenticated (full access). Passwords persist in NVS across reboots.
+
+## LED Widget
+
+### Colors
+
+```cpp
+RK_OFF   = 0x000000
+RK_RED   = 0xFF0000
+RK_GREEN = 0x00FF00
+RK_BLUE  = 0x0000FF
+RK_YELLOW = 0xFFFF00
+```
+
+### Shapes
+
+`RK_LED_SHAPE_CIRCLE` (0), `RK_LED_SHAPE_SQUARE` (1), `RK_LED_SHAPE_DIAMOND` (2), `RK_LED_SHAPE_STAR` (3)
+
+### States
+
+`RK_LED_STATE_OFF` (0), `RK_LED_STATE_ON` (1), `RK_LED_STATE_BLINK` (2), `RK_LED_STATE_BREATHE` (3)
+
+### Example
+
+```cpp
+RK_LED led(20, 20, 15);
+led.rk.color = RK_GREEN;
+led.rk.shape = RK_LED_SHAPE_CIRCLE;
+led.rk.ledState = RK_LED_STATE_BLINK;
+led.rk.timing = 500;  // Blink interval ms
+led.rk.state = true;  // Turn on
+```
+
+## Spring/Centering Modes
+
+For knobs, sliders, and gas pedals:
+
+```cpp
+RK_SPRING_NONE    = 0  // No spring return
+RK_SPRING_CENTER  = 1  // Springs to 0
+RK_SPRING_MIN     = 2  // Springs to -100
+RK_SPRING_MAX     = 3  // Springs to +100
+```
+
+## Filesystem (LittleFS)
+
+The filesystem is auto-mounted in `RadioKit.begin()`. No explicit `beginFs()` call needed.
+
+```cpp
+RadioKit.formatFs();   // Format filesystem (destructive)
+```
+
+- FS capability is advertised via feature bit (bit 1 of features bitmask)
+- Bulk file operations via BLE/WiFi (0xAA protocol)
+- Max payload: 16KB per frame
+- Operations: LIST, READ, WRITE, DELETE, MKDIR, RENAME, FORMAT, REPLACE, CRC32
+
+### Error Codes
+
+`OK` (0), `NOT_FOUND` (1), `IO_ERROR` (2), `NO_FS` (3), `ACCESS_DENIED` (4), `INVALID_PATH` (5), `OUT_OF_SPACE` (6), `INVALID_STATE` (7)
+
+## OTA Updates
+
+Firmware updates via BLE/WiFi (0xBB protocol):
+- Max chunk: 4KB
+- Progress reported every ~5% or 50 chunks
+- Deferred erase flag for NVS+FS wipe after OTA
+
+## Print/Debug Output
+
+```cpp
+RadioKit.print("text");
+RadioKit.println("line");
+RadioKit.printf("val: %d", 42);
+```
+
+- Transport-agnostic (sends to all connected transports)
+- Circular buffer: 1024 bytes
+- Flushes on newline or buffer full
+- Received as 0xEE frames on the app side
+
+## Limits
+
+```
+RADIOKIT_MAX_WIDGETS  = 16
+RADIOKIT_MAX_LABEL    = 32 chars
+RADIOKIT_MAX_ICON     = 24 chars
+RADIOKIT_MAX_NAME     = 32 chars
+RADIOKIT_MAX_DESC     = 128 chars
+RADIOKIT_MAX_PWD      = 32 chars
+RADIOKIT_MAX_USER_PWD = 32 chars
+RADIOKIT_TEXT_LEN     = 32 chars
+RADIOKIT_MAX_ITEMS    = 8 items
+RADIOKIT_MAX_SSID     = 32 chars
+RADIOKIT_MAX_WIFI_PWD = 64 chars
+RADIOKIT_MAX_CLOUD_URL = 128 chars
+RK_MAX_PACKET_SIZE    = 768 bytes
+```
+
+## Important Notes
+
+1. **Always call `RadioKit.update()` in loop()** — Required for protocol handling, shadow comparison, and print buffer flushing.
+2. **Widgets are self-registering** — Declare globally, no manual registration needed.
+3. **Max 16 widgets** — Excess widgets are silently dropped.
+4. **State changes are automatic** — The `update()` loop compares `rk` struct against `_shadow` and pushes any changes. No need to call explicit update methods.
+5. **Auth resets on disconnect** — Re-authenticate after transport reconnects.
+6. **NVS persists config** — First boot uses compile-time defaults, subsequent boots read NVS. Use `pio run -t erase` if NVS needs to be erased.
+7. **Device UID auto-generated** — 16 hex chars from `esp_random()` on first boot.
+8. **Transport enable flags** — BLE (`rk_ble_on`), WiFi (`rk_wifi_on`), Cloud (`rk_cloud_on`) stored in NVS. Set to 0 to disable a transport permanently.
+
+## Designer-Generated Code
+
+The RadioKit Designer tool generates `RADIOKIT.h` files containing:
+1. JSON config in `/*__RADIOKIT_Designer_Config__...*/` comments
+2. Generated widget declarations using minimal constructors
+3. `rk` field assignments in `initRadioKit()` for labels, icons, colors, etc.
+
+This file is meant to be edited by the Designer tool, not by hand. The JSON config is parsed by the Flutter codegen to reconstruct the canvas layout.
+
+## Error Handling
+
+- **Auth rejection**: Returns `0x02` (denied)
+- **CRC failure**: Packets silently discarded
+- **Buffer overflow**: Print buffer drops oldest bytes
+- **Transport disconnect**: Auth state resets
+- **NVS unavailable**: Falls back to compile-time defaults
+- **FS unavailable**: All FS commands reply with `NO_FS` error code

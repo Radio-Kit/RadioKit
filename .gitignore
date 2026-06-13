@@ -113,6 +113,7 @@ task.md
 implementation_plan.md
 GEMINI.md
 plans/
+!llms.txt
 
 # -----------------------------------------------------------------------------
 # Patterns from flutter-library/example/.gitignore

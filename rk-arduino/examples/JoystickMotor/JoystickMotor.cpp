@@ -31,6 +31,7 @@
 
 // ── State ────────────────────────────────────────────────────────────
 bool emergencyStop = false;
+bool eStopPrev = false;  // for edge detection on button press
 
 // ────────────────────────────────────────────────────────────
 void setup() {
@@ -40,28 +41,36 @@ void setup() {
     analogWrite(PWM_RIGHT_PIN, 0);
 
     initRadioKit();
+
+    // Post-construction rk field config
+    dirLED.rk.state = false;
+    dirLED.rk.color = RK_GREEN;
+    dirLED.rk.shape = RK_LED_SHAPE_CIRCLE;
 }
 
 // ────────────────────────────────────────────────────────────
 void loop() {
     RadioKit.update();
 
-    // Emergency stop toggle on each press
-    if (eStop.clicked()) {
+    // Emergency stop toggle on rising edge
+    bool eStopNow = eStop.rk.state;
+    if (eStopNow && !eStopPrev) {
         emergencyStop = !emergencyStop;
     }
+    eStopPrev = eStopNow;
 
     if (emergencyStop) {
         analogWrite(PWM_LEFT_PIN,  0);
         analogWrite(PWM_RIGHT_PIN, 0);
-        dirLED.setColor(RK_RED);
-        speedText.set("E-STOP");
+        dirLED.rk.color = RK_RED;
+        dirLED.rk.state = true;
+        speedText.rk.content = "E-STOP";
         return;
     }
 
     // Read joystick axes (-100..+100)
-    int8_t jx = drive.getX();
-    int8_t jy = drive.getY();
+    int8_t jx = drive.rk.xvalue;
+    int8_t jy = drive.rk.yvalue;
 
     // Differential mixing
     int leftVal  = constrain((int)jy + (int)jx, -100, 100);
@@ -72,13 +81,17 @@ void loop() {
 
     // Direction LED
     if (jx == 0 && jy == 0) {
-        dirLED.setColor(RK_OFF);
+        dirLED.rk.color = RK_OFF;
+        dirLED.rk.state = false;
     } else if (abs(jx) > abs(jy)) {
-        dirLED.setColor(RK_YELLOW);
+        dirLED.rk.color = RK_YELLOW;
+        dirLED.rk.state = true;
     } else if (jy > 0) {
-        dirLED.setColor(RK_GREEN);
+        dirLED.rk.color = RK_GREEN;
+        dirLED.rk.state = true;
     } else {
-        dirLED.setColor(RK_RED);
+        dirLED.rk.color = RK_RED;
+        dirLED.rk.state = true;
     }
 
     // Speed text
@@ -88,5 +101,5 @@ void loop() {
     else if (jy < 0)  snprintf(buf, sizeof(buf), "Rev %d%%",            speed);
     else if (jx != 0) snprintf(buf, sizeof(buf), "%s %d%%", jx > 0 ? "Right" : "Left", speed);
     else              snprintf(buf, sizeof(buf), "Stopped");
-    speedText.set(buf);
+    speedText.rk.content = buf;
 }

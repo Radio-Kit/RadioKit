@@ -56,34 +56,22 @@ RADIOKIT_Designer_Config__*/
 #include <RadioKitLib.h>
 
 // ─── Widget Declarations ───
-RK_Joystick drive({
-    .x = 160, .y = 50,
-    .height = 60,
-    .label = "Drive"
-});
-
-RK_PushButton eStop({
-    .x = 20, .y = 50,
-    .height = 24,
-    .label = "E-Stop"
-});
-
-RK_LED dirLED({
-    .x = 20, .y = 20,
-    .height = 14
-});
-
-RK_Text speedText({
-    .x = 100, .y = 20,
-    .height = 10,
-    .label = "Speed"
-});
+RK_Joystick drive(160, 50, 60);
+RK_PushButton eStop(20, 50, 24);
+RK_LED dirLED(20, 20, 14);
+RK_Text speedText(100, 20, 10);
 
 // ─── Config Init ───
 static inline void initRadioKit() {
   RadioKit.config.name        = "RobotDrive";
   RadioKit.config.description = "JoystickMotor — dual motor control";
   RadioKit.config.theme       = RK_DEFAULT;
+
+  drive.rk.label = "Drive";
+  eStop.rk.onText = "STOP";
+  eStop.rk.offText = "ARMED";
+  eStop.rk.label = "E-Stop";
+  speedText.rk.label = "Speed";
 
   RadioKit.begin();
   RadioKit.startBLE(RadioKit.config.name);
