@@ -123,80 +123,17 @@ RADIOKIT_Designer_Config__*/
 #include <RadioKitLib.h>
 
 // ─── Widget Declarations ───
-RK_PushButton btn({
-    .x = 20, .y = 60, .height = 20,
-    .icon = "wifi",
-    .label = "Press"
-});
-
-RK_ToggleButton sw({
-    .x = 20, .y = 80, .height = 20,
-    .label = "LED"
-});
-
-RK_SlideSwitch slideSw({
-    .x = 20, .y = 40, .height = 10,
-    .icon = "power",
-    .onText = "ON", .offText = "OFF",
-    .label = "Power",
-    .state = false
-});
-
-RK_Slider sld({
-    .x = 100, .y = 60, .height = 10,
-    .rotation = 45,
-    .label = "Level",
-    .value = 0
-});
-
-RK_Knob pan({
-    .x = 170, .y = 40, .height = 40,
-    .icon = "knob",
-    .centering = RK_SPRING_CENTER,
-    .label = "Pan"
-});
-
-RK_Knob steering({
-    .x = 170, .y = 80, .height = 40,
-    .icon = "steering",
-    .startAngle = -90, .endAngle = 90,
-    .centering = RK_SPRING_CENTER,
-    .variant = 1,
-    .label = "Steer"
-});
-
-RK_Joystick joy({
-    .x = 160, .y = 70, .height = 20,
-    .label = "Stick"
-});
-
-RK_MultipleButton mode({
-    .x = 60, .y = 30,
-    .items = {
-        { .label = "Auto", .icon = "cpu" },
-        { .label = "Man", .icon = "hand" }
-    },
-    .label = "Multiple Button"
-});
-
-RK_MultipleSelect opts({
-    .x = 60, .y = 90,
-    .items = {
-        { .label = "Log", .icon = "file-text" },
-        { .label = "Mute", .icon = "volume-x" }
-    },
-    .label = "Multiple Select"
-});
-
-RK_LED statusLED({
-    .x = 20, .y = 20, .height = 14,
-    .label = "Status"
-});
-
-RK_Text uptimeText({
-    .x = 20, .y = 10,
-    .label = "Uptime"
-});
+RK_PushButton       btn(20, 60, 20);
+RK_ToggleButton     sw(20, 80, 20);
+RK_SlideSwitch      slideSw(20, 40, 10);
+RK_Slider           sld(100, 60, 10, 0, 45);
+RK_Knob             pan(170, 40, 40);
+RK_Knob             steering(170, 80, 40);
+RK_Joystick         joy(160, 70, 20);
+RK_MultipleButton   mode(60, 30, 10);
+RK_MultipleSelect   opts(60, 90, 10);
+RK_LED              statusLED(20, 20, 14);
+RK_Text             uptimeText(20, 10, 10);
 
 // ─── Config Init ───
 static inline void initRadioKit() {
@@ -204,6 +141,36 @@ static inline void initRadioKit() {
   RadioKit.config.description = "USB Serial Connection Test Example";
   RadioKit.config.theme       = RK_DEFAULT;
   RadioKit.config.password    = "1234";
+
+  // Post-construction widget configuration
+  btn.rk.label         = "Press";
+  btn.rk.icon          = "wifi";
+  sw.rk.label          = "LED";
+  slideSw.rk.icon      = "power";
+  slideSw.rk.onText    = "ON";
+  slideSw.rk.offText   = "OFF";
+  slideSw.rk.label     = "Power";
+  sld.rk.label         = "Level";
+  pan.rk.icon          = "knob";
+  pan.rk.centering     = RK_SPRING_CENTER;
+  pan.rk.label         = "Pan";
+  steering.rk.icon       = "steering";
+  steering.rk.label      = "Steer";
+  steering.rk.startAngle = -90;
+  steering.rk.endAngle   = 90;
+  steering.rk.centering  = RK_SPRING_CENTER;
+  steering.rk.variant    = 1;
+  joy.rk.label        = "Stick";
+  mode.rk.label       = "Multiple Button";
+  mode.rk.items[0]    = {"Auto", "cpu", 0};
+  mode.rk.items[1]    = {"Man", "hand", 1};
+  mode.rk.itemCount   = 2;
+  opts.rk.label       = "Multiple Select";
+  opts.rk.items[0]    = {"Log", "file-text", 0};
+  opts.rk.items[1]    = {"Mute", "volume-x", 1};
+  opts.rk.itemCount   = 2;
+  statusLED.rk.label  = "Status";
+  uptimeText.rk.label = "Uptime";
 
   RadioKit.begin();
   RadioKit.startSerial(Serial);

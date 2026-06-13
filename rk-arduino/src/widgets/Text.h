@@ -8,17 +8,17 @@
 
 #include "Widget.h"
 
-struct RK_TextProps {
+struct RK_TextFields {
     uint8_t     x = 0, y = 0;
     uint8_t     height = 10;
     uint8_t     width = 0;
     const char* label = nullptr;
-    const char* content = "";
+    const char* content = "";    ///< Pointer to widget's _text buffer
 };
 
 class RK_Text : public RadioKit_Widget {
 public:
-    RK_Text(RK_TextProps p);
+    RK_Text(uint8_t x, uint8_t y, uint8_t height, uint8_t width = 0);
 
     uint8_t inputSize()  const override { return 0; }
     uint8_t outputSize() const override;
@@ -26,22 +26,17 @@ public:
     void serializeOutput(uint8_t* buf)         const override;
     void deserializeInput(const uint8_t*)            override {}
 
-    void        set(const char* text);
-    void        set(const String& s) { set(s.c_str()); }
-    const char* get() const { return _text; }
-
-    RK_TextProps props;
+    RK_TextFields rk;
 
 protected:
     float defaultAspect() const override { return 4.0f; }
-
-private:
+    RK_TextFields _shadow;
     char _text[RADIOKIT_TEXT_LEN];
 };
 
 class RK_Serial : public RK_Text, public Print {
 public:
-    RK_Serial(RK_TextProps p);
+    RK_Serial(uint8_t x, uint8_t y, uint8_t height, uint8_t width = 0);
     size_t write(uint8_t c) override;
     size_t write(const uint8_t *buffer, size_t size) override;
 };

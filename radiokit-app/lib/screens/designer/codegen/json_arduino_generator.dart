@@ -63,15 +63,19 @@ class JsonArduinoGenerator {
         final label = (t['label'] as String?) ?? '';
         if (label.isEmpty) continue;
         final sanitized = _sanitizeName(label);
-        final unit = (t['unit'] as String?) ?? '';
-        final iconName = (t['icon'] as String?) ?? '';
         
         final cppName = 'telemetry_$sanitized';
-        final iconArg = iconName.isNotEmpty ? '"$iconName"' : 'nullptr';
-        final unitArg = unit.isNotEmpty ? ', "$unit"' : '';
-        buf.writeln('RK_Telemetry $cppName("$sanitized", $iconArg$unitArg);');
+        buf.writeln('RK_Telemetry $cppName("$sanitized");');
         
-        setupBuf.writeln('  $cppName.set("--");');
+        final iconName = (t['icon'] as String?) ?? '';
+        if (iconName.isNotEmpty) {
+          setupBuf.writeln('  $cppName.rk.icon = "$iconName";');
+        }
+        final unit = (t['unit'] as String?) ?? '';
+        if (unit.isNotEmpty) {
+          setupBuf.writeln('  $cppName.rk.unit = "$unit";');
+        }
+        setupBuf.writeln('  $cppName.rk.content = "--";');
       }
       buf.writeln();
     }
@@ -96,8 +100,6 @@ class JsonArduinoGenerator {
     }
 
     // ─── Feature initialization ───
-    // OTA/FS callback registration is handled internally by RadioKit::startBLE()
-    // / startSerial() when the feature #define flags are set.
     if (enableFs) {
       buf.writeln('');
       buf.writeln('  #if __has_include(<LittleFS.h>)');
@@ -150,6 +152,9 @@ class JsonArduinoGenerator {
     final position = w['position'] as List? ?? [10, 10, 0];
     final size = w['size'] as List? ?? [20, 20];
     final props = w['properties'] as Map<String, dynamic>? ?? {};
+    final labelObj = w['label'] as Map<String, dynamic>?;
+    final labelText = labelObj?['text'] as String? ?? '';
+    final showLabel = labelObj?['show'] as bool? ?? true;
     final variant = w['variant'] as String?;
     final x = (position.length >= 1 && position[0] is num)
         ? (position[0] as num).toInt()
@@ -177,6 +182,16 @@ class JsonArduinoGenerator {
 
     final comment = _comment(w, type);
 
+    // Common label post-set (for widgets that have labels)
+    void writeLabelAndHidden() {
+      if (labelText.isNotEmpty) {
+        setupBuf.writeln('  $name.rk.label = "${_escapeC(labelText)}";');
+      }
+      if (!showLabel) {
+        setupBuf.writeln('  $name.rk.labelHidden = true;');
+      }
+    }
+
     switch (type) {
       case 'button': {
         final mode = props['variant'] ?? 'push';
@@ -184,48 +199,67 @@ class JsonArduinoGenerator {
             mode == 'toggle' ? 'RK_ToggleButton' : 'RK_PushButton';
         final onText = props['onText'] ?? 'ON';
         final offText = props['offText'] ?? 'OFF';
+        final iconName = props['onIcon'] as String? ?? '';
         
-        declBuf.writeln('$widgetType $name({');
-        declBuf.writeln('    .x = $x, .y = $y,');
-        declBuf.writeln('    .height = $cppH, .width = $cppW,');
-        declBuf.writeln('    .rotation = $rotation');
-        declBuf.writeln('});$comment');
+        declBuf.writeln('$widgetType $name($x, $y, $cppH, $cppW, $rotation);$comment');
         
-        setupBuf.writeln('  $name.setOnText("${_escapeC(onText)}");');
-        setupBuf.writeln('  $name.setOffText("${_escapeC(offText)}");');
+        writeLabelAndHidden();
+        if (onText != 'ON') {
+          setupBuf.writeln('  $name.rk.onText = "${_escapeC(onText)}";');
+        }
+        if (offText != 'OFF') {
+          setupBuf.writeln('  $name.rk.offText = "${_escapeC(offText)}";');
+        }
+        if (iconName.isNotEmpty) {
+          setupBuf.writeln('  $name.rk.icon = "$iconName";');
+        }
         break;
       }
 
       case 'slideSwitch': {
         final onText = props['onText'] ?? 'ON';
         final offText = props['offText'] ?? 'OFF';
+        final iconName = props['icon'] as String? ?? '';
         
-        declBuf.writeln('RK_SlideSwitch $name({');
-        declBuf.writeln('    .x = $x, .y = $y,');
-        declBuf.writeln('    .height = $cppH, .width = $cppW,');
-        declBuf.writeln('    .rotation = $rotation');
-        declBuf.writeln('});$comment');
+        declBuf.writeln('RK_SlideSwitch $name($x, $y, $cppH, $cppW, $rotation);$comment');
         
-        setupBuf.writeln('  $name.setOnText("${_escapeC(onText)}");');
-        setupBuf.writeln('  $name.setOffText("${_escapeC(offText)}");');
+        writeLabelAndHidden();
+        if (onText != 'ON') {
+          setupBuf.writeln('  $name.rk.onText = "${_escapeC(onText)}";');
+        }
+        if (offText != 'OFF') {
+          setupBuf.writeln('  $name.rk.offText = "${_escapeC(offText)}";');
+        }
+        if (iconName.isNotEmpty) {
+          setupBuf.writeln('  $name.rk.icon = "$iconName";');
+        }
         break;
       }
 
       case 'switch': {
-        declBuf.writeln('RK_RockerSwitch $name({');
-        declBuf.writeln('    .x = $x, .y = $y,');
-        declBuf.writeln('    .height = $cppH, .width = $cppW,');
-        declBuf.writeln('    .rotation = $rotation');
-        declBuf.writeln('});$comment');
+        final v = variant ?? props['variant'] as String?;
+        final isRocker = v == 'rockerSwitch';
+        final iconName = props['icon'] as String? ?? '';
+        
+        if (isRocker) {
+          declBuf.writeln('RK_RockerSwitch $name($x, $y, $cppH, $cppW, $rotation);$comment');
+        } else {
+          declBuf.writeln('RK_SlideSwitch $name($x, $y, $cppH, $cppW, $rotation);$comment');
+        }
+        
+        writeLabelAndHidden();
+        if (iconName.isNotEmpty) {
+          setupBuf.writeln('  $name.rk.icon = "$iconName";');
+        }
         break;
       }
 
       case 'slider': {
         final v = variant ?? props['variant'] as String?;
         if (v == 'gasPedal') {
-          _gasPedal(name, x, y, cppW, cppH, rotation, acList, comment, declBuf, setupBuf);
+          _gasPedal(name, x, y, cppW, cppH, rotation, acList, comment, declBuf, setupBuf, labelText, showLabel);
         } else {
-          _slider(name, x, y, cppW, cppH, rotation, acList, comment, declBuf, setupBuf);
+          _slider(name, x, y, cppW, cppH, rotation, acList, comment, declBuf, setupBuf, labelText, showLabel);
         }
         break;
       }
@@ -233,22 +267,17 @@ class JsonArduinoGenerator {
       case 'knob': {
         final v = variant ?? props['variant'] as String?;
         if (v == 'steeringWheel') {
-          _steeringWheel(
-              name, x, y, cppW, cppH, rotation, props, acList, comment, declBuf, setupBuf);
+          _steeringWheel(name, x, y, cppW, cppH, rotation, props, acList, comment, declBuf, setupBuf, labelText, showLabel);
         } else {
-          _knob(name, x, y, cppW, cppH, rotation, props, acList, comment, declBuf, setupBuf);
+          _knob(name, x, y, cppW, cppH, rotation, props, acList, comment, declBuf, setupBuf, labelText, showLabel);
         }
         break;
       }
 
       case 'joystick': {
-        declBuf.writeln('RK_Joystick $name({');
-        declBuf.writeln('    .x = $x, .y = $y,');
-        declBuf.writeln('    .height = $cppH, .width = $cppW,');
-        declBuf.writeln('    .rotation = $rotation');
-        declBuf.writeln('});$comment');
-        
-        setupBuf.writeln('  $name.props.centering = ${_centeringEnum(acList)};');
+        declBuf.writeln('RK_Joystick $name($x, $y, $cppH, $cppW, $rotation);$comment');
+        writeLabelAndHidden();
+        setupBuf.writeln('  $name.rk.centering = ${_centeringEnum(acList)};');
         break;
       }
 
@@ -256,10 +285,10 @@ class JsonArduinoGenerator {
         final v = variant ?? props['variant'] as String?;
         if (v == 'multiSelect') {
           _buildMultiple('RK_MultipleSelect', name, x, y, cppW, cppH,
-              rotation, props, comment, declBuf, setupBuf);
+              rotation, props, comment, declBuf, setupBuf, labelText, showLabel);
         } else {
           _buildMultiple('RK_MultipleButton', name, x, y, cppW, cppH,
-              rotation, props, comment, declBuf, setupBuf);
+              rotation, props, comment, declBuf, setupBuf, labelText, showLabel);
         }
         break;
       }
@@ -270,33 +299,26 @@ class JsonArduinoGenerator {
         final colorHex =
             colorVal.toRadixString(16).padLeft(6, '0');
             
-        declBuf.writeln('RK_LED $name({');
-        declBuf.writeln('    .x = $x, .y = $y,');
-        declBuf.writeln('    .height = $cppH, .width = $cppW,');
-        declBuf.writeln('    .rotation = $rotation');
-        declBuf.writeln('});$comment');
+        declBuf.writeln('RK_LED $name($x, $y, $cppH, $cppW, $rotation);$comment');
         
-        setupBuf.writeln('  $name.setColor(0x$colorHex);');
+        writeLabelAndHidden();
+        setupBuf.writeln('  $name.rk.color = 0x$colorHex;');
         break;
       }
 
       case 'text': {
         final text = props['text'] as String? ?? 'Display';
         
-        declBuf.writeln('RK_Text $name({');
-        declBuf.writeln('    .x = $x, .y = $y,');
-        declBuf.writeln('    .height = $cppH, .width = $cppW');
-        declBuf.writeln('});$comment');
+        declBuf.writeln('RK_Text $name($x, $y, $cppH, $cppW);$comment');
         
-        setupBuf.writeln('  $name.set("${_escapeC(text)}");');
+        writeLabelAndHidden();
+        setupBuf.writeln('  $name.rk.content = "${_escapeC(text)}";');
         break;
       }
 
       case 'serialMonitor': {
-        declBuf.writeln('RK_SerialMonitor $name({');
-        declBuf.writeln('    .x = $x, .y = $y,');
-        declBuf.writeln('    .height = $cppH, .width = $cppW');
-        declBuf.writeln('});$comment');
+        declBuf.writeln('RK_SerialMonitor $name($x, $y, $cppH, $cppW);$comment');
+        writeLabelAndHidden();
         break;
       }
 
@@ -304,92 +326,104 @@ class JsonArduinoGenerator {
         declBuf.writeln('  // Unsupported widget type: $type');
         break;
     }
-
-    // ── Label visibility ──────────────────────────────────────────────
-    final labelObj = w['label'] as Map<String, dynamic>?;
-    final show = labelObj?['show'] as bool? ?? true;
-    if (!show) {
-      setupBuf.writeln('  $name.setLabelHidden(true);');
-    }
   }
 
   // ── Sub-generators for widget variants ────────────────────────────────────
 
   static void _slider(String name, int x, int y, int w, int h, int rot,
-      List? ac, String comment, StringBuffer declBuf, StringBuffer setupBuf) {
-    declBuf.writeln('RK_Slider $name({');
-    declBuf.writeln('    .x = $x, .y = $y,');
-    declBuf.writeln('    .height = $h, .width = $w,');
-    declBuf.writeln('    .rotation = $rot');
-    declBuf.writeln('});$comment');
-    
-    setupBuf.writeln('  $name.props.centering = ${_centeringEnum(ac)};');
+      List? ac, String comment, StringBuffer declBuf, StringBuffer setupBuf,
+      String labelText, bool showLabel) {
+    declBuf.writeln('RK_Slider $name($x, $y, $h, $w, $rot);$comment');
+    if (labelText.isNotEmpty) {
+      setupBuf.writeln('  $name.rk.label = "${_escapeC(labelText)}";');
+    }
+    if (!showLabel) {
+      setupBuf.writeln('  $name.rk.labelHidden = true;');
+    }
+    setupBuf.writeln('  $name.rk.centering = ${_centeringEnum(ac)};');
   }
 
   static void _gasPedal(String name, int x, int y, int w, int h, int rot,
-      List? ac, String comment, StringBuffer declBuf, StringBuffer setupBuf) {
-    declBuf.writeln('RK_GasPedal $name({');
-    declBuf.writeln('    .x = $x, .y = $y,');
-    declBuf.writeln('    .height = $h, .width = $w,');
-    declBuf.writeln('    .rotation = $rot');
-    declBuf.writeln('});$comment');
-    
-    setupBuf.writeln('  $name.props.centering = ${_centeringEnum(ac)};');
+      List? ac, String comment, StringBuffer declBuf, StringBuffer setupBuf,
+      String labelText, bool showLabel) {
+    declBuf.writeln('RK_GasPedal $name($x, $y, $h, $w, $rot);$comment');
+    if (labelText.isNotEmpty) {
+      setupBuf.writeln('  $name.rk.label = "${_escapeC(labelText)}";');
+    }
+    if (!showLabel) {
+      setupBuf.writeln('  $name.rk.labelHidden = true;');
+    }
+    setupBuf.writeln('  $name.rk.centering = ${_centeringEnum(ac)};');
   }
 
   static void _knob(String name, int x, int y, int w, int h, int rot,
-      Map<String, dynamic> props, List? ac, String comment, StringBuffer declBuf, StringBuffer setupBuf) {
+      Map<String, dynamic> props, List? ac, String comment, StringBuffer declBuf, StringBuffer setupBuf,
+      String labelText, bool showLabel) {
     final minAngle = props['minAngle'] ?? -135;
     final maxAngle = props['maxAngle'] ?? 135;
     
-    declBuf.writeln('RK_Knob $name({');
-    declBuf.writeln('    .x = $x, .y = $y,');
-    declBuf.writeln('    .height = $h, .width = $w,');
-    declBuf.writeln('    .rotation = $rot');
-    declBuf.writeln('});$comment');
-    
-    setupBuf.writeln('  $name.props.centering = ${_centeringEnum(ac)};');
-    setupBuf.writeln('  $name.props.startAngle = $minAngle;');
-    setupBuf.writeln('  $name.props.endAngle = $maxAngle;');
+    declBuf.writeln('RK_Knob $name($x, $y, $h, $w, $rot);$comment');
+    if (labelText.isNotEmpty) {
+      setupBuf.writeln('  $name.rk.label = "${_escapeC(labelText)}";');
+    }
+    if (!showLabel) {
+      setupBuf.writeln('  $name.rk.labelHidden = true;');
+    }
+    setupBuf.writeln('  $name.rk.centering = ${_centeringEnum(ac)};');
+    setupBuf.writeln('  $name.rk.startAngle = $minAngle;');
+    setupBuf.writeln('  $name.rk.endAngle = $maxAngle;');
+    final iconName = props['icon'] as String? ?? '';
+    if (iconName.isNotEmpty) {
+      setupBuf.writeln('  $name.rk.icon = "$iconName";');
+    }
+    final centerIcon = props['centerIcon'] as String? ?? '';
+    if (centerIcon.isNotEmpty) {
+      setupBuf.writeln('  $name.rk.centerIcon = "$centerIcon";');
+    }
   }
 
   static void _steeringWheel(String name, int x, int y, int w, int h, int rot,
-      Map<String, dynamic> props, List? ac, String comment, StringBuffer declBuf, StringBuffer setupBuf) {
+      Map<String, dynamic> props, List? ac, String comment, StringBuffer declBuf, StringBuffer setupBuf,
+      String labelText, bool showLabel) {
     final minAngle = props['minAngle'] ?? -135;
     final maxAngle = props['maxAngle'] ?? 135;
     
-    declBuf.writeln('RK_Knob $name({');
-    declBuf.writeln('    .x = $x, .y = $y,');
-    declBuf.writeln('    .height = $h, .width = $w,');
-    declBuf.writeln('    .rotation = $rot');
-    declBuf.writeln('});$comment');
-    
-    setupBuf.writeln('  $name.props.variant = 1;     // steeringWheel');
-    setupBuf.writeln('  $name.props.centering = ${_centeringEnum(ac)};');
-    setupBuf.writeln('  $name.props.startAngle = $minAngle;');
-    setupBuf.writeln('  $name.props.endAngle = $maxAngle;');
+    declBuf.writeln('RK_Knob $name($x, $y, $h, $w, $rot);$comment');
+    if (labelText.isNotEmpty) {
+      setupBuf.writeln('  $name.rk.label = "${_escapeC(labelText)}";');
+    }
+    if (!showLabel) {
+      setupBuf.writeln('  $name.rk.labelHidden = true;');
+    }
+    setupBuf.writeln('  $name.rk.variant = 1;     // steeringWheel');
+    setupBuf.writeln('  $name.rk.centering = ${_centeringEnum(ac)};');
+    setupBuf.writeln('  $name.rk.startAngle = $minAngle;');
+    setupBuf.writeln('  $name.rk.endAngle = $maxAngle;');
   }
 
   static void _buildMultiple(String widgetType, String name, int x, int y,
-      int w, int h, int rot, Map<String, dynamic> props, String comment, StringBuffer declBuf, StringBuffer setupBuf) {
+      int w, int h, int rot, Map<String, dynamic> props, String comment, StringBuffer declBuf, StringBuffer setupBuf,
+      String labelText, bool showLabel) {
     final items = props['items'] as List? ?? [];
     
-    declBuf.writeln('$widgetType $name({');
-    declBuf.writeln('    .x = $x, .y = $y,');
-    declBuf.writeln('    .height = $h, .width = $w,');
-    declBuf.writeln('    .rotation = $rot');
-    declBuf.writeln('});$comment');
+    declBuf.writeln('$widgetType $name($x, $y, $h, $w, $rot);$comment');
+    if (labelText.isNotEmpty) {
+      setupBuf.writeln('  $name.rk.label = "${_escapeC(labelText)}";');
+    }
+    if (!showLabel) {
+      setupBuf.writeln('  $name.rk.labelHidden = true;');
+    }
 
     for (int i = 0; i < items.length; i++) {
       final item = items[i];
       if (item is! Map) continue;
       final label = item['onLabel'] as String? ?? String.fromCharCode(65 + i);
       final icon = item['onIcon'] as String?;
-      if (icon != null && icon.isNotEmpty) {
-        setupBuf.writeln('  $name.add({"$label", "$icon"});');
-      } else {
-        setupBuf.writeln('  $name.add({"$label"});');
-      }
+      final iconPart = (icon != null && icon.isNotEmpty) ? ', "$icon"' : '';
+      setupBuf.writeln('  $name.rk.items[$i] = {"$label"$iconPart, $i};');
+    }
+    if (items.isNotEmpty) {
+      setupBuf.writeln('  $name.rk.itemCount = ${items.length};');
     }
   }
 
@@ -417,11 +451,6 @@ class JsonArduinoGenerator {
       s.replaceAll('"', '\\"').replaceAll('\n', '\\n');
 
   /// Converts the autoCenter array [position, type, duration] to an RK centering enum.
-  ///
-  ///   - position == null → RK_SPRING_NONE
-  ///   - type == 'elastic' → RK_SPRING_ELASTIC
-  ///   - type == 'linear' → RK_SPRING_LINEAR
-  ///   - otherwise → RK_SPRING_CENTER (smooth)
   static String _centeringEnum(List? ac) {
     if (ac == null || ac.isEmpty) return 'RK_SPRING_NONE';
     final pos = ac[0];

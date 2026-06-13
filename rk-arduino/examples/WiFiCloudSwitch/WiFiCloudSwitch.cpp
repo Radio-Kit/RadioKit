@@ -43,7 +43,7 @@ void setup() {
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);
 
-  led_1.off();
+  led_1.rk.state = false;
 
   initRadioKit();
 
@@ -59,7 +59,7 @@ void loop() {
   RadioKit.update();
 
   // Sync LED from the switch widget (works over any transport)
-  bool switchNow = slide_switch_1.get();
+  bool switchNow = slide_switch_1.rk.state;
   if (switchNow != lastSwitchState) {
     lastSwitchState = switchNow;
     digitalWrite(LED_PIN, switchNow ? HIGH : LOW);

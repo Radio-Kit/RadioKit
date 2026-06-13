@@ -10,7 +10,7 @@
  * Each telemetry widget has:
  *   - label  (C++ identifier, also used as the serialization label)
  *   - icon   (icon name for the app to render)
- *   - value  (dynamic text set via set())
+ *   - value  (dynamic text set via rk.content)
  *
  * The unit is metadata stored in the JSON config (not sent over the wire).
  */
@@ -20,11 +20,16 @@
 
 #include "Widget.h"
 
+struct RK_TelemetryFields {
+    const char* label   = nullptr;
+    const char* icon    = nullptr;
+    const char* unit    = nullptr;
+    const char* content = "";     ///< Dynamic text value (points to _text buffer)
+};
+
 class RK_Telemetry : public RadioKit_Widget {
 public:
-    RK_Telemetry(const char* label, const char* icon = nullptr, const char* unit = nullptr);
-
-    const char* getUnit() const { return _unit; }
+    RK_Telemetry(const char* label);
 
     uint8_t inputSize()  const override { return 0; }
     uint8_t outputSize() const override;
@@ -32,16 +37,14 @@ public:
     void serializeOutput(uint8_t* buf)         const override;
     void deserializeInput(const uint8_t*)            override {}
 
-    /// Update the displayed telemetry value. Triggers a VAR_UPDATE push.
-    void        set(const char* text);
-    void        set(const String& s) { set(s.c_str()); }
-    const char* get() const { return _text; }
-
     /// Returns the current value text for serialization (content field).
-    const char* getContent() const override { return _text; }
+    const char* getContent() const override { return rk.content; }
+
+    RK_TelemetryFields rk;
 
 protected:
     float defaultAspect() const override { return 1.0f; }
+    RK_TelemetryFields _shadow;
 
 private:
     char _text[RADIOKIT_TEXT_LEN + 1];

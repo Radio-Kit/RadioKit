@@ -49,7 +49,7 @@ void setup() {
 void loop() {
     RadioKit.update();
 
-    bool switchNow = slide_switch_1.get();
+    bool switchNow = slide_switch_1.rk.state;
     if (switchNow != lastSwitchState) {
         lastSwitchState = switchNow;
         digitalWrite(LED_PIN, switchNow ? HIGH : LOW);

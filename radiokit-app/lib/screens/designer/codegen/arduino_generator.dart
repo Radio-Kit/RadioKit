@@ -62,43 +62,42 @@ class ArduinoGenerator {
     buf.writeln();
 
     if (elements.isNotEmpty) {
-      buf.writeln('  // Read widget states');
+      buf.writeln('  // Read widget states via rk fields');
       for (final el in elements) {
         final name = _widgetName(el);
         switch (el.type) {
           case DesignerElementType.button:
-            buf.writeln('  if ($name.clicked()) {');
-            buf.writeln('    // Button was pressed');
+            buf.writeln('  if (${name}.rk.state) {');
+            buf.writeln('    // Button is pressed');
             buf.writeln('  }');
-            buf.writeln('  bool ${name}State = $name.get();');
             break;
           case DesignerElementType.slideSwitch:
-            buf.writeln('  bool ${name}State = $name.get();');
+            buf.writeln('  bool ${name}State = $name.rk.state;');
             break;
           case DesignerElementType.rockerSwitch:
-            buf.writeln('  bool ${name}State = $name.get();');
+            buf.writeln('  bool ${name}State = $name.rk.state;');
             break;
           case DesignerElementType.slider:
-            buf.writeln('  int8_t ${name}Val = $name.get();  // -100 to +100');
+            buf.writeln('  int8_t ${name}Val = $name.rk.value;  // -100 to +100');
             break;
           case DesignerElementType.knob:
-            buf.writeln('  int8_t ${name}Val = $name.get();  // -100 to +100');
+            buf.writeln('  int8_t ${name}Val = $name.rk.value;  // -100 to +100');
             break;
           case DesignerElementType.steeringWheel:
-            buf.writeln('  int8_t ${name}Val = $name.get();  // -100 to +100');
+            buf.writeln('  int8_t ${name}Val = $name.rk.value;  // -100 to +100');
             break;
           case DesignerElementType.joystick:
-            buf.writeln('  int8_t ${name}X = $name.getX();  // -100 to +100');
-            buf.writeln('  int8_t ${name}Y = $name.getY();  // -100 to +100');
+            buf.writeln('  int8_t ${name}X = $name.rk.xvalue;  // -100 to +100');
+            buf.writeln('  int8_t ${name}Y = $name.rk.yvalue;  // -100 to +100');
             break;
           case DesignerElementType.multiButton:
-            buf.writeln('  int8_t ${name}Idx = $name.get();  // selected index');
+            buf.writeln('  int8_t ${name}Idx = $name.rk.selected;  // selected index');
             break;
           case DesignerElementType.multiSelect:
-            buf.writeln('  uint8_t ${name}Mask = $name.get();  // bitmask');
+            buf.writeln('  uint8_t ${name}Mask = $name.rk.selected;  // bitmask');
             break;
           case DesignerElementType.gasPedal:
-            buf.writeln('  int8_t ${name}Val = $name.get();  // -100 to +100');
+            buf.writeln('  int8_t ${name}Val = $name.rk.value;  // -100 to +100');
             break;
           case DesignerElementType.led:
             break;

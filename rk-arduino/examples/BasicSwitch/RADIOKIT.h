@@ -150,29 +150,10 @@ RADIOKIT_Designer_Config__*/
 #include <RadioKitLib.h>
 
 // ─── Widget Declarations ───
-RK_RockerSwitch slide_switch_1({
-    .x = 135, .y = 71,
-    .height = 31, .width = 0,
-    .rotation = 0
-});  // switch: pos=(135,71) size=?x31 label="slide_switch_1"
-
-RK_PushButton button_1({
-    .x = 155, .y = 28,
-    .height = 34, .width = 0,
-    .rotation = 0
-});  // button: pos=(155,28) size=?x34 label="button_1"
-
-RK_LED led_2({
-    .x = 48, .y = 49,
-    .height = 32, .width = 0,
-    .rotation = 0
-});  // led: pos=(48,49) size=?x32 label="led_2"
-
-RK_LED led_1({
-    .x = 115, .y = 29,
-    .height = 28, .width = 0,
-    .rotation = 0
-});  // led: pos=(115,29) size=?x28 label="led_1"
+RK_RockerSwitch slide_switch_1(135, 71, 31);  // switch: pos=(135,71) size=?x31 label="slide_switch_1"
+RK_PushButton button_1(155, 28, 34);          // button: pos=(155,28) size=?x34 label="button_1"
+RK_LED led_2(48, 49, 32);                    // led: pos=(48,49) size=?x32 label="led_2"
+RK_LED led_1(115, 29, 28);                   // led: pos=(115,29) size=?x28 label="led_1"
 
 // ─── Config Init ───
 static inline void initRadioKit() {
@@ -181,10 +162,10 @@ static inline void initRadioKit() {
   RadioKit.config.theme       = RK_DEFAULT;
   RadioKit.config.baudrate    = 1000000;
 
-  button_1.setOnText("ON");
-  button_1.setOffText("OFF");
-  led_2.setColor(0x00ff00);
-  led_1.setColor(0x00ff00);
+  button_1.rk.onText  = "ON";
+  button_1.rk.offText = "OFF";
+  led_2.rk.color      = 0x00ff00;
+  led_1.rk.color      = 0x00ff00;
 
   RadioKit.begin();
   RadioKit.startBLE(RadioKit.config.name);

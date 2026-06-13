@@ -57,6 +57,7 @@ RadioKitClass::RadioKitClass()
     memset(_widgets, 0, sizeof(_widgets));
     memset(_txBuf,   0, sizeof(_txBuf));
     memset(_shadowInput, 0, sizeof(_shadowInput));
+    memset(_shadowOutput, 0, sizeof(_shadowOutput));
     memset(_nvsName, 0, sizeof(_nvsName));
     memset(_nvsDesc, 0, sizeof(_nvsDesc));
     memset(_nvsPwd,  0, sizeof(_nvsPwd));
@@ -352,13 +353,28 @@ void RadioKitClass::update() {
         for (uint8_t i = 0; i < _widgetCount; i++) {
             RadioKit_Widget* w = _widgets[i];
             uint8_t inSz = w->inputSize();
+            uint8_t outSz = w->outputSize();
+            
+            // Check input widgets (slider, button, etc.) for changes pushed from rk
             if (inSz > 0 && inSz <= 4) {
                 uint8_t currentBuf[4] = {0};
                 w->serializeInput(currentBuf);
                 bool match = (memcmp(currentBuf, _shadowInput[i], inSz) == 0);
                 if (!match) {
-                    RK_DEBUG_PRINT("[DBG]   -> shadow MISMATCH for widget %d! Updating and pushing\n", i);
+                    RK_DEBUG_PRINT("[DBG]   -> input shadow MISMATCH for widget %d!\n", i);
                     memcpy(_shadowInput[i], currentBuf, inSz);
+                    pushUpdate(i);
+                }
+            }
+            
+            // Check output widgets (LED, Text, Telemetry) for changes pushed from rk
+            if (outSz > 0 && outSz <= RADIOKIT_TEXT_LEN + 1) {
+                uint8_t currentOutBuf[RADIOKIT_TEXT_LEN + 1] = {0};
+                w->serializeOutput(currentOutBuf);
+                bool match = (memcmp(currentOutBuf, _shadowOutput[i], outSz) == 0);
+                if (!match) {
+                    RK_DEBUG_PRINT("[DBG]   -> output shadow MISMATCH for widget %d!\n", i);
+                    memcpy(_shadowOutput[i], currentOutBuf, outSz);
                     pushUpdate(i);
                 }
             }
@@ -795,9 +811,9 @@ void RadioKitClass::_handleSettingsGetFeatures() {
 #if RK_HAS_OTA
     bitmask |= RK_SETTINGS_FEATURE_OTA;
 #endif
-#if RK_FS_HAS_LITTLEFS
-    bitmask |= RK_SETTINGS_FEATURE_FILESYSTEM;
-#endif
+    if (isFsReady()) {
+        bitmask |= RK_SETTINGS_FEATURE_FILESYSTEM;
+    }
     if (_nvsActive && _nvsPwd[0] != '\0') {
         bitmask |= RK_SETTINGS_FEATURE_HAS_DEVICE_PWD;
     }

@@ -262,6 +262,9 @@ class DeviceProvider extends ChangeNotifier {
   /// Whether the device supports cloud relay.
   bool get hasCloud => (_deviceFeatures & kFeatureCloud) != 0;
 
+  /// Whether the device has a LittleFS filesystem (detected via features bitmask).
+  bool get hasFs => (_deviceFeatures & kFeatureFilesystem) != 0;
+
   /// Whether the device supports the 0xEE print stream.
   bool get hasPrintStream => (_deviceFeatures & kSettingsFeaturePrintStream) != 0;
 
@@ -705,40 +708,6 @@ class DeviceProvider extends ChangeNotifier {
     // Request chip info — will be fetched on first display
     unawaited(_requestChipInfo());
 
-    // Start FS detection in parallel — uses INFO instead of PING
-    unawaited(_detectFs());
-  }
-
-  /// Detect filesystem support using FS_INFO (instead of the old FS_PING).
-  /// Resilient to no-FS boards and transport jitter.
-  Future<void> _detectFs() async {
-    if (_connectedDevice == null) return;
-    if (_connectedDevice!.hasFs) return; // already true (e.g. demos)
-    for (int attempt = 0; attempt < 3; attempt++) {
-      if (_connectionState == DeviceConnectionState.disconnected) return;
-      if (!_transport.isConnected) return;
-      final resp = await sendFs(
-        FsProtocolService.buildInfo(),
-        timeout: const Duration(milliseconds: 1500),
-      );
-      if (resp == null) {
-        await Future.delayed(const Duration(milliseconds: 250));
-        continue;
-      }
-      // INFO returns 11 bytes when mounted, or a 1-byte error code (NO_FS) when not.
-      final info = FsProtocolService.parseInfoData(resp.payload);
-      if (info != null) {
-        _connectedDevice = _connectedDevice!.copyWith(hasFs: true);
-        _log('FS_INFO OK — filesystem detected (${_connectedDevice!.name})',
-            level: ConsoleLogLevel.success);
-        notifyListeners();
-        // Start background FS tree prefetch for instant explorer loading
-        unawaited(prefetchFsTree());
-        return;
-      }
-    }
-    _log('FS_INFO: no response after 3 attempts — assuming no FS',
-        level: ConsoleLogLevel.info);
   }
 
   Future<void> loadDemo(String demoId) async {
@@ -1387,7 +1356,7 @@ class DeviceProvider extends ChangeNotifier {
     if (bitmask == null) return;
     _deviceFeatures = bitmask;
     _log('Features bitmask: 0x${_deviceFeatures.toRadixString(16)} '
-        '(BLE=${hasBle}, WiFi=${hasWifi}, Cloud=${hasCloud}, OTA=${hasOta}, '
+        '(FS=${hasFs}, BLE=${hasBle}, WiFi=${hasWifi}, Cloud=${hasCloud}, OTA=${hasOta}, '
         'devicePwd=${hasDevicePassword}, userPwd=${hasUserPassword})',
         level: ConsoleLogLevel.success);
     
@@ -1398,6 +1367,15 @@ class DeviceProvider extends ChangeNotifier {
       SecureStorageService.deletePassword(_connectedDevice!.id);
     }
     
+    // If the features bitmask reports FS, set hasFs immediately (no probe needed).
+    if (hasFs && _connectedDevice != null && !_connectedDevice!.hasFs) {
+      _connectedDevice = _connectedDevice!.copyWith(hasFs: true);
+      _log('Filesystem detected via feature bit',
+          level: ConsoleLogLevel.success);
+      notifyListeners();
+      unawaited(prefetchFsTree());
+    }
+
     notifyListeners();
     final completer = _featuresCompleter;
     if (completer != null && !completer.isCompleted) {

@@ -60,17 +60,8 @@ RADIOKIT_Designer_Config__*/
 #include <RadioKitLib.h>
 
 // ─── Widget Declarations ───
-RK_RockerSwitch slide_switch_1({
-    .x = 135, .y = 71,
-    .height = 31, .width = 0,
-    .rotation = 0
-});  // switch: pos=(135,71) size=?x31
-
-RK_LED led_1({
-    .x = 115, .y = 29,
-    .height = 28, .width = 0,
-    .rotation = 0
-});  // led: pos=(115,29) size=?x28
+RK_RockerSwitch slide_switch_1(135, 71, 31);  // switch: pos=(135,71) size=?x31
+RK_LED led_1(115, 29, 28);                    // led: pos=(115,29) size=?x28
 
 // ─── Config Init ───
 static inline void initRadioKit() {
@@ -87,7 +78,7 @@ static inline void initRadioKit() {
   RadioKit.config.sta_ssid      = "Leap";
   RadioKit.config.sta_password  = "awsedrft";
 
-  led_1.setColor(0x00ff00);
+  led_1.rk.color = 0x00ff00;
 
   RadioKit.begin();
 

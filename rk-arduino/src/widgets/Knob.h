@@ -12,25 +12,26 @@
 
 #include "Widget.h"
 
-struct RK_KnobProps {
+struct RK_KnobFields {
     uint8_t     x = 0, y = 0;
     uint8_t     height = 20;
     uint8_t     width = 0;
     int16_t     rotation = 0;
     const char* icon = nullptr;
-    int16_t     startAngle = -135;
-    int16_t     endAngle = 135;
-    uint8_t     centering = RK_SPRING_NONE;
-    uint8_t     variant = 0;          // 0=standard, 1=steeringWheel
-    const char* centerIcon = nullptr;
     const char* label = nullptr;
     bool        active = false;
     int8_t      value = 0;
+    int16_t     startAngle = -135;
+    int16_t     endAngle = 135;
+    uint8_t     centering = RK_SPRING_NONE;
+    uint8_t     detents = 0;         ///< Snap positions (0=continuous, 1-63)
+    uint8_t     variant = 0;         ///< 0=standard, 1=steeringWheel
+    const char* centerIcon = nullptr;
 };
 
 class RK_Knob : public RadioKit_Widget {
 public:
-    RK_Knob(RK_KnobProps p);
+    RK_Knob(uint8_t x, uint8_t y, uint8_t height, uint8_t width = 0, int16_t rotation = 0);
 
     uint8_t inputSize()  const override { return 1; }
     uint8_t outputSize() const override { return 0; }
@@ -39,17 +40,11 @@ public:
     void deserializeInput(const uint8_t* buf)        override;
     uint16_t serializeStrings(uint8_t* buf)    const override;
 
-    int8_t  get()           const { return props.value; }
-    void    set(int8_t val)       { props.value = val > 100 ? 100 : (val < -100 ? -100 : val); }
-    uint8_t centering()     const { return props.centering; }
-    uint8_t detents()       const { return (_variant >> 2) & 0x3F; }
-    uint8_t knobVariant()   const { return props.variant; }
-    const char* centerIconStr() const { return props.centerIcon; }
-
-    RK_KnobProps props;
+    RK_KnobFields rk;
 
 protected:
     float defaultAspect() const override { return 1.0f; }
+    RK_KnobFields _shadow;
 };
 
 #endif // RADIOKIT_WIDGET_KNOB_H

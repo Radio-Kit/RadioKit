@@ -2,61 +2,49 @@
 #include "../RadioKitLib.h"
 #include <string.h>
 
-void RadioKit_Multiple::_initFromProps(const RK_MultipleProps& p, uint8_t tid) {
-    props      = p;
-    typeId     = tid;
-    _poolCount = 0;
-    memset(_pool, 0, sizeof(_pool));
+void RadioKit_Multiple::_initFromFields(const RK_MultipleFields& f, uint8_t tid) {
+    rk       = f;
+    typeId   = tid;
 
-    for (const RK_Item& item : p.items) {
-        if (_poolCount >= RADIOKIT_MAX_ITEMS) break;
-        uint8_t slot = _poolCount;
-        if (item.pos < RADIOKIT_MAX_ITEMS) slot = item.pos;
-        _pool[slot] = item;
-        _poolCount++;
-    }
-
-    _init(p.label, p.x, p.y, p.height, p.width, 0, p.variant,
-          nullptr, nullptr, nullptr, p.rotation);
+    _init(rk.label, rk.x, rk.y, rk.height, rk.width, 0, rk.variant,
+          nullptr, nullptr, nullptr, rk.rotation);
+    _shadow = rk;
 }
 
 void RadioKit_Multiple::deserializeInput(const uint8_t* buf) {
-    props.value = buf[0];
+    rk.value = buf[0];
+    _shadow.value = rk.value;
 }
 
 void RadioKit_Multiple::serializeInput(uint8_t* buf) const {
-    buf[0] = props.value;
-}
-
-void RadioKit_Multiple::clear() {
-    memset(_pool, 0, sizeof(_pool));
-    _poolCount  = 0;
-    props.value = 0;
-}
-
-void RadioKit_Multiple::add(const RK_Item& item) {
-    if (_poolCount >= RADIOKIT_MAX_ITEMS) return;
-    uint8_t slot = _poolCount;
-    if (item.pos < RADIOKIT_MAX_ITEMS) slot = item.pos;
-    _pool[slot] = item;
-    _poolCount++;
-}
-
-void RadioKit_Multiple::remove(uint8_t index) {
-    if (index >= RADIOKIT_MAX_ITEMS) return;
-    memset(&_pool[index], 0, sizeof(RK_Item));
-    if (_poolCount > 0) _poolCount--;
+    buf[0] = rk.value;
 }
 
 
-RK_MultipleButton::RK_MultipleButton(RK_MultipleProps p) {
-    p.variant = 0; // Index-based (Radio)
-    _initFromProps(p, RK_TYPE_MULTIPLE);
+RK_MultipleButton::RK_MultipleButton(uint8_t x, uint8_t y, uint8_t height, uint8_t width, int16_t rotation) {
+    rk.x = x;
+    rk.y = y;
+    rk.height = height;
+    rk.width = width;
+    rk.rotation = rotation;
+    rk.variant = 0; // Index-based (Radio)
+    rk.value = 0;
+    rk.itemCount = 0;
+    memset(rk.items, 0, sizeof(rk.items));
+    _initFromFields(rk, RK_TYPE_MULTIPLE);
 }
 
-RK_MultipleSelect::RK_MultipleSelect(RK_MultipleProps p) {
-    p.variant = 1; // Bitmask-based (Checkboxes)
-    _initFromProps(p, RK_TYPE_MULTIPLE);
+RK_MultipleSelect::RK_MultipleSelect(uint8_t x, uint8_t y, uint8_t height, uint8_t width, int16_t rotation) {
+    rk.x = x;
+    rk.y = y;
+    rk.height = height;
+    rk.width = width;
+    rk.rotation = rotation;
+    rk.variant = 1; // Bitmask-based (Checkboxes)
+    rk.value = 0;
+    rk.itemCount = 0;
+    memset(rk.items, 0, sizeof(rk.items));
+    _initFromFields(rk, RK_TYPE_MULTIPLE);
 }
 
 uint16_t RadioKit_Multiple::serializeStrings(uint8_t* buf) const {
@@ -71,8 +59,8 @@ uint16_t RadioKit_Multiple::serializeStrings(uint8_t* buf) const {
     itemsStr[0] = '\0';
     size_t remaining = sizeof(itemsStr) - 1;
     bool first = true;
-    for (uint8_t i = 0; i < _poolCount; i++) {
-        const RK_Item& item = _pool[i];
+    for (uint8_t i = 0; i < rk.itemCount; i++) {
+        const RK_Item& item = rk.items[i];
         const char* lbl  = item.label ? item.label : "";
         const char* icon = item.icon  ? item.icon  : "";
         if (lbl[0] == '\0' && icon[0] == '\0') continue;

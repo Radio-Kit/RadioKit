@@ -235,6 +235,8 @@ private:
     
     // Shadow state to track implicit input changes by firmware
     uint8_t _shadowInput[RADIOKIT_MAX_WIDGETS][4];
+    // Shadow state for output changes (LED, Text, Telemetry)
+    uint8_t _shadowOutput[RADIOKIT_MAX_WIDGETS][RADIOKIT_TEXT_LEN + 1];
 
     uint8_t _txBuf[RK_MAX_PACKET_SIZE];
 

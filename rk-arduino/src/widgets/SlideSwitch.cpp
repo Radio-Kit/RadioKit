@@ -1,27 +1,31 @@
 #include "SlideSwitch.h"
 #include <string.h>
 
-RK_SlideSwitch::RK_SlideSwitch(RK_SlideSwitchProps p) {
-    props  = p;
+RK_SlideSwitch::RK_SlideSwitch(uint8_t x, uint8_t y, uint8_t height, uint8_t width, int16_t rotation) {
+    rk.x = x;
+    rk.y = y;
+    rk.height = height;
+    rk.width = width;
+    rk.rotation = rotation;
+    rk.variant = 0;
     typeId = RK_TYPE_SLIDE_SWITCH;
-    _init(p.label, p.x, p.y, p.height, p.width, 0, p.variant,
-          p.icon, p.onText, p.offText, p.rotation);
+    _init(rk.label, x, y, height, width, 0, rk.variant,
+          rk.icon, rk.onText, rk.offText, rotation);
+    _shadow = rk;
 }
 
 void RK_SlideSwitch::serializeInput(uint8_t* buf) const {
-    buf[0] = props.state ? 1 : 0;
+    buf[0] = rk.state ? 1 : 0;
 }
 
 void RK_SlideSwitch::deserializeInput(const uint8_t* buf) {
-    props.state = (buf[0] != 0);
+    rk.state = (buf[0] != 0);
+    _shadow.state = rk.state;
 }
 
-void RK_SlideSwitch::setIcon(const char* val) {
-    props.icon = val;
-    if (val && val[0] != '\0') {
-        strncpy(_icon, val, RADIOKIT_MAX_ICON);
-        _icon[RADIOKIT_MAX_ICON] = '\0';
-    } else {
-        _icon[0] = '\0';
-    }
+// ── RockerSwitch ────────────────────────────────────────────────────────────
+RK_RockerSwitch::RK_RockerSwitch(uint8_t x, uint8_t y, uint8_t height, uint8_t width, int16_t rotation)
+    : RK_SlideSwitch(x, y, height, width, rotation)
+{
+    rk.variant = 1;
 }

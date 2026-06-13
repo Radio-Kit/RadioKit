@@ -1,6 +1,6 @@
 # RadioKit Library - Functions Reference
 
-> This document reflects the **v3.0 Object-Oriented API** using **Tailored Initializers**.
+> This document reflects the **v2.0 API** using the `rk` field pattern.
 
 ---
 
@@ -16,55 +16,75 @@
 
 ## 1. Setup & Sketch Structure
 
-Every RadioKit sketch follows a simple three-part pattern. 
+Every RadioKit sketch follows a simple three-part pattern.
 
 ```cpp
 #include <RadioKitLib.h>
 
-// ── 1. Widget declarations (global scope) ────────────────────────────────
-// Each widget self-registers on construction
+// ── 1. Widget declarations (global scope, minimal constructors) ──────
+// Each widget self-registers on construction.
+// Post-construction config is done in initRadioKit().
 
-RK_PushButton fireBtn({ .x = 20, .y = 50, .height = 15, .width = 0, .rotation = 0, .icon = "flame", .label = "Fire" });
-RK_ToggleButton power({ .x = 20, .y = 80, .height = 15, .width = 0, .rotation = 0, .label = "Power" });
-RK_Slider throttle({ .x = 100, .y = 60, .height = 12, .width = 80, .rotation = 0, .label = "Throttle", .value = 0 });
-RK_Knob steering({ .x = 170, .y = 40, .height = 20, .width = 0, .rotation = 0, .centering = RK_SPRING_CENTER, .label = "Steer" });
-RK_Joystick joy({ .x = 160, .y = 70, .height = 20, .width = 0, .rotation = 0, .label = "Stick" });
-RK_LED status({ .x = 20, .y = 20, .height = 15, .width = 0, .rotation = 0, .label = "Status" });
-RK_Text uptime({ .x = 20, .y = 10, .height = 10, .width = 0, .rotation = 0, .label = "Uptime" });
+RK_PushButton    fireBtn(20, 50, 15);
+RK_ToggleButton  power(20, 80, 15);
+RK_Slider        throttle(100, 60, 12, 80);
+RK_Knob          steering(170, 40, 20);
+RK_Joystick      joy(160, 70, 20);
+RK_LED           status(20, 20, 15);
+RK_Text          uptime(20, 10, 10);
 
 // ── 2. setup() ───────────────────────────────────────────────────────────
+static inline void initRadioKit() {
+  // Post-construction configuration via rk fields
+  fireBtn.rk.label    = "Fire";
+  fireBtn.rk.icon     = "flame";
+  power.rk.label      = "Power";
+  throttle.rk.label   = "Throttle";
+  steering.rk.label   = "Steer";
+  steering.rk.centering = RK_SPRING_CENTER;
+  joy.rk.label        = "Stick";
+  status.rk.label     = "Status";
+  uptime.rk.label     = "Uptime";
+
+  RadioKit.config.name = "GP7 Locomotive";
+  RadioKit.config.password = "1234";
+  RadioKit.config.theme = "retro";
+
+  RadioKit.begin();
+  RadioKit.startBLE("Train_01");
+}
+
 void setup() {
-    RadioKit.config.name = "GP7 Locomotive";
-    RadioKit.config.password = "1234";
-    RadioKit.config.theme = "retro"; // Controller skin name or GitHub URL
-    RadioKit.begin();
-    RadioKit.startBLE("Train_01");
+  initRadioKit();
 }
 
 // ── 3. loop() ────────────────────────────────────────────────────────────
 void loop() {
     RadioKit.update();
-    
-    // Read widget states
-    if (fireBtn.isPressed()) { triggerFire(); }
-    if (power.get()) { enableSystems(); }
-    
-    // Update outputs
-    int8_t steer = steering.get();
-    int8_t throttle = throttle.get();
-    
-    String statusText;
-    statusText = "Speed: " + String(throttle) + "%";
-    uptime.set(statusText);
+
+    // Read widget states from rk fields
+    if (fireBtn.rk.state) { triggerFire(); }
+    if (power.rk.state) { enableSystems(); }
+
+    // Read values
+    int8_t steer    = steering.rk.value;
+    int8_t throttle = throttle.rk.value;
+
+    // Set output widget values (auto-synced on next update())
+    static char statusText[32];
+    snprintf(statusText, sizeof(statusText), "Speed: %d%%", throttle);
+    uptime.rk.content = statusText;
 }
 ```
 
 ### Key Points
 
-- **Widgets are declared globally** — They self-register on construction via their initializer list `{ ... }`.
+- **Widgets are declared globally** — They self-register on construction via minimal constructors taking `(x, y, height, width=0, rotation=0)`.
+- **Post-construction configuration** — Optional fields (label, icon, onText, offText, centering, etc.) are set via `widget.rk.field = value` after construction, typically in `initRadioKit()`.
 - **`RadioKit.begin()` commits configuration** — Must be called before `startBLE()` or `startSerial()`.
-- **`RadioKit.update()` must be called every loop** — Processes incoming packets and manages state. Never block with `delay()`.
-- **Initializer lists bridge Props and Classes** — The `{ ... }` syntax creates a `RK_*Props` struct which is passed to the widget constructor.
+- **`RadioKit.update()` must be called every loop** — Processes incoming packets and manages state. Also detects changes to `rk` fields and pushes updates to the app automatically.
+- **All state access through `rk`** — No getters, no setters, no methods. Read and write widget state via `widget.rk.fieldName` directly.
+- **Auto-sync** — Assigning to an `rk` field (e.g., `led.rk.color = 0xFF0000`) is detected on the next `RadioKit.update()` and pushed to the app.
 
 ---
 
@@ -95,6 +115,11 @@ Global settings object. Configure **before** calling `begin()` — fields are re
 | `orientation` | `uint8_t` | `RK_LANDSCAPE` (default) or `RK_PORTRAIT`. | `RK_LANDSCAPE` |
 | `width` | `uint8_t` | Canvas width in virtual units (0–200, 0 = auto). | `0` |
 | `height` | `uint8_t` | Canvas height in virtual units (0–200, 0 = auto). | `0` |
+| `sta_ssid` | `const char*` | STA WiFi SSID (empty = AP-only). | `""` |
+| `sta_password` | `const char*` | STA WiFi password. | `""` |
+| `cloud_url` | `const char*` | Cloud relay URL (e.g. `"wss://relay.example.com"`). | `""` |
+| `cloud_account` | `const char*` | Account identifier for cloud relay. | `""` |
+| `device_icon` | `const char*` | Icon name for this device (from icon registry). | `""` |
 
 #### Read-Only (Set by Library)
 
@@ -111,8 +136,8 @@ Initialises BLE (NimBLE) and starts advertising.
 void startBLE(const char* deviceName = nullptr);
 ```
 
-- **`deviceName`** — Overrides `config.name` for BLE advertising. If `nullptr`, uses `config.name`. The advertised name is automatically prefixed with `RK_` for app filtering; `config.name` (without prefix) is sent in CONF_DATA and displayed in the app UI.
-- Uses NimBLE on ESP32, Nordic SoftDevice on nRF52.
+- **`deviceName`** — Overrides `config.name` for BLE advertising. If `nullptr`, uses `config.name`. The advertised name is automatically prefixed with `RK_` for app filtering.
+- Uses NimBLE on ESP32.
 - Service UUID: `0000FFE0-0000-1000-8000-00805F9B34FB`
 - Characteristic UUID: `0000FFE1-0000-1000-8000-00805F9B34FB`
 
@@ -127,31 +152,49 @@ void startSerial(Stream& stream);
 - **`stream`** — Reference to a `Stream` object (e.g., `Serial`, `Serial1`, `SerialUSB`).
 - The sketch **must** call `stream.begin(baud)` before this.
 - Baud rate is unrestricted; 1000000 recommended.
-- Supports WebSerial (Chrome/Edge) for browser-based control.
+
+### `startWiFi()`
+
+Starts the WiFi transport — WebSocket server on port 5555. Supports both AP and STA modes.
+
+```cpp
+void startWiFi();
+```
+
+- Requires `#define RADIOKIT_ENABLE_WIFI` in build flags.
+- In AP mode, creates network `RK_<device_name>`.
+- In STA mode, connects to the configured network using NVS-stored credentials.
+
+### `startCloud()`
+
+Starts the cloud relay client (optional). Requires `startWiFi()` to have been called first.
+
+```cpp
+void startCloud();
+```
 
 ### `update()`
 
-Processes incoming data, manages connections, and handles reliability.
+Processes incoming data, manages connections, and auto-syncs widget state.
 
 ```cpp
 void update();
 ```
 
 - **Must be called every loop iteration** — Do not block with `delay()`.
-- Handles packet parsing, ACKs, retransmissions, and state sync.
+- Detects changes to `widget.rk.*` fields via shadow comparison and pushes VAR_UPDATE to the app.
 - Typical call time: < 1ms when idle.
 
 ### `pushUpdate(uint8_t widgetId)`
 
-Enqueues a reliable `VAR_UPDATE` for the specified widget. Use when firmware changes a widget's state programmatically.
+Enqueues a reliable `VAR_UPDATE` for the specified widget.
 
 ```cpp
 void pushUpdate(uint8_t widgetId);
 ```
 
 - **`widgetId`** — Index of the widget (0-based, sequential order of declaration).
-- The library tracks pending updates and retries on failure (200ms interval, 5 max retries).
-- Example: `RadioKit.pushUpdate(slider.widgetId);`
+- Typically not needed — `RadioKit.update()` auto-detects rk field changes.
 
 ### `pushMetaUpdate(uint8_t widgetId)`
 
@@ -170,109 +213,70 @@ bool isConnected() const;  // Returns true if transport is connected
 int8_t getRssi();          // Returns RSSI in dBm (127 if N/A)
 ```
 
+### Print API
+
+Transport-agnostic print stream (0xEE packets). Messages appear in the app's console.
+
+```cpp
+RadioKit.print("Hello");
+RadioKit.println("World");
+RadioKit.printf("Value: %d", val);
+RadioKit.printFlush();  // Force send buffered data
+```
+
 ---
 
 ## 3. Widget Classes
 
-RadioKit v3.0 uses a **Props + Class** pattern. Each widget has:
+RadioKit v2.0 uses the **`rk` field pattern**. Each widget has:
 
-1. A **Props struct** (e.g., `RK_SliderProps`) — Plain data container with fields.
-2. A **Class** (e.g., `RK_Slider`) — Active controller with methods.
+1. A **Fields struct** (e.g., `RK_SliderFields`) — Plain data container.
+2. A **Class** (e.g., `RK_Slider`) — Active controller with a public `rk` member.
 
-Instantiation uses an initializer list that implicitly creates the Props:
+Instantiation uses positional constructor parameters `(x, y, height, width=0, rotation=0)`:
 
 ```cpp
-RK_Slider slider({ .x = 100, .y = 60, .height = 12, .width = 80, .rotation = 0, .label = "Speed", .value = 0 });
-// { ... } creates RK_SliderProps, RK_Slider constructor consumes it
+RK_Slider slider(100, 60, 12, 80, 0);
+// Optional fields set after construction:
+slider.rk.label = "Speed";
+slider.rk.centering = RK_SPRING_NONE;
 ```
 
 ### Available Widgets
 
-| Widget | Class | Props Struct | Direction | Description |
-|--------|-------|--------------|-----------|-------------|
-| PushButton | `RK_PushButton` | `RK_ButtonProps` | Input | Momentary (true while held) |
-| ToggleButton | `RK_ToggleButton` | `RK_ButtonProps` | Input | Latching on/off switch |
-| MultipleButton | `RK_MultipleButton` | `RK_MultipleProps` | Input | Radio-style group (bitmask) |
-| MultipleSelect | `RK_MultipleSelect` | `RK_MultipleProps` | Input | Checkbox group (bitmask) |
-| SlideSwitch | `RK_SlideSwitch` | `RK_SlideSwitchProps` | Input | iOS-style slide toggle |
-| Slider | `RK_Slider` | `RK_SliderProps` | Input | Linear -100..+100 |
-| Knob | `RK_Knob` | `RK_KnobProps` | Input | Rotary -100..+100 |
-| Joystick | `RK_Joystick` | `RK_JoystickProps` | Input | 2-axis (-100..+100 each) |
-| LED | `RK_LED` | `RK_LEDProps` | Output | Colour indicator |
-| Text | `RK_Text` | `RK_DisplayProps` | Output | Read-only text display |
-| Serial | `RK_Serial` | `RK_DisplayProps` | Output | Serial Monitor in app |
+| Widget | Class | Fields Struct | Direction | Description |
+|--------|-------|---------------|-----------|-------------|
+| PushButton | `RK_PushButton` | `RK_ButtonFields` | Input | Momentary (true while held) |
+| ToggleButton | `RK_ToggleButton` | `RK_ButtonFields` | Input | Latching on/off switch |
+| MultipleButton | `RK_MultipleButton` | `RK_MultipleFields` | Input | Radio-style group (bitmask) |
+| MultipleSelect | `RK_MultipleSelect` | `RK_MultipleFields` | Input | Checkbox group (bitmask) |
+| SlideSwitch | `RK_SlideSwitch` | `RK_SlideSwitchFields` | Input | iOS-style slide toggle |
+| RockerSwitch | `RK_RockerSwitch` | `RK_SlideSwitchFields` | Input | Rocker-style toggle |
+| Slider | `RK_Slider` | `RK_SliderFields` | Input | Linear -100..+100 |
+| GasPedal | `RK_GasPedal` | `RK_SliderFields` | Input | Spring-loaded slider variant |
+| Knob | `RK_Knob` | `RK_KnobFields` | Input | Rotary -100..+100 |
+| Joystick | `RK_Joystick` | `RK_JoystickFields` | Input | 2-axis (-100..+100 each) |
+| LED | `RK_LED` | `RK_LedFields` | Output | Colour indicator |
+| Text | `RK_Text` | `RK_TextFields` | Output | Read-only text display |
+| Serial | `RK_Serial` | `RK_TextFields` | Output | Serial Monitor in app |
+| Telemetry | `RK_Telemetry` | `RK_TelemetryFields` | Output | Display-only telemetry value |
 
-### Common Fields (all widgets)
+### Common Fields (via `rk`)
 
 | Field | Type | Description | Default |
 |-------|------|-------------|---------|
-| `x`, `y` | `uint8_t` | Center position (0–200) | 100, 100 |
-| `height` | `uint8_t` | Physical height (0–200) | 15 |
+| `x`, `y` | `uint8_t` | Center position (0–200) | 0, 0 |
+| `height` | `uint8_t` | Physical height (0–200) | 10 |
 | `width` | `uint8_t` | Physical width (0 = auto) | 0 |
 | `rotation` | `int16_t` | Rotation in degrees (clockwise) | 0 |
-| `icon` | `const char*` | Icon name from skin | `nullptr` |
 | `label` | `const char*` | Text label above widget | `nullptr` |
-
-### Method Interface (Read/Write)
-
-Best for standard control logic:
-
-```cpp
-// Buttons
-bool isPressed();  // PushButton: true while held
-bool clicked();    // PushButton: true once per click
-bool get();        // ToggleButton/Switch: current state
-void set(bool);    // Force update app-side state
-
-// Slider / Knob
-int8_t get();      // Returns -100 to +100
-void set(int8_t);  // Force update app position
-
-// Joystick
-int8_t getX();     // X axis (-100 to +100)
-int8_t getY();     // Y axis (-100 to +100)
-
-// Multiple
-uint8_t get();     // Returns bitmask
-bool get(uint8_t i); // Returns true if bit i is set
-void clear();      // Remove all items from pool
-void add(RK_Item); // Add item to pool (max 8)
-void remove(uint8_t index); // Remove item from pool index
-void setIcon(const char*);  // Update group icon
-
-// LED
-void on();
-void off();
-void setColor(uint32_t rgba); // e.g. 0x00FF00
-void setRed/Green/Blue(uint8_t);
-void setOpacity(uint8_t);
-
-// Display / Serial
-void set(const char*);
-void set(const String&);
-const char* get();
-void print(...);
-void println(...);
-void clear();
-```
-
-### Props Interface (Deep Access)
-
-Best for dynamic UI changes:
-
-```cpp
-slider.props.label = "Volume";   // Change label
-slider.props.value = 50;         // Direct value assignment
-led.props.red = 255;             // Modify colour
-```
+| `labelHidden` | `bool` | Hide the label | `false` |
 
 ---
 
 ## 4. Constants & Enums
 
 ### Architecture (`config.architecture`)
-
-Detected hardware platform (read-only):
 
 | Constant | Value | Platform |
 |----------|-------|----------|
@@ -284,23 +288,11 @@ Detected hardware platform (read-only):
 
 ### UI Skins (`config.theme`)
 
-Theme is passed as a string. Available built-in themes:
-
-| Theme Name | Description |
-|------------|-------------|
-| `"default"` | Light blue, modern (default) |
-| `"dark"` | Dark mode |
-| `"retro"` | CRT green phosphor |
-| `"futuristic"` | Futuristic blue |
-| `"military"` | Military green |
-| `"cyberpunk"` | Cyberpunk neon |
-| `"neon"` | Neon glow |
-| `"minimal"` | Flat, minimal |
-| `"https://..."` | Custom skin from GitHub ZIP |
+Available built-in themes: `"default"`, `"dark"`, `"retro"`, `"futuristic"`, `"military"`, `"cyberpunk"`, `"neon"`, `"minimal"`.
 
 ### Slider / Knob / Joystick Spring Modes
 
-Passed as `centering` field:
+Passed as `rk.centering` field:
 
 | Constant | Value | Behaviour |
 |----------|-------|-----------|
@@ -311,11 +303,7 @@ Passed as `centering` field:
 | `RK_SPRING_LEFT` | 4 | Springs to −100 on release (Horizontal) |
 | `RK_SPRING_RIGHT` | 5 | Springs to +100 on release (Horizontal) |
 
-When using `RK_SliderProps` or `RK_KnobProps`, set the `centering` field directly. This value is packed into the `VARIANT` byte in the protocol.
-
 ### LED Colours
-
-RGB hex values for `setColor()`:
 
 | Constant | Hex | Components |
 |----------|-----|------------|
@@ -325,22 +313,15 @@ RGB hex values for `setColor()`:
 | `RK_BLUE` | `0x0000FF` | (0, 0, 255) |
 | `RK_YELLOW` | `0xFFFF00` | (255, 255, 0) |
 
-### Protocol Version
-
-```cpp
-#define RK_PROTOCOL_VERSION 0x03  // Protocol v3
-#define RK_LIB_VERSION "2.0.0"    // Library version
-```
-
 ---
 
 ## 5. Bulk Filesystem (LittleFS)
 
-The library can expose a LittleFS partition to the companion app for browsing, reading, writing, deleting, and renaming files. The app uses the bulk-FS protocol (0xAA start byte) — see the [Protocol Spec](protocol.md#bulk-filesystem-protocol-0xaa) for the wire format.
+The library can expose a LittleFS partition to the companion app for browsing, reading, writing, deleting, and renaming files.
 
 ### `beginFs()`
 
-Mount the LittleFS partition. Returns `true` on success. Safe to call once after `RadioKit.begin()`.
+Mount the LittleFS partition. Returns `true` on success.
 
 ```cpp
 bool beginFs();
@@ -364,7 +345,7 @@ bool formatFs();
 
 ### `sendFsFrame()`
 
-Send a raw FS frame back to the app. Used by custom backends (e.g., a sketch that proxies FS over Wi-Fi).
+Send a raw FS frame back to the app.
 
 ```cpp
 void sendFsFrame(const uint8_t* data, size_t len);
@@ -393,35 +374,15 @@ void setup() {
 
 ### Custom Backends
 
-The default backend uses `LittleFS` directly. To use a different filesystem (SPIFFS, FFat, SDFS, etc.) or to expose a virtual file system (e.g., backed by SD card or RAM), re-implement the `RKFs` namespace functions in your sketch:
+Reimplement the `RKFs` namespace functions to use a different filesystem:
 
 ```cpp
 namespace RKFs {
     void begin() { /* mount your FS */ }
-    bool listDir(const String& path, std::vector<String>& names, std::vector<bool>& isDir, std::vector<size_t>& sizes) { /* ... */ }
-    size_t readFile(const String& path, size_t offset, uint8_t* buf, size_t len) { /* ... */ }
-    bool writeFile(const String& path, size_t offset, const uint8_t* buf, size_t len) { /* ... */ }
-    bool delFile(const String& path) { /* ... */ }
-    bool mkdir(const String& path) { /* ... */ }
-    bool rename(const String& oldPath, const String& newPath) { /* ... */ }
-    bool getInfo(uint32_t& total, uint32_t& used, uint16_t& blockSize, char* fsType, size_t fsTypeLen) { /* ... */ }
+    bool listDir(const String& path, ...) { /* ... */ }
+    // ...
 }
 ```
-
-The library calls the `RKFs` functions with weak linkage, so your re-implementation will replace the defaults at link time.
-
-### Companion App
-
-The Flutter companion app exposes the bulk-FS protocol through a Material 3 file explorer (DevTools → Filesystem Explorer). It supports:
-
-- Browse directories and read file sizes
-- Upload files (auto-chunked at 8 KB)
-- Download files (auto-chunked at 8 KB)
-- Create, rename, and delete entries (recursive delete for folders)
-- Pull-to-refresh and multi-select (long-press to enter)
-- Format partition (gated behind a typed-name confirmation)
-
-The explorer is reachable at `/dev-tools/esp32-fs` in the app and uses the same BLE/Serial transport the user is already connected to for widgets — no second connection required.
 
 ---
 
@@ -430,10 +391,9 @@ The explorer is reachable at `/dev-tools/esp32-fs` in the app and uses the same 
 1. **Always call `update()`** — Never block in `loop()` with `delay()` or long computations.
 2. **Declare widgets globally** — They self-register on construction.
 3. **Configure before `begin()`** — `config` fields are read-only after `begin()`.
-4. **Use `pushUpdate()` for programmatic changes** — Keeps the app in sync when firmware modifies widget state.
+4. **Use `rk` fields for all widget access** — No need for getter/setter methods.
 5. **Keep `loop()` fast** — Defer heavy work to timers or state machines.
 6. **Check `isConnected()`** — Before sending critical updates.
-7. **Use the Props interface for runtime changes** — Modify `widget.props.label`, `widget.props.value`, etc., then call `pushMetaUpdate()` or `pushUpdate()`.
 
 ## See Also
 

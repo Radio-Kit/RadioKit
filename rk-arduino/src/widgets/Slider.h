@@ -16,7 +16,7 @@
 
 #include "Widget.h"
 
-struct RK_SliderProps {
+struct RK_SliderFields {
     uint8_t     x = 0, y = 0;
     uint8_t     height = 10;
     uint8_t     width = 0;
@@ -26,12 +26,12 @@ struct RK_SliderProps {
     int8_t      value = 0;
     uint8_t     centering = RK_SPRING_NONE;
     uint8_t     detents   = 0;
-    uint8_t     variant   = 0;
+    // variant is auto-derived from centering+detents
 };
 
 class RK_Slider : public RadioKit_Widget {
 public:
-    RK_Slider(RK_SliderProps p);
+    RK_Slider(uint8_t x, uint8_t y, uint8_t height, uint8_t width = 0, int16_t rotation = 0);
 
     uint8_t inputSize()  const override { return 1; }
     uint8_t outputSize() const override { return 0; }
@@ -39,29 +39,17 @@ public:
     void serializeOutput(uint8_t*)             const override {}
     void deserializeInput(const uint8_t* buf)        override;
 
-    int8_t  get()           const { return props.value; }
-    void    set(int8_t val)       { props.value = val > 100 ? 100 : (val < -100 ? -100 : val); }
-    uint8_t centering()     const { return props.centering; }
-    uint8_t detents()       const { return props.detents; }
-
-    RK_SliderProps props;
+    RK_SliderFields rk;
 
 protected:
     float defaultAspect() const override { return 5.0f; }
+    RK_SliderFields _shadow;  ///< Shadow copy for change detection
 };
 
 // ── GasPedal ──────────────────────────────────────────────────────────────
 class RK_GasPedal : public RK_Slider {
-private:
-    static RK_SliderProps _modify(RK_SliderProps p) {
-        p.variant = RK_SHAPE_ALT | RK_SPRING_CENTER; // GasPedal: springs to 0 (~IDLE)
-        p.centering = RK_SPRING_CENTER;
-        return p;
-    }
 public:
-    RK_GasPedal(RK_SliderProps p) : RK_Slider(_modify(p)) {
-        typeId = RK_TYPE_SLIDER;
-    }
+    RK_GasPedal(uint8_t x, uint8_t y, uint8_t height, uint8_t width = 0, int16_t rotation = 0);
 };
 
 #endif // RADIOKIT_WIDGET_SLIDER_H

@@ -57,11 +57,7 @@ RADIOKIT_Designer_Config__*/
 #include <RadioKitLib.h>
 
 // ─── Widget Declarations ───
-RK_RockerSwitch slide_switch_1({
-    .x = 101, .y = 46,
-    .height = 20, .width = 0,
-    .rotation = 0
-});  // switch: pos=(101,46) size=?x20 label="slide_switch_1"
+RK_RockerSwitch slide_switch_1(101, 46, 20);  // switch: pos=(101,46) size=?x20
 
 // ─── Config Init ───
 static inline void initRadioKit() {
@@ -71,7 +67,7 @@ static inline void initRadioKit() {
   RadioKit.config.theme       = RK_DEFAULT;
   RadioKit.config.password    = "1234";
 
-  slide_switch_1.setLabelHidden(true);
+  slide_switch_1.rk.labelHidden = true;
 
   RadioKit.begin();
   RadioKit.startBLE(RadioKit.config.name);

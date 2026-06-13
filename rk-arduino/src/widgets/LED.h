@@ -18,7 +18,7 @@
 #define RK_LED_STATE_BLINK    2
 #define RK_LED_STATE_BREATHE  3
 
-struct RK_LedProps {
+struct RK_LedFields {
     uint8_t     x = 0, y = 0;
     uint8_t     height = 10;
     uint8_t     width = 0;
@@ -33,7 +33,7 @@ struct RK_LedProps {
 
 class RK_LED : public RadioKit_Widget {
 public:
-    RK_LED(RK_LedProps p);
+    RK_LED(uint8_t x, uint8_t y, uint8_t height, uint8_t width = 0, int16_t rotation = 0);
 
     uint8_t inputSize()  const override { return 0; }
     uint8_t outputSize() const override { return 5; }
@@ -42,18 +42,11 @@ public:
     void deserializeInput(const uint8_t*)            override {}
     uint16_t serializeStrings(uint8_t* buf)    const override;
 
-    void on();
-    void off();
-    void set(bool val);
-    void setColor(uint32_t val);
-    void setShape(uint8_t val);
-    void setLedState(uint8_t val);
-    void setTiming(uint16_t val);
-
-    RK_LedProps props;
+    RK_LedFields rk;
 
 protected:
     float defaultAspect() const override { return 1.0f; }
+    RK_LedFields _shadow;
 };
 
 #endif // RADIOKIT_WIDGET_LED_H

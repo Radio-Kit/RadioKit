@@ -2,24 +2,18 @@
 #include "../RadioKitLib.h"
 #include <string.h>
 
-RK_Text::RK_Text(RK_TextProps p)
-    : props(p)
+RK_Text::RK_Text(uint8_t x, uint8_t y, uint8_t height, uint8_t width)
 {
     typeId = RK_TYPE_TEXT;
     memset(_text, 0, RADIOKIT_TEXT_LEN);
-    if (p.content && p.content[0] != '\0') {
-        strncpy(_text, p.content, RADIOKIT_TEXT_LEN - 1);
-    }
-    _init(p.label, p.x, p.y, p.height, p.width, 0, 0,
+    rk.x = x;
+    rk.y = y;
+    rk.height = height;
+    rk.width = width;
+    rk.content = _text;
+    _init(rk.label, x, y, height, width, 0, 0,
           nullptr, nullptr, nullptr, 0);
-}
-
-void RK_Text::set(const char* text) {
-    if (!text) { memset(_text, 0, RADIOKIT_TEXT_LEN); return; }
-    strncpy(_text, text, RADIOKIT_TEXT_LEN - 1);
-    _text[RADIOKIT_TEXT_LEN - 1] = '\0';
-    props.content = _text;
-    RadioKit.pushUpdate(widgetId);
+    _shadow = rk;
 }
 
 void RK_Text::serializeInput(uint8_t* buf) const {
@@ -27,10 +21,11 @@ void RK_Text::serializeInput(uint8_t* buf) const {
 }
 
 void RK_Text::serializeOutput(uint8_t* buf) const {
-  uint8_t len = (uint8_t)strlen(_text);
+  const char* src = rk.content ? rk.content : "";
+  uint8_t len = (uint8_t)strnlen(src, RADIOKIT_TEXT_LEN - 1);
   buf[0] = len;
   if (len > 0) {
-    memcpy(buf + 1, _text, len);
+    memcpy(buf + 1, src, len);
   }
 }
 
@@ -39,20 +34,22 @@ uint8_t RK_Text::outputSize() const {
 }
 
 // RK_Serial
-RK_Serial::RK_Serial(RK_TextProps p) : RK_Text(p) {}
+RK_Serial::RK_Serial(uint8_t x, uint8_t y, uint8_t height, uint8_t width) : RK_Text(x, y, height, width) {}
 
 size_t RK_Serial::write(uint8_t c) {
-    char s[2] = {(char)c, 0};
-    set(s);
+    _text[0] = (char)c;
+    _text[1] = '\0';
+    rk.content = _text;
+    RadioKit.pushUpdate(widgetId);
     return 1;
 }
 
 size_t RK_Serial::write(const uint8_t *buffer, size_t size) {
     if (!buffer || size == 0) return 0;
-    char temp[RADIOKIT_TEXT_LEN];
     size_t toCopy = (size < RADIOKIT_TEXT_LEN - 1) ? size : RADIOKIT_TEXT_LEN - 1;
-    memcpy(temp, buffer, toCopy);
-    temp[toCopy] = '\0';
-    set(temp);
+    memcpy(_text, buffer, toCopy);
+    _text[toCopy] = '\0';
+    rk.content = _text;
+    RadioKit.pushUpdate(widgetId);
     return toCopy;
 }

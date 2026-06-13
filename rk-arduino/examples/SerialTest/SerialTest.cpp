@@ -32,22 +32,22 @@ void loop() {
   }
 
   // LED control: Button or switches can turn on the LED
-  bool ledActive = btn.isPressed() || sw.get() || slideSw.get();
+  bool ledActive = btn.rk.state || sw.rk.state || slideSw.rk.state;
   digitalWrite(LED_PIN, ledActive ? HIGH : LOW);
 
   // Status LED colour reflects slider level (-100..+100)
-  int8_t level = sld.get();
+  int8_t level = sld.rk.value;
   if (level < 0) {
-    statusLED.setColor(RK_RED);
+    statusLED.rk.color = RK_RED;
   } else if (level == 0) {
-    statusLED.setColor(RK_YELLOW);
+    statusLED.rk.color = RK_YELLOW;
   } else {
-    statusLED.setColor(RK_GREEN);
+    statusLED.rk.color = RK_GREEN;
   }
 
   // Pan knob: print value when it changes
   static int8_t lastPan = 0;
-  int8_t panVal = pan.get();
+  int8_t panVal = pan.rk.value;
   if (panVal != lastPan) {
     lastPan = panVal;
     Serial.print("Pan: ");
@@ -59,16 +59,16 @@ void loop() {
   uint32_t nowSec = millis() / 1000;
   if (nowSec != lastSec) {
     lastSec = nowSec;
-    char buf[32];
-    const char *modeName = (mode.get() == 0) ? "AUTO" : "MAN";
-    snprintf(buf, sizeof(buf), "%s | %lus", modeName, (unsigned long)nowSec);
-    uptimeText.set(buf);
+    static char _uptimeBuf[32];
+    const char *modeName = (mode.rk.value == 0) ? "AUTO" : "MAN";
+    snprintf(_uptimeBuf, sizeof(_uptimeBuf), "%s | %lus", modeName, (unsigned long)nowSec);
+    uptimeText.rk.content = _uptimeBuf;
   }
 
   // Options logic: if Mute is active, turn off LED regardless of slider
-  if (opts.get(1)) { // "Mute" is the second item (bit 1)
-    statusLED.off();
+  if (opts.rk.value & (1 << 1)) { // "Mute" is the second item (bit 1)
+    statusLED.rk.state = false;
   } else {
-    statusLED.on();
+    statusLED.rk.state = true;
   }
 }

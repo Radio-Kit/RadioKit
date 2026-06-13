@@ -16,11 +16,6 @@ String _comment(DesignerElement el) =>
   return (el.width, 0);                           // width is primary
 }
 
-String _sizeLine(DesignerElement el) {
-  final (w, h) = _cppSize(el);
-  return '.width = $w, .height = $h';
-}
-
 /// Returns true when auto-center is enabled (position in array[0] is not null).
 bool _acEnabled(List? ac) => ac != null && ac.isNotEmpty && ac[0] is String;
 
@@ -36,98 +31,77 @@ final Map<DesignerElementType, WidgetTemplate> templates = {
     final widgetType = mode == 'toggle' ? 'RK_ToggleButton' : 'RK_PushButton';
     final onText = el.properties['onText'] ?? 'ON';
     final offText = el.properties['offText'] ?? 'OFF';
+    final (w, h) = _cppSize(el);
     return '''
-$widgetType ${_widgetName(el)} {
-    .x = ${el.x}, .y = ${el.y},
-    ${_sizeLine(el)},
-    .rotation = ${el.rotation}
-};${_comment(el)}
-  ${_widgetName(el)}.setOnText("${_escape(onText)}");
-  ${_widgetName(el)}.setOffText("${_escape(offText)}");''';
+$widgetType ${_widgetName(el)}(${el.x}, ${el.y}, $h, $w, ${el.rotation});${_comment(el)}
+  ${_widgetName(el)}.rk.onText = "${_escape(onText)}";
+  ${_widgetName(el)}.rk.offText = "${_escape(offText)}";''';
   },
 
   DesignerElementType.slideSwitch: (el, pin) {
     final onText = el.properties['onText'] ?? 'ON';
     final offText = el.properties['offText'] ?? 'OFF';
+    final (w, h) = _cppSize(el);
     return '''
-RK_SlideSwitch ${_widgetName(el)} {
-    .x = ${el.x}, .y = ${el.y},
-    ${_sizeLine(el)},
-    .rotation = ${el.rotation}
-};${_comment(el)}
-  ${_widgetName(el)}.setOnText("${_escape(onText)}");
-  ${_widgetName(el)}.setOffText("${_escape(offText)}");''';
+RK_SlideSwitch ${_widgetName(el)}(${el.x}, ${el.y}, $h, $w, ${el.rotation});${_comment(el)}
+  ${_widgetName(el)}.rk.onText = "${_escape(onText)}";
+  ${_widgetName(el)}.rk.offText = "${_escape(offText)}";''';
   },
 
-  DesignerElementType.rockerSwitch: (el, pin) => '''
-RK_RockerSwitch ${_widgetName(el)} {
-    .x = ${el.x}, .y = ${el.y},
-    ${_sizeLine(el)},
-    .rotation = ${el.rotation}
-};${_comment(el)}''',
+  DesignerElementType.rockerSwitch: (el, pin) {
+    final (w, h) = _cppSize(el);
+    return '''
+RK_RockerSwitch ${_widgetName(el)}(${el.x}, ${el.y}, $h, $w, ${el.rotation});${_comment(el)}''';
+  },
 
   DesignerElementType.slider: (el, pin) {
     final ac = el.properties['autoCenter'] as List?;
+    final (w, h) = _cppSize(el);
     return '''
-RK_Slider ${_widgetName(el)} {
-    .x = ${el.x}, .y = ${el.y},
-    ${_sizeLine(el)},
-    .rotation = ${el.rotation}
-};${_comment(el)}
-  ${_widgetName(el)}.props.centering = ${_centeringFromAC(ac)};''';
+RK_Slider ${_widgetName(el)}(${el.x}, ${el.y}, $h, $w, ${el.rotation});${_comment(el)}
+  ${_widgetName(el)}.rk.centering = ${_centeringFromAC(ac)};''';
   },
 
   DesignerElementType.gasPedal: (el, pin) {
     final ac = el.properties['autoCenter'] as List?;
+    final (w, h) = _cppSize(el);
+    final centering = _centeringFromAC(ac);
     return '''
-RK_GasPedal ${_widgetName(el)} {
-    .x = ${el.x}, .y = ${el.y},
-    ${_sizeLine(el)},
-    .rotation = ${el.rotation}
-};${_comment(el)}
-  ${_widgetName(el)}.props.centering = ${_centeringFromAC(ac)};''';
+RK_GasPedal ${_widgetName(el)}(${el.x}, ${el.y}, $h, $w, ${el.rotation});${_comment(el)}
+  ${_widgetName(el)}.rk.centering = $centering;''';
   },
 
   DesignerElementType.knob: (el, pin) {
     final ac = el.properties['autoCenter'] as List?;
     final minAngle = el.properties['minAngle'] ?? -135;
     final maxAngle = el.properties['maxAngle'] ?? 135;
+    final (w, h) = _cppSize(el);
     return '''
-RK_Knob ${_widgetName(el)} {
-    .x = ${el.x}, .y = ${el.y},
-    ${_sizeLine(el)},
-    .rotation = ${el.rotation}
-};${_comment(el)}
-  ${_widgetName(el)}.props.centering = ${_centeringFromAC(ac)};
-  ${_widgetName(el)}.props.startAngle = $minAngle;
-  ${_widgetName(el)}.props.endAngle = $maxAngle;''';
+RK_Knob ${_widgetName(el)}(${el.x}, ${el.y}, $h, $w, ${el.rotation});${_comment(el)}
+  ${_widgetName(el)}.rk.centering = ${_centeringFromAC(ac)};
+  ${_widgetName(el)}.rk.startAngle = $minAngle;
+  ${_widgetName(el)}.rk.endAngle = $maxAngle;''';
   },
 
   DesignerElementType.steeringWheel: (el, pin) {
     final ac = el.properties['autoCenter'] as List?;
     final minAngle = el.properties['minAngle'] ?? -135;
     final maxAngle = el.properties['maxAngle'] ?? 135;
+    final (w, h) = _cppSize(el);
     return '''
-RK_Knob ${_widgetName(el)} {
-    .x = ${el.x}, .y = ${el.y},
-    ${_sizeLine(el)},
-    .rotation = ${el.rotation}
-};${_comment(el)}
-  ${_widgetName(el)}.props.variant = 1;     // steeringWheel
-  ${_widgetName(el)}.props.centering = ${_centeringFromAC(ac)};
-  ${_widgetName(el)}.props.startAngle = $minAngle;
-  ${_widgetName(el)}.props.endAngle = $maxAngle;''';
+RK_Knob ${_widgetName(el)}(${el.x}, ${el.y}, $h, $w, ${el.rotation});${_comment(el)}
+  ${_widgetName(el)}.rk.variant = 1;     // steeringWheel
+  ${_widgetName(el)}.rk.centering = ${_centeringFromAC(ac)};
+  ${_widgetName(el)}.rk.startAngle = $minAngle;
+  ${_widgetName(el)}.rk.endAngle = $maxAngle;''';
   },
 
   DesignerElementType.joystick: (el, pin) {
     final ac = el.properties['autoCenter'] as List?;
+    final (w, h) = _cppSize(el);
     return '''
-RK_Joystick ${_widgetName(el)} {
-    .x = ${el.x}, .y = ${el.y},
-    ${_sizeLine(el)},
-    .rotation = ${el.rotation}
-};${_comment(el)}
-  ${_widgetName(el)}.props.centering = ${_centeringFromAC(ac)};''';
+RK_Joystick ${_widgetName(el)}(${el.x}, ${el.y}, $h, $w, ${el.rotation});${_comment(el)}
+  ${_widgetName(el)}.rk.centering = ${_centeringFromAC(ac)};''';
   },
 
   DesignerElementType.multiButton: (el, pin) {
@@ -142,32 +116,25 @@ RK_Joystick ${_widgetName(el)} {
 
   DesignerElementType.led: (el, pin) {
     final color = el.properties['color'] ?? 0x00FF00;
+    final (w, h) = _cppSize(el);
     return '''
-RK_LED ${_widgetName(el)} {
-    .x = ${el.x}, .y = ${el.y},
-    ${_sizeLine(el)},
-    .rotation = ${el.rotation}
-};${_comment(el)}
-  ${_widgetName(el)}.setColor(0x${color.toInt().toRadixString(16).padLeft(6, '0')});''';
+RK_LED ${_widgetName(el)}(${el.x}, ${el.y}, $h, $w, ${el.rotation});${_comment(el)}
+  ${_widgetName(el)}.rk.color = 0x${color.toInt().toRadixString(16).padLeft(6, '0')};''';
   },
 
   DesignerElementType.text: (el, pin) {
     final text = el.properties['text'] ?? 'Display';
+    final (w, h) = _cppSize(el);
     return '''
-RK_Text ${_widgetName(el)} {
-    .x = ${el.x}, .y = ${el.y},
-    ${_sizeLine(el)},
-    .rotation = ${el.rotation}
-};${_comment(el)}
-  ${_widgetName(el)}.set("${_escape(text)}");''';
+RK_Text ${_widgetName(el)}(${el.x}, ${el.y}, $h, $w);${_comment(el)}
+  ${_widgetName(el)}.rk.content = "${_escape(text)}";''';
   },
 
-  DesignerElementType.serialMonitor: (el, pin) => '''
-RK_SerialMonitor ${_widgetName(el)} {
-    .x = ${el.x}, .y = ${el.y},
-    ${_sizeLine(el)},
-    .rotation = ${el.rotation}
-};${_comment(el)}''',
+  DesignerElementType.serialMonitor: (el, pin) {
+    final (w, h) = _cppSize(el);
+    return '''
+RK_SerialMonitor ${_widgetName(el)}(${el.x}, ${el.y}, $h, $w);${_comment(el)}''';
+  },
 };
 
 String _widgetName(DesignerElement el) {
@@ -203,20 +170,17 @@ List<Map<String, dynamic>> _multiItems(DesignerElement el) {
 /// Builds an RK_MultipleButton or RK_MultipleSelect declaration with items.
 String _buildMultiple(String widgetType, DesignerElement el, List<Map<String, dynamic>> items) {
   final buf = StringBuffer();
-  buf.writeln('$widgetType ${_widgetName(el)} {');
-  buf.writeln('    .x = ${el.x}, .y = ${el.y},');
-  buf.writeln('    ${_sizeLine(el)},');
-  buf.writeln('    .rotation = ${el.rotation}');
-  buf.writeln('};${_comment(el)}');
+  final (w, h) = _cppSize(el);
+  buf.writeln('$widgetType ${_widgetName(el)}(${el.x}, ${el.y}, $h, $w, ${el.rotation});${_comment(el)}');
 
   for (int i = 0; i < items.length; i++) {
     final item = items[i];
     final label = item['onLabel'] as String? ?? String.fromCharCode(65 + i);
     final icon = item['onIcon'] as String?;
     if (icon != null && icon.isNotEmpty) {
-      buf.writeln('  ${_widgetName(el)}.add({"$label", "$icon"});');
+      buf.writeln('  ${_widgetName(el)}.rk.items[$i] = {"$label", "$icon", 255};');
     } else {
-      buf.writeln('  ${_widgetName(el)}.add({"$label"});');
+      buf.writeln('  ${_widgetName(el)}.rk.items[$i] = {"$label", nullptr, 255};');
     }
   }
 

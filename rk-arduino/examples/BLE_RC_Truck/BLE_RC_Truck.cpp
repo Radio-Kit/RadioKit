@@ -23,7 +23,7 @@ void setup() {
 
   initRadioKit();
 
-  truckStatus.set("Ready to Drive");
+  truckStatus.rk.content = "Ready to Drive";
   Serial.println("System Ready.");
 }
 
@@ -38,9 +38,9 @@ void loop() {
   if (millis() - lastUpdate > 200) {
     lastUpdate = millis();
 
-    int8_t gas = gasPedal.get();
-    int8_t steer = steeringWheel.get();
-    uint8_t gearIdx = driveMode.get();  // Returns the index of the selected button
+    int8_t gas = gasPedal.rk.value;
+    int8_t steer = steeringWheel.rk.value;
+    uint8_t gearIdx = driveMode.rk.value;
 
     String status;
 
@@ -66,15 +66,19 @@ void loop() {
     else if (steer > 10) status += " >";
 
     // Light info (Bitmask)
-    if (lights.get() > 0) {
+    if (lights.rk.value > 0) {
       status += " {L: ";
-      if (lights.get(0)) status += "H ";
-      if (lights.get(1)) status += "F ";
-      if (lights.get(2)) status += "W ";
-      if (lights.get(3)) status += "C ";
+      if (lights.rk.value & (1 << 0)) status += "H ";
+      if (lights.rk.value & (1 << 1)) status += "F ";
+      if (lights.rk.value & (1 << 2)) status += "W ";
+      if (lights.rk.value & (1 << 3)) status += "C ";
       status += "}";
     }
 
-    truckStatus.set(status);
+    // Store status in a persistent buffer
+    static char _statusBuf[64];
+    strncpy(_statusBuf, status.c_str(), sizeof(_statusBuf) - 1);
+    _statusBuf[sizeof(_statusBuf) - 1] = '\0';
+    truckStatus.rk.content = _statusBuf;
   }
 }

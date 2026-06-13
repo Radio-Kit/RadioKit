@@ -32,8 +32,8 @@ void setup() {
   digitalWrite(LED_PIN, LOW);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
 
-  led_1.off();
-  led_2.off();
+  led_1.rk.state = false;
+  led_2.rk.state = false;
 
   // Initialize RadioKit from the UI config and start USB Serial.
   initRadioKit();
@@ -50,21 +50,17 @@ void loop() {
   RadioKit.update();
 
   // Sync the physical LED only when the switch state changes.
-  bool switchNow = slide_switch_1.get();
+  bool switchNow = slide_switch_1.rk.state;
   if (switchNow != lastSwitchState) {
     lastSwitchState = switchNow;
     digitalWrite(LED_PIN, switchNow ? HIGH : LOW);
   }
 
   // button_1 → led_1 (direct mapping)
-  if (button_1.get() != led_1.props.state) {
-    led_1.set(button_1.get());
-  }
+  led_1.rk.state = button_1.rk.state;
 
   // Physical button on BUTTON_PIN → led_2 (direct mapping)
   bool btnPressed = (digitalRead(BUTTON_PIN) == LOW);
-  if (btnPressed != led_2.props.state) {
-    led_2.set(btnPressed);
-  }
+  led_2.rk.state = btnPressed;
 }
 

@@ -86,51 +86,11 @@ RADIOKIT_Designer_Config__*/
 #include <RadioKitLib.h>
 
 // ─── Widget Declarations ───
-RK_GasPedal gasPedal({
-    .x = 15, .y = 60,
-    .height = 12,
-    .rotation = -90,
-    .label = "Gas Pedal",
-    .value = -100
-});
-
-RK_Knob steeringWheel({
-    .x = 85, .y = 60,
-    .height = 30,
-    .startAngle = -150,
-    .endAngle = 150,
-    .centering = RK_SPRING_CENTER,
-    .variant = 1,
-    .label = "Steering",
-    .value = 0
-});
-
-RK_MultipleButton driveMode({
-    .x = 50, .y = 85,
-    .items = {
-        { .label = "D", .icon = "drive_eta" },
-        { .label = "P", .icon = "local_parking" },
-        { .label = "R", .icon = "settings_backup_restore" }
-    },
-    .label = "Gear"
-});
-
-RK_MultipleSelect lights({
-    .x = 50, .y = 35,
-    .items = {
-        { .label = "Head", .icon = "lightbulb" },
-        { .label = "Fog", .icon = "cloud" },
-        { .label = "Hazard", .icon = "warning" },
-        { .label = "Cabin", .icon = "home" }
-    },
-    .label = "Truck Lights"
-});
-
-RK_Text truckStatus({
-    .x = 50, .y = 10,
-    .height = 10,
-    .label = "Truck Status"
-});
+RK_GasPedal         gasPedal(15, 60, 12, 0, -90);
+RK_Knob             steeringWheel(85, 60, 30);
+RK_MultipleButton   driveMode(50, 85, 10);
+RK_MultipleSelect   lights(50, 35, 10);
+RK_Text             truckStatus(50, 10, 10);
 
 // ─── Config Init ───
 static inline void initRadioKit() {
@@ -138,6 +98,29 @@ static inline void initRadioKit() {
   RadioKit.config.description = "Advanced RC Truck Controller";
   RadioKit.config.theme       = RK_CYBERPUNK;
   RadioKit.config.orientation = RK_LANDSCAPE;
+
+  // Post-construction widget configuration
+  gasPedal.rk.label           = "Gas Pedal";
+  steeringWheel.rk.label      = "Steering";
+  steeringWheel.rk.startAngle = -150;
+  steeringWheel.rk.endAngle   = 150;
+  steeringWheel.rk.centering  = RK_SPRING_CENTER;
+  steeringWheel.rk.variant    = 1;
+
+  driveMode.rk.label = "Gear";
+  driveMode.rk.items[0] = {"D", "drive_eta", 0};
+  driveMode.rk.items[1] = {"P", "local_parking", 1};
+  driveMode.rk.items[2] = {"R", "settings_backup_restore", 2};
+  driveMode.rk.itemCount = 3;
+
+  lights.rk.label = "Truck Lights";
+  lights.rk.items[0] = {"Head", "lightbulb", 0};
+  lights.rk.items[1] = {"Fog", "cloud", 1};
+  lights.rk.items[2] = {"Hazard", "warning", 2};
+  lights.rk.items[3] = {"Cabin", "home", 3};
+  lights.rk.itemCount = 4;
+
+  truckStatus.rk.label = "Truck Status";
 
   RadioKit.begin();
   RadioKit.startBLE(RadioKit.config.name);

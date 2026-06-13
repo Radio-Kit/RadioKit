@@ -624,17 +624,16 @@ curl -s -X POST http://$APP_IP:7007/api/connection/disconnect
 
 ### FS Detection over BLE
 
-**Issue:** FS sub-command ACK matching. The MCU responds to `FS_PING (0x0B)` with `FS_PING_ACK (0x8B)`. The app registers a pending completer for `0x0B` but receives `0x8B`.
+**Status: FIXED** — FS capability is now detected via the **feature bits** in the settings protocol (0xDD).
 
-**Fix** (applied to `device_provider.dart:_handleFsPacket`):
-```dart
-Completer<ParsedFsPacket>? pending = _pendingFs.remove(packet.subCmd);
-if (pending == null) {
-  pending = _pendingFs.remove(packet.subCmd & 0x7F);
-}
-```
+The device advertises `RK_SETTINGS_FEATURE_FILESYSTEM (bit 1 = 1 << 1)` in its features bitmask when LittleFS is compiled in and mounted. The app sets `hasFs = true` immediately upon receiving this bit, with no probe needed.
 
-**Workaround:** Wait 8-10s after connection before relying on `hasFs`. If still `false`, reconnecting usually triggers successful detection.
+**The fix** (applied to `device_provider.dart`):
+- Added `bool get hasFs => (_deviceFeatures & kFeatureFilesystem) != 0;`
+- Wired FS detection into `_handleSettingsFeaturesData()` — when the features response carries bit 1, `_connectedDevice.hasFs` is set and `prefetchFsTree()` fires
+- Removed the unreliable `_detectFs()` probe (which sent FS_INFO frames over the 0xAA protocol and contended with widget traffic over BLE)
+
+**Old workaround (no longer needed):** Previously required waiting 8-10s after connection and reconnecting if `hasFs` was `false`. This is no longer necessary — FS detection happens reliably within ~2s of connection as part of the features handshake.
 
 ### Serial Port Permissions (Linux)
 

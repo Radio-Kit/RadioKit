@@ -55,7 +55,7 @@ void setup()
 
     initRadioKit();   // all RadioKit init lives in RADIOKIT.h
 
-    zoneLED.off();
+    zoneLED.rk.state = false;
     Serial.println("RK: Setup complete.");
 }
 
@@ -65,7 +65,7 @@ void loop()
     RadioKit.update();   // always pump the transport first
 
     // ── Servo range: slider -100..+100 → 0°..180° ──────────
-    int angle = map(servoSlider.get(), -100, 100, 0, 180);
+    int angle = map(servoSlider.rk.value, -100, 100, 0, 180);
     myServo.write(angle);
 
     // ── Text widget: update only on change ───────────────────
@@ -73,7 +73,13 @@ void loop()
         lastAngle = angle;
         char buf[16];
         snprintf(buf, sizeof(buf), "%d deg", angle);
-        angleText.set(buf);
+        angleText.rk.content = "";  // Reset then set via snprintf if needed
+        // Note: rk.content is a pointer; for persistent content, write to a static buffer.
+        // Using a scoped buf here won't work across loop iterations.
+        // For this demo, we use a simple approach:
+        static char _angleBuf[16];
+        snprintf(_angleBuf, sizeof(_angleBuf), "%d deg", angle);
+        angleText.rk.content = _angleBuf;
     }
 
     // ── Zone LED: update only on zone change ─────────────────
@@ -84,6 +90,6 @@ void loop()
 
     if (zoneColor != lastLedColor) {
         lastLedColor = zoneColor;
-        zoneLED.setColor(zoneColor);
+        zoneLED.rk.color = zoneColor;
     }
 }

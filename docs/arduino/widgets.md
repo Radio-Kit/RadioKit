@@ -1,87 +1,54 @@
 # RadioKit Library - Widgets Reference
 
-
 ## Table of Contents
 
-1. [Widget Composition (Specific Props)](#1-widget-composition-specific-props)
+1. [Widget Access Model](#1-widget-access-model)
 2. [Widget Class Reference](#2-widget-class-reference)
    - [PushButton & ToggleButton](#pushbutton--togglebutton)
    - [MultipleButton / MultipleSelect](#multiplebutton--multipleselect)
-   - [SlideSwitch](#slideswitch)
-   - [Slider](#slider)
-   - [Knob](#knob)
+   - [SlideSwitch & RockerSwitch](#slideswitch--rockerswitch)
+   - [Slider & GasPedal](#slider--gaspedal)
+   - [Knob & SteeringWheel](#knob--steeringwheel)
    - [Joystick](#joystick)
    - [LED](#led)
-   - [Text](#text)
+   - [Text & Serial](#text--serial)
+   - [Telemetry](#telemetry)
 3. [Constants & Enums](#3-constants--enums)
 
 ---
 
-## 1. Widget Composition (Specific Props)
+## 1. Widget Access Model
 
-In v3.0, each widget uses its own **Tailored Struct**. Every widget provides the same core fields (`x`, `y`, `height`, `width`, `rotation`), but only allocates memory for features it actually uses.
-
-### Hybrid Access Model
-
-Every widget provides two ways to access its data:
-
-#### A. The Method Interface (Read/Write)
-
-Best for standard control logic. Clean, type-safe, and self-documenting.
+RadioKit v2.0 uses a **Fields struct + `rk` member** pattern. All widget state is accessed through the public `rk` member:
 
 ```cpp
-if (btn.isPressed()) { ... }     // Checking a button state
-int8_t val = sld.get();          // Reading slider position
+// Read widget state
+bool state   = button.rk.state;
+int8_t value = slider.rk.value;
+
+// Write widget state (auto-synced on next RadioKit.update())
+led.rk.state     = true;
+led.rk.color     = 0xFF0000;
 ```
 
-#### B. The Props Interface (Deep Access)
+**There are no getter/setter methods.** All access goes through `rk` fields directly.
 
-Best for dynamic UI changes. Since `props` is public, you can modify any part of the widget's metadata at runtime.
+### Instantiation
+
+Constructors take positional parameters: `(x, y, height, width = 0, rotation = 0)`.
 
 ```cpp
-slider.props.label = "Volume";   // Changing a label dynamically
-slider.props.value = 50;         // Direct value assignment
+// Minimal constructor — only spatial params
+RK_Slider slider(100, 60, 12, 80);
+
+// Post-construction: set optional fields via rk
+slider.rk.label     = "Speed";
+slider.rk.centering = RK_SPRING_CENTER;
 ```
 
-### Instantiation Pattern
+### Auto-Sync
 
-RadioKit uses a specialized pattern that bridges **Data (Props)** and **Logic (Classes)**:
-
-1. **The Struct**: `RK_SliderProps` is a plain data container (POD).
-2. **The Class**: `RK_Slider` is the active controller with methods.
-3. **The Bridge**: When you instantiate a widget, you pass an **initializer list** `{ ... }`. The compiler implicitly creates the `Props` struct and hands it to the `Class` constructor.
-
-```cpp
-// { ... } creates the Props, RK_Slider creates the Controller
-RK_Slider speed({ .x=100, .y=60, .height=10, .width=80, .rotation=50 });
-```
-
-### Common Variables
-
-All widgets share these positional and dimensional parameters:
-
-| Variable | Type | Description | Default |
-|----------|------|-------------|---------|
-| `x`, `y` | `uint8` | Center position in virtual canvas (0–200). | 100, 100 |
-| `height` | `uint8` | Physical height in virtual units (0–100). | 10 |
-| `width` | `uint8` | Physical width in virtual units (0–200). | 0 (Auto) |
-| `rotation` | `int16` | Rotation in degrees (clockwise). | 0 |
-| `icon` | `const char*` | Icon name from skin (e.g., "wifi", "power"). | `nullptr` |
-| `label` | `const char*` | Text label above/beside widget. | `nullptr` |
-| `active` | `bool` | Whether the widget is actively being manipulated in the app. | `false` |
-| `state` / `value` | `bool`/`float` | Primary state or value of the widget. | varies |
-
-### Layout Calculation
-
-The final physical size on screen is defined by explicit **Height** and **Width** values:
-
-1. **Height**: Directly sets the vertical span of the widget in the virtual 200x100 canvas.
-2. **Width**: Sets the horizontal span. 
-   - If set to `0` (default for most widgets), the widget uses its internal **Default Aspect Ratio** based on its current `height`.
-   - If set to a non-zero value, it overrides the aspect ratio and sets the width directly.
-   - **Fixed Aspect Widgets**: Some widgets (like Buttons, Knobs, Joysticks) enforce a fixed aspect ratio. For these widgets, the `width` parameter is ignored even if set, and the width is always calculated from the `height`.
-
-> **Tip:** Use `height` as your primary sizing handle. Only set `width` for widgets where you need to stretch the content (like Sliders or Text boxes).
+When you write to any `rk` field, the change is automatically detected on the next `RadioKit.update()` and pushed to the app. No need to call `pushUpdate()` for simple state changes.
 
 ---
 
@@ -91,338 +58,271 @@ The final physical size on screen is defined by explicit **Height** and **Width*
 
 The primary binary input widgets.
 
-- **PushButton**: Momentary interaction (returns `true` only while held).
-- **ToggleButton**: Latched interaction (toggles between `true` and `false` on tap).
-
-**Structure:**
+**Fields (RK_ButtonFields):**
 
 ```cpp
-struct RK_ButtonProps {
-    uint8_t     x = 0, y = 0;
-    uint8_t     height = 10;
-    uint8_t     width = 0;
-    int16_t     rotation = 0;
-    const char* icon  = nullptr;
-    const char* onText = nullptr;
-    const char* offText = nullptr;
-    const char* label = nullptr;
-    bool        active = false;
-    bool        state = false;
+struct RK_ButtonFields {
+    uint8_t     x, y;
+    uint8_t     height, width;
+    int16_t     rotation;
+    const char* icon, *onText, *offText, *label;
+    bool        active;     ///< Transport active flag
+    bool        state;      ///< Push/toggle state
 };
 ```
 
-**Class Interface:**
+**Access Pattern:**
 
-| Function | Variable (Direct Access) | Description |
-|----------|--------------------------|-------------|
-| `isPressed()` | `props.state == true` | Returns `true` if actively pressed (PushButton only). |
-| `clicked()` | — | Returns `true` only once per press/release cycle. |
-| `get()` | `props.state == true` | Returns `true` if active/toggled (ToggleButton). |
-| `set(bool)` | `props.state = val;` | Force update the app-side state. |
-| `setIcon(char*)` | `props.icon = val;` | Updates icon (e.g. `"power"`, `"wifi"`). |
+| Access | Code |
+|--------|------|
+| Read state | `bool pressed = btn.rk.state;` |
+| Write state | `btn.rk.state = true;` |
+| Set onText | `btn.rk.onText = "ON";` |
+| Set offText | `btn.rk.offText = "OFF";` |
+| Set icon | `btn.rk.icon = "power";` |
 
 **Examples:**
 
 ```cpp
-// A momentary fire button with an icon
-RK_PushButton fire({
-    .x = 20, .y = 50,
-    .height = 20,
-    .width = 0,
-    .rotation = 0,
-    .icon = "flame",
-    .label = "FIRE"
-});
+// Push button
+RK_PushButton fire(20, 50, 20);
+fire.rk.label   = "FIRE";
+fire.rk.icon    = "flame";
+fire.rk.onText  = "ON";
+fire.rk.offText = "OFF";
 
-// A master power toggle
-RK_ToggleButton power({
-    .x = 20, .y = 80,
-    .height = 20,
-    .width = 0,
-    .rotation = 0,
-    .icon = "power",
-    .onText = "ON",
-    .offText = "OFF",
-    .label = "Power"
-});
+// Toggle button
+RK_ToggleButton power(20, 80, 20);
+power.rk.label   = "Power";
+power.rk.icon    = "power";
+power.rk.onText  = "ON";
+power.rk.offText = "OFF";
 
 // Usage in loop()
 void loop() {
     RadioKit.update();
-    
-    if (fire.isPressed()) {
-        // Activate while held
-        triggerFire();
-    }
-    
-    if (power.get()) {
-        // Power is ON
-        enableSystems();
-    }
 
-    if (fire.clicked()) {
-        // Run once when fire button is first pressed
-        playFireSound();
-    }
+    if (fire.rk.state) { triggerFire(); }
+    if (power.rk.state) { enableSystems(); }
 }
 ```
 
+**Edge detection (rising/falling edge):**
+
+```cpp
+static bool lastState = false;
+if (btn.rk.state && !lastState) {
+    // Rising edge — button was just pressed
+}
+if (!btn.rk.state && lastState) {
+    // Falling edge — button was just released
+}
+lastState = btn.rk.state;
+```
+
 ---
+
 ### MultipleButton / MultipleSelect
 
-Selection groups (Radio or Checkbox). State is an **8-bit Bitmask** (max 8 items).
+Selection groups (Radio or Checkbox).
 
-> **Skin folders**: `multiple_button/` for button style, `multiple_select/` for select/checkbox style. Assets reside in the respective directories of a skin pack.
-
-**Widget Structure:**
+**Fields (RK_MultipleFields):**
 
 ```cpp
-struct RK_MultipleProps {
-    uint8_t     x = 0, y = 0;
-    uint8_t     height = 10;
-    uint8_t     width = 0;
-    int16_t     rotation = 0;
-    uint8_t     variant = 0;   // 0=MultipleButton (radio), 1=MultipleSelect (checkbox)
-    std::initializer_list<RK_Item> items = {};
-    const char* label = nullptr;
-    bool        active = false;
-    uint8_t     value = 0;     // Bitmask (bit 0 = item 0, bit 1 = item 1, etc.)
+struct RK_MultipleFields {
+    uint8_t     x, y;
+    uint8_t     height, width;
+    int16_t     rotation;
+    const char* label;
+    bool        active;
+    uint8_t     value;            ///< Bitmask (bit 0 = item 0, ...)
+    uint8_t     variant;          ///< 0=Segments, 1=Grid, 2=Wheel
+    RK_Item     items[8];         ///< Item pool
+    uint8_t     itemCount;
 };
-```
 
-**Item Structure:**
-
-```cpp
 struct RK_Item {
-    const char* label = nullptr; // Display text
-    const char* icon  = nullptr; // Optional icon name
-    uint8_t     pos   = 255;     // Fixed bitmask position (0-7). 255 = auto-assign.
+    const char* label;   ///< Display text
+    const char* icon;    ///< Optional icon name
+    uint8_t     pos;     ///< Bitmask position (0-7)
 };
 ```
 
-> **Note:** These widgets use a **Fixed 8-Slot Memory Pool** managed by the class. The `initializer_list` in the struct passes your initial items into this pre-allocated storage (max 8 items).
+**Access Pattern:**
 
-**Class Interface:**
-
-| Function | Variable (Direct Access) | Description |
-|----------|--------------------------|-------------|
-| `get()` | `props.value` | Returns current bitmask (`uint8_t`). |
-| `get(index)` | `(props.value & (1 << index))` | Returns `true` if index is active. |
-| `active()` | `props.active` | Returns active state. |
-| `clear()` | — | Removes all items from the pool. |
-| `add(RK_Item)` | — | Adds an item to the pool (Max 8). |
-| `remove(index)` | — | Removes an item by pool index (0-7). |
+| Access | Code |
+|--------|------|
+| Read bitmask | `uint8_t mask = multi.rk.value;` |
+| Check item | `bool active = (multi.rk.value & (1 << i)) != 0;` |
+| Set items | `multi.rk.items[0] = {"WiFi", "wifi", 0};` |
+| Set item count | `multi.rk.itemCount = 3;` |
 
 **Example:**
 
 ```cpp
-RK_MultipleSelect toolbar({
-    .x = 100, .y = 20,
-    .height = 10,
-    .width = 0,
-    .rotation = 0,
-    .items = {
-        { .label = "WiFi",   .icon = "wifi",   .pos = 0 },
-        { .label = "BT",     .icon = "bluetooth", .pos = 1 },
-        { .label = "GPS",    .icon = "satellite", .pos = 2 }
-    },
-    .label = "Systems",
-    .active = true
-});
+RK_MultipleSelect toolbar(50, 85, 10);
+toolbar.rk.label = "Gear";
+toolbar.rk.items[0] = {"D", "drive_eta", 0};
+toolbar.rk.items[1] = {"P", "local_parking", 1};
+toolbar.rk.items[2] = {"R", "settings_backup_restore", 2};
+toolbar.rk.itemCount = 3;
 
 void loop() {
     RadioKit.update();
-    
-    uint8_t mask = toolbar.get();
-    
-    if (toolbar.get(0)) {  // WiFi selected (bit 0)
-        enableWiFi();
-    }
-    if (toolbar.get(1)) {  // BT selected (bit 1)
-        enableBluetooth();
-    }
+    if ((toolbar.rk.value & (1 << 0)) != 0) { /* D selected */ }
+    if ((toolbar.rk.value & (1 << 1)) != 0) { /* P selected */ }
 }
 ```
 
 ---
 
-### SlideSwitch
+### SlideSwitch & RockerSwitch
 
-slide switch for binary on/off control.
+Slide/rocker switch for binary on/off control.
 
-**Structure:**
+**Fields (RK_SlideSwitchFields):**
 
 ```cpp
-struct RK_SlideSwitchProps {
-    uint8_t     x = 0, y = 0;
-    uint8_t     height = 10;
-    uint8_t     width = 0;
-    int16_t     rotation = 0;
-    const char* icon  = nullptr;
-    uint8_t     variant = 0;     // 0=Slide Switch (default), 1=Rocker Switch
-    const char* onText = nullptr;
-    const char* offText = nullptr;
-    const char* label = nullptr;
-    bool        active = false;
-    bool        state = false;
+struct RK_SlideSwitchFields {
+    uint8_t     x, y;
+    uint8_t     height, width;
+    int16_t     rotation;
+    const char* icon, *onText, *offText, *label;
+    bool        labelHidden;
+    bool        active;
+    bool        state;
+    uint8_t     variant;       ///< 0=Slide Switch, 1=Rocker Switch
 };
 ```
 
-**Class Interface:**
+**Access Pattern:**
 
-| Function | Variable (Direct Access) | Description |
-|----------|--------------------------|-------------|
-| `get()` | `props.state == true` | Returns `true` if active. |
-| `set(bool)` | `props.state = val;` | Force update the app-side state. |
-| `setIcon(char*)` | `props.icon = val;` | Updates icon. |
+| Access | Code |
+|--------|------|
+| Read state | `bool s = sw.rk.state;` |
+| Set state | `sw.rk.state = true;` |
+| Set text | `sw.rk.onText = "ON"; sw.rk.offText = "OFF";` |
+| Hide label | `sw.rk.labelHidden = true;` |
 
 **Example:**
 
 ```cpp
-RK_SlideSwitch headlights({
-    .x = 50, .y = 60,
-    .height = 15,
-    .width = 0,
-    .rotation = 0,
-    .icon = "sun",
-    .onText = "ON",
-    .offText = "OFF",
-    .label = "Headlights",
-    .state = false
-});
+RK_SlideSwitch headlights(50, 60, 15);
+headlights.rk.label    = "Headlights";
+headlights.rk.icon     = "sun";
+headlights.rk.onText   = "ON";
+headlights.rk.offText  = "OFF";
 
 void loop() {
     RadioKit.update();
-    digitalWrite(LED_PIN, headlights.get() ? HIGH : LOW);
+    digitalWrite(LED_PIN, headlights.rk.state ? HIGH : LOW);
 }
 ```
 
 ---
 
-### Slider
+### Slider & GasPedal
 
 Linear analog input control (−100 to +100).
 
-RadioKit v1.6+ uses a **Spring Simulation Engine** for the slider thumb. The skin definition (`config.json`) determines the aesthetic character (damping, stiffness) of the return animation.
-
-The `centering` field determines the spring behavior of the slider (see [Spring Modes](setup.md#3-spring-modes)).
-
-**Structure:**
+**Fields (RK_SliderFields):**
 
 ```cpp
-struct RK_SliderProps {
-    uint8_t     x = 0, y = 0;
-    uint8_t     height   = 10;
-    uint8_t     width    = 0;
-    int16_t     rotation = 0;
-    const char* icon     = nullptr;
-    uint8_t     centering = RK_SPRING_NONE; // Spring behaviour (see Setup)
-    uint8_t     variant = 0;     // 0=Slider, 1=Gas Pedal
-    const char* label    = nullptr;
-    bool        active = false;
-    int8_t      value     = 0;      // -100 to +100
+struct RK_SliderFields {
+    uint8_t     x, y;
+    uint8_t     height, width;
+    int16_t     rotation;
+    const char* label;
+    bool        labelHidden;
+    bool        active;
+    int8_t      value;         ///< -100 to +100
+    uint8_t     centering;     ///< Spring mode (RK_SPRING_NONE, _CENTER, etc.)
+    uint8_t     detents;       ///< 0 = continuous, 1-31 = snap positions
 };
 ```
 
-**Class Interface:**
+**Access Pattern:**
 
-| Function | Variable (Direct Access) | Description |
-|----------|--------------------------|-------------|
-| `get()` | `props.value` | Returns position (−100 to +100). |
-| `set(int8_t)` | `props.value = val;` | Force update app position (−100..+100). |
-| `centering()`| `props.centering`| Returns the spring mode. |
+| Access | Code |
+|--------|------|
+| Read value | `int8_t v = slider.rk.value;` |
+| Write value | `slider.rk.value = 50;` |
+| Set centering | `slider.rk.centering = RK_SPRING_NONE;` |
+| Set detents | `slider.rk.detents = 5;` |
 
-**Examples:**
+**Example:**
 
 ```cpp
-// Continuous horizontal slider, full range
-RK_Slider throttle({
-    .x = 50, .y = 40,
-    .height = 10,
-    .width = 80,   // Explicit width
-    .rotation = 0,
-    .label = "Throttle",
-    .centering = RK_SPRING_NONE,
-    .value = 0
-});
+// Continuous horizontal slider
+RK_Slider throttle(50, 40, 10, 80);
+throttle.rk.label     = "Throttle";
+throttle.rk.centering = RK_SPRING_NONE;
 
-// Spring-returns to minimum (Gas Pedal)
-RK_GasPedal gas({
-    .x = 80, .y = 40,
-    .height = 10,
-    .width = 0,
-    .rotation = 0,
-    .label = "Gas",
-    .centering = RK_SPRING_LEFT  // Springs to -100 on release
-});
+// Gas pedal (springs to minimum)
+RK_GasPedal gas(80, 40, 10);
+gas.rk.label = "Gas";
 
 void loop() {
     RadioKit.update();
-    int8_t gasVal = gas.get();  // -100 to +100
+    int8_t gasVal = gas.rk.value;
     setMotorSpeed(map(gasVal, -100, 100, 0, 255));
 }
 ```
 
 ---
 
-### Knob
+### Knob & SteeringWheel
 
-Rotary analog input control (−100 to +100). Identical wire format to `RK_Slider` but rendered as a 270° circular arc knob with a vertical-drag gesture.
+Rotary analog input control (−100 to +100).
 
-Like the Slider, the Knob utilizes the **Spring Simulation Engine** for consistent, premium haptic response when returning to center.
-
-**Structure:**
+**Fields (RK_KnobFields):**
 
 ```cpp
-struct RK_KnobProps {
-    uint8_t     x = 0, y = 0;
-    uint8_t     height   = 10;
-    uint8_t     width    = 0;
-    int16_t     rotation = 0;
-    const char* icon     = nullptr; // Shown on knob face
-    int16_t     startAngle = -135; // Start angle in degrees
-    int16_t     endAngle   = 135;  // End angle in degrees
-    uint8_t     centering = RK_SPRING_NONE;
-    const char* label    = nullptr;
-    bool        active = false;
-    int8_t      value     = 0; // -100 to +100
+struct RK_KnobFields {
+    uint8_t     x, y;
+    uint8_t     height, width;
+    int16_t     rotation;
+    const char* icon, *label;
+    bool        labelHidden;
+    bool        active;
+    int8_t      value;          ///< -100 to +100
+    int16_t     startAngle;     ///< Default -135
+    int16_t     endAngle;       ///< Default 135
+    uint8_t     centering;      ///< Spring mode
+    uint8_t     detents;        ///< 0 = continuous, 1-63 = snap
+    uint8_t     variant;        ///< 0=standard, 1=steeringWheel
+    const char* centerIcon;     ///< Icon in the middle of knob
 };
 ```
 
-**Class Interface:**
+**Access Pattern:**
 
-| Function | Variable (Direct Access) | Description |
-|----------|--------------------------|-------------|
-| `get()` | `props.value` | Returns position (−100 to +100). |
-| `set(int8_t)` | `props.value = val;` | Force update app position (−100..+100). |
-| `centering()`| `props.centering`| Returns the spring mode. |
+| Access | Code |
+|--------|------|
+| Read value | `int8_t v = knob.rk.value;` |
+| Set value | `knob.rk.value = 25;` |
+| Set angles | `knob.rk.startAngle = -90; knob.rk.endAngle = 90;` |
 
-**Examples:**
+**Example:**
 
 ```cpp
-RK_Knob pan({
-    .x = 100, .y = 60,
-    .height = 20,
-    .width = 0,
-    .rotation = 0,
-    .centering = RK_SPRING_CENTER,
-    .label = "Pan"
-});
+// Standard knob
+RK_Knob vol(140, 40, 10);
+vol.rk.label   = "Vol";
+vol.rk.icon    = "volume-2";
 
-// Volume knob (continuous, 12 o'clock = 0)
-RK_Knob vol({
-    .x = 140, .y = 40,
-    .height = 10,
-    .width = 0,
-    .rotation = 0,
-    .icon = "volume-2",
-    .label = "Vol"
-});
+// Steering wheel (auto-centering knob variant)
+RK_Knob steering(85, 60, 30);
+steering.rk.label      = "Steering";
+steering.rk.startAngle = -150;
+steering.rk.endAngle   = 150;
+steering.rk.centering  = RK_SPRING_CENTER;
+steering.rk.variant    = 1;  // steeringWheel
 
 void loop() {
     RadioKit.update();
-    int8_t panPos = pan.get();
-    setPanPosition(panPos);
+    int8_t steer = steering.rk.value;
+    setSteeringPosition(steer);
 }
 ```
 
@@ -430,280 +330,223 @@ void loop() {
 
 ### Joystick
 
-2-axis analog controller (−100 to +100). 
+2-axis analog controller (−100 to +100).
 
-**Structure:**
+**Fields (RK_JoystickFields):**
 
 ```cpp
-struct RK_JoystickProps {
-    uint8_t     x = 0, y = 0;
-    uint8_t     height = 10;
-    uint8_t     width = 0;
-    int16_t     rotation = 0;
-    const char* icon = nullptr;
-    bool        enabled = true;
-    uint8_t     centering = RK_SPRING_CENTER; // See Spring Modes in Setup
-    const char* label = nullptr;
-    bool        active = false;
-    int8_t      xvalue = 0;   // -100 to +100
-    int8_t      yvalue = 0;   // -100 to +100
+struct RK_JoystickFields {
+    uint8_t     x, y;
+    uint8_t     height, width;
+    int16_t     rotation;
+    const char* icon, *label;
+    bool        labelHidden;
+    bool        enabled;
+    bool        active;
+    int8_t      xvalue, yvalue;    ///< -100 to +100 each
+    uint8_t     centering;
 };
 ```
 
-**Class Interface:**
+**Access Pattern:**
 
-| Function | Variable (Direct Access) | Description |
-|----------|--------------------------|-------------|
-| `getX()` | `props.xvalue` | Returns X-axis (−100 to +100). |
-| `getY()` | `props.yvalue` | Returns Y-axis (−100 to +100). |
-
-**Joystick Spring Modes (`centering`):**
-
-| Constant | Name | Behavior |
-|----------|------|----------|
-| `RK_SPRING_NONE` | **No Spring** | Both axes stay where released. |
-| `RK_SPRING_CENTER` | **Full Spring** | Both axes spring to center (Default). |
-| `RK_SPRING_TOP` | **Throttle (Top)** | Y-axis springs to −100 on release. |
-| `RK_SPRING_BOTTOM`| **Throttle (Bottom)**| Y-axis springs to +100 on release. |
-| `RK_SPRING_LEFT` | **Horizontal Only** | X-axis springs to −100 on release. |
-| `RK_SPRING_RIGHT` | **Horizontal Only** | X-axis springs to +100 on release. |
+| Access | Code |
+|--------|------|
+| Read X | `int8_t x = joy.rk.xvalue;` |
+| Read Y | `int8_t y = joy.rk.yvalue;` |
 
 **Example:**
 
 ```cpp
-RK_Joystick drive({
-    .x = 180, .y = 50,
-    .height = 20,
-    .width = 0,
-    .rotation = 90,   // Rotate for vertical layout
-    .centering = RK_SPRING_NONE, // No centering (tank-style)
-    .label = "Drive"
-});
+RK_Joystick drive(180, 50, 20);
+drive.rk.label     = "Drive";
+drive.rk.centering = RK_SPRING_CENTER;
 
 void loop() {
     RadioKit.update();
-    
-    int8_t x = drive.getX();  // Left/Right
-    int8_t y = drive.getY();  // Forward/Back
-    
+
+    int8_t x = drive.rk.xvalue;  // Left/Right
+    int8_t y = drive.rk.yvalue;  // Forward/Back
+
     // Differential drive
-    int16_t left  = y + x;
-    int16_t right = y - x;
-    
-    setMotorSpeeds(left, right);
+    setMotorSpeeds(y + x, y - x);
 }
 ```
 
 ---
-
 
 ### LED
 
-Visual status indicator (Arduino → App). 
+Visual status indicator (Arduino → App).
 
-> **Skin folder**: `led/` – assets for the LED widget live in this directory of a skin pack.
-
-**Structure:**
+**Fields (RK_LedFields):**
 
 ```cpp
-struct RK_LEDProps {
-    uint8_t     x = 0, y = 0;
-    uint8_t     height = 10;
-    uint8_t     width = 0;
-    int16_t     rotation = 0;
-    const char* icon  = nullptr;
-    const char* label = nullptr;
-    bool        active = false;
-    bool        state = false;
-    uint8_t     red = 255, green = 0, blue = 0;
-    uint8_t     opacity = 255;
+struct RK_LedFields {
+    uint8_t     x, y;
+    uint8_t     height, width;
+    int16_t     rotation;
+    const char* label;
+    bool        labelHidden;
+    uint32_t    color;        ///< RGB hex (e.g. 0xFF0000)
+    bool        state;        ///< ON/OFF
+    uint8_t     shape;        ///< 0=circle, 1=square, 2=diamond, 3=star
+    uint8_t     ledState;     ///< 0=OFF, 1=ON, 2=BLINK, 3=BREATHE
+    uint16_t    timing;       ///< ms for blink/breathe
 };
 ```
 
-**Class Interface:**
+**Access Pattern:**
 
-| Function | Variable (Direct Access) | Description |
-|----------|--------------------------|-------------|
-| `on()` | `props.state = true;` | Turns LED ON. |
-| `off()` | `props.state = false;` | Turns LED OFF. |
-| `setIcon(char*)` | `props.icon = val;` | Updates icon (e.g. `"battery"`). |
-| `setColor(uint32_t)` | — | Accepts 6-digit (RGB) or 8-digit (RGBA) hex. |
-| `setOpacity(uint8_t)` | `props.opacity = val;` | Sets transparency (0-255). |
-| `setRed(uint8_t)` | `props.red = val;` | Sets red component (0-255). |
-| `setGreen(uint8_t)` | `props.green = val;` | Sets green component (0-255). |
-| `setBlue(uint8_t)` | `props.blue = val;` | Sets blue component (0-255). |
+| Action | Code |
+|--------|------|
+| Turn on | `led.rk.state = true;` |
+| Turn off | `led.rk.state = false;` |
+| Set color | `led.rk.color = 0x00FF00;` |
+| Set shape | `led.rk.shape = RK_LED_SHAPE_SQUARE;` |
+| Set blink | `led.rk.ledState = RK_LED_STATE_BLINK;` |
+| Set timing | `led.rk.timing = 300;` |
 
 **Example:**
 
 ```cpp
-RK_LED telemetryOK({
-    .x = 10, .y = 10,
-    .height = 14,
-    .width = 0,
-    .rotation = 0,
-    .icon = "check-circle",
-    .label = "Status",
-    .state = true,
-    .red = 0, .green = 255, .blue = 0 // Green
-});
+RK_LED status(20, 20, 14);
+status.rk.label = "Status";
 
 void loop() {
     RadioKit.update();
-    
+
     if (linkEstablished) {
-        telemetryOK.on();
-        telemetryOK.setColor(0x00FF00); // Green
+        status.rk.state = true;
+        status.rk.color = 0x00FF00;  // Green
     } else {
-        telemetryOK.off();
+        status.rk.state = false;
     }
 }
 ```
 
 ---
 
-### Display
+### Text & Serial
 
-Dynamic text display label (Arduino → App). Read-only.
+Dynamic text display (Arduino → App).
 
-> **Skin folder**: `display/` – the read-only text widget uses the `display/` directory in a skin pack.
-
-**Structure:**
+**Fields (RK_TextFields):**
 
 ```cpp
-struct RK_DisplayProps {
-    uint8_t     x = 0, y = 0;
-    uint8_t     height = 10;
-    uint8_t     width  = 0;
-    int16_t     rotation = 0;
-    const char* label = nullptr;
-    bool        active = false;
-    const char* text = nullptr;
+struct RK_TextFields {
+    uint8_t     x, y;
+    uint8_t     height, width;
+    const char* label;
+    bool        labelHidden;
+    const char* content;    ///< Pointer to text content
 };
 ```
 
-> [!WARNING]
-> Display widgets (`RK_Text`, `RK_Serial`) do not support icons or emojis. Use standard ASCII characters for reliable display.
+**Access Pattern:**
 
-| Function | Variable (Direct Access) | Description |
-|----------|--------------------------|-------------|
-| `set(const char*)` | `props.text = val;` | Force set/overwrite the entire text content. |
-| `print(...)` | — | Standard Arduino print. Appends to buffer. |
-| `println(...)` | — | Standard Arduino print with newline. |
-| `clear()` | — | Clears the current text buffer. |
+| Action | Code |
+|--------|------|
+| Set text | `text.rk.content = "Hello";` |
+| Read text | `const char* t = text.rk.content;` |
+
+Note: `rk.content` is a pointer. The pointed-to string must outlive the current loop iteration. Use `static` buffers or string literals.
 
 **Example:**
 
-// UI-based text label
-RK_Text status({
-    .x = 50, .y = 10,
-    .height = 10,
-    .width = 100,
-    .label = "LOG:",
-    .text = "System Ready"
-});
+```cpp
+RK_Text status(50, 10, 10);
+status.rk.label = "LOG:";
+status.rk.content = "System Ready";
 
 // Serial Monitor in the app
-RK_Serial serialMonitor({
-    .x = 100, .y = 80,
-    .height = 20,
-    .width = 180,
-    .label = "Serial Console"
-});
+RK_Serial serialMonitor(100, 80, 20, 180);
+serialMonitor.rk.label = "Serial Console";
 
 void loop() {
     RadioKit.update();
-    
-    static uint32_t lastUpdate = 0;
-    if (millis() - lastUpdate > 1000) {
-        lastUpdate = millis();
-        
-        status.clear();
-        status.print("Uptime: ");
-        status.print(millis() / 1000);
-        status.print("s");
 
-        serialMonitor.println("Log entry at " + String(millis()));
-    }
+    static char buf[32];
+    snprintf(buf, sizeof(buf), "Uptime: %lus", millis() / 1000);
+    status.rk.content = buf;
+
+    serialMonitor.println("Log entry");
 }
+```
+
+---
+
+### Telemetry
+
+Display-only widget for telemetry values (Arduino → App). Rendered in the active link card, not on the control canvas.
+
+**Fields (RK_TelemetryFields):**
+
+```cpp
+struct RK_TelemetryFields {
+    const char* label;
+    const char* icon;
+    const char* unit;
+    const char* content;    ///< Dynamic text value
+};
+```
+
+**Access Pattern:**
+
+| Action | Code |
+|--------|------|
+| Set value | `telemetry.rk.content = "25.5";` |
+| Set icon | `telemetry.rk.icon = "thermometer";` |
+| Set unit | `telemetry.rk.unit = "°C";` |
+
+**Example:**
+
+```cpp
+RK_Telemetry temp("Temperature");
+temp.rk.icon    = "thermometer";
+temp.rk.unit    = "°C";
+temp.rk.content = "25.5";
 ```
 
 ---
 
 ## 3. Constants & Enums
 
-### Architecture (`architecture`)
+### LED Shapes
 
-Detected hardware platform (read-only via `RadioKit.config.architecture`):
+| Constant | Value | Shape |
+|----------|-------|-------|
+| `RK_LED_SHAPE_CIRCLE` | 0 | Circle |
+| `RK_LED_SHAPE_SQUARE` | 1 | Square |
+| `RK_LED_SHAPE_DIAMOND` | 2 | Diamond |
+| `RK_LED_SHAPE_STAR` | 3 | Star |
 
-| Constant | Value | Platform |
-|----------|-------|----------|
-| `RK_ARCH_UNKNOWN` | 0 | Unknown/Unsupported |
-| `RK_ARCH_ESP32` | 1 | ESP32 (NimBLE) |
-| `RK_ARCH_NORDIC` | 2 | nRF52/nRF53 series |
-| `RK_ARCH_SAMD` | 3 | SAMD21/SAMD51 (Arduino Zero, MKR) |
-| `RK_ARCH_STM32` | 4 | STM32 series (Blue Pill, etc.) |
-
----
-
-### Slider / Knob / Joystick Centering Modes
-
-Passed as the `centering` field of `RK_SliderProps` / `RK_KnobProps` / `RK_JoystickProps`:
+### LED States
 
 | Constant | Value | Behaviour |
 |----------|-------|-----------|
-| `RK_SPRING_NONE` | 0 | No spring return — stays where released (default). |
-| `RK_SPRING_CENTER` | 1 | Springs to 0 (centre) on release. |
-| `RK_SPRING_LEFT` | 2 | Springs to −100 on release (Horizontal). |
-| `RK_SPRING_RIGHT` | 3 | Springs to +100 on release (Horizontal). |
-| `RK_SPRING_TOP` | 4 | Springs to −100 on release (Vertical). |
-| `RK_SPRING_BOTTOM` | 5 | Springs to +100 on release (Vertical). |
+| `RK_LED_STATE_OFF` | 0 | Off (no light) |
+| `RK_LED_STATE_ON` | 1 | Solid on |
+| `RK_LED_STATE_BLINK` | 2 | Blinking |
+| `RK_LED_STATE_BREATHE` | 3 | Breathing (fade in/out) |
 
-Note: Slider and Knob only supports `RK_SPRING_NONE`, `RK_SPRING_CENTER`, `RK_SPRING_LEFT`, and `RK_SPRING_RIGHT`.
+### Multiple Variants
 
----
+| Constant | Value | Behaviour |
+|----------|-------|-----------|
+| `RK_SEGMENTS` | 0 | Segmented button group |
+| `RK_GRID` | 1 | Grid layout |
+| `RK_WHEEL` | 2 | Wheel/selector |
 
-### UI Theme Identifiers
+### Widget Style
 
-String-based identifiers for UI skins. Pass to `RadioKit.config.theme`:
-
-| Identifier | Description |
-|------------|-------------|
-| `"default"` | DRAGON theme (default) |
-| `"neon"` | Cyberpunk neon |
-| `"minimal"` | Flat, minimal |
-| `"https://..."` | Custom skin pack URL (GitHub raw ZIP) |
-
-**Example:**
-
-```cpp
-RadioKit.config.theme = "default";
-// or
-RadioKit.config.theme = "https://github.com/user/radiokit-skin/archive/main.zip";
-```
-
----
-
-### LED Colours
-
-RGB hex values for `setColor()` or individual component setters:
-
-| Name | Hex | Components (R,G,B) |
-|------|-----|--------------------|
-| `RK_OFF` | `0x000000` | (0, 0, 0) |
-| `RK_RED` | `0xFF0000` | (255, 0, 0) |
-| `RK_GREEN` | `0x00FF00` | (0, 255, 0) |
-| `RK_BLUE` | `0x0000FF` | (0, 0, 255) |
-| `RK_YELLOW` | `0xFFFF00` | (255, 255, 0) |
-
-**Example:**
-
-```cpp
-led.setColor(RK_GREEN);
-// or
-led.setRed(0);
-led.setGreen(255);
-led.setBlue(0);
-```
+| Constant | Value | Usage |
+|----------|-------|-------|
+| `RK_PRIMARY` | 0 | Primary style |
+| `RK_DIM` | 1 | Dim/secondary |
+| `RK_SUCCESS` | 2 | Green/success |
+| `RK_WARNING` | 3 | Yellow/warning |
+| `RK_DANGER` | 4 | Red/danger |
 
 ---
 
@@ -712,11 +555,8 @@ led.setBlue(0);
 1. **Always call `update()`** — Never block in `loop()` with `delay()` or long computations.
 2. **Declare widgets globally** — They self-register on construction.
 3. **Configure before `begin()`** — `config` fields are read-only after `begin()`.
-4. **Use `pushUpdate()` for programmatic changes** — Keeps the app in sync when firmware modifies widget state.
+4. **Use consistent buffer lifetimes** — Text content via `rk.content` must point to persistent storage (`static` variables or string literals). Stack-local buffers will dangle.
 5. **Keep `loop()` fast** — Defer heavy work to timers or state machines.
-6. **Check `isConnected()`** — Before sending critical updates.
-7. **Use `centering`** — For tactile, physical-feeling controls.
-8. **Respect the 8-item limit** — `MultipleButton`/`MultipleSelect` have a fixed pool of 8 slots.
 
 ## See Also
 

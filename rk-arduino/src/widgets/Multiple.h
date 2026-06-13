@@ -16,16 +16,17 @@ struct RK_Item {
   uint8_t pos = 255;
 };
 
-struct RK_MultipleProps {
+struct RK_MultipleFields {
     uint8_t     x = 0, y = 0;
     uint8_t     height = 10;
     uint8_t     width = 0;
     int16_t     rotation = 0;
-    uint8_t     variant = 0; // 0=Segments, 1=Grid, 2=Wheel
-    std::initializer_list<RK_Item> items = {};
     const char* label = nullptr;
-    bool        active = true; // Selection mask or enabled state? Following docs as bool.
-    uint8_t     value = 0;     // Internal selection mask
+    bool        active = true;
+    uint8_t     value = 0;                    // Selection mask
+    uint8_t     variant = 0;                  // 0=Segments, 1=Grid, 2=Wheel
+    RK_Item     items[RADIOKIT_MAX_ITEMS];    // Item pool
+    uint8_t     itemCount = 0;
 };
 
 class RadioKit_Multiple : public RadioKit_Widget {
@@ -37,30 +38,23 @@ public:
     void serializeOutput(uint8_t*)           const override {}
     void deserializeInput(const uint8_t* buf)      override;
 
-    uint8_t get()          const { return props.value; }
-    bool    get(uint8_t i) const { return (props.value & (1 << i)) != 0; }
-    void    clear();
-    void    add(const RK_Item& item);
-    void    remove(uint8_t index);
-
-    RK_MultipleProps props;
+    RK_MultipleFields rk;
 
 protected:
     float defaultAspect() const override { return 1.0f; }
-    RK_Item  _pool[RADIOKIT_MAX_ITEMS];
-    uint8_t  _poolCount = 0;
+    RK_MultipleFields _shadow;
 
-    void _initFromProps(const RK_MultipleProps& p, uint8_t tid);
+    void _initFromFields(const RK_MultipleFields& f, uint8_t tid);
 };
 
 class RK_MultipleButton : public RadioKit_Multiple {
 public:
-    RK_MultipleButton(RK_MultipleProps p);
+    RK_MultipleButton(uint8_t x, uint8_t y, uint8_t height, uint8_t width = 0, int16_t rotation = 0);
 };
 
 class RK_MultipleSelect : public RadioKit_Multiple {
 public:
-    RK_MultipleSelect(RK_MultipleProps p);
+    RK_MultipleSelect(uint8_t x, uint8_t y, uint8_t height, uint8_t width = 0, int16_t rotation = 0);
 };
 
 #endif // RADIOKIT_WIDGET_MULTIPLE_H
