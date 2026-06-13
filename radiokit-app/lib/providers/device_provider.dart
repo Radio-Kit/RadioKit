@@ -487,6 +487,19 @@ class DeviceProvider extends ChangeNotifier {
     }
   }
 
+  // ── Cloud transport reference (set by RemoteAccessService after relay auth) ─
+  /// Stores the authenticated cloud WebSocket transport for re-use by
+  /// [switchTransport]. Set by [setCloudTransport] after a successful
+  /// cloud relay connection (via `/api/cloud/connect` + `/api/cloud/join`).
+  WebSocketService? _cloudTransport;
+
+  /// Store an authenticated cloud WebSocket transport for later use by
+  /// [switchTransport]. Called by [RemoteAccessService._handleCloudJoin]
+  /// after joining a device on the relay.
+  void setCloudTransport(WebSocketService ws) {
+    _cloudTransport = ws;
+  }
+
   // ── Transport switch (detect-first) ─────────────────────────────────────────
 
   /// Switch to a different transport (ble, wifi, cloud).
@@ -502,7 +515,7 @@ class DeviceProvider extends ChangeNotifier {
 
     final currentSrc = _transport;
     TransportService? targetTransport;
-    String targetAddress;
+    String targetAddress = '';
     TransportType? targetType;
 
     if (target == TransportType.ble) {
@@ -538,25 +551,40 @@ class DeviceProvider extends ChangeNotifier {
         return false;
       }
     } else if (target == TransportType.cloud) {
-      String? url;
-      try {
-        final cloudInfo = await sendGetCloudInfo();
-        if (cloudInfo != null && cloudInfo.url.isNotEmpty && cloudInfo.account.isNotEmpty) {
-          url = cloudInfo.url;
+      // Re-use existing authenticated cloud transport if available.
+      // This is the normal path: RemoteAccessService._handleCloudJoin sets
+      // _cloudTransport via setCloudTransport() after a successful relay
+      // auth + join sequence. A new unauthenticated WebSocketService cannot
+      // route frames through the relay (no auth_request sent).
+      if (_cloudTransport != null && _cloudTransport!.isConnected) {
+        targetTransport = _cloudTransport;
+        targetAddress = 'cloud://${_cloudTransport!.account ?? "relay"}';
+        targetType = TransportType.cloud;
+        _log('Using existing cloud transport', level: ConsoleLogLevel.info);
+      } else {
+        // Fallback: try to create a new cloud transport from device info.
+        // This only works if the relay doesn't require auth (unlikely for
+        // production relays). Normal code should use _cloudTransport.
+        String? url;
+        try {
+          final cloudInfo = await sendGetCloudInfo();
+          if (cloudInfo != null && cloudInfo.url.isNotEmpty && cloudInfo.account.isNotEmpty) {
+            url = cloudInfo.url;
+          }
+        } catch (_) {}
+
+        if (url == null) {
+          _log('Cannot switch to Cloud: no existing cloud transport and no relay URL from device',
+              level: ConsoleLogLevel.error);
+          return false;
         }
-      } catch (_) {}
 
-      if (url == null) {
-        _log('Cannot switch to Cloud: no relay URL', level: ConsoleLogLevel.error);
-        return false;
+        targetAddress = (url.startsWith('ws://') || url.startsWith('wss://'))
+            ? url
+            : 'ws://$url';
+        targetTransport = WebSocketService();
+        targetType = TransportType.cloud;
       }
-
-      // Preserve ws:// or wss:// if already present, otherwise prepend ws://
-      targetAddress = (url.startsWith('ws://') || url.startsWith('wss://'))
-          ? url
-          : 'ws://$url';
-      targetTransport = WebSocketService();
-      targetType = TransportType.cloud;
     } else {
       return false;
     }
@@ -596,10 +624,13 @@ class DeviceProvider extends ChangeNotifier {
       );
     }
 
-    // Disconnect source transport
-    try {
-      await currentSrc.disconnect();
-    } catch (_) {}
+    // Disconnect source transport, unless it's the same instance as the target
+    // (e.g., already on cloud, re-using the same authenticated WebSocketService).
+    if (!identical(currentSrc, targetTransport)) {
+      try {
+        await currentSrc.disconnect();
+      } catch (_) {}
+    }
 
     _log('Transport switched to ${target.name}', level: ConsoleLogLevel.success);
     notifyListeners();
@@ -708,6 +739,9 @@ class DeviceProvider extends ChangeNotifier {
     // Request chip info — will be fetched on first display
     unawaited(_requestChipInfo());
 
+    // Cache cloud account for fallback reconnect consideration
+    // Note: actual fetch happens in _handleSettingsDeviceInfoData after UID is set
+    // to avoid racing with _requestDeviceInfo()
   }
 
   Future<void> loadDemo(String demoId) async {
@@ -1600,12 +1634,26 @@ class DeviceProvider extends ChangeNotifier {
             configName: _configName,
             description: _description,
           );
+
+          // Restore transport addresses from the existing model onto
+          // _connectedDevice so switchTransport can find them (e.g. BLE
+          // address when switching from cloud).
+          final existingDevice = historyProvider!.pairedDevices
+              .where((d) => d.uid == parsed.uid).firstOrNull;
+          if (existingDevice != null) {
+            _connectedDevice = _connectedDevice!.copyWith(
+              bleAddress: existingDevice.bleAddress ?? _connectedDevice!.bleAddress,
+              wifiAddress: existingDevice.wifiAddress ?? _connectedDevice!.wifiAddress,
+            );
+          }
         }
 
         // Migrate saved password from old transport-address key to UID key
         unawaited(_migratePassword(oldId, parsed.uid));
 
         _log('UID set: ${parsed.uid} (was: $oldId)', level: ConsoleLogLevel.success);
+        // Cache cloud account now that UID is confirmed
+        unawaited(_cacheCloudAccount());
       }
     }
 
@@ -1624,6 +1672,27 @@ class DeviceProvider extends ChangeNotifier {
       case TransportType.cloud:  return 'cloud';
       case TransportType.serial: return 'serial';
       case TransportType.demo:   return 'demo';
+    }
+  }
+
+  /// Fire-and-forget: fetch cloud info from the device and cache the account
+  /// in the history provider so reconnect fallback can match accounts.
+  /// Guards with [hasCloud] to skip devices without cloud support.
+  Future<void> _cacheCloudAccount() async {
+    if (!hasCloud || _connectedDevice == null || historyProvider == null) return;
+    try {
+      final cloudInfo = await sendGetCloudInfo();
+      if (cloudInfo != null && cloudInfo.account.isNotEmpty) {
+        historyProvider!.saveDevice(
+          _connectedDevice!,
+          _transportTypeToString(_connectedDevice!.currentTransport),
+          cloudAccount: cloudInfo.account,
+        );
+        _log('Cloud account cached: ${cloudInfo.account.substring(0, 16)}...',
+            level: ConsoleLogLevel.success);
+      }
+    } catch (e) {
+      _log('Failed to cache cloud account: $e', level: ConsoleLogLevel.info);
     }
   }
 
@@ -2519,6 +2588,7 @@ class DeviceProvider extends ChangeNotifier {
     _authenticatedAt  = null;
     _otaCancelled     = false;
     _errorMessage     = null;
+    _cloudTransport   = null;
     // Note: saved password is NOT cleared on disconnect so it persists
     // for reconnection. Clear only on factory reset or explicit unpair.
     notifyListeners();

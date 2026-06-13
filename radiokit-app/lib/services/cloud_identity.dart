@@ -9,13 +9,14 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 ///
 /// On subsequent launches, restores the keypair from stored bytes.
 class CloudIdentityService {
-  static const _privateKeyStoreKey = 'cloud_ed25519_private';
-  static const _publicKeyStoreKey = 'cloud_ed25519_public';
+  static const privateKeyStoreKey = 'cloud_ed25519_private';
+  static const publicKeyStoreKey = 'cloud_ed25519_public';
 
   final FlutterSecureStorage _storage;
 
   SimpleKeyPairData? _keyPairData;
   String? _account; // hex-encoded public key
+  String? _privateKeyHex; // hex-encoded private key, cached for sync access
 
   /// Whether an identity has been loaded or generated.
   bool get hasIdentity => _keyPairData != null;
@@ -24,12 +25,16 @@ class CloudIdentityService {
   /// This is the "account" identifier shown to the user and set on devices.
   String? get account => _account;
 
+  /// The hex-encoded Ed25519 private key (64 hex chars = 32 bytes).
+  /// Used when creating an Account entry for the accounts sheet.
+  String? get privateKeyHex => _privateKeyHex;
+
   CloudIdentityService({FlutterSecureStorage? storage})
       : _storage = storage ?? const FlutterSecureStorage();
 
   /// Load existing identity from secure storage, or generate a new one.
   Future<void> initialize() async {
-    final savedPrivateKey = await _storage.read(key: _privateKeyStoreKey);
+    final savedPrivateKey = await _storage.read(key: privateKeyStoreKey);
     if (savedPrivateKey != null) {
       await _loadFromStorage(savedPrivateKey);
     } else {
@@ -49,12 +54,13 @@ class CloudIdentityService {
 
     // Persist both public and private key bytes
     final privKeyBytes = await keyPairData.extractPrivateKeyBytes();
+    _privateKeyHex = bytesToHex(privKeyBytes);
     await _storage.write(
-      key: _privateKeyStoreKey,
-      value: bytesToHex(privKeyBytes),
+      key: privateKeyStoreKey,
+      value: _privateKeyHex!,
     );
     await _storage.write(
-      key: _publicKeyStoreKey,
+      key: publicKeyStoreKey,
       value: _account!,
     );
   }
@@ -62,7 +68,7 @@ class CloudIdentityService {
   /// Restore keypair from saved private key bytes.
   Future<void> _loadFromStorage(String privateKeyHex) async {
     final privateKeyBytes = hexToBytes(privateKeyHex);
-    final publicKeyHex = await _storage.read(key: _publicKeyStoreKey);
+    final publicKeyHex = await _storage.read(key: publicKeyStoreKey);
 
     final pubKeyBytes = publicKeyHex != null ? hexToBytes(publicKeyHex) : <int>[];
     final pubKey = SimplePublicKey(pubKeyBytes, type: KeyPairType.ed25519);
@@ -73,6 +79,7 @@ class CloudIdentityService {
       type: KeyPairType.ed25519,
     );
     _account = publicKeyHex;
+    _privateKeyHex = privateKeyHex;
   }
 
   /// Sign `data` (e.g., a 32-byte nonce) with the Ed25519 private key.
@@ -100,24 +107,26 @@ class CloudIdentityService {
       type: KeyPairType.ed25519,
     );
     _account = publicKeyHex;
+    _privateKeyHex = privateKeyHex;
 
     // Persist to secure storage
     await _storage.write(
-      key: _privateKeyStoreKey,
+      key: privateKeyStoreKey,
       value: bytesToHex(privateKeyBytes),
     );
     await _storage.write(
-      key: _publicKeyStoreKey,
+      key: publicKeyStoreKey,
       value: publicKeyHex,
     );
   }
 
   /// Delete the stored identity (for testing / account reset).
   Future<void> deleteIdentity() async {
-    await _storage.delete(key: _privateKeyStoreKey);
-    await _storage.delete(key: _publicKeyStoreKey);
+    await _storage.delete(key: privateKeyStoreKey);
+    await _storage.delete(key: publicKeyStoreKey);
     _keyPairData = null;
     _account = null;
+    _privateKeyHex = null;
   }
 
   // ── Hex helpers ───────────────────────────────────────────────────────

@@ -72,6 +72,9 @@ class _RadioKitAppState extends State<RadioKitApp> {
       historyProvider: _historyProvider,
     );
 
+    _accountProvider = AccountProvider();
+    _accountProvider.load();
+
     _remoteAccessProvider = RemoteAccessProvider(
       settingsProvider: _settingsProvider,
       deviceProvider: _deviceProvider,
@@ -80,10 +83,9 @@ class _RadioKitAppState extends State<RadioKitApp> {
       historyProvider: _historyProvider,
       consoleProvider: _consoleProvider,
       designsProvider: _designsProvider,
+      cloudIdentityProvider: _cloudIdentityProvider,
+      accountProvider: _accountProvider,
     );
-
-    _accountProvider = AccountProvider();
-    _accountProvider.load();
 
     _connectionNotifier = ConnectionNotifier(_deviceProvider);
     _router = createRouter(_connectionNotifier);

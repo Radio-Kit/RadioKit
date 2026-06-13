@@ -14,6 +14,8 @@ import 'history_provider.dart';
 import 'settings_provider.dart';
 import 'console_provider.dart';
 import 'designs_provider.dart';
+import 'cloud_identity_provider.dart';
+import 'account_provider.dart';
 
 class RemoteAccessProvider extends ChangeNotifier {
   final SettingsProvider _settingsProvider;
@@ -23,6 +25,8 @@ class RemoteAccessProvider extends ChangeNotifier {
   final HistoryProvider _historyProvider;
   final ConsoleProvider _consoleProvider;
   final DesignsProvider _designsProvider;
+  final CloudIdentityProvider _cloudIdentityProvider;
+  final AccountProvider _accountProvider;
 
   RemoteAccessService? _service;
   bool _isRunning = false;
@@ -63,7 +67,11 @@ class RemoteAccessProvider extends ChangeNotifier {
     required HistoryProvider historyProvider,
     required ConsoleProvider consoleProvider,
     required DesignsProvider designsProvider,
+    required CloudIdentityProvider cloudIdentityProvider,
+    required AccountProvider accountProvider,
   })  : _settingsProvider = settingsProvider,
+        _cloudIdentityProvider = cloudIdentityProvider,
+        _accountProvider = accountProvider,
         _deviceProvider = deviceProvider,
         _bleProvider = bleProvider,
         _serialProvider = serialProvider,
@@ -86,6 +94,8 @@ class RemoteAccessProvider extends ChangeNotifier {
       settingsProvider: _settingsProvider,
       consoleProvider: _consoleProvider,
       designsProvider: _designsProvider,
+      cloudIdentityProvider: _cloudIdentityProvider,
+      accountProvider: _accountProvider,
       onLog: _addLogEntry,
       onFollowEvent: _onFollowEvent,
       currentRouteGetter: () => _currentRoute,

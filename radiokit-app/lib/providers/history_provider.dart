@@ -34,6 +34,10 @@ class PairedDevice {
   final String? cloudAddress;
   final String? serialAddress;
 
+  /// Cloud account (Ed25519 public key hex) from the device's cloud_info.
+  /// Cached so reconnection can decide whether cloud fallback is viable.
+  final String? cloudAccount;
+
   /// Which transport was last used ('ble', 'wifi', 'cloud', 'serial').
   final String? lastUsedTransport;
 
@@ -51,6 +55,7 @@ class PairedDevice {
     this.wifiAddress,
     this.cloudAddress,
     this.serialAddress,
+    this.cloudAccount,
     this.lastUsedTransport,
     required this.lastConnected,
   });
@@ -67,6 +72,7 @@ class PairedDevice {
         'wifiAddress': wifiAddress,
         'cloudAddress': cloudAddress,
         'serialAddress': serialAddress,
+        'cloudAccount': cloudAccount,
         'lastUsedTransport': lastUsedTransport,
         'lastConnected': lastConnected.toIso8601String(),
       };
@@ -83,6 +89,7 @@ class PairedDevice {
         wifiAddress: json['wifiAddress'] as String?,
         cloudAddress: json['cloudAddress'] as String?,
         serialAddress: json['serialAddress'] as String?,
+        cloudAccount: json['cloudAccount'] as String?,
         lastUsedTransport: json['lastUsedTransport'] as String?,
         lastConnected: DateTime.parse(json['lastConnected']),
       );
@@ -174,7 +181,7 @@ class HistoryProvider extends ChangeNotifier {
   /// Uses [DeviceInfo.id] as the UID for matching. If a device with the same
   /// UID already exists, the entry is merged (transport address fields are
   /// updated while preserving addresses from other transports).
-  Future<void> saveDevice(DeviceInfo device, String type, {String? configName, String? description}) async {
+  Future<void> saveDevice(DeviceInfo device, String type, {String? configName, String? description, String? cloudAccount}) async {
     await _ready.future;
     final uid = device.id;  // DeviceInfo.id is the UID after connection
     final now = DateTime.now();
@@ -195,13 +202,14 @@ class HistoryProvider extends ChangeNotifier {
         preferredTransport: device.preferredTransport ?? existing.preferredTransport,
         deviceIcon: device.deviceIcon ?? existing.deviceIcon,
         bleAddress: device.currentTransport == TransportType.ble
-            ? device.transportAddress : existing.bleAddress,
+            ? (device.bleAddress ?? device.transportAddress) : existing.bleAddress,
         wifiAddress: device.currentTransport == TransportType.wifi
             ? device.transportAddress : existing.wifiAddress,
         cloudAddress: device.currentTransport == TransportType.cloud
             ? device.transportAddress : existing.cloudAddress,
         serialAddress: device.currentTransport == TransportType.serial
             ? device.transportAddress : existing.serialAddress,
+        cloudAccount: cloudAccount ?? existing.cloudAccount,
         lastUsedTransport: transportStr,
         lastConnected: now,
       );
@@ -218,13 +226,14 @@ class HistoryProvider extends ChangeNotifier {
           preferredTransport: device.preferredTransport,
           deviceIcon: device.deviceIcon,
           bleAddress: device.currentTransport == TransportType.ble
-              ? device.transportAddress : null,
+              ? (device.bleAddress ?? device.transportAddress) : null,
           wifiAddress: device.currentTransport == TransportType.wifi
               ? device.transportAddress : null,
           cloudAddress: device.currentTransport == TransportType.cloud
               ? device.transportAddress : null,
           serialAddress: device.currentTransport == TransportType.serial
               ? device.transportAddress : null,
+          cloudAccount: cloudAccount,
           lastUsedTransport: transportStr,
           lastConnected: now,
         ),

@@ -472,7 +472,6 @@ class WebSocketService implements TransportService {
 
   @override
   Future<void> disconnect() async {
-    _log('Disconnecting...');
     _connected = false;
     _authState = _AuthState.unauth;
     _pendingJoinDevice = null;

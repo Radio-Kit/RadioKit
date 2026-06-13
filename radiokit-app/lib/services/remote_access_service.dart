@@ -23,8 +23,12 @@ import '../providers/console_provider.dart';
 import '../providers/designs_provider.dart';
 import 'device_fs_service.dart';
 import 'fs_protocol_service.dart';
+import 'transport_service.dart';
 import 'websocket_service.dart';
 import 'cloud_identity.dart';
+import '../providers/cloud_identity_provider.dart';
+import '../providers/account_provider.dart';
+import '../models/account.dart';
 
 class RemoteAccessService {
   final DeviceProvider _deviceProvider;
@@ -34,6 +38,8 @@ class RemoteAccessService {
   final SettingsProvider _settingsProvider;
   final ConsoleProvider _consoleProvider;
   final DesignsProvider _designsProvider;
+  final CloudIdentityProvider _cloudIdentityProvider;
+  final AccountProvider _accountProvider;
   final void Function(ApiLogEntry) _onLog;
   final void Function(String route)? _onFollowEvent;
   final String Function() _currentRouteGetter;
@@ -56,6 +62,8 @@ class RemoteAccessService {
     required SettingsProvider settingsProvider,
     required ConsoleProvider consoleProvider,
     required DesignsProvider designsProvider,
+    required CloudIdentityProvider cloudIdentityProvider,
+    required AccountProvider accountProvider,
     required void Function(ApiLogEntry) onLog,
     void Function(String route)? onFollowEvent,
     String Function() currentRouteGetter = _defaultRouteGetter,
@@ -66,6 +74,8 @@ class RemoteAccessService {
         _settingsProvider = settingsProvider,
         _consoleProvider = consoleProvider,
         _designsProvider = designsProvider,
+        _cloudIdentityProvider = cloudIdentityProvider,
+        _accountProvider = accountProvider,
         _onLog = onLog,
         _onFollowEvent = onFollowEvent,
         _currentRouteGetter = currentRouteGetter;
@@ -209,6 +219,12 @@ class RemoteAccessService {
     router.get('/api/cloud/devices', _handleCloudDevices);
     router.post('/api/cloud/join', _handleCloudJoin);
     router.post('/api/cloud/disconnect', _handleCloudDisconnect);
+    router.get('/api/cloud/account', _handleCloudAccount);
+    router.post('/api/cloud/account', _handleCloudAccountReset);
+    router.get('/api/cloud/accounts', _handleCloudAccountsList);
+    router.post('/api/cloud/accounts', _handleCloudAccountsCreate);
+    router.put('/api/cloud/accounts/<id>', _handleCloudAccountsUpdate);
+    router.delete('/api/cloud/accounts/<id>', _handleCloudAccountsDelete);
 
     final pipeline = Pipeline()
         .addMiddleware(_corsMiddleware())
@@ -379,6 +395,127 @@ class RemoteAccessService {
 
   /// Active WebSocketService for the cloud relay connection.
   WebSocketService? _cloudWs;
+
+  // ── Account Management ────────────────────────────────────────────────────
+
+  /// Handle GET /api/cloud/account — returns current Ed25519 identity info.
+  /// The account public key is what users set on their ESP32 devices.
+  Future<Response> _handleCloudAccount(Request request) async {
+    final identityProvider = _cloudIdentityProvider;
+    if (!identityProvider.hasIdentity) {
+      return _json({
+        'hasIdentity': false,
+        'account': null,
+      });
+    }
+    return _json({
+      'hasIdentity': true,
+      'account': identityProvider.account,
+    });
+  }
+
+  /// Handle POST /api/cloud/account — generate a new Ed25519 identity.
+  /// This resets the account. After calling this, you must update the
+  /// cloud_account config on your ESP32 device to match the new public key.
+  Future<Response> _handleCloudAccountReset(Request request) async {
+    await _cloudIdentityProvider.resetIdentity();
+    return _json({
+      'ok': true,
+      'account': _cloudIdentityProvider.account,
+      'message': 'New Ed25519 identity generated. Set cloud_account on your ESP32 to the public key above.',
+    });
+  }
+
+  // ── Account Management Handlers ────────────────────────────────────────
+
+  /// Handle GET /api/cloud/accounts — list all stored accounts.
+  Future<Response> _handleCloudAccountsList(Request request) async {
+    return _json({
+      'accounts': _accountProvider.accounts.map((a) => {
+        'id': a.id,
+        'name': a.name,
+        'publicKey': a.publicKey,
+        'relay': a.relay,
+      }).toList(),
+    });
+  }
+
+  /// Handle POST /api/cloud/accounts — create a new account with name and relay.
+  /// Body: { "name": "Local Relay", "relay": "ws://10.0.0.17:9000" }
+  /// Uses the existing Ed25519 keypair from CloudIdentityService.
+  Future<Response> _handleCloudAccountsCreate(Request request) async {
+    final body = await _parseBody(request);
+    final name = body['name'] as String?;
+    final relay = body['relay'] as String? ?? '';
+
+    if (name == null || name.trim().isEmpty) {
+      return _error('invalid_params', 'name is required');
+    }
+
+    // Use existing Ed25519 keypair from CloudIdentityService
+    final identityProvider = _cloudIdentityProvider;
+    if (!identityProvider.hasIdentity) {
+      await identityProvider.initialize();
+    }
+
+    final publicKey = identityProvider.account ?? '';
+    final privateKey = identityProvider.identityService.privateKeyHex ?? '';
+
+    if (publicKey.isEmpty || privateKey.isEmpty) {
+      return _error('no_identity', 'No Ed25519 identity found. Generate one first via POST /api/cloud/account', status: 400);
+    }
+
+    final account = Account(
+      id: DateTime.now().millisecondsSinceEpoch.toRadixString(36),
+      name: name.trim(),
+      publicKey: publicKey,
+      privateKey: privateKey,
+      relay: relay.trim(),
+    );
+
+    await _accountProvider.addAccount(account);
+
+    return _json({
+      'ok': true,
+      'account': {
+        'id': account.id,
+        'name': account.name,
+        'publicKey': account.publicKey,
+        'relay': account.relay,
+      },
+    });
+  }
+
+  /// Handle PUT /api/cloud/accounts/<id> — update an account's name/relay.
+  /// Body: { "name": "...", "relay": "..." }
+  Future<Response> _handleCloudAccountsUpdate(Request request, String id) async {
+    final body = await _parseBody(request);
+    final name = body['name'] as String?;
+    final relay = body['relay'] as String?;
+
+    if (name == null && relay == null) {
+      return _error('invalid_params', 'At least one of: name, relay');
+    }
+
+    // Check account exists
+    final exists = _accountProvider.accounts.any((a) => a.id == id);
+    if (!exists) {
+      return _error('not_found', 'Account $id not found', status: 404);
+    }
+
+    await _accountProvider.updateAccount(id, name: name, relay: relay);
+    return _json({'ok': true});
+  }
+
+  /// Handle DELETE /api/cloud/accounts/<id> — delete an account.
+  Future<Response> _handleCloudAccountsDelete(Request request, String id) async {
+    final exists = _accountProvider.accounts.any((a) => a.id == id);
+    if (!exists) {
+      return _error('not_found', 'Account $id not found', status: 404);
+    }
+    await _accountProvider.deleteAccount(id);
+    return _json({'ok': true, 'message': 'Account deleted'});
+  }
 
   /// Last device list returned by the relay.
   List<String> _cloudDevices = [];
@@ -650,6 +787,8 @@ class RemoteAccessService {
     }
   }
 
+  /// Reconnect to a previously paired device, trying available transports
+  /// in priority order until one succeeds. Uses parallel availability checks.
   Future<Response> _handleReconnect(Request request) async {
     final devices = _historyProvider.pairedDevices;
     if (devices.isEmpty) {
@@ -657,65 +796,141 @@ class RemoteAccessService {
     }
 
     final last = devices.first;
-    DeviceInfo info = last.toDeviceInfo();
 
-    // Set the correct transport based on DeviceInfo.currentTransport.
-    // This properly handles reconnection via WiFi even when the model
-    // was originally created via BLE (the type field is always 'ble').
-    switch (info.currentTransport) {
-      case TransportType.ble:
-        _deviceProvider.setTransport(_bleProvider.bleService);
-        break;
-      case TransportType.wifi:
-        _deviceProvider.setTransport(WebSocketService());
-        break;
-      case TransportType.cloud:
-        // Try to reuse existing cloud WebSocket if still connected
-        if (_cloudWs != null && _cloudWs!.isConnected &&
-            _cloudWs!.account != null && _cloudWs!.identity != null) {
-          _deviceProvider.setTransport(_cloudWs!);
-        } else {
-          // Load Ed25519 identity from secure storage for relay auth
-          final identity = CloudIdentityService();
-          await identity.initialize();
-          if (!identity.hasIdentity || identity.account == null) {
-            return _error('no_identity',
-                'No cloud identity found. Connect to cloud relay first.',
-                status: 400);
+    // Build prioritized list of transports to try.
+    // Order: last used first, then remaining transports, then cloud if account matches.
+    final seen = <String>{};
+    final attempts = <(String, TransportType, String, TransportService Function())>[];
+
+    void addIf(String key, TransportType type, String? address, TransportService Function() factory) {
+      if (address == null || address.isEmpty || seen.contains(key)) return;
+      seen.add(key);
+      attempts.add((type.name, type, address, factory));
+    }
+
+    // 1. Last-used transport first
+    if (last.lastUsedTransport == 'wifi') addIf('wifi', TransportType.wifi, last.wifiAddress, () => WebSocketService());
+    if (last.lastUsedTransport == 'ble') addIf('ble', TransportType.ble, last.bleAddress, () => _bleProvider.bleService);
+    if (last.lastUsedTransport == 'cloud') addIf('cloud', TransportType.cloud, last.cloudAddress, () => WebSocketService());
+    if (last.lastUsedTransport == 'serial') addIf('serial', TransportType.serial, last.serialAddress, () => _serialProvider.serialService);
+
+    // 2. Then remaining transports
+    addIf('wifi', TransportType.wifi, last.wifiAddress, () => WebSocketService());
+    addIf('ble', TransportType.ble, last.bleAddress, () => _bleProvider.bleService);
+    addIf('serial', TransportType.serial, last.serialAddress, () => _serialProvider.serialService);
+
+    // 3. Cloud fallback: only if cached cloud account matches app identity
+    if (last.cloudAccount != null && last.cloudAccount!.isNotEmpty) {
+      final identity = CloudIdentityService();
+      await identity.initialize();
+      if (identity.hasIdentity && identity.account == last.cloudAccount) {
+        String? cloudAddr = last.cloudAddress;
+        if (cloudAddr == null || cloudAddr.isEmpty) {
+          if (_cloudWs != null && _cloudWs!.isConnected) {
+            cloudAddr = 'cloud://${_cloudWs!.account ?? "relay"}';
+          }
+        }
+        addIf('cloud', TransportType.cloud, cloudAddr, () {
+          if (_cloudWs != null && _cloudWs!.isConnected &&
+              _cloudWs!.account != null && _cloudWs!.identity != null) {
+            return _cloudWs!;
           }
           final ws = WebSocketService()
             ..account = identity.account
             ..identity = identity;
           _cloudWs = ws;
-          _deviceProvider.setTransport(ws);
+          return ws;
+        });
+      }
+    }
+
+    // 4. Fallback: no addresses found — try original toDeviceInfo() logic
+    if (attempts.isEmpty) {
+      DeviceInfo info = last.toDeviceInfo();
+      switch (info.currentTransport) {
+        case TransportType.ble:
+          _deviceProvider.setTransport(_bleProvider.bleService);
+          break;
+        case TransportType.wifi:
+          _deviceProvider.setTransport(WebSocketService());
+          break;
+        case TransportType.cloud:
+          if (_cloudWs != null && _cloudWs!.isConnected &&
+              _cloudWs!.account != null && _cloudWs!.identity != null) {
+            _deviceProvider.setTransport(_cloudWs!);
+          } else {
+            final identity = CloudIdentityService();
+            await identity.initialize();
+            if (!identity.hasIdentity || identity.account == null) {
+              return _error('no_identity',
+                  'No cloud identity found. Connect to cloud relay first.',
+                  status: 400);
+            }
+            final ws = WebSocketService()
+              ..account = identity.account
+              ..identity = identity;
+            _cloudWs = ws;
+            _deviceProvider.setTransport(ws);
+          }
+          break;
+        case TransportType.serial:
+          _deviceProvider.setTransport(_serialProvider.serialService);
+          break;
+        case TransportType.demo:
+          return _error('demo_only', 'Cannot reconnect to demo devices',
+              status: 400);
+      }
+      try {
+        await _deviceProvider.connectToDevice(info);
+      } catch (e) {
+        return _error('connection_failed', e.toString(), status: 500);
+      }
+      if (!_deviceProvider.isConnected) {
+        return _error('connection_failed',
+            _deviceProvider.errorMessage ?? 'Reconnection failed',
+            status: 500);
+      }
+      await _historyProvider.saveDevice(info, last.type);
+      return _json({
+        'ok': true,
+        'message': 'Reconnected to ${last.name}',
+      });
+    }
+
+    // Try each transport in priority order (no parallel check — connect attempt
+    // itself acts as the availability probe for the API)
+    for (final attempt in attempts) {
+      final (label, type, address, factory) = attempt;
+      _deviceProvider.setTransport(factory());
+
+      try {
+        final info = DeviceInfo(
+          id: last.uid,
+          name: last.name,
+          rssi: 0,
+          hasFs: false,
+          bleAddress: last.bleAddress,
+          wifiAddress: last.wifiAddress,
+          transportAddress: address,
+          currentTransport: type,
+        );
+        await _deviceProvider.connectToDevice(info);
+        if (_deviceProvider.isConnected) {
+          await _historyProvider.saveDevice(info, last.type, cloudAccount: last.cloudAccount);
+          return _json({
+            'ok': true,
+            'message': 'Reconnected to ${last.name} via $label',
+            'transport': label,
+          });
         }
-        break;
-      case TransportType.serial:
-        _deviceProvider.setTransport(_serialProvider.serialService);
-        break;
-      case TransportType.demo:
-        return _error('demo_only', 'Cannot reconnect to demo devices',
-            status: 400);
+      } catch (_) {
+        // Try next transport
+      }
     }
 
-    try {
-      await _deviceProvider.connectToDevice(info);
-    } catch (e) {
-      return _error('connection_failed', e.toString(), status: 500);
-    }
-
-    if (!_deviceProvider.isConnected) {
-      return _error('connection_failed',
-          _deviceProvider.errorMessage ?? 'Reconnection failed',
-          status: 500);
-    }
-
-    await _historyProvider.saveDevice(info, last.type);
-
-    return _json({
-      'ok': true,
-      'message': 'Reconnected to ${last.name}',
-    });
+    return _error('connection_failed',
+        '${last.name} is not reachable on any available transport.',
+        status: 503);
   }
 
   Future<Response> _handleModels(Request request) async {
@@ -934,7 +1149,9 @@ class RemoteAccessService {
     }
     final path = request.url.queryParameters['path'] ?? '/';
     try {
+      debugPrint('FS_HANDLER: Calling listDir for path=$path');
       final entries = await _fsService().listDir(path);
+      debugPrint('FS_HANDLER: listDir returned ${entries.length} entries');
       return _json({
         'path': path,
         'entries': entries
@@ -946,6 +1163,7 @@ class RemoteAccessService {
             .toList(),
       });
     } catch (e) {
+      debugPrint('FS_HANDLER: listDir threw: $e');
       return _error('fs_error', e.toString(), status: 500);
     }
   }
@@ -1447,37 +1665,57 @@ class RemoteAccessService {
   // ── Cloud Relay Handlers ────────────────────────────────────────────────────
 
   /// Handle POST /api/cloud/connect — connect to relay, authenticate, list devices.
+  /// Uses the app's stored Ed25519 identity for relay authentication.
   /// Body: {
-  ///   "host": "10.0.0.17",      // optional, defaults to relay.radiokit.app
-  ///   "port": 9000,            // optional, defaults to 443
-  ///   "account": "<pubkey_hex>",  // required: Ed25519 public key hex
-  ///   "privateKey": "<privkey_hex>" // required: Ed25519 private key hex for signing
+  ///   "host": "10.0.0.17",   // optional, defaults to relay.radiokit.app
+  ///   "port": 9000,         // optional, defaults to 443
   /// }
   Future<Response> _handleCloudConnect(Request request) async {
     final body = await _parseBody(request);
     final rawHost = body['host'] as String? ?? '';
     final port = (body['port'] as num?)?.toInt() ?? 443;
-    final account = body['account'] as String?;
-    final privateKeyHex = body['privateKey'] as String?;
 
+    // Use the app's stored Ed25519 identity
+    final identityProvider = _cloudIdentityProvider;
+    if (!identityProvider.hasIdentity) {
+      await identityProvider.initialize();
+    }
+    final account = identityProvider.account;
     if (account == null || account.isEmpty) {
-      return _error('invalid_params', 'account (public key hex) is required');
-    }
-    if (privateKeyHex == null || privateKeyHex.isEmpty) {
-      return _error('invalid_params', 'privateKey (Ed25519 private key hex) is required');
+      return _error('no_identity', 'No Ed25519 identity found in app. Create one first via POST /api/cloud/account.', status: 400);
     }
 
-    // Parse host:port
+    // Parse host:port — try the connected device's cloud_url first if not specified
     String host = rawHost.trim();
+    int resolvedPort = port;
+
+    if (host.isEmpty && _deviceProvider.isConnected) {
+      try {
+        final cloudInfo = await _deviceProvider.sendGetCloudInfo();
+        if (cloudInfo != null && cloudInfo.url.isNotEmpty) {
+          final colonPos = cloudInfo.url.lastIndexOf(':');
+          if (colonPos > 0) {
+            host = cloudInfo.url.substring(0, colonPos).trim();
+            resolvedPort = int.tryParse(
+                cloudInfo.url.substring(colonPos + 1)) ?? port;
+          } else {
+            host = cloudInfo.url.trim();
+          }
+        }
+      } catch (_) {
+        // Fall through to default
+      }
+    }
+
     if (host.isEmpty) {
       host = 'relay.radiokit.app';
     }
 
-    final scheme = port == 443 ? 'wss' : 'ws';
-    final url = '$scheme://$host:$port';
+    final scheme = resolvedPort == 443 ? 'wss' : 'ws';
+    final url = '$scheme://$host:$resolvedPort';
 
     _cloudHost = host;
-    _cloudPort = port;
+    _cloudPort = resolvedPort;
     _cloudAccount = account;
 
     try {
@@ -1487,11 +1725,8 @@ class RemoteAccessService {
       final ws = WebSocketService()..account = account;
       _cloudWs = ws;
 
-      // Create Ed25519 identity from the provided private key
-      final identity = CloudIdentityService();
-      await identity.importKeyPair(privateKeyHex, account);
-      ws.identity = identity;
-
+      // Use the app's stored identity for relay auth
+      ws.identity = identityProvider.identityService;
       // Use completers to bridge the async event-driven flow
       final authCompleter = Completer<void>();
       final listCompleter = Completer<List<String>>();
@@ -1539,7 +1774,7 @@ class RemoteAccessService {
       return _json({
         'ok': true,
         'host': host,
-        'port': port,
+        'port': resolvedPort,
         'account': account,
         'devices': devices,
       });
@@ -1583,8 +1818,9 @@ class RemoteAccessService {
 
     try {
       // Wire up the DeviceProvider to use the cloud WebSocket as transport.
-      // connectToDevice calls transport.connect(url) which re-authenticates
-      // with the relay and sends join with the device path automatically.
+      // Store it so switchTransport can re-use it (instead of creating an
+      // unauthenticated WebSocketService that can't relay frames).
+      _deviceProvider.setCloudTransport(_cloudWs!);
       _deviceProvider.setTransport(_cloudWs!);
 
       // Wait for join confirmation via onCloudJoined callback

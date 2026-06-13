@@ -72,7 +72,7 @@ static inline void initRadioKit() {
 
   // ── Cloud relay config ─────────────────────────────────
   RadioKit.config.cloud_url     = "10.0.0.17:9000";  // Local relay server
-  RadioKit.config.cloud_account = "c29abe914b26b6349a299db2e5b9b2755f73ec85df83e3361abe1b1914a85992";
+  RadioKit.config.cloud_account = "6f5d64f15c8c0c80b3a39d4ed3ccfad30feb406ebaa6b36b70e80061389d3d1d";
 
   // ── STA WiFi compile-time defaults ────────────────────
   RadioKit.config.sta_ssid      = "Leap";
@@ -88,15 +88,14 @@ static inline void initRadioKit() {
 
   // ── Start ALL transports ──────────────────────────────
   // Transport NVS defaults are set by RadioKit.begin() on first boot:
-  // BLE=1, WiFi=1, Cloud=0. Enable cloud here unless the user has
-  // explicitly disabled it via NVS_RAW_WRITE (rk_cloud_on=0).
-  // Use readU8()'s return value to distinguish "key doesn't exist"
-  // (first boot: write default 1) from "key exists with value 0"
-  // (user disabled: respect choice and skip write).
+  // BLE=1, WiFi=1, Cloud=0. Since begin() writes rk_cloud_on=0 even
+  // after factory reset, we must force-enable cloud here by checking
+  // the VALUE rather than the key existence.
+  // The user can still disable it later via NVS_RAW_WRITE(rk_cloud_on=0).
   {
     uint8_t _rkCloudOn = 0;
-    bool _rkCloudExists = RKNvs::readU8("rk_cloud_on", &_rkCloudOn);
-    if (!_rkCloudExists) {
+    RKNvs::readU8("rk_cloud_on", &_rkCloudOn);
+    if (_rkCloudOn == 0) {
       RKNvs::writeU8("rk_cloud_on", 1);
       RKNvs::commit();
     }

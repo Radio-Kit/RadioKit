@@ -25,6 +25,7 @@ import '../../widgets/radiokit_app_bar.dart';
 import '../../services/device_fs_service.dart';
 import '../designer/widgets/inspector_field_builders.dart';
 import 'package:radiokit_widgets/src/utils/icon_registry.dart';
+import '../../services/transport_service.dart';
 import '../devtools/filesystem/fs_helpers.dart';
 import '../devtools/filesystem/fs_breadcrumbs.dart';
 import '../devtools/filesystem/fs_file_tile.dart';
@@ -582,6 +583,13 @@ class _DeviceInfoTabsState extends State<_DeviceInfoTabs>
   }
 
   Future<void> _fetchBleInfo() async {
+    // Only fetch BLE info when connected via BLE — on WiFi/Cloud this would timeout
+    if (widget.device.currentTransport != TransportType.ble) {
+      if (mounted) {
+        setState(() => _loadingBleInfo = false);
+      }
+      return;
+    }
     final dp = context.read<DeviceProvider>();
     final info = await dp.sendGetBleInfo();
     if (mounted) {
@@ -760,12 +768,15 @@ class _InfoTabContentState extends State<_InfoTabContent> {
     final chipInfo = dp.chipInfo;
     final isDemo = device.currentTransport == TransportType.demo;
 
-    // Determine transport states from actual current transport
+    // Determine transport states from actual current transport.
+    // cloud uses WebSocketService (same as WiFi), so distinguish via
+    // the DeviceInfo's currentTransport field.
     final isConnected = dp.isConnected;
-    final trans = dp.currentTransport;
-    final isBleConnected = trans is BleService;
-    final isWifiConnected = trans is WebSocketService;
-    final isCloudConnected = false; // cloud detection TBD
+    final connectedDeviceInfo = dp.connectedDevice;
+    final connectedTransport = connectedDeviceInfo?.currentTransport;
+    final isBleConnected = connectedTransport == TransportType.ble;
+    final isWifiConnected = connectedTransport == TransportType.wifi;
+    final isCloudConnected = connectedTransport == TransportType.cloud;
 
     final hasBle = dp.hasBle;
     final hasWifi = dp.hasWifi;
@@ -798,7 +809,7 @@ class _InfoTabContentState extends State<_InfoTabContent> {
                               shape: BoxShape.circle)),
                       const SizedBox(width: 6),
                       Text(
-                        _transportLabel(device.id),
+                        _transportLabel(connectedTransport),
                         style: const TextStyle(
                             color: Colors.white54,
                             fontSize: 11,
@@ -811,7 +822,7 @@ class _InfoTabContentState extends State<_InfoTabContent> {
               ),
             ],
           ),
-          if (widget.loadingBleInfo)
+          if (isBleConnected && widget.loadingBleInfo)
             const Padding(
               padding: EdgeInsets.only(top: 12),
               child: Text('Fetching connection info...',
@@ -819,12 +830,21 @@ class _InfoTabContentState extends State<_InfoTabContent> {
             )
           else ...[
             const SizedBox(height: 12),
-            Text(
-              'Connection: ${widget.bleInfo?['connIntervalMs'] ?? dp.latencyMs ?? '--'}ms '
-              '| MTU: ${widget.bleInfo?['negotiatedMtu'] ?? '--'}'
-              ' | Signal: ${widget.bleInfo?['rssi'] ?? dp.rssi ?? device.rssi ?? '--'} dBm',
-              style: const TextStyle(color: Colors.white54, fontSize: 11),
-            ),
+            // Transport-aware connection info
+            if (isBleConnected) ...[
+              Text(
+                'Connection: ${widget.bleInfo?['connIntervalMs'] ?? dp.latencyMs ?? '--'}ms '
+                '| MTU: ${widget.bleInfo?['negotiatedMtu'] ?? '--'}'
+                ' | Signal: ${widget.bleInfo?['rssi'] ?? dp.rssi ?? device.rssi ?? '--'} dBm',
+                style: const TextStyle(color: Colors.white54, fontSize: 11),
+              ),
+            ] else if (isWifiConnected || isCloudConnected) ...[
+              Text(
+                'Latency: ${dp.latencyMs ?? '--'}ms'
+                ' | Signal: ${dp.rssi ?? device.rssi ?? '--'} dBm',
+                style: const TextStyle(color: Colors.white54, fontSize: 11),
+              ),
+            ],
           ],
           const SizedBox(height: 16),
           // ── Transport Badges ────────────────────────────────
@@ -841,8 +861,8 @@ class _InfoTabContentState extends State<_InfoTabContent> {
           ] else ...[
             Row(
               children: [
-                // BLE badge — shown only if NVS-enabled
-                if (_nvsBleOn)
+                // BLE badge — always show if NVS-enabled or currently connected via BLE
+                if (_nvsBleOn || isBleConnected)
                   _TransportBadge(
                     type: 'BLE',
                     icon: Icons.bluetooth_rounded,
@@ -853,9 +873,9 @@ class _InfoTabContentState extends State<_InfoTabContent> {
                         ? () => _onTransportTap(context, dp, device, TransportType.ble)
                         : null,
                   ),
-                if (_nvsBleOn) const SizedBox(width: 8),
-                // WiFi badge — shown only if NVS-enabled and device has WiFi feature
-                if (_nvsWifiOn && (hasWifi || isWifiConnected))
+                if (_nvsBleOn || isBleConnected) const SizedBox(width: 8),
+                // WiFi badge — always show if connected via WiFi; otherwise show if NVS-enabled and device has WiFi
+                if ((_nvsWifiOn && (hasWifi || isWifiConnected)) || isWifiConnected)
                   _TransportBadge(
                     type: 'WiFi',
                     icon: Icons.wifi_rounded,
@@ -866,9 +886,9 @@ class _InfoTabContentState extends State<_InfoTabContent> {
                         ? () => _onTransportTap(context, dp, device, TransportType.wifi)
                         : null,
                   ),
-                if (_nvsWifiOn && (hasWifi || isWifiConnected)) const SizedBox(width: 8),
-                // Cloud badge — shown only if NVS-enabled and device has Cloud feature
-                if (_nvsCloudOn && (hasCloud || isCloudConnected))
+                if (((_nvsWifiOn && (hasWifi || isWifiConnected)) || isWifiConnected)) const SizedBox(width: 8),
+                // Cloud badge — always show if connected via Cloud; otherwise show if NVS-enabled and device has Cloud
+                if ((_nvsCloudOn && (hasCloud || isCloudConnected)) || isCloudConnected)
                   _TransportBadge(
                     type: 'Cloud',
                     icon: Icons.cloud_rounded,
@@ -1007,14 +1027,24 @@ class _InfoTabContentState extends State<_InfoTabContent> {
 
   void _onTransportTap(BuildContext context, DeviceProvider dp, DeviceInfo device, TransportType targetTransport) async {
     // Determine current transport label for dialog message
-    final currentTransportObj = dp.currentTransport;
+    final connectedInfo = dp.connectedDevice;
+    final currentTransport = connectedInfo?.currentTransport;
     String currentLabel;
-    if (currentTransportObj is BleService) {
-      currentLabel = 'BLE';
-    } else if (currentTransportObj is WebSocketService) {
-      currentLabel = 'WiFi';
-    } else {
-      currentLabel = 'current';
+    switch (currentTransport) {
+      case TransportType.ble:
+        currentLabel = 'BLE';
+        break;
+      case TransportType.wifi:
+        currentLabel = 'WiFi';
+        break;
+      case TransportType.cloud:
+        currentLabel = 'Cloud';
+        break;
+      case TransportType.serial:
+        currentLabel = 'Serial';
+        break;
+      default:
+        currentLabel = 'current';
     }
 
     String transportLabel(TransportType t) {
@@ -1185,7 +1215,7 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
     _adminPwdCtrl = TextEditingController();
 
     // Load NVS transport enable states
-    _loadTransportNvsKeys(dp);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadTransportNvsKeys(dp));
   }
 
   Future<void> _loadTransportNvsKeys(DeviceProvider dp) async {
@@ -1228,11 +1258,20 @@ class _SettingsTabContentState extends State<_SettingsTabContent> {
 
   String? _connectedTransportName(DeviceProvider dp) {
     if (!dp.isConnected) return null;
-    final t = dp.currentTransport;
-    if (t is BleService) return 'BLE';
-    if (t is WebSocketService) return 'WIFI';
-    if (t is LinuxSerialService || t is SerialService) return 'Serial';
-    return null;
+    final connected = dp.connectedDevice;
+    final transport = connected?.currentTransport;
+    switch (transport) {
+      case TransportType.ble:
+        return 'BLE';
+      case TransportType.wifi:
+        return 'WIFI';
+      case TransportType.cloud:
+        return 'CLOUD';
+      case TransportType.serial:
+        return 'Serial';
+      default:
+        return null;
+    }
   }
 
   /// Returns true if disabling this transport would leave NO transports enabled.
@@ -3592,7 +3631,7 @@ Future<bool> _showAuthDialog(
                 Padding(
                   padding: const EdgeInsets.only(left: 32),
                   child: Text(
-                    _transportLabel(device.id),
+                    _transportLabel(device.currentTransport),
                     style: const TextStyle(
                         color: Colors.white54,
                         fontSize: 11,
@@ -3870,13 +3909,21 @@ Future<void> _confirmRemoveDevice(
 // ── Shared bottom widgets ───────────────────────────────────────────────────
 
 /// Returns a human-readable transport label for the given device ID.
-String _transportLabel(String id) {
-  if (id.startsWith('demo_')) return 'DEMO';
-  final isWs = id.startsWith('ws://') || id.startsWith('wss://');
-  if (isWs && id.contains('relay')) return 'CLOUD';
-  if (isWs) return 'WiFi';
-  if (id.startsWith('COM') || id.contains('serial')) return 'SERIAL';
-  return 'BLUETOOTH LE';
+String _transportLabel(TransportType? transport) {
+  switch (transport) {
+    case TransportType.ble:
+      return 'BLUETOOTH LE';
+    case TransportType.wifi:
+      return 'WiFi';
+    case TransportType.cloud:
+      return 'CLOUD';
+    case TransportType.serial:
+      return 'SERIAL';
+    case TransportType.demo:
+      return 'DEMO';
+    default:
+      return 'BLUETOOTH LE';
+  }
 }
 
 Widget _buildSectionTag(BuildContext context, String title) {
@@ -4053,6 +4100,104 @@ class _PairedModelsListState extends State<_PairedModelsList> {
         .firstOrNull;
   }
 
+  /// Check availability of all transports in parallel.
+  /// Returns a set of transport types that are reachable.
+  Future<Set<TransportType>> _checkAllAvailabilities({
+    required PairedDevice device,
+    required BleProvider ble,
+    required SerialProvider serial,
+  }) async {
+    final results = <TransportType, bool>{};
+    final futures = <Future<void>>[];
+
+    // WiFi check (fast TCP probe)
+    if (device.wifiAddress != null && device.wifiAddress!.isNotEmpty) {
+      futures.add(Future(() async {
+        final uri = Uri.tryParse(device.wifiAddress!);
+        if (uri != null && (uri.scheme == 'ws' || uri.scheme == 'wss')) {
+          try {
+            final socket = await Socket.connect(
+              uri.host, uri.port,
+              timeout: const Duration(seconds: 2),
+            );
+            socket.destroy();
+            results[TransportType.wifi] = true;
+            return;
+          } catch (_) {}
+        }
+        results[TransportType.wifi] = false;
+      }));
+    }
+
+    // BLE scan (2.5s scan window)
+    if (device.bleAddress != null && device.bleAddress!.isNotEmpty) {
+      futures.add(Future(() async {
+        await ble.startScan();
+        await Future.delayed(const Duration(milliseconds: 2500));
+        await ble.stopScan();
+        results[TransportType.ble] = ble.devices.any((d) => d.id == device.bleAddress);
+      }));
+    }
+
+    // Serial scan
+    if (device.serialAddress != null && device.serialAddress!.isNotEmpty) {
+      futures.add(Future(() async {
+        await serial.startScan();
+        results[TransportType.serial] = serial.ports.any((p) => p.id == device.serialAddress);
+      }));
+    }
+
+    await Future.wait(futures);
+
+    return results.entries
+        .where((e) => e.value)
+        .map((e) => e.key)
+        .toSet();
+  }
+
+  /// Try to reconnect via a specific transport. Skips availability check
+  /// since [_checkAllAvailabilities] was already called.
+  Future<bool> _tryConnect({
+    required PairedDevice device,
+    required String label,
+    required TransportType type,
+    required String address,
+    required TransportService Function() makeService,
+    required DeviceProvider deviceProvider,
+    required ConsoleProvider console,
+  }) async {
+    if (!mounted) return false;
+    _updateStatus(device.uid, 'connecting', message: 'Connecting via $label...');
+    deviceProvider.setTransport(makeService());
+
+    try {
+      final info = DeviceInfo(
+        id: device.uid,
+        name: device.name,
+        rssi: 0,
+        hasFs: false,
+        bleAddress: device.bleAddress,
+        wifiAddress: device.wifiAddress,
+        transportAddress: address,
+        currentTransport: type,
+      );
+      await deviceProvider.connectToDevice(info);
+      if (!mounted) return false;
+      if (deviceProvider.isConnected) {
+        console.log('RECONNECTED: ${device.name} via $label',
+            level: ConsoleLogLevel.success);
+        _updateStatus(device.uid, 'connected', message: 'Connected via $label!');
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) _clearStatus(device.uid);
+        });
+        return true;
+      }
+    } catch (e) {
+      console.log('  $label error: $e', level: ConsoleLogLevel.info);
+    }
+    return false;
+  }
+
   Future<void> _handleReconnect(PairedDevice device) async {
     final console = context.read<ConsoleProvider>();
     final ble = context.read<BleProvider>();
@@ -4060,90 +4205,137 @@ class _PairedModelsListState extends State<_PairedModelsList> {
     final deviceProvider = context.read<DeviceProvider>();
 
     _updateStatus(device.uid, 'scanning', message: 'Scanning...');
+    console.log('RECONNECTING: ${device.name}', level: ConsoleLogLevel.info);
 
-    console.log('RE-INITIALIZING SOURCE: ${device.type.toUpperCase()}',
-        level: ConsoleLogLevel.info);
-
-    if (device.type == 'ble') {
-      deviceProvider.setTransport(ble.bleService);
-    } else if (device.type == 'wifi') {
-      final ws = WebSocketService();
-      deviceProvider.setTransport(ws);
-    } else {
-      deviceProvider.setTransport(serial.serialService);
-    }
-
-    // Check availability
-    bool isLive = false;
-    if (device.type == 'ble') {
-      await ble.startScan();
-      await Future.delayed(const Duration(milliseconds: 2500));
-      await ble.stopScan();
-      isLive = ble.devices.any((d) => d.id == (device.bleAddress ?? device.uid));
-    } else if (device.type == 'serial') {
-      await serial.startScan();
-      isLive = serial.ports.any((p) => p.id == (device.serialAddress ?? device.uid));
-    } else if (device.type == 'wifi') {
-      // WiFi: try a quick TCP connection to verify the device is reachable.
-      final uri = Uri.tryParse(device.wifiAddress ?? device.uid);
-      if (uri != null && (uri.scheme == 'ws' || uri.scheme == 'wss')) {
-        try {
-          final socket = await Socket.connect(
-            uri.host,
-            uri.port,
-            timeout: const Duration(seconds: 3),
-          );
-          socket.destroy();
-          isLive = true;
-        } catch (_) {
-          isLive = false;
-        }
+    // Build prioritized list of transports to try.
+    final seen = <String>{};
+        // Initialize cloud identity early for transport fallback.
+    // Must be done before building the attempts list because the addIf
+    // factory functions must be synchronous (TransportService Function()).
+    CloudIdentityService? cloudIdentity;
+    if (device.cloudAccount != null && device.cloudAccount!.isNotEmpty) {
+      final id = CloudIdentityService();
+      await id.initialize();
+      if (id.hasIdentity && id.account == device.cloudAccount) {
+        cloudIdentity = id;
       }
-    } else {
-      isLive = true;
     }
 
-    if (!isLive) {
-      if (!mounted) return;
-      console.log('RECONNECT FAILED: Device "${device.name}" is not reachable.',
-          level: ConsoleLogLevel.error);
-      final errMsg = device.type == 'ble'
-          ? (ble.errorMessage ?? 'Device is offline or out of range.')
-          : device.type == 'serial'
-              ? (serial.errorMessage ?? 'Device is offline or out of range.')
-              : 'Device is offline or out of range.';
-      _updateStatus(device.uid, 'failed',
-          message: errMsg);
+    final attempts = <_ReconnectAttempt>[];
 
+    void addIf(String key, String label, String? address, TransportType type,
+        TransportService Function() factory) {
+      if (address == null || address.isEmpty || seen.contains(key)) return;
+      seen.add(key);
+      attempts.add(_ReconnectAttempt(
+        label: label,
+        type: type,
+        address: address,
+        makeService: factory,
+      ));
+    }
+
+    // 1. Last-used transport first
+    if (device.lastUsedTransport == 'wifi') addIf('wifi', 'WiFi', device.wifiAddress, TransportType.wifi, () => WebSocketService());
+    if (device.lastUsedTransport == 'ble') addIf('ble', 'BLE', device.bleAddress, TransportType.ble, () => ble.bleService);
+    if (device.lastUsedTransport == 'cloud' && cloudIdentity != null) addIf('cloud', 'Cloud', device.cloudAddress, TransportType.cloud, () { final ws = WebSocketService()..account = cloudIdentity!.account..identity = cloudIdentity!; return ws; });
+    if (device.lastUsedTransport == 'serial') addIf('serial', 'Serial', device.serialAddress, TransportType.serial, () => serial.serialService);
+
+    // 2. Then try remaining transports
+    addIf('wifi', 'WiFi', device.wifiAddress, TransportType.wifi, () => WebSocketService());
+    addIf('ble', 'BLE', device.bleAddress, TransportType.ble, () => ble.bleService);
+    addIf('serial', 'Serial', device.serialAddress, TransportType.serial, () => serial.serialService);
+
+    // 3. Cloud fallback: use pre-initialized identity
+    if (cloudIdentity != null && device.cloudAddress != null && device.cloudAddress!.isNotEmpty) {
+      addIf('cloud', 'Cloud', device.cloudAddress, TransportType.cloud, () { final ws = WebSocketService()..account = cloudIdentity!.account..identity = cloudIdentity!; return ws; });
+    }
+
+    // 4. Fallback: no addresses found — try original device.type logic
+    if (attempts.isEmpty) {
+      TransportService Function() fallbackService;
+      TransportType fallbackType;
+      String? fallbackAddr;
+      if (device.type == 'ble') {
+        fallbackService = () => ble.bleService;
+        fallbackType = TransportType.ble;
+        fallbackAddr = device.bleAddress ?? device.uid;
+      } else if (device.type == 'wifi') {
+        fallbackService = () => WebSocketService();
+        fallbackType = TransportType.wifi;
+        fallbackAddr = device.wifiAddress ?? device.uid;
+      } else {
+        fallbackService = () => serial.serialService;
+        fallbackType = TransportType.serial;
+        fallbackAddr = device.serialAddress ?? device.uid;
+      }
+      final ok = await _tryConnect(
+        device: device,
+        label: fallbackType.name,
+        type: fallbackType,
+        address: fallbackAddr,
+        makeService: fallbackService,
+        deviceProvider: deviceProvider,
+        console: console,
+      );
+      if (!ok && mounted) {
+        console.log('RECONNECT FAILED: "${device.name}" is not reachable.',
+            level: ConsoleLogLevel.error);
+        _updateStatus(device.uid, 'failed',
+            message: 'Device is offline or out of range.');
+      }
       return;
     }
-    if (!mounted) return;
-    _updateStatus(device.uid, 'connecting', message: 'Connecting...');
 
-    try {
-      await deviceProvider.connectToDevice(device.toDeviceInfo());
+    // Run all availability checks in parallel
+    _updateStatus(device.uid, 'scanning', message: 'Checking transports...');
+    final available = await _checkAllAvailabilities(
+      device: device,
+      ble: ble,
+      serial: serial,
+    );
+
+    // Try each transport in priority order, skipping unavailable ones
+    for (final attempt in attempts) {
       if (!mounted) return;
-      if (deviceProvider.isConnected) {
-        console.log('RESYNC SUCCESSFUL: ${device.name}',
-            level: ConsoleLogLevel.success);
-        _updateStatus(device.uid, 'connected', message: 'Connected!');
-        // Clear status after a brief delay
-        Future.delayed(const Duration(seconds: 2), () {
-          if (mounted) _clearStatus(device.uid);
-        });
-      } else {
-        final error = deviceProvider.errorMessage ?? 'Connection failed';
-        console.log('RESYNC FAILED: $error', level: ConsoleLogLevel.error);
-        _updateStatus(device.uid, 'failed', message: error);
+      if (!available.contains(attempt.type) && attempt.type != TransportType.cloud) {
+        console.log('  ${attempt.label} unreachable, skipping...', level: ConsoleLogLevel.info);
+        continue;
       }
-    } catch (e) {
-      if (!mounted) return;
-      console.log('RUNTIME ERROR: $e', level: ConsoleLogLevel.error);
-      _updateStatus(device.uid, 'failed', message: '$e');
+      final ok = await _tryConnect(
+        device: device,
+        label: attempt.label,
+        type: attempt.type,
+        address: attempt.address,
+        makeService: attempt.makeService,
+        deviceProvider: deviceProvider,
+        console: console,
+      );
+      if (ok) return; // Success!
     }
+
+    // All transports failed
+    if (!mounted) return;
+    console.log('RECONNECT FAILED: "${device.name}" is not reachable on any available transport.',
+        level: ConsoleLogLevel.error);
+    _updateStatus(device.uid, 'failed',
+        message: 'Not reachable on any transport.');
   }
 }
 
+/// A prioritized reconnect attempt.
+class _ReconnectAttempt {
+  final String label;
+  final TransportType type;
+  final String address;
+  final TransportService Function() makeService;
+  const _ReconnectAttempt({
+    required this.label,
+    required this.type,
+    required this.address,
+    required this.makeService,
+  });
+}
 class _PairedModelCard extends StatelessWidget {
   final _PairedModelConnectionState state;
   final VoidCallback onReconnect;
