@@ -32,12 +32,7 @@ impl Relay {
     ///
     /// Returns true if the signature is valid for any device registered under
     /// this account, or if no devices are registered (allows keyless setup).
-    pub async fn verify_auth(
-        &self,
-        account: &str,
-        nonce: &[u8; 32],
-        signature_b64: &str,
-    ) -> bool {
+    pub async fn verify_auth(&self, account: &str, nonce: &[u8; 32], signature_b64: &str) -> bool {
         // If no devices are registered for this account, we can't verify
         // (this shouldn't happen in normal use — device registers first)
         let devices = self.devices.lock().await;
@@ -52,21 +47,18 @@ impl Relay {
             Ok(b) if b.len() == 32 => b,
             _ => return false,
         };
-        let pubkey = match VerifyingKey::from_bytes(
-            &pubkey_bytes.try_into().unwrap_or([0u8; 32]),
-        ) {
+        let pubkey = match VerifyingKey::from_bytes(&pubkey_bytes.try_into().unwrap_or([0u8; 32])) {
             Ok(k) => k,
             Err(_) => return false,
         };
 
         // Decode base64 signature (64 bytes)
-        let sig_bytes = match base64::Engine::decode(
-            &base64::engine::general_purpose::STANDARD,
-            signature_b64,
-        ) {
-            Ok(b) if b.len() == 64 => b,
-            _ => return false,
-        };
+        let sig_bytes =
+            match base64::Engine::decode(&base64::engine::general_purpose::STANDARD, signature_b64)
+            {
+                Ok(b) if b.len() == 64 => b,
+                _ => return false,
+            };
         let signature = match Signature::from_slice(&sig_bytes) {
             Ok(s) => s,
             Err(_) => return false,
@@ -138,7 +130,9 @@ impl Relay {
                 "account": account,
                 "sid": uuid_v4_short()
             });
-            let _ = device.tx.send(RelayMessage::Text(client_joined.to_string()));
+            let _ = device
+                .tx
+                .send(RelayMessage::Text(client_joined.to_string()));
 
             let resp = serde_json::json!({
                 "type": "joined",
@@ -175,12 +169,7 @@ impl Relay {
     /// - If the sender is a device, forward to all linked clients.
     /// - If the sender is a client, forward to the linked device.
     /// The first byte of data is the protocol type byte (0x55/0xAA/0xBB/0xDD).
-    pub async fn route_data(
-        &self,
-        data: Vec<u8>,
-        key: SessionKey,
-        is_device: bool,
-    ) {
+    pub async fn route_data(&self, data: Vec<u8>, key: SessionKey, is_device: bool) {
         if is_device {
             // Device → all linked clients
             let clients = self.clients.lock().await;
@@ -285,7 +274,11 @@ mod tests {
 
     /// Helper: create a relay and a device session, returning the relay,
     /// the device key, and the device's rx channel.
-    async fn setup_device(relay: &Relay, name: &str, account: &str) -> (SessionKey, mpsc::UnboundedReceiver<RelayMessage>) {
+    async fn setup_device(
+        relay: &Relay,
+        name: &str,
+        account: &str,
+    ) -> (SessionKey, mpsc::UnboundedReceiver<RelayMessage>) {
         let (tx, rx) = mpsc::unbounded_channel();
         let (resp, _) = relay.handle_register(name, account, tx).await;
         let parsed: Value = serde_json::from_str(&resp).unwrap();
@@ -296,7 +289,11 @@ mod tests {
 
     /// Helper: create a relay and a client session, returning the client's rx channel.
     /// Panics if the device doesn't exist.
-    async fn setup_client(relay: &Relay, device_name: &str, account: &str) -> mpsc::UnboundedReceiver<RelayMessage> {
+    async fn setup_client(
+        relay: &Relay,
+        device_name: &str,
+        account: &str,
+    ) -> mpsc::UnboundedReceiver<RelayMessage> {
         let (tx, rx) = mpsc::unbounded_channel();
         let (resp, _) = relay.handle_join(device_name, account, tx).await;
         let parsed: Value = serde_json::from_str(&resp).unwrap();
@@ -311,7 +308,9 @@ mod tests {
     async fn test_register_device() {
         let relay = Relay::new();
         let (tx, _rx) = mpsc::unbounded_channel();
-        let (resp, keep_alive) = relay.handle_register("test_device", "test_account", tx).await;
+        let (resp, keep_alive) = relay
+            .handle_register("test_device", "test_account", tx)
+            .await;
 
         assert!(keep_alive);
         let parsed: Value = serde_json::from_str(&resp).unwrap();
@@ -406,7 +405,13 @@ mod tests {
     #[tokio::test]
     async fn test_join_wrong_account() {
         let relay = Relay::new();
-        let (_, _) = relay.handle_register("device", "account_a", mpsc::unbounded_channel::<RelayMessage>().0).await;
+        let (_, _) = relay
+            .handle_register(
+                "device",
+                "account_a",
+                mpsc::unbounded_channel::<RelayMessage>().0,
+            )
+            .await;
 
         // Try to join with different account
         let (tx, _rx) = mpsc::unbounded_channel();
@@ -441,7 +446,13 @@ mod tests {
     async fn test_route_data_client_to_device() {
         let relay = Relay::new();
         let (device_key, mut device_rx) = setup_device(&relay, "device", "acct").await;
-        let (_, _) = relay.handle_join("device", "acct", mpsc::unbounded_channel::<RelayMessage>().0).await;
+        let (_, _) = relay
+            .handle_join(
+                "device",
+                "acct",
+                mpsc::unbounded_channel::<RelayMessage>().0,
+            )
+            .await;
 
         // Drain client_joined message from device
         let _ = device_rx.recv().await;
@@ -616,13 +627,17 @@ mod tests {
 
         // 3. Client sends a command to device
         let cmd: Vec<u8> = vec![0x55, 0x12, 0x34];
-        relay.route_data(cmd.clone(), device_key.clone(), false).await;
+        relay
+            .route_data(cmd.clone(), device_key.clone(), false)
+            .await;
         let device_msg = device_rx.recv().await;
         assert!(matches!(device_msg, Some(RelayMessage::Binary(d)) if d == cmd));
 
         // 4. Device sends telemetry to client
         let tele: Vec<u8> = vec![0x55, 0x1E, 0x64];
-        relay.route_data(tele.clone(), device_key.clone(), true).await;
+        relay
+            .route_data(tele.clone(), device_key.clone(), true)
+            .await;
         let client_msg = client1_rx.recv().await;
         assert!(matches!(client_msg, Some(RelayMessage::Binary(d)) if d == tele));
 
@@ -631,7 +646,9 @@ mod tests {
 
         // 6. Device broadcasts to both clients
         let broadcast: Vec<u8> = vec![0x55, 0x1E, 0x00, 0x42];
-        relay.route_data(broadcast.clone(), device_key.clone(), true).await;
+        relay
+            .route_data(broadcast.clone(), device_key.clone(), true)
+            .await;
         let c1 = client1_rx.recv().await;
         let c2 = client2_rx.recv().await;
         assert!(matches!(c1, Some(RelayMessage::Binary(d)) if d == broadcast));
@@ -643,4 +660,3 @@ mod tests {
         assert!(matches!(offline, Some(RelayMessage::Text(t)) if t.contains("offline")));
     }
 }
-

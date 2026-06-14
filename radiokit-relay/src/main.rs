@@ -1,13 +1,13 @@
-mod relay;
-mod session;
 mod rate_limiter;
+mod relay;
 mod relay_stats;
+mod session;
 
 use futures_util::{SinkExt, StreamExt};
 use rand::RngCore;
 use rate_limiter::RateLimiter;
 use relay::Relay;
-use relay_stats::{snapshot, render_html, render_json, RelayStats};
+use relay_stats::{render_html, render_json, snapshot, RelayStats};
 use session::RelayMessage;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -33,7 +33,9 @@ async fn main() {
         .unwrap_or(DEFAULT_STATS_PORT);
 
     let addr = format!("0.0.0.0:{}", port);
-    let ws_listener = TcpListener::bind(&addr).await.expect("Failed to bind TCP listener");
+    let ws_listener = TcpListener::bind(&addr)
+        .await
+        .expect("Failed to bind TCP listener");
     eprintln!("RadioKit Relay: WS on {}", addr);
 
     let relay = Arc::new(Relay::new());
@@ -42,7 +44,8 @@ async fn main() {
 
     // ── Stats HTTP server ────────────────────────────────────────────────
     let stats_addr = format!("0.0.0.0:{}", stats_port);
-    let stats_listener = TcpListener::bind(&stats_addr).await
+    let stats_listener = TcpListener::bind(&stats_addr)
+        .await
         .expect("Failed to bind stats HTTP listener");
     eprintln!("RadioKit Relay: Stats HTTP on {}", stats_addr);
 
@@ -67,7 +70,13 @@ async fn main() {
         let relay = relay.clone();
         let rate_limiter = rate_limiter.clone();
         let stats = stats.clone();
-        tokio::spawn(handle_connection(stream, peer_addr, relay, rate_limiter, stats));
+        tokio::spawn(handle_connection(
+            stream,
+            peer_addr,
+            relay,
+            rate_limiter,
+            stats,
+        ));
     }
 
     let _ = stats_handle.await;
@@ -87,7 +96,9 @@ async fn handle_stats_http(
     };
 
     let request = String::from_utf8_lossy(&buf[..n]);
-    let path = request.lines().next()
+    let path = request
+        .lines()
+        .next()
         .and_then(|l| l.split_whitespace().nth(1))
         .unwrap_or("/");
 
@@ -119,19 +130,27 @@ async fn handle_connection(
     rate_limiter: Arc<RateLimiter>,
     stats: Arc<RelayStats>,
 ) {
-    stats.total_connections.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    stats.current_connections.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    stats
+        .total_connections
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    stats
+        .current_connections
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
     let ws_stream = match accept_async(stream).await {
         Ok(ws) => ws,
         Err(e) => {
             eprintln!("WebSocket handshake error from {}: {}", peer_addr, e);
-            stats.current_connections.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+            stats
+                .current_connections
+                .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
             return;
         }
     };
 
-    stats.current_clients.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    stats
+        .current_clients
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
     let (ws_write, ws_read) = ws_stream.split();
     let (tx, mut rx) = mpsc::unbounded_channel::<RelayMessage>();
@@ -185,24 +204,36 @@ async fn handle_connection(
                                 let account = json["account"].as_str().unwrap_or("");
 
                                 if !rate_limiter.try_register_device(peer_addr) {
-                                    stats.rate_limits_hit.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                                    send_json(&tx, serde_json::json!({
-                                        "type": "error",
-                                        "code": "rate_limited",
-                                        "message": "Too many device connections from this IP"
-                                    }));
+                                    stats
+                                        .rate_limits_hit
+                                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                                    send_json(
+                                        &tx,
+                                        serde_json::json!({
+                                            "type": "error",
+                                            "code": "rate_limited",
+                                            "message": "Too many device connections from this IP"
+                                        }),
+                                    );
                                     break;
                                 }
 
                                 let is_first_account = relay.is_new_account(account).await;
-                                let (resp, _) = relay.handle_register(name, account, tx.clone()).await;
+                                let (resp, _) =
+                                    relay.handle_register(name, account, tx.clone()).await;
                                 session_key = Some((name.to_string(), account.to_string()));
                                 is_device = true;
                                 relay.record_authenticated_account(account).await;
-                                stats.total_devices_registered.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                                stats.current_devices.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                                stats
+                                    .total_devices_registered
+                                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                                stats
+                                    .current_devices
+                                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                                 if is_first_account {
-                                    stats.total_accounts.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                                    stats
+                                        .total_accounts
+                                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                                 }
                                 send_text(&tx, resp);
                             }
@@ -210,10 +241,13 @@ async fn handle_connection(
                             "auth_request" => {
                                 let account = json["account"].as_str().unwrap_or("");
                                 if account.is_empty() {
-                                    send_json(&tx, serde_json::json!({
-                                        "type": "auth_failed",
-                                        "error": "missing_account"
-                                    }));
+                                    send_json(
+                                        &tx,
+                                        serde_json::json!({
+                                            "type": "auth_failed",
+                                            "error": "missing_account"
+                                        }),
+                                    );
                                     continue;
                                 }
 
@@ -227,10 +261,13 @@ async fn handle_connection(
                                     &base64::engine::general_purpose::STANDARD,
                                     nonce,
                                 );
-                                send_json(&tx, serde_json::json!({
-                                    "type": "auth_challenge",
-                                    "nonce": nonce_b64
-                                }));
+                                send_json(
+                                    &tx,
+                                    serde_json::json!({
+                                        "type": "auth_challenge",
+                                        "nonce": nonce_b64
+                                    }),
+                                );
                             }
 
                             "auth_response" => {
@@ -239,19 +276,25 @@ async fn handle_connection(
                                 let nonce = match auth_nonce {
                                     Some(n) => n,
                                     None => {
-                                        send_json(&tx, serde_json::json!({
-                                            "type": "auth_failed",
-                                            "error": "no_challenge"
-                                        }));
+                                        send_json(
+                                            &tx,
+                                            serde_json::json!({
+                                                "type": "auth_failed",
+                                                "error": "no_challenge"
+                                            }),
+                                        );
                                         continue;
                                     }
                                 };
 
                                 if account.is_empty() || signature_b64.is_empty() {
-                                    send_json(&tx, serde_json::json!({
-                                        "type": "auth_failed",
-                                        "error": "invalid_params"
-                                    }));
+                                    send_json(
+                                        &tx,
+                                        serde_json::json!({
+                                            "type": "auth_failed",
+                                            "error": "invalid_params"
+                                        }),
+                                    );
                                     continue;
                                 }
 
@@ -261,26 +304,37 @@ async fn handle_connection(
                                     // Send device list immediately so clients don't need
                                     // a separate list_devices request.
                                     let devices = relay.handle_list_devices(account).await;
-                                    send_json(&tx, serde_json::json!({
-                                        "type": "auth_ok",
-                                        "devices": devices
-                                    }));
+                                    send_json(
+                                        &tx,
+                                        serde_json::json!({
+                                            "type": "auth_ok",
+                                            "devices": devices
+                                        }),
+                                    );
                                 } else {
-                                    stats.failed_auths.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                                    send_json(&tx, serde_json::json!({
-                                        "type": "auth_failed",
-                                        "error": "signature_mismatch"
-                                    }));
+                                    stats
+                                        .failed_auths
+                                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                                    send_json(
+                                        &tx,
+                                        serde_json::json!({
+                                            "type": "auth_failed",
+                                            "error": "signature_mismatch"
+                                        }),
+                                    );
                                 }
                             }
 
                             "join" => {
                                 if !authenticated && !is_device {
-                                    send_json(&tx, serde_json::json!({
-                                        "type": "error",
-                                        "code": "not_authenticated",
-                                        "message": "Clients must authenticate before joining"
-                                    }));
+                                    send_json(
+                                        &tx,
+                                        serde_json::json!({
+                                            "type": "error",
+                                            "code": "not_authenticated",
+                                            "message": "Clients must authenticate before joining"
+                                        }),
+                                    );
                                     continue;
                                 }
 
@@ -288,19 +342,27 @@ async fn handle_connection(
                                 let account = json["account"].as_str().unwrap_or("");
 
                                 if !rate_limiter.try_register_client(peer_addr) {
-                                    stats.rate_limits_hit.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                                    send_json(&tx, serde_json::json!({
-                                        "type": "error",
-                                        "code": "rate_limited",
-                                        "message": "Too many client connections from this IP"
-                                    }));
+                                    stats
+                                        .rate_limits_hit
+                                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                                    send_json(
+                                        &tx,
+                                        serde_json::json!({
+                                            "type": "error",
+                                            "code": "rate_limited",
+                                            "message": "Too many client connections from this IP"
+                                        }),
+                                    );
                                     break;
                                 }
 
-                                let (resp, _) = relay.handle_join(device_name, account, tx.clone()).await;
+                                let (resp, _) =
+                                    relay.handle_join(device_name, account, tx.clone()).await;
                                 session_key = Some((device_name.to_string(), account.to_string()));
                                 is_device = false;
-                                stats.total_clients_joined.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                                stats
+                                    .total_clients_joined
+                                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                                 send_text(&tx, resp);
                             }
 
@@ -311,19 +373,25 @@ async fn handle_connection(
 
                             "list_devices" => {
                                 if !authenticated {
-                                    send_json(&tx, serde_json::json!({
-                                        "type": "error",
-                                        "code": "not_authenticated",
-                                        "message": "You must authenticate first"
-                                    }));
+                                    send_json(
+                                        &tx,
+                                        serde_json::json!({
+                                            "type": "error",
+                                            "code": "not_authenticated",
+                                            "message": "You must authenticate first"
+                                        }),
+                                    );
                                     continue;
                                 }
                                 let account = json["account"].as_str().unwrap_or("");
                                 let devices = relay.handle_list_devices(account).await;
-                                send_json(&tx, serde_json::json!({
-                                    "type": "device_list",
-                                    "devices": devices
-                                }));
+                                send_json(
+                                    &tx,
+                                    serde_json::json!({
+                                        "type": "device_list",
+                                        "devices": devices
+                                    }),
+                                );
                             }
 
                             "pong" => {
@@ -331,20 +399,26 @@ async fn handle_connection(
                             }
 
                             _ => {
-                                send_json(&tx, serde_json::json!({
-                                    "type": "error",
-                                    "code": "unknown_message",
-                                    "message": format!("Unknown message type: {}", msg_type)
-                                }));
+                                send_json(
+                                    &tx,
+                                    serde_json::json!({
+                                        "type": "error",
+                                        "code": "unknown_message",
+                                        "message": format!("Unknown message type: {}", msg_type)
+                                    }),
+                                );
                             }
                         }
                     }
                     Err(e) => {
-                        send_json(&tx, serde_json::json!({
-                            "type": "error",
-                            "code": "invalid_json",
-                            "message": format!("Invalid JSON: {}", e)
-                        }));
+                        send_json(
+                            &tx,
+                            serde_json::json!({
+                                "type": "error",
+                                "code": "invalid_json",
+                                "message": format!("Invalid JSON: {}", e)
+                            }),
+                        );
                     }
                 }
             }
@@ -354,8 +428,12 @@ async fn handle_connection(
                 if let Some(ref key) = session_key {
                     relay.route_data(data, key.clone(), is_device).await;
                 }
-                stats.total_bytes_routed.fetch_add(len as u64, std::sync::atomic::Ordering::Relaxed);
-                stats.total_messages_routed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                stats
+                    .total_bytes_routed
+                    .fetch_add(len as u64, std::sync::atomic::Ordering::Relaxed);
+                stats
+                    .total_messages_routed
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             }
 
             Some(Ok(Message::Close(_))) => break,
@@ -380,14 +458,20 @@ async fn handle_connection(
         if is_device {
             relay.remove_device(key).await;
             rate_limiter.unregister_device(peer_addr);
-            stats.current_devices.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+            stats
+                .current_devices
+                .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
         } else {
             relay.remove_client(key, &tx).await;
             rate_limiter.unregister_client(peer_addr);
         }
     }
-    stats.current_clients.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
-    stats.current_connections.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+    stats
+        .current_clients
+        .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+    stats
+        .current_connections
+        .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
 
     forward_handle.abort();
 }
