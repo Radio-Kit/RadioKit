@@ -183,11 +183,11 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppColors.brandOrange.withValues(alpha: 0.15),
+                color: context.tokens.primary.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.memory_rounded,
-                  color: AppColors.brandOrange, size: 24),
+              child: Icon(Icons.memory_rounded,
+                  color: context.tokens.primary, size: 24),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -199,11 +199,11 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
                           letterSpacing: -0.3,
-                          color: Colors.white)),
+                          color: context.tokens.onSurface)),
                   const SizedBox(height: 2),
                   Text('FIRMWARE UPDATE',
                       style: TextStyle(
-                          color: AppColors.brandOrange.withValues(alpha: 0.7),
+                          color: context.tokens.primary.withValues(alpha: 0.7),
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1)),
@@ -211,8 +211,8 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
               ),
             ),
           ]),
-          const SizedBox(height: 24),
-          const Divider(height: 1, color: Colors.white12),
+          SizedBox(height: 24),
+          Divider(height: 1, color: context.tokens.onSurface.withValues(alpha: 0.12)),
           const SizedBox(height: 24),
 
           // ── Firmware info ────────────────────────────────────
@@ -227,43 +227,43 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.brandOrange.withValues(alpha: 0.08),
+                  color: context.tokens.primary.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                      color: AppColors.brandOrange.withValues(alpha: 0.25)),
+                      color: context.tokens.primary.withValues(alpha: 0.25)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('SELECTED FILE',
                         style: TextStyle(
-                            color: AppColors.brandOrange,
+                            color: context.tokens.primary,
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1)),
                     const SizedBox(height: 8),
                     Row(children: [
-                      const Icon(Icons.insert_drive_file_rounded,
-                          size: 18, color: Colors.white),
+                      Icon(Icons.insert_drive_file_rounded,
+                          size: 18, color: context.tokens.onSurface),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(_selectedFileName!,
-                                style: GoogleFonts.jetBrainsMono(
-                                    color: Colors.white,
+                                style: GoogleFonts.martianMono(
+                                    color: context.tokens.onSurface,
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600)),
                             Text(_formatBytes(_selectedFirmwareBytes!.length),
-                                style: const TextStyle(
-                                    color: Colors.white54, fontSize: 11)),
+                                style: TextStyle(
+                                    color: context.tokens.onSurface.withValues(alpha: 0.54), fontSize: 11)),
                           ],
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close_rounded,
-                            size: 18, color: Colors.white38),
+                        icon: Icon(Icons.close_rounded,
+                            size: 18, color: context.tokens.onSurface.withValues(alpha: 0.38)),
                         onPressed: _clearSelection,
                       ),
                     ]),
@@ -276,35 +276,35 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.03),
+                  color: context.tokens.onSurface.withValues(alpha: 0.03),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Row(
                   children: [
                     Icon(Icons.delete_sweep_rounded,
                         size: 18,
-                        color: _eraseAll ? Colors.redAccent : Colors.white38),
+                        color: _eraseAll ? context.tokens.error : context.tokens.onSurface.withValues(alpha: 0.38)),
                     const SizedBox(width: 10),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('ERASE ALL',
                               style: TextStyle(
-                                  color: Colors.white,
+                                  color: context.tokens.onSurface,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600)),
                           Text(
                               'Reset to factory defaults after reboot (NVS + filesystem)',
                               style: TextStyle(
-                                  color: Colors.white38, fontSize: 10)),
+                                  color: context.tokens.onSurface.withValues(alpha: 0.38), fontSize: 10)),
                         ],
                       ),
                     ),
                     Switch(
                       value: _eraseAll,
                       onChanged: (v) => setState(() => _eraseAll = v),
-                      activeThumbColor: Colors.redAccent,
+                      activeThumbColor: context.tokens.error,
                     ),
                   ],
                 ),
@@ -316,8 +316,8 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
                 height: 52,
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.brandOrange,
-                    foregroundColor: Colors.black,
+                    backgroundColor: context.tokens.primary,
+                    foregroundColor: context.tokens.onPrimary,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(6)),
                   ),
@@ -338,8 +338,8 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
               height: 52,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.brandOrange,
-                  foregroundColor: Colors.black,
+                  backgroundColor: context.tokens.primary,
+                  foregroundColor: context.tokens.onPrimary,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(6)),
                 ),
@@ -353,9 +353,9 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'Select a compiled firmware (.bin) file to update the device.',
-              style: TextStyle(color: Colors.white38, fontSize: 11),
+              style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.38), fontSize: 11),
             ),
           ],
 
@@ -366,8 +366,8 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
               child: LinearProgressIndicator(
                 value: _total > 0 ? _received / _total : null,
                 minHeight: 6,
-                backgroundColor: Colors.white12,
-                valueColor: const AlwaysStoppedAnimation(AppColors.brandOrange),
+                backgroundColor: context.tokens.onSurface.withValues(alpha: 0.12),
+                valueColor: AlwaysStoppedAnimation(context.tokens.primary),
               ),
             ),
             const SizedBox(height: 12),
@@ -376,11 +376,11 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
                 Expanded(
                   child: Text(_status,
                       style:
-                          const TextStyle(color: Colors.white70, fontSize: 12)),
+                          TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.7), fontSize: 12)),
                 ),
                 Text('${(_received * 100 ~/ _total)}%',
-                    style: GoogleFonts.jetBrainsMono(
-                        color: AppColors.brandOrange,
+                    style: GoogleFonts.martianMono(
+                        color: context.tokens.primary,
                         fontSize: 14,
                         fontWeight: FontWeight.w700)),
               ],
@@ -390,8 +390,8 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
               width: double.infinity,
               child: FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: Colors.redAccent,
-                  foregroundColor: Colors.white,
+                  backgroundColor: context.tokens.error,
+                  foregroundColor: context.tokens.onSurface,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(6)),
                 ),
@@ -404,13 +404,13 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
           // ── Error state ──────────────────────────────────────
           if (_error) ...[
             Row(children: [
-              const Icon(Icons.error_rounded,
-                  color: Colors.redAccent, size: 20),
+              Icon(Icons.error_rounded,
+                  color: context.tokens.error, size: 20),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(_errorMessage ?? 'Unknown error',
                     style:
-                        const TextStyle(color: Colors.redAccent, fontSize: 12)),
+                        TextStyle(color: context.tokens.error, fontSize: 12)),
               ),
             ]),
             const SizedBox(height: 16),
@@ -418,9 +418,9 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
               width: double.infinity,
               child: OutlinedButton(
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.brandOrange,
+                  foregroundColor: context.tokens.primary,
                   side: BorderSide(
-                      color: AppColors.brandOrange.withValues(alpha: 0.6)),
+                      color: context.tokens.primary.withValues(alpha: 0.6)),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(6)),
                 ),
@@ -437,12 +437,12 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
           // ── Complete state ───────────────────────────────────
           if (_complete) ...[
             Row(children: [
-              const Icon(Icons.check_circle_rounded,
-                  color: Colors.greenAccent, size: 20),
+              Icon(Icons.check_circle_rounded,
+                  color: context.tokens.success, size: 20),
               const SizedBox(width: 8),
-              const Expanded(
+              Expanded(
                 child: Text('Device is rebooting with new firmware.',
-                    style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.7), fontSize: 12)),
               ),
             ]),
             const SizedBox(height: 16),
@@ -450,8 +450,8 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
               width: double.infinity,
               child: OutlinedButton(
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white54,
-                  side: const BorderSide(color: Colors.white24),
+                  foregroundColor: context.tokens.onSurface.withValues(alpha: 0.54),
+                  side: BorderSide(color: context.tokens.onSurface.withValues(alpha: 0.24)),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(6)),
                 ),
@@ -472,10 +472,10 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label,
-              style: const TextStyle(color: Colors.white54, fontSize: 12)),
+              style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.54), fontSize: 12)),
           Text(value,
-              style: GoogleFonts.jetBrainsMono(
-                  color: Colors.white,
+              style: GoogleFonts.martianMono(
+                  color: context.tokens.onSurface,
                   fontSize: 12,
                   fontWeight: FontWeight.w500)),
         ],

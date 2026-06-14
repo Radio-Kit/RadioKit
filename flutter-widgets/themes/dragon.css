@@ -1,5 +1,5 @@
 @plugin "daisyui/theme" {
-    name: "dragon";
+    name: "halloween";
     default: true;
     prefersdark: false;
     color-scheme: "dark";
@@ -7,7 +7,7 @@
     --color-base-200: oklch(14% 0.004 49.25);
     --color-base-300: oklch(0% 0 0);
     --color-base-content: oklch(84.955% 0 0);
-    --color-primary: oklch(82% 0.189 84.429);
+    --color-primary: oklch(76% 0.188 70.08);
     --color-primary-content: oklch(19.693% 0.004 196.779);
     --color-secondary: oklch(45.98% 0.248 305.03);
     --color-secondary-content: oklch(89.196% 0.049 305.03);

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme.dart';
+
 /// Shared card shell for all model/project cards in the app.
 ///
 /// Provides a consistent visual structure: [ConstrainedBox] with minHeight
@@ -29,8 +31,12 @@ class ModelCard extends StatelessWidget {
   /// Tap handler.
   final VoidCallback? onTap;
 
-  /// Long-press handler (e.g. delete).
+  /// Long-press handler.
   final VoidCallback? onLongPress;
+
+  /// Secondary tap (right-click) handler.
+  /// Passes the global position where the tap occurred for positioning menus.
+  final void Function(Offset globalPosition)? onSecondaryTap;
 
   /// Whether to vertically center the title/subtitle column.
   final bool centerContent;
@@ -44,6 +50,7 @@ class ModelCard extends StatelessWidget {
     this.cardColor,
     this.onTap,
     this.onLongPress,
+    this.onSecondaryTap,
     this.centerContent = false,
   });
 
@@ -53,39 +60,46 @@ class ModelCard extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 80),
       child: Card(
         clipBehavior: Clip.antiAlias,
-        color: cardColor ?? Colors.white.withValues(alpha: 0.05),
+        color: cardColor ?? context.tokens.onSurface.withValues(alpha: 0.05),
         margin: const EdgeInsets.only(bottom: 8),
-        child: InkWell(
-          onTap: onTap,
-          onLongPress: onLongPress,
-          borderRadius: BorderRadius.circular(4),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-            child: Row(
-              children: [
-                if (leading != null) ...[
-                  leading!,
-                  const SizedBox(width: 12),
-                ],
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: centerContent ? MainAxisAlignment.center : MainAxisAlignment.start,
-                    children: [
-                      title,
-                      if (subtitle != null) ...[
-                        const SizedBox(height: 2),
-                        subtitle!,
+        child: GestureDetector(
+          onSecondaryTapDown: onSecondaryTap != null
+              ? (details) => onSecondaryTap!(details.globalPosition)
+              : null,
+          child: InkWell(
+            onTap: onTap,
+            onLongPress: onLongPress,
+            borderRadius: BorderRadius.circular(4),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+              child: Row(
+                children: [
+                  if (leading != null) ...[
+                    leading!,
+                    const SizedBox(width: 12),
+                  ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: centerContent
+                          ? MainAxisAlignment.center
+                          : MainAxisAlignment.start,
+                      children: [
+                        title,
+                        if (subtitle != null) ...[
+                          const SizedBox(height: 2),
+                          subtitle!,
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-                if (trailing != null) ...[
-                  const SizedBox(width: 8),
-                  trailing!,
+                  if (trailing != null) ...[
+                    const SizedBox(width: 8),
+                    trailing!,
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

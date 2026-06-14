@@ -12,18 +12,18 @@ class LogoIcon extends StatelessWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _dot(AppColors.brandOrange),
-            _dot(AppColors.brandOrange),
-            _dot(AppColors.brandOrange),
+            _dot(context.tokens.primary),
+            _dot(context.tokens.primary),
+            _dot(context.tokens.primary),
           ],
         ),
         const SizedBox(height: 2),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _dot(AppColors.brandOrange),
-            _dot(Colors.white10),
-            _dot(AppColors.brandOrange),
+            _dot(context.tokens.primary),
+            _dot(context.tokens.onSurface.withValues(alpha: 0.1)),
+            _dot(context.tokens.primary),
           ],
         ),
       ],

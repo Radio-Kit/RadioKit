@@ -1,18 +1,13 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:file_picker/file_picker.dart';
 
 import '../../providers/device_provider.dart';
-import '../../models/device_info.dart';
 import '../../models/fs_entry.dart';
 import '../../models/fs_info.dart';
 import '../../theme/app_theme.dart';
 import '../../services/device_fs_service.dart';
-import '../../services/transport_service.dart';
 import '../filesystem/fs_helpers.dart';
 import '../filesystem/fs_breadcrumbs.dart';
 import '../filesystem/fs_file_tile.dart';
@@ -122,8 +117,8 @@ class _FsTabContentState extends State<FsTabContent> {
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
             const SizedBox(height: 80),
-            const Icon(Icons.folder_open_rounded,
-                size: 64, color: Colors.white38),
+            Icon(Icons.folder_open_rounded,
+                size: 64, color: context.tokens.onSurface.withValues(alpha: 0.38)),
             const SizedBox(height: 16),
             const Center(
                 child: Text('Empty directory',
@@ -253,8 +248,8 @@ class _FsTabContentState extends State<FsTabContent> {
         width: 44,
         height: 44,
         child: FloatingActionButton(
-          backgroundColor: AppColors.brandOrange.withValues(alpha: 0.9),
-          foregroundColor: Colors.black,
+          backgroundColor: context.tokens.primary.withValues(alpha: 0.9),
+          foregroundColor: context.tokens.onPrimary,
           onPressed: onPressed,
           child: Icon(icon, size: 20),
         ),
@@ -264,10 +259,10 @@ class _FsTabContentState extends State<FsTabContent> {
 
   Widget _buildStatusBar() {
     final hasError = _errorMessage != null;
-    final color = hasError ? Colors.redAccent : Colors.white54;
+    final color = hasError ? context.tokens.error : context.tokens.onSurface.withValues(alpha: 0.54);
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      color: const Color(0xFF252525),
+      color: context.tokens.base200,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -277,7 +272,7 @@ class _FsTabContentState extends State<FsTabContent> {
               child: LinearProgressIndicator(
                 value: _progress,
                 minHeight: 4,
-                backgroundColor: Colors.white12,
+                backgroundColor: context.tokens.onSurface.withValues(alpha: 0.12),
               ),
             ),
             const SizedBox(height: 4),
@@ -808,7 +803,7 @@ class _FsTabContentState extends State<FsTabContent> {
           SizedBox(
               width: 60,
               child: Text(k,
-                  style: const TextStyle(color: Colors.white54, fontSize: 12))),
+                  style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.54), fontSize: 12))),
           Expanded(
               child: SelectableText(v,
                   style:

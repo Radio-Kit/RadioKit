@@ -137,7 +137,7 @@ class _ConnectionListenerState extends State<ConnectionListener> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(reason),
-          backgroundColor: AppColors.disconnected,
+          backgroundColor: context.tokens.error,
           duration: const Duration(seconds: 4),
         ),
       );

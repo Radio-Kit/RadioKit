@@ -48,13 +48,13 @@ class _ConsoleLogViewState extends State<ConsoleLogView> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.terminal_rounded, size: 14, color: AppColors.brandOrange.withValues(alpha: 0.7)),
+                      Icon(Icons.terminal_rounded, size: 14, color: context.tokens.primary.withValues(alpha: 0.7)),
                       const SizedBox(width: 8),
                       Text(
                         'CONSOLE_LOG',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                               letterSpacing: 1.2,
-                              color: AppColors.brandOrange.withValues(alpha: 0.7),
+                              color: context.tokens.primary.withValues(alpha: 0.7),
                             ),
                       ),
                     ],
@@ -76,7 +76,7 @@ class _ConsoleLogViewState extends State<ConsoleLogView> {
                         },
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
-                        color: Colors.white24,
+                        color: context.tokens.onSurface.withValues(alpha: 0.24),
                       ),
                       const SizedBox(width: 8),
                       IconButton(
@@ -84,7 +84,7 @@ class _ConsoleLogViewState extends State<ConsoleLogView> {
                         onPressed: () => console.clear(),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
-                        color: Colors.white24,
+                        color: context.tokens.onSurface.withValues(alpha: 0.24),
                       ),
                     ],
                   ),
@@ -95,9 +95,9 @@ class _ConsoleLogViewState extends State<ConsoleLogView> {
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.4),
+                    color: context.tokens.base200,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.white10),
+                    border: Border.all(color: context.tokens.onSurface.withValues(alpha: 0.1)),
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
@@ -118,9 +118,9 @@ class _ConsoleLogViewState extends State<ConsoleLogView> {
                 height: widget.height,
                 margin: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.4),
+                  color: context.tokens.base200,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.white10),
+                  border: Border.all(color: context.tokens.onSurface.withValues(alpha: 0.1)),
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
@@ -142,30 +142,30 @@ class _ConsoleLogViewState extends State<ConsoleLogView> {
   }
 
   Widget _buildLogLine(ConsoleEntry entry) {
-    Color textColor = Colors.white70;
+    Color textColor = context.tokens.onSurface.withValues(alpha: 0.7);
     String prefix = '';
 
     switch (entry.level) {
       case ConsoleLogLevel.info:
-        textColor = Colors.white70;
+        textColor = context.tokens.onSurface.withValues(alpha: 0.7);
         break;
       case ConsoleLogLevel.success:
-        textColor = AppColors.connected;
+        textColor = context.tokens.success;
         prefix = '[SUCCESS] ';
         break;
       case ConsoleLogLevel.warning:
-        textColor = AppColors.brandOrange;
+        textColor = context.tokens.primary;
         prefix = '[WARN] ';
         break;
       case ConsoleLogLevel.error:
-        textColor = Colors.redAccent;
+        textColor = context.tokens.error;
         prefix = '[ERROR] ';
         break;
       case ConsoleLogLevel.raw:
-        textColor = Colors.white38;
+        textColor = context.tokens.onSurface.withValues(alpha: 0.38);
         break;
       case ConsoleLogLevel.print:
-        textColor = Colors.cyanAccent;
+        textColor = context.tokens.primary.withValues(alpha: 0.7);
         prefix = '[PRINT] ';
         break;
     }
@@ -182,7 +182,7 @@ class _ConsoleLogViewState extends State<ConsoleLogView> {
           children: [
             TextSpan(
               text: ' [${entry.timeLabel}] ',
-              style: const TextStyle(color: Colors.white24),
+              style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.24)),
             ),
             if (prefix.isNotEmpty)
               TextSpan(

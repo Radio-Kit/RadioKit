@@ -211,7 +211,7 @@ class _DemoScreenState extends State<DemoScreen> {
                 child: Text(
                   '0',
                   style: TextStyle(
-                    color: !value ? Colors.black : Colors.white54,
+                    color: !value ? tokens.onPrimary : tokens.onSurface.withValues(alpha: 0.54),
                     fontSize: 11,
                     fontFamily: 'monospace',
                     fontWeight: FontWeight.bold,
@@ -238,7 +238,7 @@ class _DemoScreenState extends State<DemoScreen> {
                 child: Text(
                   '1',
                   style: TextStyle(
-                    color: value ? Colors.black : Colors.white54,
+                    color: value ? Colors.black : tokens.onSurface.withValues(alpha: 0.54),
                     fontSize: 11,
                     fontFamily: 'monospace',
                     fontWeight: FontWeight.bold,
@@ -555,6 +555,7 @@ class _DemoScreenState extends State<DemoScreen> {
   }
 
   List<Widget> _multipleCards() {
+    final tokens = RKTheme.of(context);
     return [
       Wrap(
         spacing: 20,
@@ -579,7 +580,7 @@ class _DemoScreenState extends State<DemoScreen> {
                 ),
               ),
               inputLabel: 'INTERACTION',
-              inputWidget: const Text('TAP TO SELECT', style: TextStyle(color: Colors.white24, fontSize: 10)),
+              inputWidget: Text('TAP TO SELECT', style: TextStyle(color: tokens.onSurface.withValues(alpha: 0.24), fontSize: 10)),
               outputWidget: Column(
                 children: [
                   TelemetryRow(label: 'ACTIVE', value: _multiButtonActive ? 'YES' : 'NO'),
@@ -1252,7 +1253,7 @@ class _DemoScreenState extends State<DemoScreen> {
                       child: Text(
                         state.name.toUpperCase(),
                         style: TextStyle(
-                          color: isSelected ? Colors.black : Colors.white54,
+                          color: isSelected ? tokens.onPrimary : tokens.onSurface.withValues(alpha: 0.54),
                           fontSize: 9,
                           fontWeight: FontWeight.bold,
                         ),
@@ -1270,11 +1271,9 @@ class _DemoScreenState extends State<DemoScreen> {
 
   String _getSkinName(RKTokens tokens) {
     if (tokens == _customTokens) return 'CUSTOM';
-    if (identical(tokens, RKTokens.dragon)) return 'DRAGON';
-    if (identical(tokens, RKTokens.minimal)) return 'MINIMAL';
-    if (identical(tokens, RKTokens.retro)) return 'RETRO';
-    if (identical(tokens, RKTokens.rose)) return 'ROSE';
-    if (identical(tokens, RKTokens.debug)) return 'DEBUG';
+    for (final entry in RKTokens.presets.entries) {
+      if (identical(tokens, entry.value)) return entry.key;
+    }
     return 'SKIN';
   }
 
@@ -1498,7 +1497,7 @@ class _DemoScreenState extends State<DemoScreen> {
             decoration: BoxDecoration(
               color: color,
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: editable ? Colors.white24 : tokens.effectiveOutline, width: editable ? 2 : 1),
+              border: Border.all(color: editable ? tokens.onSurface.withValues(alpha: 0.24) : tokens.effectiveOutline, width: editable ? 2 : 1),
               boxShadow: [
                 BoxShadow(
                   color: color.withValues(alpha: 0.4),
@@ -1509,7 +1508,7 @@ class _DemoScreenState extends State<DemoScreen> {
             ),
             child: editable
                 ? Center(
-                    child: Icon(Icons.touch_app, color: color.computeLuminance() > 0.5 ? Colors.black38 : Colors.white38, size: 16),
+                    child: Icon(Icons.touch_app, color: color.computeLuminance() > 0.5 ? Colors.black38 : tokens.onSurface.withValues(alpha: 0.38), size: 16),
                   )
                 : null,
           ),
@@ -1885,7 +1884,7 @@ class _TopBar extends StatelessWidget {
             ),
             const Spacer(),
             IconButton(
-              icon: Icon(Icons.bug_report, color: debugEnabled ? tokens.primary : Colors.white38),
+              icon: Icon(Icons.bug_report, color: debugEnabled ? tokens.primary : tokens.onSurface.withValues(alpha: 0.38)),
               tooltip: 'Toggle Debug Overlay',
               onPressed: onDebugToggle,
             ),
@@ -1912,19 +1911,16 @@ class _AestheticCoreBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final skins = {
-      'DRAGON': RKTokens.dragon,
-      'MINIMAL': RKTokens.minimal,
-      'RETRO': RKTokens.retro,
-      'ROSE': RKTokens.rose,
-      'DEBUG': RKTokens.debug,
-    };
-    bool isCustom(Object tokens) =>
-        tokens != RKTokens.dragon &&
-        tokens != RKTokens.minimal &&
-        tokens != RKTokens.retro &&
-        tokens != RKTokens.rose &&
-        tokens != RKTokens.debug;
+    final skins = RKTokens.presets;
+    final sortedEntries = skins.entries.toList()
+      ..sort((a, b) {
+        if (a.value.isDefault) return -1;
+        if (b.value.isDefault) return 1;
+        if (a.value.isDark && !b.value.isDark) return -1;
+        if (!a.value.isDark && b.value.isDark) return 1;
+        return a.key.compareTo(b.key);
+      });
+    bool isCustom(Object tokens) => !RKTokens.presets.containsValue(tokens);
 
     return ValueListenableBuilder<RKTokens>(
       valueListenable: themeNotifier,
@@ -1942,7 +1938,7 @@ class _AestheticCoreBar extends StatelessWidget {
           child: Row(
             children: [
               Text(
-                'SKINS:',
+                'THEMES:',
                 style: TextStyle(
                   color: tokens.onSurface.withValues(alpha: 0.7),
                   fontSize: 12,
@@ -1951,7 +1947,7 @@ class _AestheticCoreBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              ...skins.entries.map((entry) {
+              ...sortedEntries.map((entry) {
                 final isSelected = currentTokens == entry.value;
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
@@ -1970,7 +1966,7 @@ class _AestheticCoreBar extends StatelessWidget {
                       child: Text(
                         entry.key,
                         style: TextStyle(
-                          color: isSelected ? Colors.black : tokens.onSurface.withValues(alpha: 0.5),
+                          color: isSelected ? tokens.onPrimary : tokens.onSurface.withValues(alpha: 0.5),
                           fontSize: 11,
                           fontFamily: 'monospace',
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,

@@ -116,6 +116,7 @@ class _ScanScreenState extends State<ScanScreen>
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: RadioKitAppBar(
+        accentColor: context.tokens.primary,
         actions: [
           IconButton(
             icon: Icon(
@@ -188,9 +189,9 @@ class _BleTab extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const LogoIcon(),
-            const SizedBox(height: 32),
+            SizedBox(height: 32),
             Text('RadioKit Web', style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             FutureBuilder<bool>(
               future: bleProvider.isAvailable,
               builder: (context, snapshot) {
@@ -199,7 +200,7 @@ class _BleTab extends StatelessWidget {
 
                 String message = 'Ready to connect';
                 IconData icon   = Icons.check_circle_outline_rounded;
-                Color color     = AppColors.connected;
+                Color color     = context.tokens.success;
 
                 if (!isSupported) {
                   message = 'Browser does not support Web Bluetooth';
@@ -222,7 +223,7 @@ class _BleTab extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(icon, size: 16, color: color),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       Flexible(
                         child: Text(
                           message,
@@ -238,20 +239,20 @@ class _BleTab extends StatelessWidget {
                 );
               },
             ),
-            const SizedBox(height: 32),
+            SizedBox(height: 32),
             Text(
               'Click the button below to open the browser Bluetooth device picker.\n'
               'Make sure your Arduino is powered on and running the RadioKit sketch.',
               style: Theme.of(context).textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 32),
+            SizedBox(height: 32),
             bleProvider.isScanning
                 ? CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)
                 : ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Colors.white,
+                      foregroundColor: context.tokens.onPrimary,
                       padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
                       textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
@@ -264,7 +265,7 @@ class _BleTab extends StatelessWidget {
                       }
                     },
                   ),
-            const SizedBox(height: 32),
+            SizedBox(height: 32),
             _DemoModeButton(
               onPressed: () {
                 bleProvider.useMockDevice();
@@ -322,7 +323,7 @@ class _BleTab extends StatelessWidget {
               size: 72,
               color: Theme.of(context).disabledColor,
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
             Text(
               bleProvider.isScanning
                   ? 'Scanning for devices...'
@@ -330,7 +331,7 @@ class _BleTab extends StatelessWidget {
               style: Theme.of(context).textTheme.titleMedium,
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Text(
               bleProvider.isScanning
                   ? 'Make sure your Arduino is powered on and running the RadioKit library.'
@@ -339,13 +340,13 @@ class _BleTab extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             if (bleProvider.isScanning) ...[
-              const SizedBox(height: 32),
-              const CircularProgressIndicator(
-                color: AppColors.brandOrange,
+              SizedBox(height: 32),
+              CircularProgressIndicator(
+                color: context.tokens.primary,
                 strokeWidth: 2,
               ),
             ] else ...[
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
               ElevatedButton.icon(
                 icon: const Icon(Icons.refresh_rounded),
                 label: const Text('Scan Again'),
@@ -367,9 +368,9 @@ class _BleTab extends StatelessWidget {
           children: [
             Icon(Icons.bluetooth_disabled_rounded,
                 size: 72, color: Theme.of(context).colorScheme.error),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
             Text('Bluetooth Error', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Text(message,
                 style: Theme.of(context).textTheme.bodyMedium,
                 textAlign: TextAlign.center),
@@ -419,22 +420,22 @@ class _SerialTab extends StatelessWidget {
           children: [
             Icon(Icons.usb_rounded, size: 72,
                 color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.7)),
-            const SizedBox(height: 32),
+            SizedBox(height: 32),
             Text('USB Serial', style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Text(
               'Click the button to open the browser\'s serial port picker.\n'
               'Connect your Arduino via USB, then select the COM/tty port.',
               style: Theme.of(context).textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 32),
+            SizedBox(height: 32),
             serialProvider.isScanning
                 ? CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)
                 : ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Colors.white,
+                      foregroundColor: context.tokens.onPrimary,
                       padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
                       textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
@@ -498,7 +499,7 @@ class _SerialTab extends StatelessWidget {
           children: [
             Icon(Icons.usb_off_rounded, size: 72,
                 color: Theme.of(context).disabledColor),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
             Text(
               serialProvider.isScanning
                   ? 'Scanning USB ports...'
@@ -506,13 +507,13 @@ class _SerialTab extends StatelessWidget {
               style: Theme.of(context).textTheme.titleMedium,
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Text(
               'Connect your Arduino via USB and make sure the RadioKit sketch is running.',
               style: Theme.of(context).textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
             ElevatedButton.icon(
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('Scan Again'),
@@ -533,11 +534,11 @@ class _SerialTab extends StatelessWidget {
           children: [
             Icon(Icons.usb_off_rounded, size: 72,
                 color: Theme.of(context).disabledColor),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
             Text('USB Serial Not Supported',
                 style: Theme.of(context).textTheme.titleMedium,
                 textAlign: TextAlign.center),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Text(
               'USB Serial is available on Android and on Chrome/Edge (Web Serial API).\n'
               'This platform does not support it.',
@@ -559,9 +560,9 @@ class _SerialTab extends StatelessWidget {
           children: [
             Icon(Icons.usb_off_rounded, size: 72,
                 color: Theme.of(context).colorScheme.error),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
             Text('Serial Error', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Text(message,
                 style: Theme.of(context).textTheme.bodyMedium,
                 textAlign: TextAlign.center),
@@ -610,7 +611,7 @@ class _DeviceCard extends StatelessWidget {
                 child: Icon(icon,
                     color: Theme.of(context).colorScheme.onPrimary, size: 22),
               ),
-              const SizedBox(width: 14),
+              SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -621,7 +622,7 @@ class _DeviceCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 3),
+                    SizedBox(height: 3),
                     Text(
                       subtitle,
                       style: Theme.of(context).textTheme.labelSmall,
@@ -633,12 +634,12 @@ class _DeviceCard extends StatelessWidget {
               ),
               // Show RSSI bars only for BLE (serial rssi == 0)
               if (device.rssi != 0) ...[
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     _SignalBars(bars: device.signalBars),
-                    const SizedBox(height: 3),
+                    SizedBox(height: 3),
                     Text('${device.rssi} dBm',
                         style: Theme.of(context).textTheme.labelSmall),
                   ],
@@ -668,7 +669,7 @@ class _SignalBars extends StatelessWidget {
           height: 6.0 + i * 3.0,
           margin: const EdgeInsets.only(left: 2),
           decoration: BoxDecoration(
-            color: active ? AppColors.connected : Theme.of(context).disabledColor,
+            color: active ? context.tokens.success : Theme.of(context).disabledColor,
             borderRadius: BorderRadius.circular(1.5),
           ),
         );
@@ -700,7 +701,7 @@ class _DemoModeButton extends StatelessWidget {
           children: [
             Icon(Icons.dashboard_rounded,
                 color: Theme.of(context).colorScheme.primary, size: 20),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Text(
               'Try Interactive Demo',
               style: TextStyle(

@@ -387,7 +387,7 @@ class InspectorPanel extends StatelessWidget {
                 child: Icon(
                   entry.value,
                   size: 20,
-                  color: isSelected ? Colors.black : tokens.onSurface.withValues(alpha: 0.5),
+                  color: isSelected ? tokens.onPrimary : tokens.onSurface.withValues(alpha: 0.5),
                 ),
               ),
             );
@@ -609,7 +609,7 @@ class _ColorPickerState extends State<_ColorPicker> {
                   decoration: BoxDecoration(
                     color: _currentColor,
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: Colors.white24, width: 1),
+                    border: Border.all(color: tokens.onSurface.withValues(alpha: 0.24), width: 1),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -662,7 +662,7 @@ class _ColorPickerState extends State<_ColorPicker> {
         TextButton(
           onPressed: () => Navigator.pop(context),
           style: TextButton.styleFrom(
-            foregroundColor: Colors.white,
+            foregroundColor: widget.tokens.onSurface,
           ),
           child: const Text('DONE'),
         ),
@@ -682,11 +682,11 @@ class _ColorPickerState extends State<_ColorPicker> {
           ],
         ),
         SliderTheme(
-          data: const SliderThemeData(
+          data: SliderThemeData(
             trackHeight: 2,
-            activeTrackColor: Colors.white24,
-            inactiveTrackColor: Colors.white12,
-            thumbColor: Colors.white,
+            activeTrackColor: widget.tokens.onSurface.withValues(alpha: 0.24),
+            inactiveTrackColor: widget.tokens.onSurface.withValues(alpha: 0.12),
+            thumbColor: widget.tokens.onSurface,
             thumbShape: RoundSliderThumbShape(enabledThumbRadius: 6),
             overlayShape: RoundSliderOverlayShape(overlayRadius: 12),
           ),

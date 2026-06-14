@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/device_info.dart';
-import '../models/protocol.dart';
 
 /// Helper to convert a [TransportType] to its string form.
 String _transportTypeToString(TransportType t) {

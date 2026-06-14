@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart';
 import '../models/fs_entry.dart';
 import '../models/fs_info.dart';
 import '../models/protocol.dart';
@@ -258,8 +257,8 @@ class DeviceFsService {
     }
 
     // Discard any pre-sent-but-unawaited future
-    if (offset >= (totalSize ?? 0)) {
-      unawaited(pendingResp.catchError((_) {}));
+    if (offset >= totalSize) {
+      unawaited(pendingResp.catchError((_) => null));
     }
 
     return buffer.toBytes();

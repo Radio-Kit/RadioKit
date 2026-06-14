@@ -387,7 +387,7 @@ class _LinearSliderPainter extends CustomPainter {
         );
 
         final fillPaint = Paint()
-          ..color = tokens.surface
+          ..color = tokens.base200
           ..style = PaintingStyle.fill;
         canvas.drawRRect(pillRRect, fillPaint);
       }
@@ -395,7 +395,7 @@ class _LinearSliderPainter extends CustomPainter {
 
     if (showDebug && RKDebugOverlay.enabled) {
       final debugPaint = Paint()
-        ..color = const Color(0x55AAFFFF)
+        ..color = tokens.primary.withValues(alpha: 0.33)
         ..strokeWidth = 1.5
         ..style = PaintingStyle.stroke;
 

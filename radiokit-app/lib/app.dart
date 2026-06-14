@@ -126,8 +126,8 @@ class _RadioKitAppState extends State<RadioKitApp> {
             child: MaterialApp.router(
               title: 'RadioKit',
               debugShowCheckedModeBanner: false,
-              theme: AppTheme.light,
-              darkTheme: AppTheme.dark,
+              theme: AppTheme.fromTokens(themePresetProvider.tokens, Brightness.light),
+              darkTheme: AppTheme.fromTokens(themePresetProvider.tokens, Brightness.dark),
               themeMode: themeProvider.themeMode,
               routerConfig: _router,
               builder: (context, child) {
@@ -334,9 +334,9 @@ class _FollowModeWrapperState extends State<_FollowModeWrapper> {
           bottom: 20,
           child: FloatingActionButton(
             heroTag: 'follow_stop',
-            backgroundColor: Colors.redAccent,
+            backgroundColor: context.tokens.error,
             onPressed: () => settings.setFollowRemoteAccess(false),
-            child: const Icon(Icons.stop_rounded, color: Colors.white),
+            child: Icon(Icons.stop_rounded, color: context.tokens.onError),
           ),
         ),
       ],

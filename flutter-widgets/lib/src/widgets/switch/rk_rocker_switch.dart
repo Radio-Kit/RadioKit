@@ -413,7 +413,7 @@ boxShadow: tokens.depth > 0 && glowIntensity > 0.1
 child: widget.onIcon != null
                              ? _surfaceGlowIcon(
                                  child: Icon(widget.onIcon,
-                                     size: rockerH * 0.26, color: activeColor),
+                                     size: rockerH * 0.26, color: tokens.onPrimary),
                                  color: activeColor,
                                  intensity: glowIntensity,
                                  tokens: tokens,

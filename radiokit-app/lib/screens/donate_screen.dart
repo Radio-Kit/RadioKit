@@ -9,7 +9,7 @@ class DonateBottomSheet {
       useRootNavigator: true,
       isScrollControlled: true,
       showDragHandle: true,
-      backgroundColor: const Color(0xFF1A1A1A),
+      backgroundColor: context.tokens.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
       ),
@@ -38,17 +38,17 @@ class _DonateSheetContent extends StatelessWidget {
               Text(
                 'SUPPORT RADIOKIT',
                 style: GoogleFonts.changa(
-                  color: AppColors.brandOrange,
+                  color: context.tokens.primary,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 1.5,
                   fontSize: 14,
                 ),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
               _buildSupportCard(context),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               _buildLicenseKeySection(context),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
             ],
           ),
         ),
@@ -59,10 +59,10 @@ class _DonateSheetContent extends StatelessWidget {
   Widget _buildSupportCard(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.brandOrange.withValues(alpha: 0.05),
+        color: context.tokens.primary.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: AppColors.brandOrange.withValues(alpha: 0.2),
+          color: context.tokens.primary.withValues(alpha: 0.2),
           width: 1,
         ),
       ),
@@ -77,13 +77,13 @@ class _DonateSheetContent extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: AppColors.brandOrange.withValues(alpha: 0.15),
+                    color: context.tokens.primary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.favorite_rounded,
-                      color: AppColors.brandOrange, size: 28),
+                  child: Icon(Icons.favorite_rounded,
+                      color: context.tokens.primary, size: 28),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -94,14 +94,14 @@ class _DonateSheetContent extends StatelessWidget {
                           fontWeight: FontWeight.w900,
                           fontSize: 14,
                           letterSpacing: 1.5,
-                          color: AppColors.brandOrange,
+                          color: context.tokens.primary,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4),
                       Text(
                         'The free version includes all features. Support the project to keep development alive.',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.7),
+                          color: context.tokens.onSurface.withValues(alpha: 0.7),
                           fontSize: 11,
                         ),
                       ),
@@ -110,14 +110,14 @@ class _DonateSheetContent extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.brandOrange,
-                  foregroundColor: Colors.black,
+                  backgroundColor: context.tokens.primary,
+                  foregroundColor: context.tokens.onPrimary,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8)),
                   elevation: 0,
@@ -142,7 +142,7 @@ class _DonateSheetContent extends StatelessWidget {
   Widget _buildLicenseKeySection(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: context.tokens.onSurface.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
@@ -156,13 +156,13 @@ class _DonateSheetContent extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
+                    color: context.tokens.onSurface.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.vpn_key_rounded,
-                      color: Colors.white70, size: 24),
+                  child: Icon(Icons.vpn_key_rounded,
+                      color: context.tokens.onSurface.withValues(alpha: 0.7), size: 24),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -173,14 +173,14 @@ class _DonateSheetContent extends StatelessWidget {
                           fontWeight: FontWeight.w900,
                           fontSize: 14,
                           letterSpacing: 1.5,
-                          color: Colors.white70,
+                          color: context.tokens.onSurface.withValues(alpha: 0.7),
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4),
                       Text(
                         'Enter your license key to unlock Pro features',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.6),
+                          color: context.tokens.onSurface.withValues(alpha: 0.6),
                           fontSize: 11,
                         ),
                       ),
@@ -189,41 +189,41 @@ class _DonateSheetContent extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             TextFormField(
               decoration: InputDecoration(
                 hintText: 'XXXX-XXXX-XXXX-XXXX',
                 hintStyle:
-                    TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+                    TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.3)),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 filled: true,
-                fillColor: Colors.black.withValues(alpha: 0.3),
+                fillColor: context.tokens.base200,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide:
-                      BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                      BorderSide(color: context.tokens.onSurface.withValues(alpha: 0.1)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide:
-                      BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                      BorderSide(color: context.tokens.onSurface.withValues(alpha: 0.1)),
                 ),
               ),
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: context.tokens.onSurface,
                 fontFamily: 'monospace',
                 letterSpacing: 1,
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white.withValues(alpha: 0.1),
-                  foregroundColor: Colors.white,
+                  backgroundColor: context.tokens.onSurface.withValues(alpha: 0.1),
+                  foregroundColor: context.tokens.onPrimary,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8)),
                   elevation: 0,

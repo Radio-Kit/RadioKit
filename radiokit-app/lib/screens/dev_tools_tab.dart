@@ -19,7 +19,9 @@ class DevToolsTab extends StatelessWidget {
     }
 
     return Scaffold(
-      appBar: RadioKitAppBar(),
+      appBar: RadioKitAppBar(
+        accentColor: context.tokens.primary,
+      ),
       body: _buildContent(context),
     );
   }
@@ -36,7 +38,7 @@ class DevToolsTab extends StatelessWidget {
               fontSize: 11,
               fontWeight: FontWeight.w700,
               letterSpacing: 1.5,
-              color: AppColors.brandGray,
+              color: context.tokens.onSurface.withValues(alpha: 0.5),
             ),
           ),
           const SizedBox(height: 16),
@@ -89,10 +91,10 @@ class _ToolCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.05),
+            color: context.tokens.onSurface.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.1),
+              color: context.tokens.onSurface.withValues(alpha: 0.1),
               width: 1,
             ),
           ),
@@ -101,10 +103,10 @@ class _ToolCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.brandOrange.withValues(alpha: 0.15),
+                  color: context.tokens.primary.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, size: 22, color: AppColors.brandOrange),
+                child: Icon(icon, size: 22, color: context.tokens.primary),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -116,7 +118,7 @@ class _ToolCard extends StatelessWidget {
                       style: GoogleFonts.inter(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: Colors.white,
+                        color: context.tokens.onSurface,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -124,7 +126,7 @@ class _ToolCard extends StatelessWidget {
                       subtitle,
                       style: GoogleFonts.inter(
                         fontSize: 12,
-                        color: AppColors.brandGray,
+                        color: context.tokens.onSurface.withValues(alpha: 0.5),
                       ),
                     ),
                   ],
@@ -133,7 +135,7 @@ class _ToolCard extends StatelessWidget {
               Icon(
                 LucideIcons.chevronRight,
                 size: 18,
-                color: Colors.white.withValues(alpha: 0.3),
+                color: context.tokens.onSurface.withValues(alpha: 0.3),
               ),
             ],
           ),

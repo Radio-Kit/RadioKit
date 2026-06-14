@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -18,12 +17,51 @@ import '../../models/console_entry.dart';
 import '../../models/device_info.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/radiokit_app_bar.dart';
-import 'package:radiokit_widgets/src/utils/icon_registry.dart';
+import 'package:radiokit_widgets/radiokit_widgets.dart';
 import '../../services/transport_service.dart';
 import '../../widgets/model_card.dart';
 import '../../services/websocket_service.dart';
 import '../../services/cloud_identity.dart';
 import 'pair_sheet.dart';
+
+/// Availability state for a paired device across all transport types.
+class _DeviceAvailability {
+  final bool? wifiAvailable;
+  final bool? bleAvailable;
+  final bool? serialAvailable;
+  final bool? cloudAvailable;
+
+  const _DeviceAvailability({
+    this.wifiAvailable,
+    this.bleAvailable,
+    this.serialAvailable,
+    this.cloudAvailable,
+  });
+
+  /// Whether at least one transport is confirmed available.
+  bool? get anyAvailable {
+    if (wifiAvailable == true || bleAvailable == true ||
+        serialAvailable == true || cloudAvailable == true) return true;
+    if (wifiAvailable == null && bleAvailable == null &&
+        serialAvailable == null && cloudAvailable == null) return null;
+    return false;
+  }
+
+  _DeviceAvailability copyWith({
+    bool? wifiAvailable,
+    bool? bleAvailable,
+    bool? serialAvailable,
+    bool? cloudAvailable,
+  }) {
+    return _DeviceAvailability(
+      wifiAvailable: wifiAvailable ?? this.wifiAvailable,
+      bleAvailable: bleAvailable ?? this.bleAvailable,
+      serialAvailable: serialAvailable ?? this.serialAvailable,
+      cloudAvailable: cloudAvailable ?? this.cloudAvailable,
+    );
+  }
+}
+
 
 class ModelsTab extends StatelessWidget {
   const ModelsTab({super.key});
@@ -42,6 +80,7 @@ class ModelsTab extends StatelessWidget {
       appBar: RadioKitAppBar(
         tabIndex: 0,
         onConnect: () => showPairBottomSheet(context),
+        accentColor: context.tokens.primary,
       ),
       body: _buildContent(context, isLandscape),
     );
@@ -155,7 +194,7 @@ Widget _buildActiveLinkCard(
 
         return Card(
           clipBehavior: Clip.antiAlias,
-          color: Colors.white.withValues(alpha: 0.05),
+          color: context.tokens.onSurface.withValues(alpha: 0.05),
           child: Padding(
             padding: EdgeInsets.all(paddingSize),
             child: Column(
@@ -181,11 +220,11 @@ Widget _buildActiveLinkCard(
                               children: [
                                 Icon(transportIcon,
                                     size: isNarrow ? 10 : 12,
-                                    color: AppColors.connected),
+                                    color: context.tokens.success),
                                 const SizedBox(width: 4),
                                 Text(transportType,
                                     style: GoogleFonts.inter(
-                                        color: AppColors.connected,
+                                        color: context.tokens.success,
                                         fontWeight: FontWeight.bold,
                                         fontSize: isNarrow ? 10 : 12,
                                         letterSpacing: 1.2)),
@@ -193,12 +232,12 @@ Widget _buildActiveLinkCard(
                                   const SizedBox(width: 10),
                                   Icon(Icons.timer_outlined,
                                       size: 9,
-                                      color: AppColors.connected
+                                      color: context.tokens.success
                                           .withValues(alpha: 0.6)),
                                   const SizedBox(width: 2),
                                   Text('${latencyMs}ms',
-                                      style: GoogleFonts.jetBrainsMono(
-                                          color: AppColors.connected
+                                      style: GoogleFonts.martianMono(
+                                          color: context.tokens.success
                                               .withValues(alpha: 0.8),
                                           fontSize: 9,
                                           fontWeight: FontWeight.w600)),
@@ -206,12 +245,12 @@ Widget _buildActiveLinkCard(
                                 const SizedBox(width: 10),
                                 Icon(Icons.signal_cellular_alt_rounded,
                                     size: 9,
-                                    color: AppColors.connected
+                                    color: context.tokens.success
                                         .withValues(alpha: 0.6)),
                                 const SizedBox(width: 2),
                                 Text('${signal} dBm',
-                                    style: GoogleFonts.jetBrainsMono(
-                                        color: AppColors.connected
+                                    style: GoogleFonts.martianMono(
+                                        color: context.tokens.success
                                             .withValues(alpha: 0.8),
                                         fontSize: 9,
                                         fontWeight: FontWeight.w600)),
@@ -234,8 +273,7 @@ Widget _buildActiveLinkCard(
                           if (description?.isNotEmpty == true)
                             Text(
                               description!.toUpperCase(),
-                              style: TextStyle(
-                                  color: AppColors.brandOrange
+                              style: TextStyle(                                      color: context.tokens.primary
                                       .withValues(alpha: 0.7),
                                   fontSize: 9,
                                   fontWeight: FontWeight.bold,
@@ -300,8 +338,8 @@ class _ActiveLinkSectionState extends State<_ActiveLinkSection> {
           width: double.infinity,
           child: FilledButton.tonal(
             style: FilledButton.styleFrom(
-              backgroundColor: AppColors.brandOrange.withValues(alpha: 0.15),
-              foregroundColor: AppColors.brandOrange,
+              backgroundColor: context.tokens.primary.withValues(alpha: 0.15),
+              foregroundColor: context.tokens.primary,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               minimumSize: const Size(0, 40),
               shape: RoundedRectangleBorder(
@@ -314,7 +352,7 @@ class _ActiveLinkSectionState extends State<_ActiveLinkSection> {
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.5,
                     fontSize: 15,
-                    color: AppColors.brandOrange)),
+                    color: context.tokens.primary)),
           ),
         ),
       );
@@ -392,7 +430,7 @@ void _showDeviceInfoSheet(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    backgroundColor: const Color(0xFF1A1A1A),
+    backgroundColor: context.tokens.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
     ),
@@ -481,8 +519,8 @@ class _ActiveLinkButton extends StatelessWidget {
       child: FilledButton(
         style: FilledButton.styleFrom(
           backgroundColor:
-              isDisconnect ? Colors.redAccent : AppColors.brandOrange,
-          foregroundColor: isDisconnect ? Colors.white : Colors.black,
+              isDisconnect ? context.tokens.error : context.tokens.primary,
+          foregroundColor: isDisconnect ? context.tokens.onError : context.tokens.onPrimary,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(borderRadius),
           ),
@@ -505,7 +543,7 @@ class _ActiveLinkButton extends StatelessWidget {
                               letterSpacing: 1.2,
                               fontSize: 20,
                               color:
-                                  isDisconnect ? Colors.white : Colors.black)),
+                                  isDisconnect ? context.tokens.onError : context.tokens.onPrimary)),
                       if (showShort) ...[
                         const SizedBox(width: 6),
                         Icon(icon, size: 26),
@@ -521,7 +559,7 @@ class _ActiveLinkButton extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.2,
                         fontSize: 20,
-                        color: isDisconnect ? Colors.white : Colors.black)),
+                        color: isDisconnect ? context.tokens.onError : context.tokens.onPrimary)),
       ),
     );
   }
@@ -648,9 +686,9 @@ class _DeviceInfoTabsState extends State<_DeviceInfoTabs>
           children: [
             TabBar(
               controller: _tabController!,
-              indicatorColor: AppColors.brandOrange,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white54,
+              indicatorColor: context.tokens.primary,
+              labelColor: context.tokens.onSurface,
+              unselectedLabelColor: context.tokens.onSurface.withValues(alpha: 0.54),
               labelStyle: const TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 12,
@@ -658,7 +696,7 @@ class _DeviceInfoTabsState extends State<_DeviceInfoTabs>
               ),
               tabs: tabs,
             ),
-            const Divider(height: 1, color: Colors.white12),
+            Divider(height: 1, color: context.tokens.onSurface.withValues(alpha: 0.12)),
             Expanded(
               child: TabBarView(
                 controller: _tabController!,
@@ -746,7 +784,7 @@ Future<bool> _showAuthDialog(
           }
 
           return AlertDialog(
-            backgroundColor: const Color(0xFF1A1A1A),
+            backgroundColor: context.tokens.surface,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             title: Column(
@@ -754,8 +792,8 @@ Future<bool> _showAuthDialog(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Row(children: [
-                  const Icon(Icons.lock_rounded,
-                      color: AppColors.brandOrange, size: 22),
+                  Icon(Icons.lock_rounded,
+                      color: context.tokens.primary, size: 22),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -764,7 +802,7 @@ Future<bool> _showAuthDialog(
                           fontSize: 16,
                           fontWeight: FontWeight.w900,
                           letterSpacing: -0.3,
-                          color: Colors.white),
+                          color: context.tokens.onSurface),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -775,10 +813,10 @@ Future<bool> _showAuthDialog(
                   padding: const EdgeInsets.only(left: 32),
                   child: Text(
                     transportLabel(device.currentTransport),
-                    style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500),
+            style: TextStyle(
+                color: context.tokens.onSurface.withValues(alpha: 0.54),
+                fontSize: 11,
+                fontWeight: FontWeight.w500),
                   ),
                 ),
               ],
@@ -790,9 +828,9 @@ Future<bool> _showAuthDialog(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Enter the device password to connect.',
-                      style: TextStyle(color: Colors.white54, fontSize: 12),
+                      style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.54), fontSize: 12),
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -800,15 +838,15 @@ Future<bool> _showAuthDialog(
                       initialValue: password,
                       obscureText: obscure,
                       autofocus: true,
-                      style: GoogleFonts.jetBrainsMono(
-                          color: Colors.white,
+                      style: GoogleFonts.martianMono(
+                          color: context.tokens.onSurface,
                           fontSize: 14,
                           fontWeight: FontWeight.w500),
                       decoration: InputDecoration(
                         filled: true,
-                        fillColor: Colors.white.withValues(alpha: 0.05),
+                        fillColor: context.tokens.onSurface.withValues(alpha: 0.05),
                         hintText: 'Enter device password',
-                        hintStyle: const TextStyle(color: Colors.white24),
+                        hintStyle: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.24)),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 12),
                         suffixIcon: IconButton(
@@ -817,7 +855,7 @@ Future<bool> _showAuthDialog(
                                   ? Icons.visibility_off_rounded
                                   : Icons.visibility_rounded,
                               size: 18,
-                              color: Colors.white38),
+                              color: context.tokens.onSurface.withValues(alpha: 0.38)),
                           onPressed: () =>
                               setDialogState(() => obscure = !obscure),
                         ),
@@ -825,22 +863,22 @@ Future<bool> _showAuthDialog(
                           borderRadius: BorderRadius.circular(6),
                           borderSide: BorderSide(
                               color: error != null
-                                  ? Colors.redAccent
-                                  : Colors.white12),
+                                  ? context.tokens.error
+                                  : context.tokens.onSurface.withValues(alpha: 0.12)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
                           borderSide: BorderSide(
                               color: error != null
-                                  ? Colors.redAccent
-                                  : Colors.white12),
+                                  ? context.tokens.error
+                                  : context.tokens.onSurface.withValues(alpha: 0.12)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
                           borderSide: BorderSide(
                               color: error != null
-                                  ? Colors.redAccent
-                                  : AppColors.brandOrange
+                                  ? context.tokens.error
+                                  : context.tokens.primary
                                       .withValues(alpha: 0.5)),
                         ),
                       ),
@@ -849,12 +887,12 @@ Future<bool> _showAuthDialog(
                     if (error != null) ...[
                       const SizedBox(height: 8),
                       Row(children: [
-                        const Icon(Icons.error_outline_rounded,
-                            size: 14, color: Colors.redAccent),
+                        Icon(Icons.error_outline_rounded,
+                            size: 14, color: context.tokens.error),
                         const SizedBox(width: 6),
                         Text(error!,
-                            style: const TextStyle(
-                                color: Colors.redAccent,
+                            style: TextStyle(
+                                color: context.tokens.error,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500)),
                       ]),
@@ -868,17 +906,17 @@ Future<bool> _showAuthDialog(
                           value: remember,
                           onChanged: (v) =>
                               setDialogState(() => remember = v ?? false),
-                          activeColor: AppColors.brandOrange,
-                          checkColor: Colors.black,
-                          side: const BorderSide(color: Colors.white24),
+                          activeColor: context.tokens.primary,
+                          checkColor: context.tokens.onPrimary,
+                          side: BorderSide(color: context.tokens.onSurface.withValues(alpha: 0.24)),
                         ),
                       ),
                       const SizedBox(width: 8),
                       GestureDetector(
                         onTap: () => setDialogState(() => remember = !remember),
-                        child: const Text('Remember password',
+                        child: Text('Remember password',
                             style: TextStyle(
-                                color: Colors.white54,
+                                color: context.tokens.onSurface.withValues(alpha: 0.54),
                                 fontSize: 11,
                                 fontWeight: FontWeight.w500)),
                       ),
@@ -890,24 +928,24 @@ Future<bool> _showAuthDialog(
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('CANCEL',
-                    style: TextStyle(color: Colors.white54)),
+                child: Text('CANCEL',
+                    style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.54))),
               ),
               FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.brandOrange,
-                  foregroundColor: Colors.black,
+                  backgroundColor: context.tokens.primary,
+                  foregroundColor: context.tokens.onPrimary,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(6)),
                 ),
                 onPressed: loading ? null : () => submit(),
                 child: loading
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.black))
-                    : const Text('AUTHENTICATE'),
+                            strokeWidth: 2, color: context.tokens.onPrimary))
+                    : Text('AUTHENTICATE'),
               ),
             ],
           );
@@ -971,10 +1009,10 @@ class _AuthCountdownState extends State<_AuthCountdown> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: (urgent ? Colors.red : Colors.orange).withValues(alpha: 0.15),
+        color: (urgent ? context.tokens.error : context.tokens.warning).withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: (urgent ? Colors.red : Colors.orange).withValues(alpha: 0.4),
+          color: (urgent ? context.tokens.error : context.tokens.warning).withValues(alpha: 0.4),
         ),
       ),
       child: Row(
@@ -983,13 +1021,13 @@ class _AuthCountdownState extends State<_AuthCountdown> {
           Icon(
             Icons.timer_outlined,
             size: 12,
-            color: urgent ? Colors.red : Colors.orange,
+            color: urgent ? context.tokens.error : context.tokens.warning,
           ),
           const SizedBox(width: 4),
           Text(
             '${_secondsRemaining}s',
             style: TextStyle(
-              color: urgent ? Colors.red : Colors.orange,
+              color: urgent ? context.tokens.error : context.tokens.warning,
               fontSize: 11,
               fontWeight: FontWeight.w700,
               fontFamily: 'monospace',
@@ -1009,11 +1047,11 @@ Widget _buildSectionTag(BuildContext context, String title) {
   return Padding(
     padding: const EdgeInsets.only(bottom: 8),
     child: Row(children: [
-      Container(width: 8, height: 8, color: AppColors.brandOrange),
+      Container(width: 8, height: 8, color: context.tokens.primary),
       const SizedBox(width: 12),
       Text(title,
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: AppColors.brandOrange, fontWeight: FontWeight.bold)),
+              color: context.tokens.primary, fontWeight: FontWeight.bold)),
     ]),
   );
 }
@@ -1035,8 +1073,8 @@ class _TelemetryItem extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(label,
-            style: const TextStyle(
-                color: Colors.white38,
+            style: TextStyle(
+                color: context.tokens.onSurface.withValues(alpha: 0.38),
                 fontSize: 9,
                 fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
@@ -1046,14 +1084,13 @@ class _TelemetryItem extends StatelessWidget {
           textBaseline: TextBaseline.alphabetic,
           children: [
             Text(value,
-                style: GoogleFonts.exo2(
-                    color: AppColors.brandOrange,
-                    fontSize: 22,
+                style: GoogleFonts.exo2(color: context.tokens.primary,
+                                      fontSize: 22,
                     fontWeight: FontWeight.w900)),
             const SizedBox(width: 4),
             Text(unit,
-                style: const TextStyle(
-                    color: Colors.white38,
+                style: TextStyle(
+                    color: context.tokens.onSurface.withValues(alpha: 0.38),
                     fontSize: 10,
                     fontWeight: FontWeight.bold)),
           ],
@@ -1097,6 +1134,218 @@ class _PairedModelsList extends StatefulWidget {
 
 class _PairedModelsListState extends State<_PairedModelsList> {
   final Map<String, _PairedModelConnectionState> _connectionStates = {};
+  final Map<String, _DeviceAvailability> _availabilityCache = {};
+
+  Timer? _scanTimer;
+  int _scanTick = 0;
+  bool _hasCheckedCloud = false;
+
+  /// Whether the Models tab is the active shell branch.
+  /// Checked on each tick to avoid complex listener management.
+  bool _isTabActive() {
+    try {
+      // StatefulNavigationShell.of(context) returns a State with the mixin
+      final shell = StatefulNavigationShell.of(context);
+      return shell.currentIndex == 0;
+    } catch (_) {
+      return false; // Not in a shell
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _isTabActive()) _onTabActivated();
+    });
+  }
+
+  void _onTabActivated() {
+    _startPeriodicScan();
+    if (!_hasCheckedCloud) {
+      _hasCheckedCloud = true;
+      _checkCloudDevices();
+    }
+  }
+
+  void _startPeriodicScan() {
+    _scanTimer?.cancel();
+    _scanTick = 0;
+    _runAvailabilityCheck(); // immediate first run
+    _scanTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (!_isTabActive()) return; // Skip scan when tab is not active
+      _scanTick++;
+      _runAvailabilityCheck();
+    });
+  }
+
+  void _stopPeriodicScan() {
+    _scanTimer?.cancel();
+    _scanTimer = null;
+  }
+
+  Future<void> _runAvailabilityCheck() async {
+    if (!mounted || !_isTabActive()) return;
+    final runBle = _scanTick % 2 == 0; // BLE every other tick (20s)
+    final ble = context.read<BleProvider>();
+    final serialProv = context.read<SerialProvider>();
+    final history = context.read<HistoryProvider>();
+
+    for (final device in history.pairedDevices) {
+      if (!mounted) return;
+      final uid = device.uid;
+      final currentAvail = _availabilityCache[uid] ?? const _DeviceAvailability();
+
+      // WiFi probe (every tick)
+      if (device.wifiAddress != null && device.wifiAddress!.isNotEmpty) {
+        await _probeWifi(device, currentAvail);
+      }
+
+      // BLE scan (every 2 ticks, 20s)
+      if (runBle && device.bleAddress != null && device.bleAddress!.isNotEmpty) {
+        await _probeBle(device, currentAvail, ble);
+      }
+
+      // Serial check (once, on first tick)
+      if (_scanTick == 0 && device.serialAddress != null && device.serialAddress!.isNotEmpty) {
+        await _probeSerial(device, currentAvail, serialProv);
+      }
+
+      if (!mounted) return;
+    }
+  }
+
+  Future<void> _probeWifi(PairedDevice device, _DeviceAvailability current) async {
+    final uri = Uri.tryParse(device.wifiAddress ?? '');
+    if (uri == null || (uri.scheme != 'ws' && uri.scheme != 'wss')) return;
+    try {
+      final socket = await Socket.connect(
+        uri.host, uri.port,
+        timeout: const Duration(seconds: 2),
+      );
+      socket.destroy();
+      _updateAvailability(device.uid, current.copyWith(wifiAvailable: true));
+    } catch (_) {
+      if (mounted) {
+        _updateAvailability(device.uid, current.copyWith(wifiAvailable: false));
+      }
+    }
+  }
+
+  Future<void> _probeBle(PairedDevice device, _DeviceAvailability current, BleProvider ble) async {
+    final address = device.bleAddress;
+    if (address == null || address.isEmpty) return;
+    try {
+      await ble.startScan();
+      await Future.delayed(const Duration(milliseconds: 2500));
+      await ble.stopScan();
+      if (!mounted) return;
+      final found = ble.devices.any((d) => d.id == address);
+      _updateAvailability(device.uid, current.copyWith(bleAvailable: found));
+    } catch (_) {
+      if (mounted) {
+        _updateAvailability(device.uid, current.copyWith(bleAvailable: false));
+      }
+    }
+  }
+
+  Future<void> _probeSerial(PairedDevice device, _DeviceAvailability current, SerialProvider serialProv) async {
+    final address = device.serialAddress;
+    if (address == null || address.isEmpty) return;
+    try {
+      await serialProv.startScan();
+      if (!mounted) return;
+      final found = serialProv.ports.any((p) => p.id == address);
+      _updateAvailability(device.uid, current.copyWith(serialAvailable: found));
+    } catch (_) {
+      if (mounted) {
+        _updateAvailability(device.uid, current.copyWith(serialAvailable: false));
+      }
+    }
+  }
+
+  Future<void> _checkCloudDevices() async {
+    if (!mounted) return;
+    final history = context.read<HistoryProvider>();
+    final cloudDevices = history.pairedDevices.where((d) =>
+        d.cloudAddress != null && d.cloudAddress!.isNotEmpty);
+    for (final device in cloudDevices) {
+      if (!mounted) return;
+      final uid = device.uid;
+      final currentAvail = _availabilityCache[uid] ?? const _DeviceAvailability();
+
+      // Try a lightweight WebSocket connection to check if the relay responds
+      final cloudAvailable = await _probeCloud(device);
+      if (mounted) {
+        _updateAvailability(uid, currentAvail.copyWith(cloudAvailable: cloudAvailable));
+      }
+    }
+  }
+
+  Future<bool> _probeCloud(PairedDevice device) async {
+    final address = device.cloudAddress;
+    final account = device.cloudAccount;
+    if (address == null || address.isEmpty) return false;
+
+    try {
+      final ws = WebSocketService();
+      if (account != null && account.isNotEmpty) {
+        ws.account = account;
+        // Try to initialize cloud identity for auth
+        final identity = CloudIdentityService();
+        await identity.initialize();
+        if (identity.hasIdentity) {
+          ws.identity = identity;
+        }
+      }
+
+      // Wait for auth_ok which now includes the device list from the relay.
+      // The relay sends devices inline so we don't need a separate list_devices call.
+      // Compare against device.name (the relay registration name), not configName
+      // which is a separate display field from NVS.
+      final completer = Completer<bool>();
+      ws.onAuthOkDevices = (devices) {
+        if (!completer.isCompleted) {
+          completer.complete(devices.contains(device.name));
+        }
+      };
+      ws.onAuthFailed = (_) {
+        if (!completer.isCompleted) {
+          completer.complete(false);
+        }
+      };
+
+      // Use try/finally to ensure ws is always cleaned up
+      try {
+        await ws.connect(address).timeout(const Duration(seconds: 5));
+
+        // Wait for auth result or timeout
+        return await completer.future.timeout(
+          const Duration(seconds: 5),
+          onTimeout: () => false,
+        );
+      } finally {
+        await ws.disconnect();
+      }
+    } on TimeoutException catch (_) {
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _updateAvailability(String deviceId, _DeviceAvailability availability) {
+    if (!mounted) return;
+    setState(() {
+      _availabilityCache[deviceId] = availability;
+    });
+  }
+
+  @override
+  void dispose() {
+    _stopPeriodicScan();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1126,11 +1375,19 @@ class _PairedModelsListState extends State<_PairedModelsList> {
   Widget _buildCard(PairedDevice device) {
     final connectionState = _connectionStates[device.uid] ??
         _PairedModelConnectionState(device: device);
+    final availability = _availabilityCache[device.uid];
     return _PairedModelCard(
       state: connectionState,
+      availability: availability,
       onReconnect: () => _handleReconnect(device),
       onDismissError: () => _clearStatus(device.uid),
       onTap: () => _handleReconnect(device),
+      onRemove: () => _confirmRemoveDevice(context, device),
+      onContextMenu: (pos) => _showPairedContextMenu(
+          context, pos, device,
+          onConnect: () => _handleReconnect(device),
+          onRemove: () => _confirmRemoveDevice(context, device),
+        ),
     );
   }
 
@@ -1417,19 +1674,26 @@ class _ReconnectAttempt {
 }
 class _PairedModelCard extends StatelessWidget {
   final _PairedModelConnectionState state;
+  final _DeviceAvailability? availability;
   final VoidCallback onReconnect;
   final VoidCallback onDismissError;
   final VoidCallback? onTap;
+  final VoidCallback? onRemove;
+  final void Function(Offset?)? onContextMenu;
 
   const _PairedModelCard({
     required this.state,
+    this.availability,
     required this.onReconnect,
     required this.onDismissError,
     this.onTap,
+    this.onRemove,
+    this.onContextMenu,
   });
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final device = state.device;
     final connectionIcon = device.type == 'ble'
         ? Icons.bluetooth_rounded
@@ -1440,14 +1704,74 @@ class _PairedModelCard extends StatelessWidget {
     final isBusy = status == 'scanning' || status == 'connecting';
     final isFailed = status == 'failed';
 
+    // Determine badge color from availability
+    final a = availability;
+    Color badgeColor;
+    if (a == null) {
+      badgeColor = tokens.primary.withValues(alpha: 0.7);
+    } else if (a.anyAvailable == true) {
+      badgeColor = tokens.success;
+    } else if (a.anyAvailable == false) {
+      badgeColor = tokens.onSurface.withValues(alpha: 0.38);
+    } else {
+      badgeColor = tokens.onSurface.withValues(alpha: 0.54);
+    }
+
     // Device icon from history (or default memory icon)
     final iconName = device.deviceIcon;
     final deviceIconData = iconName != null && iconName.isNotEmpty && kDesignerIcons.containsKey(iconName)
         ? kDesignerIcons[iconName]!
         : null;
 
+    // Build trailing widget based on state
+    Widget trailingWidget;
+    if (isBusy) {
+      trailingWidget = const SizedBox(
+        width: 18, height: 18,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+    } else if (isFailed) {
+      trailingWidget = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: Icon(Icons.replay_rounded, size: 18, color: tokens.error),
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints(),
+            onPressed: onReconnect,
+          ),
+          IconButton(
+            icon: Icon(Icons.close_rounded, size: 14, color: tokens.error),
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints(),
+            onPressed: onDismissError,
+          ),
+        ],
+      );
+    } else {
+      // Idle: show three-dot menu
+      trailingWidget = PopupMenuButton<String>(
+        icon: Icon(Icons.more_vert_rounded,
+            size: 18, color: tokens.onSurface.withValues(alpha: 0.5)),
+        offset: const Offset(-120, 0),
+        color: tokens.base300,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        itemBuilder: (context) => [
+          _menuItem('CONNECT'),
+          _menuItem('REMOVE'),
+        ],
+        onSelected: (value) {
+          if (value == 'CONNECT' && onTap != null) onTap!();
+          if (value == 'REMOVE' && onRemove != null) onRemove!();
+        },
+      );
+    }
+
     return ModelCard(
       onTap: onTap,
+      trailing: trailingWidget,
+      onLongPress: () => onContextMenu?.call(null),
+      onSecondaryTap: (pos) => onContextMenu?.call(pos),
       leading: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -1456,13 +1780,13 @@ class _PairedModelCard extends StatelessWidget {
             width: 60,
             height: 60,
             decoration: BoxDecoration(
-              color: const Color(0xFF2A2A2A),
+              color: context.tokens.base200,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Center(
               child: Icon(
                 deviceIconData ?? connectionIcon,
-                color: AppColors.brandOrange.withValues(alpha: deviceIconData != null ? 1.0 : 0.7),
+                color: context.tokens.primary.withValues(alpha: deviceIconData != null ? 1.0 : 0.7),
                 size: 36,
               ),
             ),
@@ -1475,14 +1799,14 @@ class _PairedModelCard extends StatelessWidget {
               width: 18,
               height: 18,
               decoration: BoxDecoration(
-                color: const Color(0xFF1A1A1A),
+                color: context.tokens.surface,
                 borderRadius: BorderRadius.circular(3),
               ),
               child: Center(
                 child: Icon(
                   connectionIcon,
                   size: 12,
-                  color: AppColors.brandOrange.withValues(alpha: 0.7),
+                  color: badgeColor,
                 ),
               ),
             ),
@@ -1508,7 +1832,7 @@ class _PairedModelCard extends StatelessWidget {
           ? Text(
               state.message!,
               style: TextStyle(
-                color: AppColors.brandOrange.withValues(alpha: 0.7),
+                color: context.tokens.primary.withValues(alpha: 0.7),
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 0.5,
@@ -1520,7 +1844,7 @@ class _PairedModelCard extends StatelessWidget {
               ? Text(
                   device.description!.toUpperCase(),
                   style: TextStyle(
-                    color: AppColors.brandOrange.withValues(alpha: 0.7),
+                    color: context.tokens.primary.withValues(alpha: 0.7),
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.5,
@@ -1529,35 +1853,82 @@ class _PairedModelCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 )
               : const SizedBox.shrink(),
-      trailing: isBusy
-          ? const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : isFailed
-              ? Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.replay_rounded,
-                          size: 18, color: Colors.redAccent),
-                      visualDensity: VisualDensity.compact,
-                      constraints: const BoxConstraints(),
-                      onPressed: onReconnect,
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.close_rounded,
-                          size: 14, color: Colors.redAccent),
-                      visualDensity: VisualDensity.compact,
-                      constraints: const BoxConstraints(),
-                      onPressed: onDismissError,
-                    ),
-                  ],
-                )
-              : Icon(connectionIcon, size: 18, color: AppColors.connected),
     );
   }
+}
+
+/// Show a context menu for a paired model card (long-press or right-click).
+void _showPairedContextMenu(
+    BuildContext context, Offset? position, PairedDevice device, {
+  required VoidCallback onConnect,
+  required VoidCallback onRemove,
+}) {
+  final tokens = context.tokens;
+  final items = <PopupMenuEntry<String>>[
+    _menuItem('CONNECT'),
+    _menuItem('REMOVE'),
+  ];
+
+  showMenu<String>(
+    context: context,
+    position: position != null
+        ? RelativeRect.fromLTRB(position.dx - 80, position.dy, 0, 0)
+        : const RelativeRect.fromLTRB(100, 120, 0, 0),
+    items: items,
+    color: tokens.base300,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+  ).then((value) {
+    if (value == 'CONNECT') onConnect();
+    if (value == 'REMOVE') onRemove();
+  });
+}
+
+/// Show a confirmation dialog for removing a paired device.
+void _confirmRemoveDevice(BuildContext context, PairedDevice device) {
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: context.tokens.base300,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      title: const Text(
+        'Remove Model',
+        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+      ),
+      content: Text(
+        'Are you sure you want to remove ${device.configName?.isNotEmpty == true ? device.configName! : device.name}? '
+        'This will delete all saved configuration for this device.',
+        style: TextStyle(
+          color: context.tokens.onSurface.withValues(alpha: 0.7),
+          fontSize: 13,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(),
+          child: Text('CANCEL',
+              style: TextStyle(
+                  color: context.tokens.onSurface.withValues(alpha: 0.38))),
+        ),
+        TextButton(
+          onPressed: () {
+            context.read<HistoryProvider>().removeDevice(device.uid);
+            Navigator.of(ctx).pop();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Model removed'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          },
+          child: Text('REMOVE',
+              style: TextStyle(
+                  color: context.tokens.error,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13)),
+        ),
+      ],
+    ),
+  );
 }
 
 // ── Interactive Demo Section ─────────────────────────────────────────────────
@@ -1577,6 +1948,7 @@ class _InteractiveDemoSection extends StatelessWidget {
           await dp.loadDemo('WIDGETS_DEMO');
           if (context.mounted) context.go('/control');
         },
+        onRemove: () => _navigateToSystemTab(context),
       ),
       _DemoTile(
         icon: Icons.sports_esports_rounded,
@@ -1587,6 +1959,7 @@ class _InteractiveDemoSection extends StatelessWidget {
           await dp.loadDemo('RC_CONTROLLER');
           if (context.mounted) context.go('/control');
         },
+        onRemove: () => _navigateToSystemTab(context),
       ),
       _DemoTile(
         icon: Icons.dashboard_rounded,
@@ -1597,27 +1970,29 @@ class _InteractiveDemoSection extends StatelessWidget {
           await dp.loadDemo('IOT_DASHBOARD');
           if (context.mounted) context.go('/control');
         },
+        onRemove: () => _navigateToSystemTab(context),
       ),
     ];
 
     if (useWide)
-      return _buildLandscapeGrid(demos);
+      return _buildLandscapeGrid(context, demos);
     else
-      return Column(children: demos.map((demo) => _buildCard(demo)).toList());
+      return Column(children: demos.map((demo) => _buildCard(context, demo)).toList());
   }
 
-  Widget _buildCard(_DemoTile demo) {
+  Widget _buildCard(BuildContext context, _DemoTile demo) {
+    final tokens = context.tokens;
     return ModelCard(
       leading: Container(
         padding: const EdgeInsets.all(4),
         width: 60,
         height: 60,
         decoration: BoxDecoration(
-          color: const Color(0xFF2A2A2A),
+          color: context.tokens.base200,
           borderRadius: BorderRadius.circular(4),
         ),
         child: Center(
-          child: Icon(demo.icon, color: AppColors.brandOrange, size: 36),
+          child: Icon(demo.icon, color: context.tokens.primary, size: 36),
         ),
       ),
       title: FittedBox(
@@ -1631,28 +2006,65 @@ class _InteractiveDemoSection extends StatelessWidget {
       ),
       subtitle: Text(demo.subtitle.toUpperCase(),
           style: TextStyle(
-              color: AppColors.brandOrange.withValues(alpha: 0.7),
+              color: context.tokens.primary.withValues(alpha: 0.7),
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.5),
           maxLines: 1,
           overflow: TextOverflow.ellipsis),
-      trailing: const Icon(Icons.chevron_right_rounded, size: 18),
+      trailing: PopupMenuButton<String>(
+        icon: Icon(Icons.more_vert_rounded,
+            size: 18, color: tokens.onSurface.withValues(alpha: 0.5)),
+        offset: const Offset(-120, 0),
+        color: tokens.base300,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        itemBuilder: (context) => [
+          _menuItem('CONNECT'),
+          _menuItem('REMOVE'),
+        ],
+        onSelected: (value) {
+          if (value == 'CONNECT') demo.onTap();
+          if (value == 'REMOVE') demo.onRemove();
+        },
+      ),
       onTap: demo.onTap,
+      onLongPress: () => _showCardContextMenu(context, null, demo),
+      onSecondaryTap: (pos) => _showCardContextMenu(context, pos, demo),
     );
   }
 
-  Widget _buildLandscapeGrid(List<_DemoTile> demos) {
+  void _showCardContextMenu(BuildContext context, Offset? position, _DemoTile demo) {
+    final tokens = context.tokens;
+    final items = <PopupMenuEntry<String>>[
+      _menuItem('CONNECT'),
+      _menuItem('REMOVE'),
+    ];
+
+    showMenu<String>(
+      context: context,
+      position: position != null
+          ? RelativeRect.fromLTRB(position.dx - 80, position.dy, 0, 0)
+          : const RelativeRect.fromLTRB(100, 120, 0, 0),
+      items: items,
+      color: tokens.base300,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    ).then((value) {
+      if (value == 'CONNECT') demo.onTap();
+      if (value == 'REMOVE') demo.onRemove();
+    });
+  }
+
+  Widget _buildLandscapeGrid(BuildContext context, List<_DemoTile> demos) {
     final rows = <Widget>[];
     for (int i = 0; i < demos.length; i += 2) {
       rows.add(
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: _buildCard(demos[i])),
+            Expanded(child: _buildCard(context, demos[i])),
             const SizedBox(width: 12),
             if (i + 1 < demos.length)
-              Expanded(child: _buildCard(demos[i + 1]))
+              Expanded(child: _buildCard(context, demos[i + 1]))
             else
               const Expanded(child: SizedBox.shrink()),
           ],
@@ -1663,17 +2075,38 @@ class _InteractiveDemoSection extends StatelessWidget {
   }
 }
 
+/// Navigate to the System tab (index 2 in the shell) to reach demo toggle.
+void _navigateToSystemTab(BuildContext context) {
+  final shell = StatefulNavigationShell.of(context);
+  shell.goBranch(2, initialLocation: true);
+}
+
+/// Build a styled PopupMenuItem for card menus.
+PopupMenuItem<String> _menuItem(String label) {
+  return PopupMenuItem<String>(
+    value: label,
+    height: 32,
+    child: Text(label,
+        style: const TextStyle(
+            fontSize: 11,
+            fontFamily: 'monospace',
+            fontWeight: FontWeight.w600)),
+  );
+}
+
 class _DemoTile {
   final IconData icon;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
+  final VoidCallback onRemove;
 
   const _DemoTile({
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.onTap,
+    required this.onRemove,
   });
 }
 
@@ -1707,12 +2140,12 @@ class _DeviceIconWidget extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
+        color: context.tokens.base200,
         borderRadius: BorderRadius.circular(4),
       ),
       child: Icon(
         iconData ?? fallbackIcon,
-        color: AppColors.brandOrange,
+        color: context.tokens.primary,
         size: iconSize,
       ),
     );

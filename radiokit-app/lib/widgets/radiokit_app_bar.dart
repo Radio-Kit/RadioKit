@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'logo_icon.dart';
-import '../theme/app_theme.dart';
+import '../../theme/app_theme.dart';
 
 class RadioKitAppBar extends AppBar {
   RadioKitAppBar({
@@ -18,6 +18,7 @@ class RadioKitAppBar extends AppBar {
     VoidCallback? onOpen,
     VoidCallback? onCreate,
     VoidCallback? onAccounts,
+    required Color accentColor,
   }) : super(
           toolbarHeight: 40,
           title: Row(
@@ -52,7 +53,10 @@ class RadioKitAppBar extends AppBar {
               ),
             ],
           ),
-          actions: actions ?? _buildActionsForTab(tabIndex, onConnect, onOpen, onCreate, onAccounts),
+          actions: actions ?? _buildActionsForTab(
+            tabIndex, onConnect, onOpen, onCreate, onAccounts,
+            accentColor: accentColor,
+          ),
         );
 
   static List<Widget> _buildActionsForTab(
@@ -60,16 +64,17 @@ class RadioKitAppBar extends AppBar {
     VoidCallback? onConnect,
     VoidCallback? onOpen,
     VoidCallback? onCreate,
-    VoidCallback? onAccounts,
-  ) {
+    VoidCallback? onAccounts, {
+    required Color accentColor,
+  }) {
     switch (tabIndex) {
       case 0: // Models
         return [
           if (onConnect != null)
             FilledButton.tonal(
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.brandOrange.withValues(alpha: 0.15),
-                foregroundColor: AppColors.brandOrange,
+                backgroundColor: accentColor.withValues(alpha: 0.15),
+                foregroundColor: accentColor,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 minimumSize: const Size(0, 34),
                 shape: RoundedRectangleBorder(
@@ -82,7 +87,7 @@ class RadioKitAppBar extends AppBar {
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.5,
                       fontSize: 15,
-                      color: AppColors.brandOrange)),
+                      color: accentColor)),
             ),
           const SizedBox(width: 8),
         ];
@@ -101,13 +106,13 @@ class RadioKitAppBar extends AppBar {
             ),
           const SizedBox(width: 8),
         ];
-      case 3: // System
+      case 2: // System
         return [
           if (onAccounts != null)
             FilledButton.tonal(
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.brandOrange.withValues(alpha: 0.15),
-                foregroundColor: AppColors.brandOrange,
+                backgroundColor: accentColor.withValues(alpha: 0.15),
+                foregroundColor: accentColor,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 minimumSize: const Size(0, 34),
                 shape: RoundedRectangleBorder(
@@ -118,14 +123,14 @@ class RadioKitAppBar extends AppBar {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.cloud_rounded, size: 16, color: AppColors.brandOrange),
+                  Icon(Icons.cloud_rounded, size: 16, color: accentColor),
                   const SizedBox(width: 6),
                   Text('Accounts',
                       style: GoogleFonts.changa(
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.5,
                           fontSize: 15,
-                          color: AppColors.brandOrange)),
+                          color: accentColor)),
                 ],
               ),
             ),
@@ -157,10 +162,10 @@ class _AppBarPillButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           height: 34,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.05),
+            color: context.tokens.onSurface.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.15),
+              color: context.tokens.onSurface.withValues(alpha: 0.15),
               width: 1,
             ),
           ),
@@ -171,7 +176,7 @@ class _AppBarPillButton extends StatelessWidget {
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.5,
                 fontSize: 15,
-                color: Colors.white70,
+                color: context.tokens.onSurface.withValues(alpha: 0.7),
               ),
             ),
           ),

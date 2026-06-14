@@ -133,8 +133,8 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.warning_rounded,
-            color: Colors.orangeAccent, size: 32),
+        icon: Icon(Icons.warning_rounded,
+            color: context.tokens.warning, size: 32),
         title: const Text('Disconnect Device?'),
         content: Text(
           'Connected via $transport. Disabling this will cause the device to disconnect.',
@@ -146,8 +146,8 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
           ),
           FilledButton.tonal(
             style: FilledButton.styleFrom(
-              backgroundColor: Colors.orangeAccent.withValues(alpha: 0.2),
-              foregroundColor: Colors.orangeAccent,
+              backgroundColor: context.tokens.warning.withValues(alpha: 0.2),
+              foregroundColor: context.tokens.warning,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('DISABLE'),
@@ -163,8 +163,8 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.error_rounded,
-            color: Colors.redAccent, size: 32),
+        icon: Icon(Icons.error_rounded,
+            color: context.tokens.error, size: 32),
         title: const Text('All Transports Disabled?'),
         content: Text(
           'Disabling $transport will leave no transports enabled on this device. '
@@ -173,13 +173,13 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('CANCEL',
-                style: TextStyle(color: Colors.white54)),
+        child: Text('CANCEL',
+            style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.54))),
           ),
           FilledButton.tonal(
             style: FilledButton.styleFrom(
-              backgroundColor: Colors.redAccent.withValues(alpha: 0.2),
-              foregroundColor: Colors.redAccent,
+              backgroundColor: context.tokens.error.withValues(alpha: 0.2),
+              foregroundColor: context.tokens.error,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('DISABLE ANYWAY'),
@@ -270,7 +270,7 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.04),
+              color: context.tokens.onSurface.withValues(alpha: 0.04),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Column(
@@ -280,8 +280,8 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
                     Icon(Icons.wifi_rounded,
                         size: 20,
                         color: _wifiEnabled
-                            ? AppColors.brandOrange
-                            : Colors.white38),
+                            ? context.tokens.primary
+                            : context.tokens.onSurface.withValues(alpha: 0.38)),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -290,14 +290,14 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
                           Text('WIFI',
                               style: TextStyle(
                                   color: _wifiEnabled
-                                      ? Colors.white
-                                      : Colors.white54,
+                                      ? context.tokens.onSurface
+                                      : context.tokens.onSurface.withValues(alpha: 0.4),
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600)),
                           const SizedBox(height: 2),
                           Text('Wireless network',
                               style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.4),
+                                  color: context.tokens.onSurface.withValues(alpha: 0.4),
                                   fontSize: 11)),
                         ],
                       ),
@@ -320,15 +320,15 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
                         });
                         await _writeTransportKey(dp, 'rk_wifi_on', v ? 1 : 0);
                       },
-                      activeThumbColor: AppColors.brandOrange,
+                      activeThumbColor: context.tokens.primary,
                     ),
                   ],
                 ),
                 if (_wifiEnabled) ...[
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Divider(height: 1, color: Colors.white10),
-                  ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Divider(height: 1, color: context.tokens.onSurface.withValues(alpha: 0.1)),
+                ),
                   _buildSettingRow(
                     Icons.cloud_rounded,
                     'CLOUD',
@@ -347,7 +347,7 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
                               await _writeTransportKey(dp, 'rk_cloud_on', v ? 1 : 0);
                             }
                           : null,
-                      activeThumbColor: AppColors.brandOrange,
+                      activeThumbColor: context.tokens.primary,
                     ),
                   ),
                 ],
@@ -360,8 +360,8 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
               width: double.infinity,
               child: FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.brandOrange,
-                  foregroundColor: Colors.black,
+                  backgroundColor: context.tokens.primary,
+                  foregroundColor: context.tokens.onPrimary,
                   padding: const EdgeInsets.symmetric(vertical: 18),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8)),
@@ -375,22 +375,22 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
                             fontWeight: FontWeight.w700,
                             letterSpacing: 1.5,
                             fontSize: 14,
-                            color: Colors.black)),
+                            color: context.tokens.onPrimary)),
                     Text('& REBOOT NOW',
                         style: GoogleFonts.changa(
                             fontWeight: FontWeight.w500,
                             letterSpacing: 1.5,
                             fontSize: 11,
-                            color: Colors.black.withValues(alpha: 0.7))),
+                            color: context.tokens.onPrimary.withValues(alpha: 0.7))),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'Transport changes only take effect after reboot. '
               'Close without applying to keep current configuration.',
-              style: TextStyle(color: Colors.white38, fontSize: 11),
+              style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.38), fontSize: 11),
             ),
           ],
           const SizedBox(height: 32),
@@ -401,9 +401,9 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
             height: 48,
             child: OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.orangeAccent,
+                foregroundColor: context.tokens.warning,
                 side: BorderSide(
-                    color: Colors.orangeAccent.withValues(alpha: 0.5)),
+                    color: context.tokens.warning.withValues(alpha: 0.5)),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(6)),
               ),
@@ -417,10 +417,10 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Restart the device without erasing any settings. '
             'Useful after changing transport configuration.',
-            style: TextStyle(color: Colors.white38, fontSize: 11),
+            style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.38), fontSize: 11),
           ),
           const SizedBox(height: 32),
           _buildSectionTag('FACTORY_RESET'),
@@ -430,9 +430,9 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
             height: 48,
             child: OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.redAccent,
+                foregroundColor: context.tokens.error,
                 side:
-                    BorderSide(color: Colors.redAccent.withValues(alpha: 0.5)),
+                    BorderSide(color: context.tokens.error.withValues(alpha: 0.5)),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(6)),
               ),
@@ -446,10 +446,10 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Erase all settings (name, description, password) '
             'and reboot the device. Compile-time defaults will be restored.',
-            style: TextStyle(color: Colors.white38, fontSize: 11),
+            style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.38), fontSize: 11),
           ),
         ],
       ),
@@ -459,14 +459,14 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
   Widget _buildSectionTag(String title) {
     return Row(
       children: [
-        Container(width: 6, height: 6, color: AppColors.brandOrange),
+        Container(width: 6, height: 6, color: context.tokens.primary),
         const SizedBox(width: 10),
         Text(title,
             style: GoogleFonts.changa(
                 fontWeight: FontWeight.w700,
                 fontSize: 12,
                 letterSpacing: 1.5,
-                color: AppColors.brandOrange)),
+                color: context.tokens.primary)),
       ],
     );
   }
@@ -481,14 +481,14 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: context.tokens.onSurface.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
           Icon(icon,
               size: 20,
-              color: enabled ? AppColors.brandOrange : Colors.white38),
+              color: enabled ? context.tokens.primary : context.tokens.onSurface.withValues(alpha: 0.38)),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -496,13 +496,13 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
               children: [
                 Text(label,
                     style: TextStyle(
-                        color: enabled ? Colors.white : Colors.white54,
+                        color: enabled ? context.tokens.onSurface : context.tokens.onSurface.withValues(alpha: 0.4),
                         fontSize: 13,
                         fontWeight: FontWeight.w600)),
                 const SizedBox(height: 2),
                 Text(subtitle,
                     style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.4),
+                        color: context.tokens.onSurface.withValues(alpha: 0.4),
                         fontSize: 11)),
               ],
             ),
@@ -510,7 +510,7 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
           Switch(
               value: enabled,
               onChanged: onChanged,
-              activeThumbColor: AppColors.brandOrange),
+              activeThumbColor: context.tokens.primary),
         ],
       ),
     );
@@ -521,7 +521,7 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
     return Row(
       children: [
         Icon(icon,
-            size: 18, color: AppColors.brandOrange.withValues(alpha: 0.7)),
+            size: 18, color: context.tokens.primary.withValues(alpha: 0.7)),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -529,14 +529,14 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
             children: [
               Text(label,
                   style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
+                      color: context.tokens.onSurface.withValues(alpha: 0.6),
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1)),
               const SizedBox(height: 2),
               Text(value,
                   style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.9),
+                      color: context.tokens.onSurface.withValues(alpha: 0.9),
                       fontSize: 13)),
             ],
           ),
@@ -559,15 +559,15 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
     bool isAdmin = false,
   }) {
     final borderColor =
-        isAdmin ? AppColors.brandOrange.withValues(alpha: 0.3) : Colors.white12;
+        isAdmin ? context.tokens.primary.withValues(alpha: 0.3) : context.tokens.onSurface.withValues(alpha: 0.12);
     final focusBorderColor = isAdmin
-        ? AppColors.brandOrange.withValues(alpha: 0.7)
-        : AppColors.brandOrange.withValues(alpha: 0.5);
+        ? context.tokens.primary.withValues(alpha: 0.7)
+        : context.tokens.primary.withValues(alpha: 0.5);
     final labelColor =
-        isAdmin ? AppColors.brandOrange.withValues(alpha: 0.7) : Colors.white54;
+        isAdmin ? context.tokens.primary.withValues(alpha: 0.7) : context.tokens.onSurface.withValues(alpha: 0.6);
     final labelIcon = isAdmin
         ? Icon(Icons.admin_panel_settings_outlined,
-            size: 12, color: AppColors.brandOrange.withValues(alpha: 0.5))
+            size: 12, color: context.tokens.primary.withValues(alpha: 0.5))
         : null;
 
     return Column(
@@ -576,7 +576,7 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
         Row(children: [
           Text(label,
               style: TextStyle(
-                  color: labelColor,
+                  color: labelColor ?? context.tokens.onSurface,
                   fontSize: 10,
                   fontWeight: FontWeight.bold)),
           if (labelIcon != null) ...[const SizedBox(width: 6), labelIcon],
@@ -590,13 +590,13 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
                 controller: ctrl,
                 maxLines: maxLines,
                 obscureText: isPassword && !pwdVisible,
-                style: GoogleFonts.jetBrainsMono(
-                    color: Colors.white,
+                style: GoogleFonts.martianMono(
+                    color: context.tokens.onSurface,
                     fontSize: 13,
                     fontWeight: FontWeight.w500),
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.05),
+                  fillColor: context.tokens.onSurface.withValues(alpha: 0.05),
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   suffixIcon: isPassword && onTogglePwd != null
@@ -606,7 +606,7 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
                                   ? Icons.visibility_off_rounded
                                   : Icons.visibility_rounded,
                               size: 18,
-                              color: Colors.white38),
+                              color: context.tokens.onSurface.withValues(alpha: 0.38)),
                           onPressed: onTogglePwd,
                         )
                       : null,
@@ -633,19 +633,19 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
                 width: 40,
                 child: FilledButton(
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.brandOrange,
-                    foregroundColor: Colors.black,
+                    backgroundColor: context.tokens.primary,
+                    foregroundColor: context.tokens.onPrimary,
                     padding: EdgeInsets.zero,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4)),
                   ),
                   onPressed: saving ? null : onSave,
                   child: saving
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.black))
+                              strokeWidth: 2, color: context.tokens.onPrimary))
                       : const Icon(Icons.save_rounded, size: 18),
                 ),
               ),
@@ -667,9 +667,9 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
       children: [
         Row(children: [
           Text('ICON',
-              style: const TextStyle(
-                  color: Colors.white54, fontSize: 10,
-                  fontWeight: FontWeight.bold)),
+            style: TextStyle(
+                color: context.tokens.onSurface.withValues(alpha: 0.54), fontSize: 10,
+                fontWeight: FontWeight.bold)),
         ]),
         const SizedBox(height: 6),
         Row(
@@ -681,9 +681,9 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
+                    color: context.tokens.onSurface.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: Colors.white12),
+                    border: Border.all(color: context.tokens.onSurface.withValues(alpha: 0.12)),
                   ),
                   child: Row(
                     children: [
@@ -691,11 +691,11 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF2A2A2A),
+                          color: context.tokens.base200,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Icon(iconData,
-                            color: AppColors.brandOrange, size: 28),
+                            color: context.tokens.primary, size: 28),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -704,10 +704,10 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
                           children: [
                             Text(
                               _deviceIcon.isNotEmpty ? _deviceIcon : 'Tap to select',
-                              style: GoogleFonts.jetBrainsMono(
+                              style: GoogleFonts.martianMono(
                                 color: _deviceIcon.isNotEmpty
-                                    ? Colors.white
-                                    : Colors.white38,
+                                    ? context.tokens.onSurface
+                                    : context.tokens.onSurface.withValues(alpha: 0.38),
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -719,14 +719,14 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
                               _deviceIcon.isNotEmpty
                                   ? 'Tap to change'
                                   : 'Choose a device icon',
-                              style: const TextStyle(
-                                  color: Colors.white38, fontSize: 10),
+                              style: TextStyle(
+                                  color: context.tokens.onSurface.withValues(alpha: 0.38), fontSize: 10),
                             ),
                           ],
                         ),
                       ),
-                      const Icon(Icons.chevron_right_rounded,
-                          size: 18, color: Colors.white24),
+                      Icon(Icons.chevron_right_rounded,
+                          size: 18, color: context.tokens.onSurface.withValues(alpha: 0.24)),
                     ],
                   ),
                 ),
@@ -739,8 +739,8 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
                 width: 40,
                 child: FilledButton(
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.brandOrange,
-                    foregroundColor: Colors.black,
+                    backgroundColor: context.tokens.primary,
+                    foregroundColor: context.tokens.onPrimary,
                     padding: EdgeInsets.zero,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4)),
@@ -773,16 +773,16 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
     if (!mounted) return;
     if (ok) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Device icon saved'),
-          backgroundColor: Colors.greenAccent,
+        SnackBar(
+          content: const Text('Device icon saved'),
+          backgroundColor: context.tokens.success,
         ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to save icon'),
-          backgroundColor: Colors.redAccent,
+        SnackBar(
+          content: const Text('Failed to save icon'),
+          backgroundColor: context.tokens.error,
         ),
       );
     }
@@ -830,7 +830,7 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(ok ? 'Field saved to device' : 'Failed to save'),
-        backgroundColor: ok ? Colors.greenAccent : Colors.redAccent,
+        backgroundColor: ok ? context.tokens.success : context.tokens.error,
       ),
     );
   }
@@ -850,7 +850,7 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(msg),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: context.tokens.error,
           duration: const Duration(seconds: 4),
         ),
       );
@@ -865,8 +865,8 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.restart_alt_rounded,
-            color: Colors.orangeAccent, size: 32),
+        icon: Icon(Icons.restart_alt_rounded,
+            color: context.tokens.warning, size: 32),
         title: const Text('Reboot to Apply Changes?'),
         content: const Text(
           'The device will reboot to apply the transport changes. '
@@ -875,12 +875,12 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('CANCEL', style: TextStyle(color: Colors.white54)),
+            child: Text('CANCEL', style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.54))),
           ),
           FilledButton.tonal(
             style: FilledButton.styleFrom(
-              backgroundColor: Colors.orangeAccent.withValues(alpha: 0.2),
-              foregroundColor: Colors.orangeAccent,
+              backgroundColor: context.tokens.warning.withValues(alpha: 0.2),
+              foregroundColor: context.tokens.warning,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('REBOOT'),
@@ -900,9 +900,9 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
   Future<void> _confirmReboot(DeviceProvider dp) async {
     if (!dp.isConnected) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No device connected'),
-          backgroundColor: Colors.orangeAccent,
+        SnackBar(
+          content: const Text('No device connected'),
+          backgroundColor: context.tokens.warning,
         ),
       );
       return;
@@ -911,8 +911,8 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.restart_alt_rounded,
-            color: Colors.orangeAccent, size: 32),
+        icon: Icon(Icons.restart_alt_rounded,
+            color: context.tokens.warning, size: 32),
         title: const Text('Reboot Device?'),
         content: const Text(
           'Restart the device without erasing any settings. '
@@ -925,8 +925,8 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
           ),
           FilledButton.tonal(
             style: FilledButton.styleFrom(
-              backgroundColor: Colors.orangeAccent.withValues(alpha: 0.2),
-              foregroundColor: Colors.orangeAccent,
+              backgroundColor: context.tokens.warning.withValues(alpha: 0.2),
+              foregroundColor: context.tokens.warning,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('REBOOT'),
@@ -944,7 +944,7 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
         content: Text(ok
             ? 'Reboot sent — device restarting...'
             : 'Failed to send reboot command'),
-        backgroundColor: ok ? Colors.orangeAccent : Colors.redAccent,
+        backgroundColor: ok ? context.tokens.warning : context.tokens.error,
       ),
     );
   }
@@ -953,8 +953,8 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.warning_rounded,
-            color: Colors.redAccent, size: 32),
+        icon: Icon(Icons.warning_rounded,
+            color: context.tokens.error, size: 32),
         title: const Text('Factory Reset?'),
         content: const Text(
             'This will erase all device settings (name, description, password) '
@@ -967,8 +967,8 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
           ),
           FilledButton.tonal(
             style: FilledButton.styleFrom(
-              backgroundColor: Colors.redAccent.withValues(alpha: 0.2),
-              foregroundColor: Colors.redAccent,
+              backgroundColor: context.tokens.error.withValues(alpha: 0.2),
+              foregroundColor: context.tokens.error,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('ERASE & REBOOT'),
@@ -987,7 +987,7 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
         content: Text(ok
             ? 'Factory reset sent — device rebooting...'
             : 'Failed to send factory reset'),
-        backgroundColor: ok ? Colors.orangeAccent : Colors.redAccent,
+        backgroundColor: ok ? context.tokens.warning : context.tokens.error,
       ),
     );
 

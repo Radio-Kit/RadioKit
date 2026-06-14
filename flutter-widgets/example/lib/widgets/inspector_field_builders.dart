@@ -201,27 +201,37 @@ class InspectorFieldBuilders {
           const SizedBox(height: 6),
           SizedBox(
             width: double.infinity,
-            child: options.length <= 3
-                ? SegmentedButton<String>(
-                    segments: options.map((opt) => ButtonSegment<String>(
-                      value: opt,
-                      label: Text(
-                        opt.toUpperCase(),
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 10,
+            child: options.length <= 4
+                ? Row(
+                    children: options.map((opt) {
+                      final isSelected = value == opt;
+                      return Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 4),
+                          child: GestureDetector(
+                            onTap: () => onChanged(opt),
+                            child: Container(
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: isSelected ? tokens.primary : tokens.base200,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  opt.toUpperCase(),
+                                  style: TextStyle(
+                                    color: isSelected ? tokens.onPrimary : tokens.onSurface.withValues(alpha: 0.54),
+                                    fontSize: 10,
+                                    fontFamily: 'monospace',
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    )).toList(),
-                    selected: {value},
-                    showSelectedIcon: false,
-                    onSelectionChanged: (newSelection) {
-                      onChanged(newSelection.first);
-                    },
-                    style: SegmentedButton.styleFrom(
-                      selectedBackgroundColor: tokens.primary,
-                      selectedForegroundColor: Colors.black,
-                    ),
+                      );
+                    }).toList(),
                   )
                 : DropdownButtonFormField<String>(
                     initialValue: value,

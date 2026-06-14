@@ -22,6 +22,7 @@ import 'package:re_highlight/re_highlight.dart' show Mode;
 import 'package:re_highlight/styles/atom-one-dark.dart' show atomOneDarkTheme;
 
 import '../../../services/device_fs_service.dart';
+import '../../theme/app_theme.dart';
 import 'fs_helpers.dart';
 
 /// Result from the file editor.
@@ -131,7 +132,7 @@ class FileEditorDialog extends StatefulWidget {
     return showDialog<FileEditResult>(
       context: context,
       barrierDismissible: false,
-      barrierColor: Colors.black,
+      barrierColor: context.tokens.base300,
       useSafeArea: true,
       builder: (_) => FileEditorDialog(
         fs: fs,
@@ -274,17 +275,17 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
     final lang = _languageForFile(widget.fileName);
 
     return Material(
-      color: const Color(0xFF121212),
+      color: context.tokens.surface,
       child: SafeArea(
         child: Column(
           children: [
             // ── Top bar ───────────────────────────────────────────
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: const BoxDecoration(
-                color: Color(0xFF1E1E1E),
+              decoration: BoxDecoration(
+                color: context.tokens.base300,
                 border: Border(
-                  bottom: BorderSide(color: Color(0xFF333333)),
+                  bottom: BorderSide(color: context.tokens.onSurface.withValues(alpha: 0.2)),
                 ),
               ),
               child: Row(
@@ -292,7 +293,7 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
                   IconButton(
                     icon: const Icon(Icons.arrow_back_rounded),
                     tooltip: 'Back',
-                    color: Colors.white70,
+                    color: context.tokens.onSurface.withValues(alpha: 0.7),
                     onPressed: () => _onBack(context),
                   ),
                   const SizedBox(width: 4),
@@ -305,8 +306,8 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
                           widget.fileName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.jetBrainsMono(
-                            color: Colors.white,
+                          style: GoogleFonts.martianMono(
+                            color: context.tokens.onSurface,
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
@@ -315,7 +316,7 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
                           Text(
                             'Unsaved changes',
                             style: TextStyle(
-                              color: Colors.orangeAccent.withValues(alpha: 0.7),
+                              color: context.tokens.warning.withValues(alpha: 0.7),
                               fontSize: 10,
                             ),
                           ),
@@ -336,7 +337,7 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
                             icon: Icon(
                               Icons.undo_rounded,
                               size: 18,
-                              color: canUndo ? Colors.white70 : Colors.white24,
+                              color: canUndo ? context.tokens.onSurface.withValues(alpha: 0.7) : context.tokens.onSurface.withValues(alpha: 0.24),
                             ),
                             tooltip: 'Undo',
                             onPressed: canUndo
@@ -353,7 +354,7 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
                             icon: Icon(
                               Icons.redo_rounded,
                               size: 18,
-                              color: canRedo ? Colors.white70 : Colors.white24,
+                              color: canRedo ? context.tokens.onSurface.withValues(alpha: 0.7) : context.tokens.onSurface.withValues(alpha: 0.24),
                             ),
                             tooltip: 'Redo',
                             onPressed: canRedo
@@ -373,11 +374,11 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
                   const SizedBox(width: 8),
                   FilledButton.icon(
                     icon: _saving
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 14,
                             height: 14,
                             child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.black),
+                                strokeWidth: 2, color: context.tokens.onPrimary),
                           )
                         : const Icon(Icons.save_rounded, size: 16),
                     label: Text(
@@ -386,14 +387,14 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
-                        color: _contentChanged ? Colors.black : Colors.black38,
+                        color: _contentChanged ? context.tokens.onPrimary : context.tokens.onPrimary.withValues(alpha: 0.38),
                       ),
                     ),
                     style: FilledButton.styleFrom(
                       backgroundColor: _contentChanged
-                          ? scheme.primary
-                          : Colors.white12,
-                      foregroundColor: Colors.black,
+                          ? context.tokens.primary
+                          : context.tokens.onSurface.withValues(alpha: 0.12),
+                      foregroundColor: context.tokens.onPrimary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(6),
                       ),
@@ -409,7 +410,7 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
             // ── Editor body ───────────────────────────────────────
             Expanded(
               child: _loading
-                  ? const Center(
+                  ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -417,7 +418,7 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
                           SizedBox(height: 16),
                           Text(
                             'Reading file…',
-                            style: TextStyle(color: Colors.white54),
+                            style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.54)),
                           ),
                         ],
                       ),
@@ -431,14 +432,14 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
                               children: [
                                 Icon(Icons.error_outline_rounded,
                                     size: 48,
-                                    color: Colors.redAccent
+                                    color: context.tokens.error
                                         .withValues(alpha: 0.7)),
                                 const SizedBox(height: 12),
                                 Text(
                                   _error!,
                                   textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                      color: Colors.redAccent, fontSize: 13),
+                                  style:                                  TextStyle(
+                                      color: context.tokens.error, fontSize: 13),
                                 ),
                                 const SizedBox(height: 16),
                                 FilledButton.tonal(
@@ -456,19 +457,19 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
                                 width: double.infinity,
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 16, vertical: 6),
-                                color: Colors.orangeAccent
+                                color: context.tokens.warning
                                     .withValues(alpha: 0.1),
                                 child: Row(
                                   children: [
                                     Icon(Icons.warning_amber_rounded,
                                         size: 14,
-                                        color: Colors.orangeAccent),
+                                        color: context.tokens.warning),
                                     const SizedBox(width: 8),
-                                    const Expanded(
+                                    Expanded(
                                       child: Text(
                                         'Large file — editing may be slow',
                                         style: TextStyle(
-                                          color: Colors.orangeAccent,
+                                          color: context.tokens.warning,
                                           fontSize: 11,
                                         ),
                                       ),
@@ -501,7 +502,7 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
                                         controller: editingController,
                                         notifier: notifier,
                                         textStyle: TextStyle(
-                                          color: Colors.white38,
+                                          color: context.tokens.onSurface.withValues(alpha: 0.38),
                                           fontSize: 11,
                                           fontFamily: 'monospace',
                                         ),
@@ -520,21 +521,21 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
                             Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 6),
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF1E1E1E),
+                              decoration: BoxDecoration(
+                                color: context.tokens.base300,
                                 border: Border(
-                                  top: BorderSide(color: Color(0xFF333333)),
+                                  top: BorderSide(color: context.tokens.onSurface.withValues(alpha: 0.2)),
                                 ),
                               ),
                               child: Row(
                                 children: [
                                   Icon(Icons.code_rounded,
-                                      size: 12, color: Colors.white38),
+                                      size: 12, color: context.tokens.onSurface.withValues(alpha: 0.38)),
                                   const SizedBox(width: 6),
                                   Text(
                                     lang.toUpperCase(),
                                     style: TextStyle(
-                                      color: Colors.white38,
+                                      color: context.tokens.onSurface.withValues(alpha: 0.38),
                                       fontSize: 11,
                                     ),
                                   ),
@@ -542,7 +543,7 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
                                   Text(
                                     '${_controller?.text.length ?? 0} chars',
                                     style: TextStyle(
-                                      color: Colors.white38,
+                                      color: context.tokens.onSurface.withValues(alpha: 0.38),
                                       fontSize: 11,
                                       fontFeatures: const [
                                         FontFeature.tabularFigures()
@@ -553,7 +554,7 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
                                   Text(
                                     formatBytes(_originalBytes?.length ?? 0),
                                     style: TextStyle(
-                                      color: Colors.white38,
+                                      color: context.tokens.onSurface.withValues(alpha: 0.38),
                                       fontSize: 11,
                                     ),
                                   ),
@@ -574,25 +575,25 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
       showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          backgroundColor: const Color(0xFF1A1A1A),
+          backgroundColor: context.tokens.surface,
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12)),
-          title: const Text('Discard changes?',
-              style: TextStyle(color: Colors.white)),
-          content: const Text(
+          title: Text('Discard changes?',
+              style: TextStyle(color: context.tokens.onSurface)),
+          content: Text(
             'You have unsaved changes. Discard them?',
-            style: TextStyle(color: Colors.white54),
+            style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.54)),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('CANCEL',
-                  style: TextStyle(color: Colors.white54)),
+              child: Text('CANCEL',
+                  style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.54))),
             ),
             FilledButton.tonal(
               style: FilledButton.styleFrom(
-                backgroundColor: Colors.redAccent.withValues(alpha: 0.2),
-                foregroundColor: Colors.redAccent,
+                backgroundColor: context.tokens.error.withValues(alpha: 0.2),
+                foregroundColor: context.tokens.error,
               ),
               onPressed: () => Navigator.of(ctx).pop(true),
               child: const Text('DISCARD'),

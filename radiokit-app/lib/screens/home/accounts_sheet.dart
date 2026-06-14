@@ -14,7 +14,7 @@ class AccountsSheet extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      backgroundColor: const Color(0xFF1A1A1A),
+      backgroundColor: context.tokens.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
       ),
@@ -43,18 +43,18 @@ class AccountsSheet extends StatelessWidget {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(Icons.cloud_off_rounded,
-                                      size: 48, color: Colors.white.withValues(alpha: 0.15)),
-                                  const SizedBox(height: 16),
+                                      size: 48, color: context.tokens.onSurface.withValues(alpha: 0.15)),
+                                  SizedBox(height: 16),
                                   Text(
                                     'No accounts yet',
                                     style: TextStyle(
-                                        color: Colors.white.withValues(alpha: 0.4), fontSize: 14),
+                                        color: context.tokens.onSurface.withValues(alpha: 0.4), fontSize: 14),
                                   ),
-                                  const SizedBox(height: 8),
+                                  SizedBox(height: 8),
                                   Text(
                                     'Create an account to get started',
                                     style: TextStyle(
-                                        color: Colors.white.withValues(alpha: 0.25), fontSize: 12),
+                                        color: context.tokens.onSurface.withValues(alpha: 0.25), fontSize: 12),
                                   ),
                                 ],
                               ),
@@ -82,8 +82,8 @@ class AccountsSheet extends StatelessWidget {
                   bottom: 24,
                   child: FloatingActionButton(
                     onPressed: () => _showAccountDialog(context),
-                    backgroundColor: AppColors.brandOrange,
-                    foregroundColor: Colors.black,
+                    backgroundColor: context.tokens.primary,
+                    foregroundColor: context.tokens.onPrimary,
                     child: const Icon(Icons.add_rounded, size: 28),
                   ),
                 ),
@@ -107,7 +107,7 @@ class AccountsSheet extends StatelessWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Public key copied for sharing'),
-        backgroundColor: Colors.greenAccent,
+        backgroundColor: context.tokens.success,
       ),
     );
     Clipboard.setData(ClipboardData(text: account.publicKey));
@@ -118,7 +118,7 @@ class AccountsSheet extends StatelessWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Public key copied'),
-        backgroundColor: AppColors.brandOrange,
+        backgroundColor: context.tokens.primary,
       ),
     );
   }
@@ -127,13 +127,13 @@ class AccountsSheet extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
+        backgroundColor: context.tokens.base300,
         title: const Text('Delete Account'),
         content: Text('Delete "${account.name}"? This cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('CANCEL', style: TextStyle(color: Colors.white38)),
+            child: Text('CANCEL', style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.38))),
           ),
           TextButton(
             onPressed: () {
@@ -142,7 +142,7 @@ class AccountsSheet extends StatelessWidget {
             },
             child: Text('DELETE',
                 style: GoogleFonts.changa(
-                    color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13)),
+                    color: context.tokens.error, fontWeight: FontWeight.bold, fontSize: 13)),
           ),
         ],
       ),
@@ -170,7 +170,7 @@ class _AccountCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: context.tokens.onSurface.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
@@ -181,43 +181,43 @@ class _AccountCard extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: AppColors.brandOrange.withValues(alpha: 0.15),
+                color: context.tokens.primary.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
                 Icons.person_rounded,
                 size: 20,
-                color: AppColors.brandOrange.withValues(alpha: 0.7),
+                color: context.tokens.primary.withValues(alpha: 0.7),
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     account.name,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: context.tokens.onSurface,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   Text(
                     account.publicKey.substring(0, 16) + '...',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.4),
+                      color: context.tokens.onSurface.withValues(alpha: 0.4),
                       fontSize: 11,
                       fontFamily: 'monospace',
                     ),
                   ),
                   if (account.relay.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4),
                     Text(
                       'Relay: ${account.relay}',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.3),
+                        color: context.tokens.onSurface.withValues(alpha: 0.3),
                         fontSize: 10,
                       ),
                     ),
@@ -226,17 +226,17 @@ class _AccountCard extends StatelessWidget {
               ),
             ),
             IconButton(
-              icon: Icon(Icons.edit_rounded, size: 18, color: Colors.white.withValues(alpha: 0.5)),
+              icon: Icon(Icons.edit_rounded, size: 18, color: context.tokens.onSurface.withValues(alpha: 0.5)),
               onPressed: onEdit,
               tooltip: 'Edit',
             ),
             IconButton(
-              icon: Icon(Icons.share_rounded, size: 18, color: Colors.white.withValues(alpha: 0.5)),
+              icon: Icon(Icons.share_rounded, size: 18, color: context.tokens.onSurface.withValues(alpha: 0.5)),
               onPressed: onShare,
               tooltip: 'Share',
             ),
             IconButton(
-              icon: Icon(Icons.copy_rounded, size: 18, color: Colors.white.withValues(alpha: 0.5)),
+              icon: Icon(Icons.copy_rounded, size: 18, color: context.tokens.onSurface.withValues(alpha: 0.5)),
               onPressed: onCopy,
               tooltip: 'Copy public key',
             ),
@@ -280,7 +280,7 @@ class _AccountDialogState extends State<_AccountDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: const Color(0xFF1E1E1E),
+      backgroundColor: context.tokens.base300,
       title: Text(_isNew ? 'Create Account' : 'Edit Account'),
       content: SingleChildScrollView(
         child: Column(
@@ -289,57 +289,57 @@ class _AccountDialogState extends State<_AccountDialog> {
           children: [
             TextField(
               controller: _nameCtrl,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: context.tokens.onSurface),
               decoration: InputDecoration(
                 labelText: 'NAME',
-                labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10),
+                labelStyle: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.5), fontSize: 10),
                 filled: true,
-                fillColor: Colors.white.withValues(alpha: 0.05),
+                fillColor: context.tokens.onSurface.withValues(alpha: 0.05),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             TextField(
               controller: _relayCtrl,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: context.tokens.onSurface),
               decoration: InputDecoration(
                 labelText: 'RELAY (optional)',
-                labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10),
+                labelStyle: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.5), fontSize: 10),
                 hintText: 'wss://relay.example.com',
-                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.2)),
+                hintStyle: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.2)),
                 filled: true,
-                fillColor: Colors.white.withValues(alpha: 0.05),
+                fillColor: context.tokens.onSurface.withValues(alpha: 0.05),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
               ),
             ),
             if (!_isNew) ...[
-              const SizedBox(height: 16),
-              const Divider(color: Colors.white12),
-              const SizedBox(height: 12),
+              SizedBox(height: 16),
+              Divider(color: context.tokens.onSurface.withValues(alpha: 0.12)),
+              SizedBox(height: 12),
               Text(
                 'PUBLIC KEY',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.4),
+                  color: context.tokens.onSurface.withValues(alpha: 0.4),
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               _KeyRow(
                 text: widget.account!.publicKey,
                 obscured: false,
                 keyLabel: 'Public',
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               Text(
                 'PRIVATE KEY',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.4),
+                  color: context.tokens.onSurface.withValues(alpha: 0.4),
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               _KeyRow(
                 text: widget.account!.privateKey,
                 obscured: _obscurePrivateKey,
@@ -353,12 +353,12 @@ class _AccountDialogState extends State<_AccountDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('CANCEL', style: TextStyle(color: Colors.white38)),
+          child: Text('CANCEL', style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.38))),
         ),
         FilledButton(
           style: FilledButton.styleFrom(
-            backgroundColor: AppColors.brandOrange,
-            foregroundColor: Colors.black,
+            backgroundColor: context.tokens.primary,
+            foregroundColor: context.tokens.onPrimary,
           ),
           onPressed: _save,
           child: Text(_isNew ? 'CREATE' : 'SAVE'),
@@ -403,7 +403,7 @@ class _KeyRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: context.tokens.onSurface.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
@@ -412,7 +412,7 @@ class _KeyRow extends StatelessWidget {
             child: SelectableText(
               obscured ? '•' * text.length : text,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
+                color: context.tokens.onSurface.withValues(alpha: 0.6),
                 fontSize: 11,
                 fontFamily: 'monospace',
               ),
@@ -423,7 +423,7 @@ class _KeyRow extends StatelessWidget {
               icon: Icon(
                 obscured ? Icons.visibility_off_rounded : Icons.visibility_rounded,
                 size: 18,
-                color: Colors.white.withValues(alpha: 0.5),
+                color: context.tokens.onSurface.withValues(alpha: 0.5),
               ),
               onPressed: onToggleObscured,
               tooltip: obscured ? 'Show' : 'Hide',
@@ -434,14 +434,14 @@ class _KeyRow extends StatelessWidget {
             icon: Icon(
               Icons.copy_rounded,
               size: 18,
-              color: Colors.white.withValues(alpha: 0.5),
+              color: context.tokens.onSurface.withValues(alpha: 0.5),
             ),
             onPressed: () {
               Clipboard.setData(ClipboardData(text: text));
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('$keyLabel key copied'),
-                  backgroundColor: AppColors.brandOrange,
+                  backgroundColor: context.tokens.primary,
                   duration: const Duration(seconds: 2),
                 ),
               );

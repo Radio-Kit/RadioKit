@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:radiokit_widgets/radiokit_widgets.dart';
 import 'package:radiokit/widgets/radiokit_app_bar.dart';
 
 void main() {
@@ -26,16 +27,20 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
-          theme: ThemeData.dark(),
-          home: Scaffold(
-            appBar: RadioKitAppBar(
-              tabIndex: tabIndex,
-              onConnect: onConnect,
-              onOpen: onOpen,
-              onCreate: onCreate,
+        RKTheme(
+          tokens: RKTokens.dragon,
+          child: MaterialApp(
+            theme: ThemeData.dark(),
+            home: Scaffold(
+              appBar: RadioKitAppBar(
+                tabIndex: tabIndex,
+                onConnect: onConnect,
+                onOpen: onOpen,
+                onCreate: onCreate,
+                accentColor: RKTokens.dragon.primary,
+              ),
+              body: const SizedBox.expand(),
             ),
-            body: const SizedBox.expand(),
           ),
         ),
       );

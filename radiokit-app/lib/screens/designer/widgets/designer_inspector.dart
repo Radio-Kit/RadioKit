@@ -79,10 +79,10 @@ class _DesignerInspectorState extends State<DesignerInspector> {
 
     return Container(
       width: 320,
-      decoration: const BoxDecoration(
-        color: Color(0xFF181818),
+      decoration: BoxDecoration(
+        color: tokens.base300,
         border: Border(
-          left: BorderSide(color: Color(0xFF222222), width: 1),
+          left: BorderSide(color: tokens.effectiveOutline, width: 1),
         ),
       ),
       child: Column(
@@ -105,14 +105,14 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                     InspectorFieldBuilders.buildSection(tokens, 'TRANSFORM', [
                       _buildSizeRow(tokens, el),
                       _buildPositionRow(tokens, el),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8),
                       InspectorFieldBuilders.buildRotationSlider(
                           tokens, el.rotation.toDouble(), (v) {
                         widget.state.updateElementRotation(el.id, v.round());
                       },
                           onReset: () =>
                               widget.state.updateElementRotation(el.id, 0)),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                       _buildDeleteButton(tokens),
                     ]),
                   ],
@@ -168,12 +168,12 @@ class _DesignerInspectorState extends State<DesignerInspector> {
       child: Row(
         children: [
           Icon(LucideIcons.list, color: tokens.primary, size: 20),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(
             child: Text(
               _headerTitle(),
-              style: const TextStyle(
-                color: Color(0xFFE0E0E0),
+              style: TextStyle(
+                color: tokens.onSurface.withValues(alpha: 0.88),
                 fontSize: 14,
                 fontFamily: 'monospace',
                 fontWeight: FontWeight.w600,
@@ -185,7 +185,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
             icon:
-                const Icon(LucideIcons.chevronRight, color: Color(0xFFE0E0E0)),
+                Icon(LucideIcons.chevronRight, color: tokens.onSurface.withValues(alpha: 0.88)),
             onPressed: () => widget.state.setInspectorVisible(false),
             tooltip: 'Close',
           ),
@@ -207,22 +207,22 @@ class _DesignerInspectorState extends State<DesignerInspector> {
               'Label',
               style: TextStyle(
                 color:
-                    isValid ? const Color(0xFF888888) : const Color(0xFFFF5555),
+                    isValid ? tokens.onSurface.withValues(alpha: 0.5) : tokens.error,
                 fontSize: 11,
                 fontFamily: 'monospace',
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Expanded(
             child: Container(
               height: 28,
               decoration: BoxDecoration(
-                color: const Color(0xFF0D0D0D),
+                color: tokens.base200,
                 border: Border.all(
                   color: isValid
-                      ? const Color(0xFF333333)
-                      : const Color(0xFFFF5555),
+                      ? tokens.effectiveOutline
+                      : tokens.error,
                 ),
                 borderRadius: BorderRadius.circular(2),
               ),
@@ -230,8 +230,8 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                 controller: TextEditingController(text: el.label)
                   ..selection =
                       TextSelection.collapsed(offset: el.label.length),
-                style: const TextStyle(
-                  color: Color(0xFFE0E0E0),
+                style: TextStyle(
+                  color: tokens.onSurface.withValues(alpha: 0.88),
                   fontSize: 11,
                   fontFamily: 'monospace',
                 ),
@@ -241,7 +241,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                   border: InputBorder.none,
                   isDense: true,
                   suffixIcon: !isValid
-                      ? const Tooltip(
+                      ? Tooltip(
                           message:
                               'Must be a valid C++ identifier\n(starts with letter or _, contains\nonly letters, digits, or _)',
                           child: Padding(
@@ -249,7 +249,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                             child: Icon(
                               LucideIcons.alertCircle,
                               size: 14,
-                              color: Color(0xFFFF5555),
+                              color: tokens.error,
                             ),
                           ),
                         )
@@ -260,7 +260,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
               ),
             ),
           ),
-          const SizedBox(width: 6),
+          SizedBox(width: 6),
           GestureDetector(
             onTap: () => widget.state.toggleElementLabelHidden(el.id),
             child: Container(
@@ -268,11 +268,11 @@ class _DesignerInspectorState extends State<DesignerInspector> {
               height: 28,
               decoration: BoxDecoration(
                 color: el.labelHidden
-                    ? const Color(0xFF0D0D0D)
-                    : const Color(0xFF1A1A1A),
+                    ? tokens.base200
+                    : tokens.base200,
                 border: Border.all(
                   color:
-                      el.labelHidden ? const Color(0xFF555555) : tokens.primary,
+                      el.labelHidden ? tokens.onSurface.withValues(alpha: 0.38) : tokens.primary,
                 ),
                 borderRadius: BorderRadius.circular(2),
               ),
@@ -280,7 +280,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                 el.labelHidden ? LucideIcons.eyeOff : LucideIcons.eye,
                 size: 14,
                 color:
-                    el.labelHidden ? const Color(0xFF666666) : tokens.primary,
+                    el.labelHidden ? tokens.onSurface.withValues(alpha: 0.38) : tokens.primary,
               ),
             ),
           ),
@@ -307,7 +307,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
               'Password',
               widget.state.connectionPassword,
               (v) => widget.state.setConnectionPassword(v)),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           // Enable OTA
           widget.state.connectionType == 'ble'
               ? InspectorFieldBuilders.buildBoolToggle(
@@ -384,15 +384,15 @@ class _DesignerInspectorState extends State<DesignerInspector> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Position',
             style: TextStyle(
-              color: Color(0xFF888888),
+              color: tokens.onSurface.withValues(alpha: 0.5),
               fontSize: 11,
               fontFamily: 'monospace',
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           Row(
             children: [
               Expanded(
@@ -401,7 +401,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                   widget.state.updateElementPosition(el.id, v, el.y);
                 }),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Expanded(
                 child: InspectorFieldBuilders.buildCompactNumField(
                     tokens, 'Y', el.y, (v) {
@@ -424,15 +424,15 @@ class _DesignerInspectorState extends State<DesignerInspector> {
         children: [
           Row(
             children: [
-              const Text(
+              Text(
                 'Size',
                 style: TextStyle(
-                  color: Color(0xFF888888),
+                  color: tokens.onSurface.withValues(alpha: 0.5),
                   fontSize: 11,
                   fontFamily: 'monospace',
                 ),
               ),
-              const Spacer(),
+              Spacer(),
               GestureDetector(
                 onTap: () {
                   final (dw, dh) = DesignerElement.defaultSize(el.type);
@@ -441,12 +441,12 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                 child: Padding(
                   padding: const EdgeInsets.only(left: 8),
                   child: Icon(LucideIcons.rotateCcw,
-                      size: 12, color: const Color(0xFF555555)),
+                      size: 12, color: tokens.onSurface.withValues(alpha: 0.38)),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           Row(
             children: [
               if (ar != null && ar >= 0)
@@ -476,7 +476,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                     widget.state.updateElementSize(el.id, width: v);
                   }),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Expanded(
                   child: InspectorFieldBuilders.buildCompactNumField(
                       tokens, 'H', el.height, (v) {
@@ -502,9 +502,9 @@ class _DesignerInspectorState extends State<DesignerInspector> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
         decoration: BoxDecoration(
-          color: selected ? tokens.primary : const Color(0xFF1A1A1A),
+          color: selected ? tokens.primary : tokens.base200,
           border: Border.all(
-            color: selected ? tokens.primary : const Color(0xFF444444),
+            color: selected ? tokens.primary : tokens.effectiveOutline,
             width: 1,
           ),
           borderRadius: BorderRadius.circular(2),
@@ -513,7 +513,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
           label,
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: selected ? Colors.black : const Color(0xFF888888),
+            color: selected ? tokens.onPrimary : tokens.onSurface.withValues(alpha: 0.5),
             fontSize: 10,
             fontFamily: 'monospace',
             fontWeight: selected ? FontWeight.bold : FontWeight.normal,
@@ -531,16 +531,16 @@ class _DesignerInspectorState extends State<DesignerInspector> {
         child: TextButton(
           onPressed: () => widget.state.removeSelected(),
           style: TextButton.styleFrom(
-            backgroundColor: const Color(0xFF331111),
-            side: const BorderSide(color: Color(0xFF663333)),
+            backgroundColor: tokens.error.withValues(alpha: 0.15),
+            side: BorderSide(color: tokens.error.withValues(alpha: 0.4)),
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
             padding: const EdgeInsets.symmetric(vertical: 8),
           ),
-          child: const Text(
+          child: Text(
             'DELETE WIDGET',
             style: TextStyle(
-              color: Color(0xFFFF5555),
+              color: tokens.error,
               fontSize: 11,
               fontFamily: 'monospace',
               fontWeight: FontWeight.bold,
@@ -571,7 +571,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                     letterSpacing: 1,
                   ),
                 ),
-                const Spacer(),
+                Spacer(),
                 GestureDetector(
                   onTap: () =>
                       widget.state.setEnableControlUI(!widget.state.enableControlUI),
@@ -581,7 +581,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                     decoration: BoxDecoration(
                       color: widget.state.enableControlUI
                           ? tokens.primary
-                          : const Color(0xFF333333),
+                          : tokens.effectiveOutline,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: AnimatedAlign(
@@ -593,8 +593,8 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                         width: 12,
                         height: 12,
                         margin: const EdgeInsets.all(2),
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
+                        decoration: BoxDecoration(
+                          color: tokens.onSurface.withValues(alpha: 0.88),
                           borderRadius: BorderRadius.all(Radius.circular(6)),
                         ),
                       ),
@@ -615,14 +615,14 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                     width: 80,
                     child: Text(
                       'Orientation',
-                      style: const TextStyle(
-                        color: Color(0xFF888888),
+                      style: TextStyle(
+                        color: tokens.onSurface.withValues(alpha: 0.5),
                         fontSize: 11,
                         fontFamily: 'monospace',
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Expanded(
                     child: Row(
                       children: [
@@ -637,7 +637,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                             },
                           ),
                         ),
-                        const SizedBox(width: 4),
+                        SizedBox(width: 4),
                         Expanded(
                           child: _buildMiniToggle(
                             tokens,
@@ -669,14 +669,14 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                     width: 80,
                     child: Text(
                       'Grid',
-                      style: const TextStyle(
-                        color: Color(0xFF888888),
+                      style: TextStyle(
+                        color: tokens.onSurface.withValues(alpha: 0.5),
                         fontSize: 11,
                         fontFamily: 'monospace',
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Expanded(
                     child: Row(
                       children: [
@@ -689,7 +689,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                                 widget.state.setGridStyle(GridStyle.lines),
                           ),
                         ),
-                        const SizedBox(width: 4),
+                        SizedBox(width: 4),
                         Expanded(
                           child: _buildMiniToggle(
                             tokens,
@@ -699,7 +699,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                                 widget.state.setGridStyle(GridStyle.dots),
                           ),
                         ),
-                        const SizedBox(width: 4),
+                        SizedBox(width: 4),
                         Expanded(
                           child: _buildMiniToggle(
                             tokens,
@@ -720,13 +720,13 @@ class _DesignerInspectorState extends State<DesignerInspector> {
               tokens,
               'Skin',
               widget.state.activeSkin,
-              ['dragon', 'minimal', 'retro', 'rose', 'debug'],
+              RKTokens.presetsByName.keys.toList(),
               (v) {
                 widget.state.setSkin(v);
               },
             ),
           ],
-          Container(height: 1, color: const Color(0xFF222222)),
+          Container(height: 1, color: tokens.effectiveOutline),
         ],
     );
   }
@@ -764,8 +764,8 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                   padding: const EdgeInsets.only(bottom: 6),
                   child: Text(
                     'WIDGET ${i + 1}',
-                    style: const TextStyle(
-                      color: Color(0xFF888888),
+                    style: TextStyle(
+                      color: tokens.onSurface.withValues(alpha: 0.5),
                       fontSize: 9,
                       fontFamily: 'monospace',
                       fontWeight: FontWeight.bold,
@@ -781,27 +781,27 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                       child: Container(
                         height: 28,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0D0D0D),
-                          border: Border.all(color: const Color(0xFF333333)),
+                          color: tokens.base200,
+                          border: Border.all(color: tokens.effectiveOutline),
                           borderRadius: BorderRadius.circular(2),
                         ),
                         child: TextField(
                           controller: TextEditingController(text: label)
                             ..selection = TextSelection.collapsed(
                                 offset: label.length),
-                          style: const TextStyle(
-                            color: Color(0xFFE0E0E0),
+                          style: TextStyle(
+                            color: tokens.onSurface.withValues(alpha: 0.88),
                             fontSize: 11,
                             fontFamily: 'monospace',
                           ),
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             contentPadding: EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 4),
                             border: InputBorder.none,
                             isDense: true,
                             hintText: 'Label',
                             hintStyle: TextStyle(
-                              color: Color(0xFF555555),
+                              color: tokens.onSurface.withValues(alpha: 0.38),
                               fontSize: 11,
                             ),
                           ),
@@ -810,7 +810,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    SizedBox(width: 6),
                     // Icon picker
                     GestureDetector(
                       onTap: () => IconFieldBuilder.openIconPickerDialog(
@@ -822,8 +822,8 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                         height: 28,
                         width: 40,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1A1A1A),
-                          border: Border.all(color: const Color(0xFF333333)),
+                          color: tokens.base200,
+                          border: Border.all(color: tokens.effectiveOutline),
                           borderRadius: BorderRadius.circular(2),
                         ),
                         child: Row(
@@ -835,59 +835,59 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                                 padding: const EdgeInsets.only(right: 2),
                                 child: Icon(
                                   kDesignerIcons[iconName]!,
-                                  color: const Color(0xFFFF8C00),
+                                  color: tokens.primary,
                                   size: 14,
                                 ),
                               )
                             else
-                              const Padding(
+                              Padding(
                                 padding: EdgeInsets.only(right: 2),
                                 child: Text(
                                   '—',
                                   style: TextStyle(
-                                    color: Color(0xFF555555),
+                                    color: tokens.onSurface.withValues(alpha: 0.38),
                                     fontSize: 11,
                                     fontFamily: 'monospace',
                                   ),
                                 ),
                               ),
-                            const Icon(
+                            Icon(
                               LucideIcons.chevronDown,
-                              color: Color(0xFF666666),
+                              color: tokens.onSurface.withValues(alpha: 0.38),
                               size: 10,
                             ),
                           ],
                         ),
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    SizedBox(width: 6),
                     // Unit
                     Expanded(
                       flex: 2,
                       child: Container(
                         height: 28,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0D0D0D),
-                          border: Border.all(color: const Color(0xFF333333)),
+                          color: tokens.base200,
+                          border: Border.all(color: tokens.effectiveOutline),
                           borderRadius: BorderRadius.circular(2),
                         ),
                         child: TextField(
                           controller: TextEditingController(text: unit)
                             ..selection = TextSelection.collapsed(
                                 offset: unit.length),
-                          style: const TextStyle(
-                            color: Color(0xFFE0E0E0),
+                          style: TextStyle(
+                            color: tokens.onSurface.withValues(alpha: 0.88),
                             fontSize: 11,
                             fontFamily: 'monospace',
                           ),
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             contentPadding: EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 4),
                             border: InputBorder.none,
                             isDense: true,
                             hintText: 'Unit',
                             hintStyle: TextStyle(
-                              color: Color(0xFF555555),
+                              color: tokens.onSurface.withValues(alpha: 0.38),
                               fontSize: 11,
                             ),
                           ),
@@ -902,7 +902,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
             ),
           );
         }),
-        Container(height: 1, color: const Color(0xFF222222)),
+        Container(height: 1, color: tokens.effectiveOutline),
       ],
     );
   }
@@ -995,8 +995,8 @@ class _DesignerInspectorState extends State<DesignerInspector> {
           },
           suffix: Text(
             currentType == 'bi' ? '(-100 - 100)' : '(0 - 100)',
-            style: const TextStyle(
-              color: Color(0xFF666666),
+            style: TextStyle(
+              color: tokens.onSurface.withValues(alpha: 0.38),
               fontSize: 10,
               fontFamily: 'monospace',
             ),
@@ -1073,8 +1073,8 @@ class _DesignerInspectorState extends State<DesignerInspector> {
           },
           suffix: Text(
             currentType == 'bi' ? '(-100 - 100)' : '(0 - 100)',
-            style: const TextStyle(
-              color: Color(0xFF666666),
+            style: TextStyle(
+              color: tokens.onSurface.withValues(alpha: 0.38),
               fontSize: 10,
               fontFamily: 'monospace',
             ),
@@ -1166,8 +1166,8 @@ class _DesignerInspectorState extends State<DesignerInspector> {
           },
           suffix: Text(
             currentType == 'bi' ? '(-100 - 100)' : '(0 - 100)',
-            style: const TextStyle(
-              color: Color(0xFF666666),
+            style: TextStyle(
+              color: tokens.onSurface.withValues(alpha: 0.38),
               fontSize: 10,
               fontFamily: 'monospace',
             ),
@@ -1356,8 +1356,8 @@ class _DesignerInspectorState extends State<DesignerInspector> {
           },
           suffix: Text(
             currentType == 'bi' ? '(-100 - 100)' : '(0 - 100)',
-            style: const TextStyle(
-              color: Color(0xFF666666),
+            style: TextStyle(
+              color: tokens.onSurface.withValues(alpha: 0.38),
               fontSize: 10,
               fontFamily: 'monospace',
             ),
@@ -1623,11 +1623,11 @@ class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
           Row(
             children: [
               Icon(LucideIcons.list, color: widget.tokens.primary, size: 12),
-              const SizedBox(width: 6),
-              const Text(
+              SizedBox(width: 6),
+              Text(
                 'ITEMS',
                 style: TextStyle(
-                  color: Color(0xFF888888),
+                  color: widget.tokens.onSurface.withValues(alpha: 0.5),
                   fontSize: 10,
                   fontFamily: 'monospace',
                   fontWeight: FontWeight.bold,
@@ -1635,7 +1635,7 @@ class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           ...List.generate(_items.length, (i) {
             final item = _items[i];
             final onLabel = item['onLabel'] as String?;
@@ -1655,15 +1655,15 @@ class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
                 children: [
                   Text(
                     'ITEM ${i + 1}',
-                    style: const TextStyle(
-                      color: Color(0xFFE0E0E0),
+                    style: TextStyle(
+                      color: widget.tokens.onSurface.withValues(alpha: 0.88),
                       fontSize: 10,
                       fontFamily: 'monospace',
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   if (showOn) ...[
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     _buildCompactStateRow(
                       context,
                       label: 'ON',
@@ -1678,7 +1678,7 @@ class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
                     ),
                   ],
                   if (showOff) ...[
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     _buildCompactStateRow(
                       context,
                       label: 'OFF',
@@ -1715,8 +1715,8 @@ class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
           width: 24,
           child: Text(
             label,
-            style: const TextStyle(
-              color: Color(0xFF666666),
+            style: TextStyle(
+              color: widget.tokens.onSurface.withValues(alpha: 0.38),
               fontSize: 9,
               fontFamily: 'monospace',
               fontWeight: FontWeight.bold,
@@ -1729,26 +1729,26 @@ class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
           child: Container(
             height: 28,
             decoration: BoxDecoration(
-              color: const Color(0xFF0D0D0D),
-              border: Border.all(color: const Color(0xFF333333)),
+              color: widget.tokens.base200,
+              border: Border.all(color: widget.tokens.effectiveOutline),
               borderRadius: BorderRadius.circular(2),
             ),
             child: TextField(
               controller: TextEditingController(text: textValue)
                 ..selection = TextSelection.collapsed(offset: textValue.length),
-              style: const TextStyle(
-                color: Color(0xFFE0E0E0),
+              style: TextStyle(
+                color: widget.tokens.onSurface.withValues(alpha: 0.88),
                 fontSize: 11,
                 fontFamily: 'monospace',
               ),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 contentPadding:
                     EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 border: InputBorder.none,
                 isDense: true,
                 hintText: 'Text',
                 hintStyle: TextStyle(
-                  color: Color(0xFF555555),
+                  color: widget.tokens.onSurface.withValues(alpha: 0.38),
                   fontSize: 11,
                 ),
               ),
@@ -1756,7 +1756,7 @@ class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: 8),
         // Icon picker
         GestureDetector(
           onTap: () => IconFieldBuilder.openIconPickerDialog(
@@ -1768,8 +1768,8 @@ class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
             height: 28,
             width: 44,
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A1A),
-              border: Border.all(color: const Color(0xFF333333)),
+              color: widget.tokens.base200,
+              border: Border.all(color: widget.tokens.effectiveOutline),
               borderRadius: BorderRadius.circular(2),
             ),
             child: Row(
@@ -1780,25 +1780,25 @@ class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
                     padding: const EdgeInsets.only(right: 4),
                     child: Icon(
                       kDesignerIcons[iconName]!,
-                      color: const Color(0xFFFF8C00),
+                      color: widget.tokens.primary,
                       size: 14,
                     ),
                   )
                 else
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(right: 4),
                     child: Text(
                       '—',
                       style: TextStyle(
-                        color: Color(0xFF555555),
+                        color: widget.tokens.onSurface.withValues(alpha: 0.38),
                         fontSize: 11,
                         fontFamily: 'monospace',
                       ),
                     ),
                   ),
-                const Icon(
+                Icon(
                   LucideIcons.chevronDown,
-                  color: Color(0xFF666666),
+                  color: widget.tokens.onSurface.withValues(alpha: 0.38),
                   size: 10,
                 ),
               ],

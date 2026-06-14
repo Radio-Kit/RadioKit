@@ -22,7 +22,7 @@ class DeviceSettingsDialog extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      backgroundColor: const Color(0xFF1A1A1A),
+      backgroundColor: context.tokens.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
       ),
@@ -99,7 +99,7 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.warning_rounded, color: Colors.orangeAccent, size: 32),
+        icon: Icon(Icons.warning_rounded, color: context.tokens.warning, size: 32),
         title: const Text('Disconnect Device?'),
         content: Text(
           'Connected via $transport. Disabling this will cause the device to disconnect.',
@@ -111,8 +111,8 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
           ),
           FilledButton.tonal(
             style: FilledButton.styleFrom(
-              backgroundColor: Colors.orangeAccent.withValues(alpha: 0.2),
-              foregroundColor: Colors.orangeAccent,
+              backgroundColor: context.tokens.warning.withValues(alpha: 0.2),
+              foregroundColor: context.tokens.warning,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('DISABLE'),
@@ -143,11 +143,11 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.brandOrange.withValues(alpha: 0.15),
+                    color: context.tokens.primary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.tune_rounded,
-                      color: AppColors.brandOrange, size: 22),
+                  child: Icon(Icons.tune_rounded,
+                      color: context.tokens.primary, size: 22),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -159,10 +159,10 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
                               fontSize: 18,
                               fontWeight: FontWeight.w900,
                               letterSpacing: -0.3,
-                              color: Colors.white)),
-                      const Text('DEVICE SETTINGS',
+                              color: context.tokens.onSurface)),
+                      Text('DEVICE SETTINGS',
                           style: TextStyle(
-                              color: Colors.white38,
+                              color: context.tokens.onSurface.withValues(alpha: 0.38),
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 1)),
@@ -170,8 +170,8 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
                   ),
                 ),
               ]),
-              const SizedBox(height: 24),
-              const Divider(height: 1, color: Colors.white12),
+              SizedBox(height: 24),
+              Divider(height: 1, color: context.tokens.onSurface.withValues(alpha: 0.12)),
               const SizedBox(height: 24),
 
               // ── MODEL_INFO section ─────────────────────────
@@ -245,14 +245,14 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.04),
+                  color: context.tokens.onSurface.withValues(alpha: 0.04),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.wifi_rounded, size: 20, color: _wifiEnabled ? AppColors.brandOrange : Colors.white38),
+                        Icon(Icons.wifi_rounded, size: 20, color: _wifiEnabled ? context.tokens.primary : context.tokens.onSurface.withValues(alpha: 0.38)),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -260,13 +260,13 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
                             children: [
                               Text('WIFI',
                                   style: TextStyle(
-                                      color: _wifiEnabled ? Colors.white : Colors.white54,
+                                      color: _wifiEnabled ? context.tokens.onSurface : context.tokens.onSurface.withValues(alpha: 0.54),
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600)),
                               const SizedBox(height: 2),
                               Text('Wireless network',
                                   style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.4),
+                                      color: context.tokens.onSurface.withValues(alpha: 0.4),
                                       fontSize: 11)),
                             ],
                           ),
@@ -283,14 +283,14 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
                               if (!v) _cloudEnabled = false;
                             });
                           },
-                          activeThumbColor: AppColors.brandOrange,
+                          activeThumbColor: context.tokens.primary,
                         ),
                       ],
                     ),
                     if (_wifiEnabled) ...[
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.symmetric(vertical: 8),
-                        child: Divider(height: 1, color: Colors.white10),
+                        child: Divider(height: 1, color: context.tokens.onSurface.withValues(alpha: 0.1)),
                       ),
                       _buildSettingRow(
                         Icons.cloud_rounded,
@@ -299,7 +299,7 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
                         Switch(
                           value: _cloudEnabled,
                           onChanged: (v) => setState(() => _cloudEnabled = v),
-                          activeThumbColor: AppColors.brandOrange,
+                          activeThumbColor: context.tokens.primary,
                         ),
                       ),
                     ],
@@ -316,9 +316,9 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
                 height: 48,
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.redAccent,
+                    foregroundColor: context.tokens.error,
                     side: BorderSide(
-                        color: Colors.redAccent.withValues(alpha: 0.5)),
+                        color: context.tokens.error.withValues(alpha: 0.5)),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(6)),
                   ),
@@ -332,10 +332,10 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Erase all settings (name, description, password) '
                 'and reboot the device. Compile-time defaults will be restored.',
-                style: TextStyle(color: Colors.white38, fontSize: 11),
+                style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.38), fontSize: 11),
               ),
             ],
           ),
@@ -350,7 +350,7 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
         Container(
           width: 6,
           height: 6,
-          color: AppColors.brandOrange,
+          color: context.tokens.primary,
         ),
         const SizedBox(width: 10),
         Text(
@@ -359,7 +359,7 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
             fontWeight: FontWeight.w700,
             fontSize: 12,
             letterSpacing: 1.5,
-            color: AppColors.brandOrange,
+            color: context.tokens.primary,
           ),
         ),
       ],
@@ -376,12 +376,12 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: context.tokens.onSurface.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: enabled ? AppColors.brandOrange : Colors.white38),
+          Icon(icon, size: 20, color: enabled ? context.tokens.primary : context.tokens.onSurface.withValues(alpha: 0.38)),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -389,13 +389,13 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
               children: [
                 Text(label,
                     style: TextStyle(
-                        color: enabled ? Colors.white : Colors.white54,
+                        color: enabled ? context.tokens.onSurface : context.tokens.onSurface.withValues(alpha: 0.54),
                         fontSize: 13,
                         fontWeight: FontWeight.w600)),
                 const SizedBox(height: 2),
                 Text(subtitle,
                     style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.4),
+                        color: context.tokens.onSurface.withValues(alpha: 0.4),
                         fontSize: 11)),
               ],
             ),
@@ -403,7 +403,7 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
           Switch(
             value: enabled,
             onChanged: onChanged,
-            activeThumbColor: AppColors.brandOrange,
+            activeThumbColor: context.tokens.primary,
           ),
         ],
       ),
@@ -413,7 +413,7 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
   Widget _buildSettingRow(IconData icon, String label, String value, Widget trailing) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: AppColors.brandOrange.withValues(alpha: 0.7)),
+        Icon(icon, size: 18, color: context.tokens.primary.withValues(alpha: 0.7)),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -422,7 +422,7 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
               Text(
                 label,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.6),
+                  color: context.tokens.onSurface.withValues(alpha: 0.6),
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1,
@@ -432,7 +432,7 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
               Text(
                 value,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.9),
+                  color: context.tokens.onSurface.withValues(alpha: 0.9),
                   fontSize: 13,
                 ),
               ),
@@ -459,16 +459,16 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
     bool isAdmin = false,
   }) {
     final borderColor = isAdmin
-        ? AppColors.brandOrange.withValues(alpha: 0.3)
-        : Colors.white12;
+        ? context.tokens.primary.withValues(alpha: 0.3)
+        : context.tokens.onSurface.withValues(alpha: 0.12);
     final focusBorderColor = isAdmin
-        ? AppColors.brandOrange.withValues(alpha: 0.7)
-        : AppColors.brandOrange.withValues(alpha: 0.5);
+        ? context.tokens.primary.withValues(alpha: 0.7)
+        : context.tokens.primary.withValues(alpha: 0.5);
     final labelColor =
-        isAdmin ? AppColors.brandOrange.withValues(alpha: 0.7) : Colors.white54;
+        isAdmin ? context.tokens.primary.withValues(alpha: 0.7) : context.tokens.onSurface.withValues(alpha: 0.54);
     final labelIcon = isAdmin
         ? Icon(Icons.admin_panel_settings_outlined,
-            size: 12, color: AppColors.brandOrange.withValues(alpha: 0.5))
+            size: 12, color: context.tokens.primary.withValues(alpha: 0.5))
         : null;
 
     return Column(
@@ -491,13 +491,13 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
                 controller: ctrl,
                 maxLines: maxLines,
                 obscureText: isPassword && !pwdVisible,
-                style: GoogleFonts.jetBrainsMono(
-                    color: Colors.white,
+                style: GoogleFonts.martianMono(
+                    color: context.tokens.onSurface,
                     fontSize: 13,
                     fontWeight: FontWeight.w500),
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.05),
+                  fillColor: context.tokens.onSurface.withValues(alpha: 0.05),
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   suffixIcon: isPassword && onTogglePwd != null
@@ -507,7 +507,7 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
                                   ? Icons.visibility_off_rounded
                                   : Icons.visibility_rounded,
                               size: 18,
-                              color: Colors.white38),
+                              color: context.tokens.onSurface.withValues(alpha: 0.38)),
                           onPressed: onTogglePwd,
                         )
                       : null,
@@ -535,19 +535,19 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
                 width: 40,
                 child: FilledButton(
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.brandOrange,
-                    foregroundColor: Colors.black,
+                    backgroundColor: context.tokens.primary,
+                    foregroundColor: context.tokens.onPrimary,
                     padding: EdgeInsets.zero,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4)),
                   ),
                   onPressed: saving ? null : onSave,
                   child: saving
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.black))
+                              strokeWidth: 2, color: context.tokens.onPrimary))
                       : const Icon(Icons.save_rounded, size: 18),
                 ),
               ),
@@ -599,7 +599,7 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(ok ? 'Field saved to device' : 'Failed to save'),
-        backgroundColor: ok ? Colors.greenAccent : Colors.redAccent,
+        backgroundColor: ok ? context.tokens.success : context.tokens.error,
       ),
     );
   }
@@ -609,8 +609,8 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.warning_rounded,
-            color: Colors.redAccent, size: 32),
+        icon: Icon(Icons.warning_rounded,
+            color: context.tokens.error, size: 32),
         title: const Text('Factory Reset?'),
         content: const Text(
             'This will erase all device settings (name, description, password) '
@@ -623,8 +623,8 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
           ),
           FilledButton.tonal(
             style: FilledButton.styleFrom(
-              backgroundColor: Colors.redAccent.withValues(alpha: 0.2),
-              foregroundColor: Colors.redAccent,
+              backgroundColor: context.tokens.error.withValues(alpha: 0.2),
+              foregroundColor: context.tokens.error,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('ERASE & REBOOT'),
@@ -643,7 +643,7 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
         content: Text(ok
             ? 'Factory reset sent — device rebooting...'
             : 'Failed to send factory reset'),
-        backgroundColor: ok ? Colors.orangeAccent : Colors.redAccent,
+        backgroundColor: ok ? context.tokens.warning : context.tokens.error,
       ),
     );
 

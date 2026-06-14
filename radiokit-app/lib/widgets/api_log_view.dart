@@ -37,18 +37,18 @@ class _ApiLogViewState extends State<ApiLogView> {
   Color _methodColor(String method) {
     switch (method) {
       case 'GET':
-        return AppColors.connected;
+        return context.tokens.success;
       case 'POST':
-        return AppColors.brandOrange;
+        return context.tokens.primary;
       case 'PUT':
       case 'PATCH':
-        return Colors.amberAccent;
+        return context.tokens.warning;
       case 'DELETE':
-        return Colors.redAccent;
+        return context.tokens.error;
       case 'SRV':
-        return Colors.white38;
+        return context.tokens.onSurface.withValues(alpha: 0.38);
       default:
-        return Colors.white54;
+        return context.tokens.onSurface.withValues(alpha: 0.54);
     }
   }
 
@@ -71,7 +71,7 @@ class _ApiLogViewState extends State<ApiLogView> {
                     children: [
                       Icon(Icons.api_rounded,
                           size: 14,
-                          color: AppColors.brandOrange.withValues(alpha: 0.7)),
+                          color: context.tokens.primary.withValues(alpha: 0.7)),
                       const SizedBox(width: 8),
                       Text(
                         'API_LOG',
@@ -80,7 +80,7 @@ class _ApiLogViewState extends State<ApiLogView> {
                             .labelSmall
                             ?.copyWith(
                               letterSpacing: 1.2,
-                              color: AppColors.brandOrange
+                              color: context.tokens.primary
                                   .withValues(alpha: 0.7),
                             ),
                       ),
@@ -105,7 +105,7 @@ class _ApiLogViewState extends State<ApiLogView> {
                         },
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
-                        color: Colors.white24,
+                        color: context.tokens.onSurface.withValues(alpha: 0.24),
                       ),
                       const SizedBox(width: 8),
                       IconButton(
@@ -114,7 +114,7 @@ class _ApiLogViewState extends State<ApiLogView> {
                         onPressed: () => ra.clearLog(),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
-                        color: Colors.white24,
+                        color: context.tokens.onSurface.withValues(alpha: 0.24),
                       ),
                     ],
                   ),
@@ -141,9 +141,9 @@ class _ApiLogViewState extends State<ApiLogView> {
       margin: EdgeInsets.symmetric(
           horizontal: widget.height == double.infinity ? 0 : 16),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.4),
+        color: context.tokens.base200,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: context.tokens.onSurface.withValues(alpha: 0.1)),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
@@ -151,7 +151,7 @@ class _ApiLogViewState extends State<ApiLogView> {
             ? Center(
                 child: Text(
                   'No requests yet',
-                  style: TextStyle(color: Colors.white24, fontSize: 12),
+                  style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.24), fontSize: 12),
                 ),
               )
             : ListView.builder(
@@ -181,7 +181,7 @@ class _ApiLogViewState extends State<ApiLogView> {
           children: [
             TextSpan(
               text: ' [${entry.timeLabel}] ',
-              style: const TextStyle(color: Colors.white24),
+              style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.24)),
             ),
             TextSpan(
               text: '${entry.method} ',
@@ -192,23 +192,23 @@ class _ApiLogViewState extends State<ApiLogView> {
             ),
             TextSpan(
               text: entry.path,
-              style: const TextStyle(color: Colors.white70),
+              style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.7)),
             ),
             if (entry.statusCode > 0) ...[
               TextSpan(
                 text: ' → ${entry.statusCode}',
                 style: TextStyle(
                   color: entry.statusCode >= 400
-                      ? Colors.redAccent
+                      ? context.tokens.error
                       : entry.statusCode >= 300
-                          ? AppColors.brandOrange
-                          : AppColors.connected,
+                          ? context.tokens.primary
+                          : context.tokens.success,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               TextSpan(
                 text: ' (${entry.durationMs}ms)',
-                style: const TextStyle(color: Colors.white24),
+                style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.24)),
               ),
             ],
           ],

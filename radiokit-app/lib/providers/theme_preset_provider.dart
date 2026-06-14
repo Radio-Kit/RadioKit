@@ -2,20 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Maps preset names to RKTokens instances.
-const Map<String, RKTokens> kTokenPresets = {
-  'dragon': RKTokens.dragon,
-  'minimal': RKTokens.minimal,
-  'retro': RKTokens.retro,
-  'rose': RKTokens.rose,
-  'debug': RKTokens.debug,
-};
-
 /// The UI-facing provider that manages the active RKTokens preset.
 class ThemePresetProvider extends ChangeNotifier {
   static const String _prefsKey = 'active_theme';
 
-  String _activePreset = 'dragon';
+  String _activePreset = RKTokens.defaultPreset;
   RKTokens _tokens = RKTokens.dragon;
 
   ThemePresetProvider();
@@ -25,17 +16,9 @@ class ThemePresetProvider extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       final saved = prefs.getString(_prefsKey);
-      if (saved != null && kTokenPresets.containsKey(saved)) {
+      if (saved != null && RKTokens.presetsByName.containsKey(saved)) {
         _activePreset = saved;
-        _tokens = kTokenPresets[saved]!;
-      } else if (saved == 'debug') {
-        // Fallback if they were on the debug skin (not in picker)
-        _activePreset = 'dragon';
-        _tokens = RKTokens.dragon;
-      } else if (saved == 'rambros') {
-        // Legacy alias — rambros is now dragon
-        _activePreset = 'dragon';
-        _tokens = RKTokens.dragon;
+        _tokens = RKTokens.presetsByName[saved]!;
       }
     } catch (_) {}
     notifyListeners();
@@ -48,13 +31,13 @@ class ThemePresetProvider extends ChangeNotifier {
   String get themeName => _activePreset;
 
   /// Available preset names.
-  List<String> get availableThemes => kTokenPresets.keys.toList();
+  List<String> get availableThemes => RKTokens.presetsByName.keys.toList();
 
   /// Switches the active theme preset.
   Future<void> setTheme(String presetName) async {
-    if (!kTokenPresets.containsKey(presetName)) return;
+    if (!RKTokens.presetsByName.containsKey(presetName)) return;
     _activePreset = presetName;
-    _tokens = kTokenPresets[presetName]!;
+    _tokens = RKTokens.presetsByName[presetName]!;
     notifyListeners();
     try {
       final prefs = await SharedPreferences.getInstance();

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:radiokit_widgets/radiokit_widgets.dart';
 import '../../providers/theme_provider.dart';
 import '../../providers/history_provider.dart';
 import '../../providers/designs_provider.dart';
@@ -15,9 +16,10 @@ import 'accounts_sheet.dart';
 
 class SystemTab extends StatelessWidget {
   Widget _buildProVersionCard(BuildContext context) {
+    final tokens = context.tokens;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: context.tokens.onSurface.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
@@ -31,10 +33,10 @@ class SystemTab extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: AppColors.brandOrange.withValues(alpha: 0.15),
+                    color: tokens.primary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.workspace_premium_rounded, color: AppColors.brandOrange, size: 28),
+                  child: Icon(Icons.workspace_premium_rounded, color: tokens.primary, size: 28),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -47,14 +49,14 @@ class SystemTab extends StatelessWidget {
                           fontWeight: FontWeight.w900,
                           fontSize: 16,
                           letterSpacing: 1.5,
-                          color: AppColors.brandOrange,
+                          color: tokens.primary,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Support the project to keep development alive.',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.7),
+                          color: tokens.onSurface.withValues(alpha: 0.7),
                           fontSize: 12,
                         ),
                       ),
@@ -69,8 +71,8 @@ class SystemTab extends StatelessWidget {
               height: 48,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.brandOrange,
-                  foregroundColor: Colors.black,
+                  backgroundColor: tokens.primary,
+                  foregroundColor: tokens.onPrimary,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   elevation: 0,
                 ),
@@ -99,7 +101,6 @@ class SystemTab extends StatelessWidget {
     final orientation = MediaQuery.of(context).orientation;
     final isLandscape = orientation == Orientation.landscape;
 
-    // In landscape mode, don't use Scaffold (parent provides it with its own AppBar)
     if (isLandscape) {
       return _buildContent(context, themeProvider);
     }
@@ -107,34 +108,8 @@ class SystemTab extends StatelessWidget {
     return Scaffold(
       appBar: RadioKitAppBar(
         tabIndex: 2,
-        actions: [
-          FilledButton.tonal(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.brandOrange.withValues(alpha: 0.15),
-              foregroundColor: AppColors.brandOrange,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              minimumSize: const Size(0, 34),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-            ),
-            onPressed: () => AccountsSheet.show(context),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.cloud_rounded, size: 16, color: AppColors.brandOrange),
-                const SizedBox(width: 6),
-                Text('Accounts',
-                    style: GoogleFonts.changa(
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.5,
-                        fontSize: 15,
-                        color: AppColors.brandOrange)),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-        ],
+        onAccounts: () => AccountsSheet.show(context),
+        accentColor: context.tokens.primary,
       ),
       body: _buildContent(context, themeProvider),
     );
@@ -186,9 +161,10 @@ class SystemTab extends StatelessWidget {
   }
 
   Widget _buildCloudCard(BuildContext context) {
+    final tokens = context.tokens;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: context.tokens.onSurface.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       child: InkWell(
@@ -202,10 +178,10 @@ class SystemTab extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: AppColors.brandOrange.withValues(alpha: 0.15),
+                  color: tokens.primary.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.cloud_rounded, color: AppColors.brandOrange, size: 28),
+                child: Icon(Icons.cloud_rounded, color: tokens.primary, size: 28),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -218,14 +194,14 @@ class SystemTab extends StatelessWidget {
                         fontWeight: FontWeight.w900,
                         fontSize: 14,
                         letterSpacing: 1.5,
-                        color: AppColors.brandOrange,
+                        color: tokens.primary,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Create or edit cloud relay accounts',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.6),
+                        color: tokens.onSurface.withValues(alpha: 0.6),
                         fontSize: 13,
                       ),
                     ),
@@ -233,7 +209,7 @@ class SystemTab extends StatelessWidget {
                 ),
               ),
               Icon(Icons.chevron_right_rounded,
-                  color: Colors.white.withValues(alpha: 0.3)),
+                  color: tokens.onSurface.withValues(alpha: 0.3)),
             ],
           ),
         ),
@@ -242,6 +218,7 @@ class SystemTab extends StatelessWidget {
   }
 
   Widget _buildSectionTag(BuildContext context, String title) {
+    final tokens = context.tokens;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -249,13 +226,13 @@ class SystemTab extends StatelessWidget {
           Container(
             width: 8,
             height: 8,
-            color: AppColors.brandOrange,
+            color: tokens.primary,
           ),
           const SizedBox(width: 12),
           Text(
             title,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: AppColors.brandOrange,
+              color: tokens.primary,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -265,9 +242,10 @@ class SystemTab extends StatelessWidget {
   }
 
   Widget _buildControlUiCard(BuildContext context) {
+    final tokens = context.tokens;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: context.tokens.onSurface.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
@@ -281,10 +259,10 @@ class SystemTab extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: AppColors.brandOrange.withValues(alpha: 0.15),
+                    color: tokens.primary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.gamepad_rounded, color: AppColors.brandOrange, size: 28),
+                  child: Icon(Icons.gamepad_rounded, color: tokens.primary, size: 28),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -297,14 +275,14 @@ class SystemTab extends StatelessWidget {
                           fontWeight: FontWeight.w900,
                           fontSize: 14,
                           letterSpacing: 1.5,
-                          color: AppColors.brandOrange,
+                          color: tokens.primary,
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        'Immersive mode for controller',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.6),
+                    Text(
+                      'Immersive mode for controller',
+                      style: TextStyle(
+                        color: tokens.onSurface.withValues(alpha: 0.6),
                           fontSize: 13,
                         ),
                       ),
@@ -315,7 +293,7 @@ class SystemTab extends StatelessWidget {
                   builder: (context, settings, _) => Switch(
                     value: settings.useFullscreen,
                     onChanged: (v) => settings.setUseFullscreen(v),
-                    activeThumbColor: AppColors.brandOrange,
+                    activeThumbColor: tokens.primary,
                   ),
                 ),
               ],
@@ -327,10 +305,11 @@ class SystemTab extends StatelessWidget {
   }
 
   Widget _buildApplicationCard(BuildContext context, ThemeProvider themeProvider) {
+    final tokens = context.tokens;
     final themePresetProvider = context.watch<ThemePresetProvider>();
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: context.tokens.onSurface.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
@@ -338,14 +317,14 @@ class SystemTab extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSettingRow(
+            _buildSettingRow(context,
               Icons.language_rounded,
               'SYSTEM_LANGUAGE',
               'English (US)',
               null,
             ),
             const SizedBox(height: 12),
-            _buildSettingRow(
+            _buildSettingRow(context,
               Icons.palette_rounded,
               'INTERFACE_THEME',
               themePresetProvider.themeName.toUpperCase(),
@@ -353,19 +332,17 @@ class SystemTab extends StatelessWidget {
                 value: themePresetProvider.themeName,
                 underline: const SizedBox(),
                 isDense: true,
-                dropdownColor: const Color(0xFF1E1E1E),
-                style: const TextStyle(
-                  color: Colors.white,
+                dropdownColor: context.tokens.base300,                          style: TextStyle(
+                            color: context.tokens.onSurface,
                   fontSize: 12,
                   fontFamily: 'monospace',
                 ),
                 onChanged: (v) {
                   if (v == null) return;
                   themePresetProvider.setTheme(v);
-                  // Sync the Material theme mode with the selected skin
-                  final isDarkSkin = v == 'dragon' || v == 'debug';
+                  final preset = RKTokens.presetsByName[v];
                   themeProvider.setThemeMode(
-                    isDarkSkin ? ThemeMode.dark : ThemeMode.light,
+                    preset?.isDark == true ? ThemeMode.dark : ThemeMode.light,
                   );
                 },
                 items: themePresetProvider.availableThemes
@@ -377,7 +354,7 @@ class SystemTab extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            _buildSettingRow(
+            _buildSettingRow(context,
               Icons.devices_rounded,
               'ENABLE_DEMO',
               'Show Demo examples',
@@ -385,7 +362,7 @@ class SystemTab extends StatelessWidget {
                 builder: (context, settings, _) => Switch(
                   value: settings.showDemo,
                   onChanged: (v) => settings.setShowDemo(v),
-                  activeThumbColor: AppColors.brandOrange,
+                  activeThumbColor: tokens.primary,
                 ),
               ),
             ),
@@ -395,10 +372,10 @@ class SystemTab extends StatelessWidget {
     );
   }
 
-  Widget _buildSettingRow(IconData icon, String label, String value, Widget? trailing) {
+  Widget _buildSettingRow(BuildContext context, IconData icon, String label, String value, Widget? trailing) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: AppColors.brandOrange.withValues(alpha: 0.7)),
+        Icon(icon, size: 18, color: context.tokens.primary.withValues(alpha: 0.7)),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -407,7 +384,7 @@ class SystemTab extends StatelessWidget {
               Text(
                 label,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.6),
+                  color: context.tokens.onSurface.withValues(alpha: 0.6),
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1,
@@ -417,7 +394,7 @@ class SystemTab extends StatelessWidget {
               Text(
                 value,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.9),
+                  color: context.tokens.onSurface.withValues(alpha: 0.9),
                   fontSize: 13,
                 ),
               ),
@@ -432,7 +409,7 @@ class SystemTab extends StatelessWidget {
   Widget _buildAboutCard(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: context.tokens.onSurface.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
@@ -446,7 +423,7 @@ class SystemTab extends StatelessWidget {
                   Text(
                     'APP_VERSION',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5),
+                      color: context.tokens.onSurface.withValues(alpha: 0.5),
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1,
@@ -456,7 +433,7 @@ class SystemTab extends StatelessWidget {
                   Text(
                     'v1.0.0',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.9),
+                      color: context.tokens.onSurface.withValues(alpha: 0.9),
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -467,7 +444,7 @@ class SystemTab extends StatelessWidget {
             Container(
               width: 1,
               height: 32,
-              color: Colors.white.withValues(alpha: 0.1),
+              color: context.tokens.onSurface.withValues(alpha: 0.1),
             ),
             Expanded(
               child: Padding(
@@ -475,20 +452,20 @@ class SystemTab extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'FIRMWARE_VERSION',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.5),
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
-                      ),
+                  Text(
+                    'FIRMWARE_VERSION',
+                    style: TextStyle(
+                      color: context.tokens.onSurface.withValues(alpha: 0.5),
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'v4.2.0',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'v4.2.0',
+                    style: TextStyle(
+                      color: context.tokens.onSurface.withValues(alpha: 0.9),
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
@@ -512,11 +489,12 @@ class SystemTab extends StatelessWidget {
   }
 
   Widget _buildRemoteAccessCard(BuildContext context) {
+    final tokens = context.tokens;
     final ra = context.watch<RemoteAccessProvider>();
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: context.tokens.onSurface.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
@@ -530,10 +508,10 @@ class SystemTab extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: AppColors.brandOrange.withValues(alpha: 0.15),
+                    color: tokens.primary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.wifi_tethering_rounded, color: AppColors.brandOrange, size: 28),
+                  child: Icon(Icons.wifi_tethering_rounded, color: tokens.primary, size: 28),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -546,7 +524,7 @@ class SystemTab extends StatelessWidget {
                           fontWeight: FontWeight.w900,
                           fontSize: 14,
                           letterSpacing: 1.5,
-                          color: AppColors.brandOrange,
+                          color: tokens.primary,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -554,8 +532,8 @@ class SystemTab extends StatelessWidget {
                         ra.isRunning ? ra.actualUrl : 'HTTP API for automation & testing',
                         style: TextStyle(
                           color: ra.isRunning
-                              ? AppColors.connected
-                              : Colors.white.withValues(alpha: 0.6),
+                              ? tokens.success
+                              : tokens.onSurface.withValues(alpha: 0.6),
                           fontSize: ra.isRunning ? 12 : 11,
                           fontFamily: ra.isRunning ? 'monospace' : null,
                           fontWeight: ra.isRunning ? FontWeight.w600 : null,
@@ -567,13 +545,13 @@ class SystemTab extends StatelessWidget {
                 Switch(
                   value: ra.isRunning,
                   onChanged: (_) => ra.toggle(),
-                  activeThumbColor: AppColors.brandOrange,
+                  activeThumbColor: tokens.primary,
                 ),
               ],
             ),
             if (ra.isRunning) ...[
               const SizedBox(height: 16),
-              _buildSettingRow(
+              _buildSettingRow(context,
                 Icons.navigation_rounded,
                 'FOLLOW_REMOTE',
                 'Live navigation on API calls',
@@ -581,7 +559,7 @@ class SystemTab extends StatelessWidget {
                   builder: (context, settings, _) => Switch(
                     value: settings.followRemoteAccess,
                     onChanged: (v) => settings.setFollowRemoteAccess(v),
-                    activeThumbColor: AppColors.brandOrange,
+                    activeThumbColor: tokens.primary,
                   ),
                 ),
               ),
@@ -591,17 +569,17 @@ class SystemTab extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.redAccent.withValues(alpha: 0.1),
+                  color: context.tokens.error.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.error_outline, size: 14, color: Colors.redAccent),
+                    Icon(Icons.error_outline, size: 14, color: context.tokens.error),
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
                         ra.lastError,
-                        style: const TextStyle(color: Colors.redAccent, fontSize: 11),
+                        style: TextStyle(color: context.tokens.error, fontSize: 11),
                       ),
                     ),
                   ],
@@ -614,7 +592,7 @@ class SystemTab extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.3),
+                    color: context.tokens.base200,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: ApiLogView(height: 160),
@@ -659,14 +637,14 @@ class SystemTab extends StatelessWidget {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.redAccent.withValues(alpha: 0.08),
+        color: context.tokens.error.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            Icon(icon, size: 20, color: Colors.redAccent.withValues(alpha: 0.8)),
+            Icon(icon, size: 20, color: context.tokens.error.withValues(alpha: 0.8)),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -675,7 +653,7 @@ class SystemTab extends StatelessWidget {
                   Text(
                     label,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.9),
+                      color: context.tokens.onSurface.withValues(alpha: 0.9),
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -684,7 +662,7 @@ class SystemTab extends StatelessWidget {
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5),
+                      color: context.tokens.onSurface.withValues(alpha: 0.5),
                       fontSize: 11,
                     ),
                   ),
@@ -693,7 +671,7 @@ class SystemTab extends StatelessWidget {
             ),
             IconButton(
               icon: const Icon(Icons.chevron_right_rounded),
-              color: Colors.redAccent.withValues(alpha: 0.7),
+              color: context.tokens.error.withValues(alpha: 0.7),
               onPressed: onPressed,
             ),
           ],
@@ -706,13 +684,13 @@ class SystemTab extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
+        backgroundColor: context.tokens.base300,
         title: const Text('Confirm Reset'),
         content: const Text('Are you sure you want to remove all saved models? This action cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('CANCEL', style: TextStyle(color: Colors.white38)),
+            child: Text('CANCEL', style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.38))),
           ),
           TextButton(
             onPressed: () {
@@ -722,7 +700,7 @@ class SystemTab extends StatelessWidget {
                 const SnackBar(content: Text('All models removed')),
               );
             },
-            child: Text('REMOVE_ALL', style: GoogleFonts.changa(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1.0)),
+            child: Text('REMOVE_ALL', style: GoogleFonts.changa(color: context.tokens.error, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1.0)),
           ),
         ],
       ),
@@ -735,7 +713,7 @@ class SystemTab extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
+        backgroundColor: context.tokens.base300,
         title: const Text('Delete All Projects'),
         content: Text(
           count == 0
@@ -745,7 +723,7 @@ class SystemTab extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('CANCEL', style: TextStyle(color: Colors.white38)),
+            child: Text('CANCEL', style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.38))),
           ),
           if (count > 0)
             TextButton(
@@ -756,11 +734,10 @@ class SystemTab extends StatelessWidget {
                   const SnackBar(content: Text('All projects deleted')),
                 );
               },
-              child: Text('DELETE_ALL', style: GoogleFonts.changa(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1.0)),
+              child: Text('DELETE_ALL', style: GoogleFonts.changa(color: context.tokens.error, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1.0)),
             ),
         ],
       ),
     );
   }
 }
-

@@ -12,11 +12,9 @@ import '../services/fs_protocol_service.dart';
 import '../services/ota_protocol_service.dart';
 import '../services/settings_protocol_service.dart';
 import '../services/debug_transport.dart';
-import '../services/demo_transport.dart';
 import '../services/demo_fs_transport.dart';
 import '../services/ble_service.dart';
 import '../services/websocket_service.dart';
-import '../services/cloud_identity.dart';
 
 import '../providers/console_provider.dart';
 import '../providers/theme_preset_provider.dart';

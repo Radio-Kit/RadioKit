@@ -9,7 +9,6 @@
 library;
 
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:usb_serial/usb_serial.dart';
 import '../models/device_info.dart';

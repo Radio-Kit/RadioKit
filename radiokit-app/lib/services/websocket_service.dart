@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../models/protocol.dart';
@@ -79,6 +78,11 @@ class WebSocketService implements TransportService {
 
   /// Callback fired when challenge-response auth succeeds.
   VoidCallback? onAuthSuccess;
+
+  /// Callback fired when auth_ok includes the device list, providing the
+  /// registered device names so the caller doesn't need a separate
+  /// list_devices request.
+  void Function(List<String> devices)? onAuthOkDevices;
 
   /// Callback fired when auth fails.
   void Function(String error)? onAuthFailed;
@@ -251,6 +255,12 @@ class WebSocketService implements TransportService {
         case 'auth_ok':
           _authState = _AuthState.authenticated;
           _log('Relay auth succeeded');
+          // Extract device list from auth_ok (relay now sends it inline)
+          final devices = (msg['devices'] as List<dynamic>? ?? [])
+              .map((e) => e as String)
+              .toList();
+          _log('Devices registered: $devices');
+          onAuthOkDevices?.call(devices);
           // If we have a pending device join, send it now
           if (_pendingJoinDevice != null) {
             _log('Sending pending join for $_pendingJoinDevice');

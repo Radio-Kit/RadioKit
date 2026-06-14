@@ -120,16 +120,16 @@ class _ControlScreenState extends State<ControlScreen> {
                       tooltip: 'Home',
                       onPressed: () => context.go('/models'),
                     ),
-                    const SizedBox(width: 4),
+                    SizedBox(width: 4),
                     Container(
                       width: 8,
                       height: 8,
                       decoration: BoxDecoration(
-                        color: isConnected ? AppColors.connected : AppColors.disconnected,
+                        color: isConnected ? context.tokens.success : context.tokens.error,
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: (isConnected ? AppColors.connected : AppColors.disconnected)
+                            color: (isConnected ? context.tokens.success : context.tokens.error)
                                 .withValues(alpha: 0.4),
                             blurRadius: 6,
                             spreadRadius: 1,
@@ -137,33 +137,33 @@ class _ControlScreenState extends State<ControlScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     if (isConnected)
                       Flexible(
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.05),
+                            color: context.tokens.onSurface.withValues(alpha: 0.05),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 0.5),
+                            border: Border.all(color: context.tokens.onSurface.withValues(alpha: 0.1), width: 0.5),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                                 Icon(Icons.signal_cellular_alt_rounded, 
                                   size: 14, color: _getRssiColor(deviceProvider.rssi ?? -127)),
-                                const SizedBox(width: 4),
+                                SizedBox(width: 4),
                                 Text('${deviceProvider.rssi ?? "--"} dBm', 
-                                  style: const TextStyle(fontSize: 10, color: Colors.white70, fontWeight: FontWeight.bold)),
+                                  style: TextStyle(fontSize: 10, color: context.tokens.onSurface.withValues(alpha: 0.7), fontWeight: FontWeight.bold)),
                               if (deviceProvider.rssi != null && deviceProvider.latencyMs != null)
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 4),
-                                  child: Text('|', style: TextStyle(color: Colors.white.withValues(alpha: 0.1), fontSize: 10)),
+                                  child: Text('|', style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.1), fontSize: 10)),
                                 ),
-                                const Icon(Icons.timer_rounded, size: 14, color: Colors.white54),
-                                const SizedBox(width: 4),
+                                Icon(Icons.timer_rounded, size: 14, color: context.tokens.onSurface.withValues(alpha: 0.54)),
+                                SizedBox(width: 4),
                                 Text('${deviceProvider.latencyMs ?? "--"}ms', 
-                                  style: const TextStyle(fontSize: 10, color: Colors.white54)),
+                                  style: TextStyle(fontSize: 10, color: context.tokens.onSurface.withValues(alpha: 0.54))),
                             ],
                           ),
                         ),
@@ -187,15 +187,15 @@ class _ControlScreenState extends State<ControlScreen> {
                     icon: const Icon(Icons.bug_report_rounded),
                     tooltip: 'Debug',
                     onPressed: _openDebug,
-                    color: Colors.orange,
+                    color: context.tokens.warning,
                   ),
                 IconButton(
                   icon: const Icon(Icons.dangerous_rounded),
                   onPressed: _disconnect,
                   tooltip: 'Disconnect',
-                  color: Colors.red,
+                  color: context.tokens.error,
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
               ],
             ),
             body: _buildBody(deviceProvider),
@@ -228,9 +228,9 @@ class _ControlScreenState extends State<ControlScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const CircularProgressIndicator(
-              color: AppColors.brandOrange, strokeWidth: 2),
-          const SizedBox(height: 20),
+          CircularProgressIndicator(
+              color: context.tokens.primary, strokeWidth: 2),
+          SizedBox(height: 20),
           Text(message, style: Theme.of(context).textTheme.bodyMedium),
         ],
       ),
@@ -244,16 +244,16 @@ class _ControlScreenState extends State<ControlScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline_rounded,
-                size: 64, color: AppColors.brandRed),
-            const SizedBox(height: 20),
+            Icon(Icons.error_outline_rounded,
+                size: 64, color: context.tokens.error),
+            SizedBox(height: 20),
             Text('Connection Error',
                 style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Text(message,
                 style: Theme.of(context).textTheme.bodyMedium,
                 textAlign: TextAlign.center),
-            const SizedBox(height: 32),
+            SizedBox(height: 32),
             ElevatedButton.icon(
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('Retry'),
@@ -264,7 +264,7 @@ class _ControlScreenState extends State<ControlScreen> {
                 }
               },
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             TextButton(onPressed: _disconnect, child: const Text('Go Back')),
           ],
         ),
@@ -275,10 +275,10 @@ class _ControlScreenState extends State<ControlScreen> {
 
 
   Color _getRssiColor(int rssi) {
-    if (rssi == -127) return Colors.white24;
-    if (rssi > -60) return Colors.greenAccent;
-    if (rssi > -80) return Colors.orangeAccent;
-    return Colors.redAccent;
+    if (rssi == -127) return context.tokens.onSurface.withValues(alpha: 0.24);
+    if (rssi > -60) return context.tokens.success;
+    if (rssi > -80) return context.tokens.warning;
+    return context.tokens.error;
   }
 
   Widget _buildCanvas(DeviceProvider deviceProvider) {

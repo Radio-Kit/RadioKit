@@ -283,7 +283,7 @@ boxShadow: tokens.depth > 0
                 fontFamily: 'sans-serif',
                 fontSize: outerHeight * 0.4,
                 fontWeight: FontWeight.w800,
-                color: isLit ? activeColor : RKTheme.of(context).onSurface.withValues(alpha: 0.3),
+                color: isLit ? RKTheme.of(context).onPrimary : RKTheme.of(context).onSurface.withValues(alpha: 0.3),
                 shadows: isLit
                     ? [
                         Shadow(

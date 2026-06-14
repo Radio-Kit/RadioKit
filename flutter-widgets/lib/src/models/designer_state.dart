@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import '../theme/rk_tokens.dart';
 import 'designer_element.dart';
 
 enum GridStyle { lines, dots, none }
@@ -687,35 +688,18 @@ class DesignerState extends ChangeNotifier {
 
   /// Build the serialisable map for saveToHeaderFile.
   String _themeToArduino(String skin) {
-    switch (skin) {
-      case 'minimal':
-        return 'RK_MINIMAL';
-      case 'retro':
-        return 'RK_RETRO';
-      case 'rose':
-        return 'RK_ROSE';
-      case 'debug':
-        return 'RK_DEBUG';
-      case 'dragon':
-      default:
-        return 'RK_DEFAULT';
+    if (skin == 'dragon') return 'RK_DEFAULT';
+    if (RKTokens.presets.containsKey(skin.toUpperCase())) {
+      return 'RK_${skin.toUpperCase()}';
     }
+    return 'RK_DEFAULT';
   }
 
   String _arduinoToTheme(String theme) {
-    switch (theme) {
-      case 'RK_MINIMAL':
-        return 'minimal';
-      case 'RK_RETRO':
-        return 'retro';
-      case 'RK_ROSE':
-        return 'rose';
-      case 'RK_DEBUG':
-        return 'debug';
-      case 'RK_DEFAULT':
-      default:
-        return 'dragon';
-    }
+    if (theme == 'RK_DEFAULT') return 'dragon';
+    final name = theme.replaceFirst('RK_', '').toLowerCase();
+    if (RKTokens.presets.containsKey(name.toUpperCase())) return name;
+    return 'dragon';
   }
 
   Map<String, dynamic> toJson() => {

@@ -64,7 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
         type: BottomNavigationBarType.fixed,
         currentIndex: widget.navigationShell.currentIndex,
         onTap: _onTap,
-        selectedItemColor: AppColors.brandOrange,
+        selectedItemColor: context.tokens.primary,
         unselectedItemColor:
             Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38),
         selectedLabelStyle: GoogleFonts.changa(
@@ -91,14 +91,13 @@ class _HomeScreenState extends State<HomeScreen> {
   // ─── Landscape: NavigationRail ─────────────────────────────────
 
   Widget _buildLandscape(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(        appBar: RadioKitAppBar(
         tabIndex: widget.navigationShell.currentIndex,
         onConnect: () => showPairBottomSheet(context),
         onOpen: () => openConfigFile(context),
         onCreate: () => context.push('/designer'),
         onAccounts: () => AccountsSheet.show(context),
+        accentColor: context.tokens.primary,
       ),
       body: Row(
         children: [
@@ -106,28 +105,28 @@ class _HomeScreenState extends State<HomeScreen> {
             selectedIndex: widget.navigationShell.currentIndex,
             onDestinationSelected: _onTap,
             labelType: NavigationRailLabelType.all,
-            backgroundColor: theme.colorScheme.surface,
+            backgroundColor: context.tokens.base200,
             indicatorColor: Colors.transparent,
             minWidth: 60,
-            selectedIconTheme: const IconThemeData(
-              color: AppColors.brandOrange,
+            selectedIconTheme: IconThemeData(
+              color: context.tokens.primary,
               size: 22,
             ),
             unselectedIconTheme: IconThemeData(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.38),
+              color: context.tokens.onSurface.withValues(alpha: 0.38),
               size: 18,
             ),
             selectedLabelTextStyle: GoogleFonts.changa(
               fontSize: 11,
               fontWeight: FontWeight.w700,
               letterSpacing: 1.0,
-              color: AppColors.brandOrange,
+              color: context.tokens.primary,
             ),
             unselectedLabelTextStyle: GoogleFonts.changa(
               fontSize: 10,
               fontWeight: FontWeight.w500,
               letterSpacing: 1.0,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.38),
+              color: context.tokens.onSurface.withValues(alpha: 0.38),
             ),
             destinations: _navItems
                 .map((e) => NavigationRailDestination(
@@ -137,7 +136,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ))
                 .toList(),
           ),
-          const VerticalDivider(width: 1, thickness: 1),
           Expanded(child: widget.navigationShell),
         ],
       ),

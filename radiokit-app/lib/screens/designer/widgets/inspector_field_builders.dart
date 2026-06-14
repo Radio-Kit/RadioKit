@@ -21,7 +21,7 @@ class InspectorFieldBuilders {
           ),
         ),
         ...children,
-        Container(height: 1, color: const Color(0xFF222222)),
+        Container(height: 1, color: tokens.effectiveOutline),
       ],
     );
   }
@@ -37,8 +37,8 @@ class InspectorFieldBuilders {
             width: 80,
             child: Text(
               label,
-              style: const TextStyle(
-                color: Color(0xFF888888),
+              style: TextStyle(
+                color: tokens.onSurface.withValues(alpha: 0.5),
                 fontSize: 11,
                 fontFamily: 'monospace',
               ),
@@ -49,15 +49,15 @@ class InspectorFieldBuilders {
             child: Container(
               height: 28,
               decoration: BoxDecoration(
-                color: const Color(0xFF0D0D0D),
-                border: Border.all(color: const Color(0xFF333333)),
+                color: tokens.base200,
+                border: Border.all(color: tokens.effectiveOutline),
                 borderRadius: BorderRadius.circular(2),
               ),
               child: TextField(
                 controller: TextEditingController(text: value)
                   ..selection = TextSelection.collapsed(offset: value.length),
-                style: const TextStyle(
-                  color: Color(0xFFE0E0E0),
+                style: TextStyle(
+                  color: tokens.onSurface.withValues(alpha: 0.88),
                   fontSize: 11,
                   fontFamily: 'monospace',
                 ),
@@ -87,8 +87,8 @@ class InspectorFieldBuilders {
             width: 80,
             child: Text(
               label,
-              style: const TextStyle(
-                color: Color(0xFF888888),
+              style: TextStyle(
+                color: tokens.onSurface.withValues(alpha: 0.5),
                 fontSize: 11,
                 fontFamily: 'monospace',
               ),
@@ -101,14 +101,14 @@ class InspectorFieldBuilders {
               alignment: Alignment.centerLeft,
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFF0D0D0D),
-                border: Border.all(color: const Color(0xFF333333)),
+                color: tokens.base200,
+                border: Border.all(color: tokens.effectiveOutline),
                 borderRadius: BorderRadius.circular(2),
               ),
               child: Text(
                 value,
-                style: const TextStyle(
-                  color: Color(0xFFE0E0E0),
+                style: TextStyle(
+                  color: tokens.onSurface.withValues(alpha: 0.88),
                   fontSize: 11,
                   fontFamily: 'monospace',
                 ),
@@ -131,8 +131,8 @@ class InspectorFieldBuilders {
             width: 80,
             child: Text(
               label,
-              style: const TextStyle(
-                color: Color(0xFF888888),
+              style: TextStyle(
+                color: tokens.onSurface.withValues(alpha: 0.5),
                 fontSize: 11,
                 fontFamily: 'monospace',
               ),
@@ -165,8 +165,8 @@ class InspectorFieldBuilders {
             width: 80,
             child: Text(
               label,
-              style: const TextStyle(
-                color: Color(0xFF888888),
+              style: TextStyle(
+                color: tokens.onSurface.withValues(alpha: 0.5),
                 fontSize: 11,
                 fontFamily: 'monospace',
               ),
@@ -197,8 +197,8 @@ class InspectorFieldBuilders {
           width: 20,
           child: Text(
             label,
-            style: const TextStyle(
-              color: Color(0xFF888888),
+            style: TextStyle(
+              color: tokens.onSurface.withValues(alpha: 0.5),
               fontSize: 11,
               fontFamily: 'monospace',
             ),
@@ -233,8 +233,8 @@ class InspectorFieldBuilders {
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 label,
-                style: const TextStyle(
-                  color: Color(0xFF888888),
+                style: TextStyle(
+                  color: tokens.onSurface.withValues(alpha: 0.5),
                   fontSize: 11,
                   fontFamily: 'monospace',
                 ),
@@ -257,11 +257,11 @@ class InspectorFieldBuilders {
                       decoration: BoxDecoration(
                         color: isSelected
                             ? tokens.primary
-                            : const Color(0xFF1A1A1A),
+                            : tokens.base200,
                         border: Border.all(
                           color: isSelected
                               ? tokens.primary
-                              : const Color(0xFF444444),
+                              : tokens.effectiveOutline,
                           width: 1,
                         ),
                         borderRadius: BorderRadius.circular(2),
@@ -271,7 +271,7 @@ class InspectorFieldBuilders {
                         style: TextStyle(
                           color: isSelected
                               ? Colors.black
-                              : const Color(0xFF888888),
+                              : tokens.onSurface.withValues(alpha: 0.5),
                           fontSize: 10,
                           fontFamily: 'monospace',
                           fontWeight:
@@ -305,8 +305,8 @@ class InspectorFieldBuilders {
             width: 80,
             child: Text(
               label,
-              style: const TextStyle(
-                color: Color(0xFF888888),
+              style: TextStyle(
+                color: tokens.onSurface.withValues(alpha: 0.5),
                 fontSize: 11,
                 fontFamily: 'monospace',
               ),
@@ -319,7 +319,7 @@ class InspectorFieldBuilders {
               width: 28,
               height: 16,
               decoration: BoxDecoration(
-                color: value ? tokens.primary : const Color(0xFF333333),
+                color: value ? tokens.primary : tokens.effectiveOutline,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: AnimatedAlign(
@@ -330,7 +330,7 @@ class InspectorFieldBuilders {
                   height: 12,
                   margin: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: tokens.onSurface.withValues(alpha: 0.88),
                     borderRadius: BorderRadius.circular(6),
                   ),
                 ),
@@ -352,10 +352,10 @@ class InspectorFieldBuilders {
         children: [
           Row(
             children: [
-              const Text(
+              Text(
                 'Rotation',
                 style: TextStyle(
-                  color: Color(0xFF888888),
+                  color: tokens.onSurface.withValues(alpha: 0.5),
                   fontSize: 11,
                   fontFamily: 'monospace',
                 ),
@@ -367,7 +367,7 @@ class InspectorFieldBuilders {
                   child: Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: Icon(LucideIcons.rotateCcw,
-                        size: 12, color: const Color(0xFF555555)),
+                        size: 12, color: tokens.onSurface.withValues(alpha: 0.38)),
                   ),
                 ),
               ],
@@ -385,9 +385,9 @@ class InspectorFieldBuilders {
           const SizedBox(height: 4),
           Row(
             children: [
-              const Text('-180',
+              Text('-180',
                   style: TextStyle(
-                      color: Color(0xFF555555),
+                      color: tokens.onSurface.withValues(alpha: 0.38),
                       fontSize: 10,
                       fontFamily: 'monospace')),
               Expanded(
@@ -397,13 +397,13 @@ class InspectorFieldBuilders {
                   max: 180,
                   divisions: 360,
                   activeColor: tokens.primary,
-                  inactiveColor: const Color(0xFF333333),
+                  inactiveColor: tokens.effectiveOutline,
                   onChanged: onChanged,
                 ),
               ),
-              const Text('180',
+              Text('180',
                   style: TextStyle(
-                      color: Color(0xFF555555),
+                      color: tokens.onSurface.withValues(alpha: 0.38),
                       fontSize: 10,
                       fontFamily: 'monospace')),
             ],
@@ -434,8 +434,8 @@ class InspectorFieldBuilders {
             width: 80,
             child: Text(
               label,
-              style: const TextStyle(
-                color: Color(0xFF888888),
+              style: TextStyle(
+                color: tokens.onSurface.withValues(alpha: 0.5),
                 fontSize: 11,
                 fontFamily: 'monospace',
               ),
@@ -459,29 +459,29 @@ class InspectorFieldBuilders {
                       decoration: BoxDecoration(
                         color: isSelected
                             ? tokens.primary.withValues(alpha: 0.15)
-                            : const Color(0xFF0D0D0D),
+                            : tokens.base200,
                         border: Border(
                           top: BorderSide(
                             color: isSelected
                                 ? tokens.primary
-                                : const Color(0xFF333333),
+                                : tokens.effectiveOutline,
                           ),
                           bottom: BorderSide(
                             color: isSelected
                                 ? tokens.primary
-                                : const Color(0xFF333333),
+                                : tokens.effectiveOutline,
                           ),
                           left: BorderSide(
                             color: isFirst
                                 ? (isSelected
                                     ? tokens.primary
-                                    : const Color(0xFF333333))
+                                    : tokens.effectiveOutline)
                                 : Colors.transparent,
                           ),
                           right: BorderSide(
                             color: isSelected
                                 ? tokens.primary
-                                : const Color(0xFF333333),
+                                : tokens.effectiveOutline,
                           ),
                         ),
                         borderRadius: BorderRadius.horizontal(
@@ -497,7 +497,7 @@ class InspectorFieldBuilders {
                         style: TextStyle(
                           color: isSelected
                               ? tokens.primary
-                              : const Color(0xFF888888),
+                              : tokens.onSurface.withValues(alpha: 0.5),
                           fontSize: 11,
                           fontFamily: 'monospace',
                           fontWeight:
@@ -530,8 +530,8 @@ class InspectorFieldBuilders {
             width: 80,
             child: Text(
               label,
-              style: const TextStyle(
-                color: Color(0xFF888888),
+              style: TextStyle(
+                color: tokens.onSurface.withValues(alpha: 0.5),
                 fontSize: 11,
                 fontFamily: 'monospace',
               ),
@@ -577,7 +577,7 @@ class _PopupMenuSelectorState extends State<_PopupMenuSelector> {
     final tokens = widget.tokens;
     final hoverBorderColor = tokens.primary.withValues(alpha: 0.5);
     final activeBorderColor =
-        _isHovered ? hoverBorderColor : const Color(0xFF333333);
+        _isHovered ? hoverBorderColor : tokens.effectiveOutline;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -586,11 +586,11 @@ class _PopupMenuSelectorState extends State<_PopupMenuSelector> {
         tooltip: '',
         onSelected: widget.onChanged,
         offset: const Offset(0, 32),
-        color: const Color(0xFF141414),
+        color: tokens.base300,
         elevation: 4,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(4),
-          side: const BorderSide(color: Color(0xFF2C2C2C), width: 1),
+          side: BorderSide(color: tokens.effectiveOutline, width: 1),
         ),
         itemBuilder: (BuildContext context) {
           return widget.options.map((opt) {
@@ -607,7 +607,7 @@ class _PopupMenuSelectorState extends State<_PopupMenuSelector> {
                       style: TextStyle(
                         color: isSelected
                             ? tokens.primary
-                            : const Color(0xFFC0C0C0),
+                            : tokens.onSurface.withValues(alpha: 0.7),
                         fontSize: 11,
                         fontFamily: 'monospace',
                         fontWeight:
@@ -631,7 +631,7 @@ class _PopupMenuSelectorState extends State<_PopupMenuSelector> {
           height: 28,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFF0D0D0D),
+            color: tokens.base200,
             border: Border.all(color: activeBorderColor),
             borderRadius: BorderRadius.circular(2),
           ),
@@ -641,8 +641,8 @@ class _PopupMenuSelectorState extends State<_PopupMenuSelector> {
               Expanded(
                 child: Text(
                   widget.value.toUpperCase(),
-                  style: const TextStyle(
-                    color: Color(0xFFE0E0E0),
+                  style: TextStyle(
+                    color: tokens.onSurface.withValues(alpha: 0.88),
                     fontSize: 11,
                     fontFamily: 'monospace',
                   ),
@@ -654,7 +654,7 @@ class _PopupMenuSelectorState extends State<_PopupMenuSelector> {
               Icon(
                 Icons.unfold_more_rounded,
                 size: 14,
-                color: _isHovered ? tokens.primary : const Color(0xFF888888),
+                color: _isHovered ? tokens.primary : tokens.onSurface.withValues(alpha: 0.5),
               ),
             ],
           ),
@@ -747,22 +747,23 @@ class _DragToAdjustInputState extends State<DragToAdjustInput>
 
   @override
   Widget build(BuildContext context) {
+    final tokens = RKTheme.of(context);
     final displayValue =
         widget.value.toStringAsFixed(widget.decimalPlaces) + widget.suffix;
     final baseBoxColor =
-        _isDragging ? const Color(0xFF222222) : const Color(0xFF2D2D2D);
+        _isDragging ? tokens.effectiveOutline : tokens.base200;
     final activeColor = _isDragging || _isHovered
-        ? const Color(0xFFFF8C00)
-        : const Color(0xFF555555);
+        ? tokens.primary
+        : tokens.onSurface.withValues(alpha: 0.38);
 
     if (_isEditing) {
       return Container(
         width: 115,
         height: 28,
         decoration: BoxDecoration(
-          color: const Color(0xFF0D0D0D),
+          color: tokens.base200,
           borderRadius: BorderRadius.circular(2),
-          border: Border.all(color: const Color(0xFFFF8C00), width: 1),
+          border: Border.all(color: tokens.primary, width: 1),
         ),
         child: TextField(
           controller: _textController,
@@ -771,9 +772,9 @@ class _DragToAdjustInputState extends State<DragToAdjustInput>
           keyboardType: const TextInputType.numberWithOptions(
               decimal: true, signed: true),
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
               fontSize: 11,
-              color: Color(0xFFE0E0E0),
+              color: tokens.onSurface.withValues(alpha: 0.88),
               fontFamily: 'monospace',
               fontWeight: FontWeight.w600),
           decoration: const InputDecoration(
@@ -826,8 +827,8 @@ class _DragToAdjustInputState extends State<DragToAdjustInput>
             borderRadius: BorderRadius.circular(2),
             border: Border.all(
               color: _isDragging
-                  ? const Color(0xFFFF8C00)
-                  : const Color(0xFF333333),
+                  ? tokens.primary
+                  : tokens.effectiveOutline,
               width: 1,
             ),
           ),
@@ -842,6 +843,7 @@ class _DragToAdjustInputState extends State<DragToAdjustInput>
                         painter: RulerLinesPainter(
                           progress: _animationController.value,
                           direction: _dragDirection,
+                          tokens: tokens,
                         ),
                       );
                     },
@@ -895,8 +897,8 @@ class _DragToAdjustInputState extends State<DragToAdjustInput>
                       style: TextStyle(
                         fontSize: 11,
                         color: _isDragging
-                            ? const Color(0xFFFF8C00)
-                            : const Color(0xFFE0E0E0),
+                            ? tokens.primary
+                            : tokens.onSurface.withValues(alpha: 0.88),
                         fontWeight: FontWeight.w600,
                         fontFamily: 'monospace',
                       ),
@@ -922,6 +924,7 @@ class IconFieldBuilder {
     String? currentIconName,
     ValueChanged<String?> onChanged,
   ) {
+    final tokens = RKTheme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       child: Column(
@@ -929,8 +932,8 @@ class IconFieldBuilder {
         children: [
           Text(
             label,
-            style: const TextStyle(
-              color: Color(0xFF888888),
+            style: TextStyle(
+              color: tokens.onSurface.withValues(alpha: 0.5),
               fontSize: 11,
               fontFamily: 'monospace',
             ),
@@ -942,8 +945,8 @@ class IconFieldBuilder {
               height: 28,
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFF1A1A1A),
-                border: Border.all(color: const Color(0xFF333333)),
+                color: tokens.base200,
+                border: Border.all(color: tokens.effectiveOutline),
                 borderRadius: BorderRadius.circular(2),
               ),
               child: Row(
@@ -955,23 +958,23 @@ class IconFieldBuilder {
                       padding: const EdgeInsets.only(right: 6),
                       child: Icon(
                         kDesignerIcons[currentIconName]!,
-                        color: const Color(0xFFFF8C00),
+                        color: tokens.primary,
                         size: 14,
                       ),
                     )
                   else
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.only(right: 6),
                       child: Text(
                         '—',
                         style: TextStyle(
-                            color: Color(0xFF555555),
+                            color: tokens.onSurface.withValues(alpha: 0.38),
                             fontSize: 11,
                             fontFamily: 'monospace'),
                       ),
                     ),
-                  const Icon(LucideIcons.chevronDown,
-                      color: Color(0xFF666666), size: 12),
+                  Icon(LucideIcons.chevronDown,
+                      color: tokens.onSurface.withValues(alpha: 0.38), size: 12),
                 ],
               ),
             ),
@@ -1029,22 +1032,23 @@ class _DesignerIconPickerState extends State<_DesignerIconPicker> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = RKTheme.of(context);
     final keys = _filteredKeys;
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF181818),
+      backgroundColor: tokens.base300,
       titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       title: TextField(
         onChanged: (v) => setState(() => _search = v),
         autofocus: true,
-        style: const TextStyle(color: Colors.white, fontSize: 14),
-        decoration: const InputDecoration(
+        style: TextStyle(color: tokens.onSurface.withValues(alpha: 0.88), fontSize: 14),
+        decoration: InputDecoration(
           hintText: 'Search icons...',
-          hintStyle: TextStyle(color: Color(0xFF666666)),
+          hintStyle: TextStyle(color: tokens.onSurface.withValues(alpha: 0.38)),
           prefixIcon:
-              Icon(LucideIcons.search, size: 16, color: Color(0xFF666666)),
+              Icon(LucideIcons.search, size: 16, color: tokens.onSurface.withValues(alpha: 0.38)),
           border: InputBorder.none,
           isDense: true,
         ),
@@ -1054,7 +1058,7 @@ class _DesignerIconPickerState extends State<_DesignerIconPicker> {
         height: 400,
         child: Column(
           children: [
-            const Divider(color: Color(0xFF222222)),
+            Divider(color: tokens.effectiveOutline),
             const SizedBox(height: 8),
             Expanded(
               child: GridView.builder(
@@ -1075,19 +1079,19 @@ class _DesignerIconPickerState extends State<_DesignerIconPicker> {
                       child: Container(
                         decoration: BoxDecoration(
                           color: isActive
-                              ? const Color(0xFF333333)
-                              : const Color(0xFF222222),
+                              ? tokens.effectiveOutline
+                              : tokens.effectiveOutline,
                           borderRadius: BorderRadius.circular(6),
                           border: isActive
                               ? Border.all(
-                                  color: const Color(0xFF888888), width: 1)
+                                  color: tokens.onSurface.withValues(alpha: 0.5), width: 1)
                               : null,
                         ),
-                        child: const Center(
+                        child: Center(
                           child: Text(
                             '—',
                             style: TextStyle(
-                                color: Color(0xFF888888),
+                                color: tokens.onSurface.withValues(alpha: 0.5),
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold),
                           ),
@@ -1106,23 +1110,23 @@ class _DesignerIconPickerState extends State<_DesignerIconPicker> {
                     child: Container(
                       decoration: BoxDecoration(
                         color: isActive
-                            ? const Color(0xFF333333)
-                            : const Color(0xFF222222),
+                            ? tokens.effectiveOutline
+                            : tokens.effectiveOutline,
                         borderRadius: BorderRadius.circular(6),
                         border: isActive
                             ? Border.all(
-                                color: const Color(0xFFFF8C00), width: 1)
+                                color: tokens.primary, width: 1)
                             : null,
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(icon, color: Colors.white, size: 18),
+                          Icon(icon, color: tokens.onSurface.withValues(alpha: 0.88), size: 18),
                           const SizedBox(height: 2),
                           Text(
                             key,
-                            style: const TextStyle(
-                                color: Color(0xFF888888), fontSize: 7),
+                            style: TextStyle(
+                                color: tokens.onSurface.withValues(alpha: 0.5), fontSize: 7),
                             overflow: TextOverflow.ellipsis,
                             maxLines: 1,
                           ),
@@ -1143,13 +1147,14 @@ class _DesignerIconPickerState extends State<_DesignerIconPicker> {
 class RulerLinesPainter extends CustomPainter {
   final double progress;
   final double direction;
+  final RKTokens tokens;
 
-  RulerLinesPainter({required this.progress, required this.direction});
+  RulerLinesPainter({required this.progress, required this.direction, required this.tokens});
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFFF8C00).withValues(alpha: 0.18)
+      ..color = tokens.primary.withValues(alpha: 0.18)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
 

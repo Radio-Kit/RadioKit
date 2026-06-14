@@ -9,7 +9,6 @@ import '../models/protocol.dart';
 import '../models/device_info.dart';
 import 'protocol_service.dart';
 import 'transport_service.dart';
-import 'ota_protocol_service.dart';
 import 'settings_protocol_service.dart';
 
 // Conditionally import JS bridge for Web Mock

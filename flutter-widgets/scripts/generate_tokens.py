@@ -115,6 +115,12 @@ def parse_css(content):
     m = re.search(r"--noise:\s*(\d+);", content)
     tokens["noise"] = int(m.group(1)) if m else 0
 
+    m = re.search(r'color-scheme:\s*"(\w+)";', content)
+    tokens["isDark"] = m.group(1) == "dark" if m else False
+
+    m = re.search(r'^\s+default:\s*(true|false);', content, re.MULTILINE)
+    tokens["isDefault"] = m.group(1) == "true" if m else False
+
     return tokens
 
 
@@ -142,6 +148,8 @@ def generate_preset(name, tokens):
     lines.append(f"    borderWidth: {tokens.get('borderWidth', 1.0)},")
     lines.append(f"    depth: {tokens.get('depth', 1)},")
     lines.append(f"    noise: {tokens.get('noise', 0)},")
+    lines.append(f"    isDark: {str(tokens.get('isDark', False)).lower()},")
+    lines.append(f"    isDefault: {str(tokens.get('isDefault', False)).lower()},")
     lines.append("  );")
     return "\n".join(lines)
 
@@ -183,6 +191,8 @@ class RKTokens {
     this.borderWidth = 1.0,
     this.depth = 1,
     this.noise = 0,
+    this.isDark = false,
+    this.isDefault = false,
   });
 
   final Color primary;
@@ -214,6 +224,8 @@ class RKTokens {
   final double borderWidth;
   final int depth;
   final int noise;
+  final bool isDark;
+  final bool isDefault;
 
   Color get effectiveOutline => outlineColor ?? onSurface.withValues(alpha: 0.2);
 
@@ -251,6 +263,8 @@ COPY_WITH = '''
     double? borderWidth,
     int? depth,
     int? noise,
+    bool? isDark,
+    bool? isDefault,
   }) {
     return RKTokens(
       primary: primary ?? this.primary,
@@ -282,8 +296,17 @@ COPY_WITH = '''
       borderWidth: borderWidth ?? this.borderWidth,
       depth: depth ?? this.depth,
       noise: noise ?? this.noise,
+      isDark: isDark ?? this.isDark,
+      isDefault: isDefault ?? this.isDefault,
     );
   }
+
+  static Map<String, RKTokens> get presetsByName => {
+    for (final e in presets.entries) e.key.toLowerCase(): e.value,
+  };
+
+  static String get defaultPreset =>
+      presetsByName.entries.firstWhere((e) => e.value.isDefault, orElse: () => presetsByName.entries.first).key;
 }
 '''
 
@@ -303,7 +326,20 @@ def main():
         tokens = parse_css(content)
         presets.append(generate_preset(name, tokens))
 
-    output = CLASS_HEADER + "\n".join(presets) + "\n" + COPY_WITH
+    # Collect theme names for the presets map
+    theme_names = []
+    for fname in css_files:
+        name = fname[:-4]
+        theme_names.append(name.upper())
+
+    presets_map = (
+        "\n  /// Auto-generated from CSS themes -- do not edit manually.\n"
+        "  static const Map<String, RKTokens> presets = {\n"
+        + "".join(f"    '{n}': {n.lower()},\n" for n in theme_names)
+        + "  };\n"
+    )
+
+    output = CLASS_HEADER + "\n".join(presets) + "\n" + presets_map + COPY_WITH
 
     os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
     with open(OUTPUT_FILE, "w") as fh:

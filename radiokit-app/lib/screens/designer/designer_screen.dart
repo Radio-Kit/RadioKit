@@ -17,6 +17,8 @@ import 'utils/file_download.dart';
 import 'widgets/designer_widget_dialog.dart';
 import 'widgets/designer_inspector.dart';
 
+import '../../theme/app_theme.dart';
+
 import '../../providers/designs_provider.dart';
 import 'codegen/json_arduino_generator.dart';
 
@@ -211,13 +213,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                     clipBehavior: Clip.none,
                     children: [
                       RKTheme(
-                        tokens: switch (_state.activeSkin) {
-                          'minimal' => RKTokens.minimal,
-                          'retro' => RKTokens.retro,
-                          'rose' => RKTokens.rose,
-                          'debug' => RKTokens.debug,
-                          _ => RKTokens.dragon,
-                        },
+                        tokens: RKTokens.presetsByName[_state.activeSkin] ?? RKTokens.dragon,
                         child: DesignerCanvas(state: _state),
                       ),
                       if (!_state.isPlayMode)
@@ -230,7 +226,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                                 context: context,
                                 isScrollControlled: true,
                                 showDragHandle: true,
-                                backgroundColor: const Color(0xFF1A1A1A),
+                                backgroundColor: tokens.surface,
                                 shape: const RoundedRectangleBorder(
                                   borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
                                 ),
@@ -239,8 +235,8 @@ class _DesignerScreenState extends State<DesignerScreen> {
                               );
                             },
                             backgroundColor: tokens.primary,
-                            foregroundColor: Colors.black,
-                            child: const Icon(LucideIcons.plus),
+                            foregroundColor: tokens.onPrimary,
+                            child: Icon(LucideIcons.plus),
                           ),
                         ),
                       if (!_state.isPlayMode)
@@ -249,9 +245,9 @@ class _DesignerScreenState extends State<DesignerScreen> {
                           bottom: 16,
                           child: FloatingActionButton(
                             onPressed: () => _showSourceCode(context, tokens),
-                            backgroundColor: const Color(0xFF2A2A2A),
-                            foregroundColor: Colors.white70,
-                            child: const Icon(LucideIcons.code),
+                            backgroundColor: tokens.base200,
+                            foregroundColor: tokens.onSurface.withValues(alpha: 0.7),
+                            child: Icon(LucideIcons.code),
                           ),
                         ),
                     ],
@@ -278,9 +274,9 @@ class _DesignerScreenState extends State<DesignerScreen> {
     final topPad = MediaQuery.of(context).padding.top;
     return Container(
       padding: EdgeInsets.fromLTRB(24, topPad, 24, 0),
-      decoration: const BoxDecoration(
-        color: Color(0xFF111111),
-        border: Border(bottom: BorderSide(color: Color(0xFF222222), width: 1)),
+      decoration: BoxDecoration(
+        color: tokens.base300,
+        border: Border(bottom: BorderSide(color: tokens.effectiveOutline, width: 1)),
       ),
       child: SizedBox(
         height: 56,
@@ -291,7 +287,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                   Icon(LucideIcons.arrowLeft, color: tokens.primary, size: 20),
               onPressed: () => _handleBack(context),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             ListenableBuilder(
               listenable: _state,
               builder: (context, _) => Row(
@@ -310,17 +306,17 @@ class _DesignerScreenState extends State<DesignerScreen> {
                     ),
                   ),
                   if (_isFileMode && _state.originalHeaderPath != null) ...[
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Text(
                       '(${_state.originalHeaderPath!.split('/').last})',
-                      style: const TextStyle(
-                        color: Color(0xFF666666),
+                      style: TextStyle(
+                        color: tokens.onSurface.withValues(alpha: 0.4),
                         fontSize: 11,
                         fontFamily: 'monospace',
                       ),
                     ),
                   ],
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   IconButton(
                     icon: Icon(LucideIcons.pencil,
                         size: 16, color: tokens.primary),
@@ -330,13 +326,13 @@ class _DesignerScreenState extends State<DesignerScreen> {
                 ],
               ),
             ),
-            const Spacer(),
+            Spacer(),
             _buildPlayModeButton(tokens),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             _buildUndoRedoButtons(tokens),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             if (_isFileMode) _buildSaveAsButton(tokens),
-            if (_isFileMode) const SizedBox(width: 4),
+            if (_isFileMode) SizedBox(width: 4),
             _buildSaveButton(tokens),
           ],
         ),
@@ -345,40 +341,40 @@ class _DesignerScreenState extends State<DesignerScreen> {
   }
 
   Future<void> _editProjectName(BuildContext context) async {
+    final tokens = RKTheme.of(context);
     final controller = TextEditingController(text: _state.modelName);
     final newName = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF181818),
-        title: const Text(
+        backgroundColor: tokens.base300,
+        title: Text(
           'Edit Project Name',
-          style: TextStyle(color: Color(0xFFE0E0E0), fontFamily: 'monospace'),
+          style: TextStyle(color: tokens.onSurface.withValues(alpha: 0.88), fontFamily: 'monospace'),
         ),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: const TextStyle(color: Colors.white, fontFamily: 'monospace'),
-          decoration: const InputDecoration(
+          style: TextStyle(color: tokens.onSurface.withValues(alpha: 0.88), fontFamily: 'monospace'),
+          decoration: InputDecoration(
             hintText: 'Project Name',
-            hintStyle: TextStyle(color: Color(0xFF888888)),
-            enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Color(0xFF333333))),
+            hintStyle: TextStyle(color: tokens.onSurface.withValues(alpha: 0.53)),                enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: tokens.effectiveOutline)),
             focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Color(0xFF90CAF9))),
+                borderSide: BorderSide(color: tokens.primary.withValues(alpha: 0.6))),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('CANCEL',
+            child: Text('CANCEL',
                 style: TextStyle(
-                    color: Color(0xFFAAAAAA), fontFamily: 'monospace')),
+                    color: tokens.onSurface.withValues(alpha: 0.67), fontFamily: 'monospace')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, controller.text),
-            child: const Text('SAVE',
+            child: Text('SAVE',
                 style: TextStyle(
-                    color: Color(0xFF90CAF9),
+                    color: tokens.primary.withValues(alpha: 0.6),
                     fontFamily: 'monospace',
                     fontWeight: FontWeight.bold)),
           ),
@@ -408,7 +404,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
               onPressed: _state.canUndo ? () => _state.undo() : null,
               tokens: tokens,
             ),
-            const SizedBox(width: 4),
+            SizedBox(width: 4),
             _IconButton(
               icon: LucideIcons.redo,
               onPressed: _state.canRedo ? () => _state.redo() : null,
@@ -437,7 +433,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
+          color: tokens.surface,
           border: Border.all(
               color: tokens.primary.withValues(alpha: 0.5), width: 1),
           borderRadius: BorderRadius.circular(2),
@@ -446,7 +442,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(LucideIcons.save, color: tokens.primary, size: 14),
-            const SizedBox(width: 6),
+            SizedBox(width: 6),
             Text(
               'SAVE',
               style: TextStyle(
@@ -470,19 +466,19 @@ class _DesignerScreenState extends State<DesignerScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
-          border: Border.all(color: const Color(0xFF444444), width: 1),
+          color: tokens.surface,
+          border: Border.all(color: tokens.effectiveOutline, width: 1),
           borderRadius: BorderRadius.circular(2),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(LucideIcons.save, color: Colors.white54, size: 14),
-            const SizedBox(width: 6),
+            Icon(LucideIcons.save, color: tokens.onSurface.withValues(alpha: 0.54), size: 14),
+            SizedBox(width: 6),
             Text(
               'SAVE AS',
               style: TextStyle(
-                color: Colors.white54,
+                color: tokens.onSurface.withValues(alpha: 0.54),
                 fontSize: 11,
                 fontFamily: 'monospace',
                 fontWeight: FontWeight.bold,
@@ -499,23 +495,23 @@ class _DesignerScreenState extends State<DesignerScreen> {
       onTap: () => _state.setInspectorVisible(true),
       child: Container(
         width: 32,
-        decoration: const BoxDecoration(
-          color: Color(0xFF181818),
+        decoration: BoxDecoration(
+          color: tokens.base300,
           border: Border(
-            left: BorderSide(color: Color(0xFF222222), width: 1),
+            left: BorderSide(color: tokens.effectiveOutline, width: 1),
           ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(LucideIcons.chevronLeft, color: tokens.primary, size: 18),
-            const SizedBox(height: 4),
-            const RotatedBox(
+            SizedBox(height: 4),
+            RotatedBox(
               quarterTurns: 3,
               child: Text(
                 'INSPECTOR',
                 style: TextStyle(
-                  color: Color(0xFF888888),
+                  color: tokens.onSurface.withValues(alpha: 0.53),
                   fontSize: 9,
                   fontFamily: 'monospace',
                   letterSpacing: 1.5,
@@ -538,10 +534,10 @@ class _DesignerScreenState extends State<DesignerScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: isPlay ? const Color(0xFF1B5E20) : const Color(0xFF1A1A1A),
+              color: isPlay ? tokens.success.withValues(alpha: 0.15) : tokens.surface,
               border: Border.all(
                 color:
-                    isPlay ? const Color(0xFF2E7D32) : const Color(0xFF444444),
+                    isPlay ? tokens.success : tokens.effectiveOutline,
                 width: 1,
               ),
               borderRadius: BorderRadius.circular(2),
@@ -551,14 +547,14 @@ class _DesignerScreenState extends State<DesignerScreen> {
               children: [
                 Icon(
                   isPlay ? LucideIcons.square : LucideIcons.play,
-                  color: isPlay ? const Color(0xFFA5D6A7) : tokens.primary,
+                  color: isPlay ? tokens.success : tokens.primary,
                   size: 14,
                 ),
-                const SizedBox(width: 6),
+                SizedBox(width: 6),
                 Text(
                   isPlay ? 'DONE' : 'TEST',
                   style: TextStyle(
-                    color: isPlay ? const Color(0xFFA5D6A7) : tokens.primary,
+                    color: isPlay ? tokens.success : tokens.primary,
                     fontSize: 11,
                     fontFamily: 'monospace',
                     fontWeight: FontWeight.bold,
@@ -576,6 +572,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
 
   Future<void> _handleBack(BuildContext context) async {
     // Capture navigator references before any async gaps for safe use later.
+    final tokens = RKTheme.of(context);
     final router = GoRouter.of(context);
     final navigator = Navigator.of(context);
     final canPop = context.canPop();
@@ -593,12 +590,12 @@ class _DesignerScreenState extends State<DesignerScreen> {
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF181818),
+        backgroundColor: tokens.base300,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        title: const Text(
+        title: Text(
           'Unsaved Changes',
           style: TextStyle(
-            color: Color(0xFFE0E0E0),
+            color: tokens.onSurface.withValues(alpha: 0.88),
             fontFamily: 'monospace',
             fontWeight: FontWeight.w600,
           ),
@@ -607,15 +604,15 @@ class _DesignerScreenState extends State<DesignerScreen> {
           _isFileMode
               ? 'Save changes to ${_state.originalHeaderPath?.split('/').last ?? 'RadioKit_UI.h'}?'
               : 'Do you want to save your changes before leaving?',
-          style: const TextStyle(color: Color(0xFFAAAAAA), fontFamily: 'monospace'),
+          style: TextStyle(color: tokens.onSurface.withValues(alpha: 0.67), fontFamily: 'monospace'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, 'discard'),
-            child: const Text(
+            child: Text(
               'DISCARD',
               style: TextStyle(
-                color: Color(0xFFFF5555),
+                color: tokens.error,
                 fontFamily: 'monospace',
                 fontWeight: FontWeight.bold,
               ),
@@ -623,10 +620,10 @@ class _DesignerScreenState extends State<DesignerScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, 'save'),
-            child: const Text(
+            child: Text(
               'SAVE',
               style: TextStyle(
-                color: Color(0xFF90CAF9),
+                color: tokens.primary.withValues(alpha: 0.6),
                 fontFamily: 'monospace',
                 fontWeight: FontWeight.bold,
               ),
@@ -678,20 +675,21 @@ class _DesignerScreenState extends State<DesignerScreen> {
       ),
       indicatorBuilder: (context, editingController,
           chunkController, notifier) {
+        final editorTokens = RKTheme.of(context);
         return Row(
           children: [
             DefaultCodeLineNumber(
               controller: editingController,
               notifier: notifier,
-              textStyle: const TextStyle(
-                color: Color(0xFF555555),
+              textStyle: TextStyle(
+                color: editorTokens.onSurface.withValues(alpha: 0.33),
                 fontSize: 12,
                 fontFamily: 'monospace',
               ),
             ),
-            const SizedBox(width: 4),
-            Container(width: 1, color: const Color(0xFF2A2A2A)),
-            const SizedBox(width: 4),
+            SizedBox(width: 4),
+            Container(width: 1, color: editorTokens.base200),
+            SizedBox(width: 4),
           ],
         );
       },
@@ -784,7 +782,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Close',
-      barrierColor: Colors.black,
+      barrierColor: tokens.base300,
       transitionDuration: const Duration(milliseconds: 250),
       pageBuilder: (ctx, animation, secondaryAnimation) {
         return SlideTransition(
@@ -796,7 +794,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
             curve: Curves.easeInOut,
           )),
           child: Material(
-            color: const Color(0xFF0D0D0D),
+            color: tokens.base200,
             child: SafeArea(
               left: false,
               right: false,
@@ -806,26 +804,26 @@ class _DesignerScreenState extends State<DesignerScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 24, vertical: 16),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF111111),
+                    decoration: BoxDecoration(
+                      color: tokens.base300,
                       border:
-                          Border(bottom: BorderSide(color: Color(0xFF222222))),
+                          Border(bottom: BorderSide(color: tokens.effectiveOutline)),
                     ),
                     child: Row(
                       children: [
                         Icon(LucideIcons.code, color: tokens.primary, size: 20),
-                        const SizedBox(width: 10),
-                        const Text(
+                        SizedBox(width: 10),
+                        Text(
                           'CODE VIEWER',
                           style: TextStyle(
-                            color: Color(0xFFE0E0E0),
+                            color: tokens.onSurface.withValues(alpha: 0.88),
                             fontSize: 14,
                             fontFamily: 'monospace',
                             fontWeight: FontWeight.w600,
                             letterSpacing: 1,
                           ),
                         ),
-                        const Spacer(),
+                        Spacer(),
                         // COPY
                         GestureDetector(
                           onTap: () {
@@ -844,15 +842,15 @@ class _DesignerScreenState extends State<DesignerScreen> {
                               color: tokens.primary,
                               borderRadius: BorderRadius.circular(2),
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.copy, color: Colors.black, size: 14),
+                                Icon(Icons.copy, color: tokens.onPrimary, size: 14),
                                 SizedBox(width: 6),
                                 Text(
                                   'COPY',
                                   style: TextStyle(
-                                    color: Colors.black,
+                                    color: tokens.onPrimary,
                                     fontSize: 11,
                                     fontFamily: 'monospace',
                                     fontWeight: FontWeight.bold,
@@ -862,7 +860,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         // SHARE
                         GestureDetector(
                           onTap: () {
@@ -876,19 +874,19 @@ class _DesignerScreenState extends State<DesignerScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF2A2A2A),
+                              color: tokens.base200,
                               borderRadius: BorderRadius.circular(2),
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(LucideIcons.share2,
-                                    color: Colors.white70, size: 14),
+                                    color: tokens.onSurface.withValues(alpha: 0.7), size: 14),
                                 SizedBox(width: 6),
                                 Text(
                                   'SHARE',
                                   style: TextStyle(
-                                    color: Colors.white70,
+                                    color: tokens.onSurface.withValues(alpha: 0.7),
                                     fontSize: 11,
                                     fontFamily: 'monospace',
                                     fontWeight: FontWeight.bold,
@@ -898,7 +896,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         // DOWNLOAD .h
                         GestureDetector(
                           onTap: () async {
@@ -915,19 +913,19 @@ class _DesignerScreenState extends State<DesignerScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF2A2A2A),
+                              color: tokens.base200,
                               borderRadius: BorderRadius.circular(2),
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(LucideIcons.download,
-                                    color: Colors.white70, size: 14),
+                                    color: tokens.onSurface.withValues(alpha: 0.7), size: 14),
                                 SizedBox(width: 6),
                                 Text(
                                   '.h',
                                   style: TextStyle(
-                                    color: Colors.white70,
+                                    color: tokens.onSurface.withValues(alpha: 0.7),
                                     fontSize: 11,
                                     fontFamily: 'monospace',
                                     fontWeight: FontWeight.bold,
@@ -937,18 +935,18 @@ class _DesignerScreenState extends State<DesignerScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         // CLOSE
                         GestureDetector(
                           onTap: () => Navigator.of(ctx).pop(),
                           child: Container(
                             padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF222222),
+                              color: tokens.effectiveOutline,
                               borderRadius: BorderRadius.circular(2),
                             ),
-                            child: const Icon(Icons.close,
-                                color: Color(0xFF888888), size: 16),
+                            child: Icon(Icons.close,
+                                color: tokens.onSurface.withValues(alpha: 0.53), size: 16),
                           ),
                         ),
                       ],
@@ -992,7 +990,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                               // Code content with re_editor
                               Expanded(
                                 child: Container(
-                                  color: const Color(0xFF0A0A0A),
+                                  color: tokens.base200,
                                   child: _buildCodeEditor(displayJsonString, 'json'),
                                 ),
                               ),
@@ -1002,7 +1000,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                         // ── Vertical divider ──────────────────────────────
                         Container(
                           width: 1,
-                          color: const Color(0xFF222222),
+                          color: tokens.effectiveOutline,
                         ),
                         // ── Arduino pane ────────────────────────────────
                         Expanded(
@@ -1028,7 +1026,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                               // Generated code with re_editor
                               Expanded(
                                 child: Container(
-                                  color: const Color(0xFF0A0A0A),
+                                  color: tokens.base200,
                                   child: _buildCodeEditor(_generateArduinoHeader(), 'cpp'),
                                 ),
                               ),
@@ -1059,44 +1057,44 @@ Widget _buildPaneHeader({
   return Container(
     width: double.infinity,
     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-    decoration: const BoxDecoration(
-      color: Color(0xFF181818),
-      border: Border(bottom: BorderSide(color: Color(0xFF2A2A2A))),
+    decoration: BoxDecoration(
+      color: tokens.base300,
+      border: Border(bottom: BorderSide(color: tokens.base200)),
     ),
     child: Row(
       children: [
         Icon(icon, color: tokens.primary, size: 14),
-        const SizedBox(width: 8),
+        SizedBox(width: 8),
         Text(
           label,
-          style: const TextStyle(
-            color: Color(0xFFAAAAAA),
+          style: TextStyle(
+            color: tokens.onSurface.withValues(alpha: 0.67),
             fontSize: 11,
             fontFamily: 'monospace',
             fontWeight: FontWeight.w600,
             letterSpacing: 0.5,
           ),
         ),
-        const Spacer(),
+        Spacer(),
         GestureDetector(
           onTap: onCopy,
           child: Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: const Color(0xFF222222),
+              color: tokens.effectiveOutline,
               borderRadius: BorderRadius.circular(2),
             ),
             child: Icon(Icons.copy, color: tokens.primary, size: 13),
           ),
         ),
         if (onDownload != null) ...[
-          const SizedBox(width: 6),
+          SizedBox(width: 6),
           GestureDetector(
             onTap: onDownload,
             child: Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: const Color(0xFF222222),
+                color: tokens.effectiveOutline,
                 borderRadius: BorderRadius.circular(2),
               ),
               child:
@@ -1128,17 +1126,17 @@ class _IconButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
-          color: isDisabled ? const Color(0xFF111111) : const Color(0xFF1A1A1A),
+          color: isDisabled ? tokens.base300 : tokens.surface,
           border: Border.all(
             color:
-                isDisabled ? const Color(0xFF222222) : const Color(0xFF444444),
+                isDisabled ? tokens.effectiveOutline : tokens.effectiveOutline,
             width: 1,
           ),
           borderRadius: BorderRadius.circular(2),
         ),
         child: Icon(
           icon,
-          color: isDisabled ? const Color(0xFF333333) : tokens.primary,
+          color: isDisabled ? tokens.effectiveOutline : tokens.primary,
           size: 16,
         ),
       ),

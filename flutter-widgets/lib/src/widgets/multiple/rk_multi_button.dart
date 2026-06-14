@@ -276,7 +276,7 @@ class _ToggleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activeAccent = tokens.primary;
+    final activeAccent = tokens.onPrimary;
 
     // Create buttonDark and buttonDark2 dynamically based on tokens.surface
     // to preserve dark/light theme options and look incredibly good.

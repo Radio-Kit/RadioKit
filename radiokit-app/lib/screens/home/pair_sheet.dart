@@ -25,7 +25,7 @@ void showPairBottomSheet(BuildContext context) {
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    backgroundColor: const Color(0xFF1A1A1A),
+    backgroundColor: context.tokens.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
     ),
@@ -288,9 +288,9 @@ class _PairBottomSheetState extends State<PairBottomSheet>
         children: [
           TabBar(
             controller: _tabController,
-            indicatorColor: AppColors.brandOrange,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white54,
+            indicatorColor: context.tokens.primary,
+            labelColor: context.tokens.onSurface,
+            unselectedLabelColor: context.tokens.onSurface.withValues(alpha: 0.54),
             labelStyle: const TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 11,
@@ -335,7 +335,7 @@ class _PairBottomSheetState extends State<PairBottomSheet>
               )),
             ],
           ),
-          const Divider(height: 1, color: Colors.white12),
+          Divider(height: 1, color: context.tokens.onSurface.withValues(alpha: 0.12)),
           Expanded(
             flex: 2,
             child: TabBarView(
@@ -372,7 +372,7 @@ class _PairBottomSheetState extends State<PairBottomSheet>
               ],
             ),
           ),
-          const Divider(height: 1, color: Colors.white12),
+          Divider(height: 1, color: context.tokens.onSurface.withValues(alpha: 0.12)),
           Expanded(
             flex: 1,
             child: ConsoleLogView(height: double.infinity),
@@ -416,11 +416,11 @@ class _PairBleTab extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: ble.isScanning || ble.devices.isNotEmpty
-                          ? AppColors.brandOrange
-                          : Colors.white12,
+                          ? context.tokens.primary
+                          : context.tokens.onSurface.withValues(alpha: 0.12),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -431,25 +431,25 @@ class _PairBleTab extends StatelessWidget {
                             fontSize: 11,
                             letterSpacing: 1.0),
                       ),
-                      const Text('BLUETOOTH LOW ENERGY',
-                          style: TextStyle(color: Colors.white24, fontSize: 8)),
+                      Text('BLUETOOTH LOW ENERGY',
+                          style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.24), fontSize: 8)),
                     ],
                   ),
                   const Spacer(),
                   Text(
                     '${ble.devices.length.toString().padLeft(2, '0')}_NODES',
-                    style: const TextStyle(color: Colors.white24, fontSize: 9),
+                    style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.24), fontSize: 9),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               LinearProgressIndicator(
                 value: ble.isScanning ? null : 1.0,
-                backgroundColor: const Color(0x0DFFFFFF),
-                valueColor: const AlwaysStoppedAnimation(AppColors.brandOrange),
+                backgroundColor: context.tokens.onSurface.withValues(alpha: 0.05),
+                valueColor: AlwaysStoppedAnimation(context.tokens.primary),
                 minHeight: 1,
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
               // ── Device list ───────────────────────────────────
               if (ble.devices.isEmpty)
                 Center(
@@ -458,7 +458,7 @@ class _PairBleTab extends StatelessWidget {
                     child: Text(
                       ble.isScanning ? 'Scanning...' : 'No BLE devices found',
                       style:
-                          const TextStyle(color: Colors.white24, fontSize: 12),
+                          TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.24), fontSize: 12),
                     ),
                   ),
                 )
@@ -519,11 +519,11 @@ class _PairUsbTab extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: serial.ports.isNotEmpty
-                          ? AppColors.brandOrange
-                          : Colors.white12,
+                          ? context.tokens.primary
+                          : context.tokens.onSurface.withValues(alpha: 0.12),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -532,32 +532,32 @@ class _PairUsbTab extends StatelessWidget {
                               fontWeight: FontWeight.bold,
                               fontSize: 11,
                               letterSpacing: 1.0)),
-                      const Text('USB SERIAL',
-                          style: TextStyle(color: Colors.white24, fontSize: 8)),
+                      Text('USB SERIAL',
+                          style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.24), fontSize: 8)),
                     ],
                   ),
                   const Spacer(),
                   Text(
                     '${serial.ports.length.toString().padLeft(2, '0')}_PORTS',
-                    style: const TextStyle(color: Colors.white24, fontSize: 9),
+                    style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.24), fontSize: 9),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              const LinearProgressIndicator(
+              SizedBox(height: 12),
+              LinearProgressIndicator(
                 value: null,
-                backgroundColor: Color(0x0DFFFFFF),
-                valueColor: AlwaysStoppedAnimation(AppColors.brandOrange),
+                backgroundColor: context.tokens.onSurface.withValues(alpha: 0.05),
+                valueColor: AlwaysStoppedAnimation(context.tokens.primary),
                 minHeight: 1,
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
               // ── Port list ─────────────────────────────────────
               if (serial.ports.isEmpty)
-                const Center(
+                Center(
                   child: Padding(
                     padding: EdgeInsets.symmetric(vertical: 40),
                     child: Text('No serial ports found',
-                        style: TextStyle(color: Colors.white24, fontSize: 12)),
+                        style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.24), fontSize: 12)),
                   ),
                 )
               else
@@ -622,11 +622,11 @@ class _PairWiFiTab extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: (isScanning || hasDiscovered)
-                      ? AppColors.brandOrange
-                      : Colors.white12,
+                      ? context.tokens.primary
+                      : context.tokens.onSurface.withValues(alpha: 0.12),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -641,25 +641,25 @@ class _PairWiFiTab extends StatelessWidget {
                         fontSize: 11,
                         letterSpacing: 1.0),
                   ),
-                  const Text('MDNS / WEBSOCKET',
-                      style: TextStyle(color: Colors.white24, fontSize: 8)),
+                  Text('MDNS / WEBSOCKET',
+                      style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.24), fontSize: 8)),
                 ],
               ),
               const Spacer(),
               Text(
                 '${discoveredDevices.length.toString().padLeft(2, '0')}_NODES',
-                style: const TextStyle(color: Colors.white24, fontSize: 9),
+                style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.24), fontSize: 9),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           LinearProgressIndicator(
             value: isScanning ? null : 1.0,
             backgroundColor: const Color(0x0DFFFFFF),
-            valueColor: const AlwaysStoppedAnimation(AppColors.brandOrange),
+            valueColor: AlwaysStoppedAnimation(context.tokens.primary),
             minHeight: 1,
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
 
           // ── Discovered devices ────────────────────────────────
           if (hasDiscovered) ...[
@@ -673,54 +673,54 @@ class _PairWiFiTab extends StatelessWidget {
                 onDismissError: () => onDismissError(device.id),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Container(
               height: 1,
-              color: Colors.white.withValues(alpha: 0.08),
+              color: context.tokens.onSurface.withValues(alpha: 0.08),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Center(
               child: Text(
                 'OR ENTER MANUALLY',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.3),
+                  color: context.tokens.onSurface.withValues(alpha: 0.3),
                   fontSize: 9,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.5,
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
           ],
 
           // ── No devices found message ──────────────────────────
           if (!hasDiscovered && isScanning)
-            const Center(
+            Center(
               child: Padding(
                 padding: EdgeInsets.symmetric(vertical: 32),
                 child: Text('Scanning for WiFi devices...',
-                    style: TextStyle(color: Colors.white24, fontSize: 12)),
+                    style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.24), fontSize: 12)),
               ),
             ),
           if (!hasDiscovered && !isScanning && isMdnsSupported)
-            const Center(
+            Center(
               child: Padding(
                 padding: EdgeInsets.symmetric(vertical: 32),
                 child: Text(
                   'No WiFi devices found on the network\nEnter the IP address manually below',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white24, fontSize: 11),
+                  style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.24), fontSize: 11),
                 ),
               ),
             ),
           if (!isMdnsSupported)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(bottom: 16),
               child: Center(
                 child: Text(
                   'mDNS discovery is not available on this platform.\nEnter the device IP address manually.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white24, fontSize: 11),
+                  style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.24), fontSize: 11),
                 ),
               ),
             ),
@@ -790,18 +790,18 @@ class _PairWiFiManualEntryState extends State<_PairWiFiManualEntry> {
             Expanded(
               child: TextFormField(
                 controller: _hostController,
-                style: GoogleFonts.jetBrainsMono(
-                    color: Colors.white,
+                style: GoogleFonts.martianMono(
+                    color: context.tokens.onSurface,
                     fontSize: 14,
                     fontWeight: FontWeight.w500),
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.05),
+                  fillColor: context.tokens.onSurface.withValues(alpha: 0.05),
                   hintText: '192.168.4.1',
-                  hintStyle: const TextStyle(color: Colors.white24),
+                  hintStyle: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.24)),
                   labelText: 'IP ADDRESS',
-                  labelStyle: const TextStyle(
-                      color: Colors.white38,
+                  labelStyle: TextStyle(
+                      color: context.tokens.onSurface.withValues(alpha: 0.38),
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1),
@@ -809,49 +809,49 @@ class _PairWiFiManualEntryState extends State<_PairWiFiManualEntry> {
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(6),
-                    borderSide: const BorderSide(color: Colors.white12),
+                    borderSide: BorderSide(color: context.tokens.onSurface.withValues(alpha: 0.12)),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(6),
-                    borderSide: const BorderSide(color: Colors.white12),
+                    borderSide: BorderSide(color: context.tokens.onSurface.withValues(alpha: 0.12)),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(6),
                     borderSide: BorderSide(
-                        color: AppColors.brandOrange.withValues(alpha: 0.5)),
+                        color: context.tokens.primary.withValues(alpha: 0.5)),
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             SizedBox(
               height: 48,
               child: FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.brandOrange,
-                  foregroundColor: Colors.black,
+                  backgroundColor: context.tokens.primary,
+                  foregroundColor: context.tokens.onPrimary,
                   padding: const EdgeInsets.symmetric(horizontal: 14),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(6)),
                 ),
                 onPressed: _connecting ? null : _connect,
                 child: _connecting
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.black))
+                            strokeWidth: 2, color: context.tokens.onPrimary))
                     : const Icon(Icons.arrow_forward_rounded, size: 20),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         // ── Help text ──────────────────────────────────────────
-        const Text(
+        Text(
           'Enter the IP address of your RadioKit device on the local network.\n'
           'The device must have WiFi transport enabled. Default port is 5555.',
-          style: TextStyle(color: Colors.white24, fontSize: 10),
+          style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.24), fontSize: 10),
         ),
       ],
     );
@@ -885,8 +885,8 @@ class _PairDeviceCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       color: hasError
-          ? Colors.redAccent.withValues(alpha: 0.08)
-          : Colors.white.withValues(alpha: 0.05),
+          ? context.tokens.error.withValues(alpha: 0.08)
+          : context.tokens.onSurface.withValues(alpha: 0.05),
       child: InkWell(
         onTap: isConnecting
             ? null
@@ -900,7 +900,7 @@ class _PairDeviceCard extends StatelessWidget {
             children: [
               // Connection indicator
               if (isConnecting)
-                const SizedBox(
+                SizedBox(
                   width: 16,
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
@@ -910,18 +910,18 @@ class _PairDeviceCard extends StatelessWidget {
                   width: 16,
                   height: 16,
                   child: Icon(Icons.error_rounded,
-                      size: 16, color: Colors.redAccent),
+                      size: 16, color: context.tokens.error),
                 )
               else
                 Container(
                   width: 8,
                   height: 8,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: AppColors.connected,
+                    color: context.tokens.success,
                   ),
                 ),
-              const SizedBox(width: 14),
+              SizedBox(width: 14),
               // Device info
               Expanded(
                 child: Column(
@@ -933,11 +933,11 @@ class _PairDeviceCard extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                           letterSpacing: 0.5,
-                          color: hasError ? Colors.redAccent : Colors.white),
+                          color: hasError ? context.tokens.error : context.tokens.onSurface),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 3),
+                    SizedBox(height: 3),
                     Text(
                       isConnecting
                           ? 'Connecting...'
@@ -946,10 +946,10 @@ class _PairDeviceCard extends StatelessWidget {
                               : 'READY TO PAIR',
                       style: TextStyle(
                         color: hasError
-                            ? Colors.redAccent
+                            ? context.tokens.error
                             : isConnecting
-                                ? AppColors.brandOrange
-                                : Colors.white38,
+                                ? context.tokens.primary
+                                : context.tokens.onSurface.withValues(alpha: 0.38),
                         fontSize: 9,
                       ),
                       maxLines: 2,
@@ -968,11 +968,11 @@ class _PairDeviceCard extends StatelessWidget {
                     if (onDismissError != null)
                       GestureDetector(
                         onTap: () => onDismissError!(),
-                        child: const Icon(Icons.close_rounded,
-                            size: 16, color: Colors.white38),
+                        child: Icon(Icons.close_rounded,
+                            size: 16, color: context.tokens.onSurface.withValues(alpha: 0.38)),
                       ),
                     if (trailing != null) ...[
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       trailing!,
                     ],
                   ],
@@ -1016,7 +1016,7 @@ class _PairSignalBars extends StatelessWidget {
           height: 8 + (i * 3.0),
           margin: const EdgeInsets.only(left: 2),
           decoration: BoxDecoration(
-            color: active ? AppColors.brandOrange : Colors.white12,
+            color: active ? context.tokens.primary : context.tokens.onSurface.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(0.5),
           ),
         );
@@ -1213,14 +1213,14 @@ class _PairCloudTabState extends State<_PairCloudTab> {
       return Icon(
         Icons.check_circle_rounded,
         size: 22,
-        color: Colors.greenAccent.withValues(alpha: 0.8),
+        color: context.tokens.success.withValues(alpha: 0.8),
       );
     }
     if (_error != null) {
       return Icon(
         Icons.error_rounded,
         size: 22,
-        color: Colors.redAccent.withValues(alpha: 0.8),
+        color: context.tokens.error.withValues(alpha: 0.8),
       );
     }
     // Idle — tap to connect
@@ -1228,7 +1228,7 @@ class _PairCloudTabState extends State<_PairCloudTab> {
       icon: Icon(
         Icons.refresh_rounded,
         size: 20,
-        color: AppColors.brandOrange.withValues(alpha: 0.7),
+        color: context.tokens.primary.withValues(alpha: 0.7),
       ),
       onPressed: _connectToRelay,
       tooltip: 'Connect to relay',
@@ -1270,15 +1270,15 @@ class _PairCloudTabState extends State<_PairCloudTab> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: _error != null
-                      ? Colors.redAccent
+                      ? context.tokens.error
                       : _step == _CloudStep.deviceList
-                          ? AppColors.brandOrange
+                          ? context.tokens.primary
                           : _step == _CloudStep.idle
-                              ? Colors.white12
-                              : AppColors.brandOrange,
+                              ? context.tokens.onSurface.withValues(alpha: 0.12)
+                              : context.tokens.primary,
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1307,8 +1307,8 @@ class _PairCloudTabState extends State<_PairCloudTab> {
                                 : 'CLOUD RELAY',
                     style: TextStyle(
                       color: _error != null
-                          ? Colors.redAccent
-                          : Colors.white.withValues(alpha: 0.4),
+                          ? context.tokens.error
+                          : context.tokens.onSurface.withValues(alpha: 0.4),
                       fontSize: 8,
                     ),
                     maxLines: 2,
@@ -1321,76 +1321,76 @@ class _PairCloudTabState extends State<_PairCloudTab> {
                 if (_error != null) ...[
                   GestureDetector(
                     onTap: _connectToRelay,
-                    child: const Icon(Icons.refresh_rounded,
-                        size: 18, color: Colors.white54),
+                    child: Icon(Icons.refresh_rounded,
+                        size: 18, color: context.tokens.onSurface.withValues(alpha: 0.54)),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                 ],
                 GestureDetector(
                   onTap: _disconnect,
-                  child: const Icon(Icons.close_rounded,
-                      size: 18, color: Colors.white38),
+                  child: Icon(Icons.close_rounded,
+                      size: 18, color: context.tokens.onSurface.withValues(alpha: 0.38)),
                 ),
               ],
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           LinearProgressIndicator(
             value: _step == _CloudStep.idle || _step == _CloudStep.deviceList
                 ? 1.0
                 : null,
             backgroundColor: const Color(0x0DFFFFFF),
-            valueColor: const AlwaysStoppedAnimation(AppColors.brandOrange),
+            valueColor: AlwaysStoppedAnimation(context.tokens.primary),
             minHeight: 1,
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
 
           // ── Input form ──────────────────────────────────────────
           if (_step != _CloudStep.joiningDevice) ...[
             Text('RELAY HOST (OPTIONAL)',
                 style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
+                    color: context.tokens.onSurface.withValues(alpha: 0.5),
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1)),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             TextFormField(
               controller: _hostController,
-              style: GoogleFonts.jetBrainsMono(
-                  color: Colors.white,
+              style: GoogleFonts.martianMono(
+                  color: context.tokens.onSurface,
                   fontSize: 14,
                   fontWeight: FontWeight.w500),
               decoration: InputDecoration(
                 filled: true,
-                fillColor: Colors.white.withValues(alpha: 0.05),
+                fillColor: context.tokens.onSurface.withValues(alpha: 0.05),
                 hintText: 'relay.radiokit.app:443',
-                hintStyle: const TextStyle(color: Colors.white24),
+                hintStyle: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.24)),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 suffixIcon: _buildRelaySuffix(),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(6),
-                  borderSide: const BorderSide(color: Colors.white12),
+                  borderSide: BorderSide(color: context.tokens.onSurface.withValues(alpha: 0.12)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(6),
-                  borderSide: const BorderSide(color: Colors.white12),
+                  borderSide: BorderSide(color: context.tokens.onSurface.withValues(alpha: 0.12)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(6),
                   borderSide: BorderSide(
-                      color: AppColors.brandOrange.withValues(alpha: 0.5)),
+                      color: context.tokens.primary.withValues(alpha: 0.5)),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Text('PUBLIC KEY (ACCOUNT)',
                 style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
+                    color: context.tokens.onSurface.withValues(alpha: 0.5),
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1)),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Consumer<AccountProvider>(
               builder: (context, ap, _) {
                 final accounts = ap.accounts;
@@ -1409,33 +1409,33 @@ class _PairCloudTabState extends State<_PairCloudTab> {
                 return DropdownButtonFormField<String>(
                   value: selectedValue,
                   isExpanded: true,
-                  dropdownColor: const Color(0xFF252525),
-                  style: GoogleFonts.jetBrainsMono(
-                    color: Colors.white,
+                  dropdownColor: context.tokens.base200,
+                  style: GoogleFonts.martianMono(
+                    color: context.tokens.onSurface,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
                   decoration: InputDecoration(
                     filled: true,
-                    fillColor: Colors.white.withValues(alpha: 0.05),
+                    fillColor: context.tokens.onSurface.withValues(alpha: 0.05),
                     hintText:
                         hasAccounts ? 'Select an account' : 'No accounts saved',
                     hintStyle:
-                        const TextStyle(color: Colors.white24, fontSize: 13),
+                        TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.24), fontSize: 13),
                     contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 12),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(6),
-                      borderSide: const BorderSide(color: Colors.white12),
+                      borderSide: BorderSide(color: context.tokens.onSurface.withValues(alpha: 0.12)),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(6),
-                      borderSide: const BorderSide(color: Colors.white12),
+                      borderSide: BorderSide(color: context.tokens.onSurface.withValues(alpha: 0.12)),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(6),
                       borderSide: BorderSide(
-                          color: AppColors.brandOrange.withValues(alpha: 0.5)),
+                          color: context.tokens.primary.withValues(alpha: 0.5)),
                     ),
                   ),
                   items: [
@@ -1444,13 +1444,13 @@ class _PairCloudTabState extends State<_PairCloudTab> {
                             children: [
                               Icon(Icons.person_rounded,
                                   size: 16,
-                                  color: AppColors.brandOrange
+                                  color: context.tokens.primary
                                       .withValues(alpha: 0.7)),
-                              const SizedBox(width: 10),
+                              SizedBox(width: 10),
                               Text(
                                 a.name,
-                                style: const TextStyle(
-                                    color: Colors.white, fontSize: 13),
+                                style: TextStyle(
+                                    color: context.tokens.onSurface, fontSize: 13),
                               ),
                             ],
                           ),
@@ -1462,7 +1462,7 @@ class _PairCloudTabState extends State<_PairCloudTab> {
                             ? BoxDecoration(
                                 border: Border(
                                   top: BorderSide(
-                                    color: Colors.white.withValues(alpha: 0.08),
+                                    color: context.tokens.onSurface.withValues(alpha: 0.08),
                                   ),
                                 ),
                               )
@@ -1472,12 +1472,12 @@ class _PairCloudTabState extends State<_PairCloudTab> {
                           children: [
                             Icon(Icons.settings_rounded,
                                 size: 16,
-                                color: Colors.white.withValues(alpha: 0.5)),
-                            const SizedBox(width: 10),
+                                color: context.tokens.onSurface.withValues(alpha: 0.5)),
+                            SizedBox(width: 10),
                             Text(
                               'Manage accounts',
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.7),
+                                color: context.tokens.onSurface.withValues(alpha: 0.7),
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -1510,14 +1510,14 @@ class _PairCloudTabState extends State<_PairCloudTab> {
 
           // ── Device list ────────────────────────────────────────
           if (_step == _CloudStep.deviceList) ...[
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Text('AVAILABLE DEVICES',
                 style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
+                    color: context.tokens.onSurface.withValues(alpha: 0.5),
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1)),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             ..._devices.map((name) => _PairDeviceCard(
                   device: DeviceInfo(
                     id: name,
@@ -1535,7 +1535,7 @@ class _PairCloudTabState extends State<_PairCloudTab> {
 
           // ── Joining ────────────────────────────────────────────
           if (_step == _CloudStep.joiningDevice) ...[
-            const Center(
+            Center(
               child: Padding(
                 padding: EdgeInsets.symmetric(vertical: 40),
                 child: Column(
@@ -1547,7 +1547,7 @@ class _PairCloudTabState extends State<_PairCloudTab> {
                     ),
                     SizedBox(height: 16),
                     Text('Joining device...',
-                        style: TextStyle(color: Colors.white38, fontSize: 12)),
+                        style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.38), fontSize: 12)),
                   ],
                 ),
               ),
@@ -1597,15 +1597,15 @@ class _PairSerialDeviceCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       color: hasError
-          ? Colors.redAccent.withValues(alpha: 0.08)
-          : Colors.white.withValues(alpha: 0.05),
+          ? context.tokens.error.withValues(alpha: 0.08)
+          : context.tokens.onSurface.withValues(alpha: 0.05),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
             // Status indicator
             if (isConnecting)
-              const SizedBox(
+              SizedBox(
                 width: 16,
                 height: 16,
                 child: CircularProgressIndicator(strokeWidth: 2),
@@ -1615,18 +1615,18 @@ class _PairSerialDeviceCard extends StatelessWidget {
                 width: 16,
                 height: 16,
                 child: Icon(Icons.error_rounded,
-                    size: 16, color: Colors.redAccent),
+                    size: 16, color: context.tokens.error),
               )
             else
               Container(
                 width: 8,
                 height: 8,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColors.connected,
+                  color: context.tokens.success,
                 ),
               ),
-            const SizedBox(width: 14),
+            SizedBox(width: 14),
             // Port name + status
             Expanded(
               child: Column(
@@ -1637,11 +1637,11 @@ class _PairSerialDeviceCard extends StatelessWidget {
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
-                        color: hasError ? Colors.redAccent : Colors.white),
+                        color: hasError ? context.tokens.error : context.tokens.onSurface),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 3),
+                  SizedBox(height: 3),
                   Text(
                     isConnecting
                         ? 'Connecting...'
@@ -1650,22 +1650,22 @@ class _PairSerialDeviceCard extends StatelessWidget {
                             : 'READY TO PAIR',
                     style: TextStyle(
                       color: hasError
-                          ? Colors.redAccent
+                          ? context.tokens.error
                           : isConnecting
-                              ? AppColors.brandOrange
-                              : Colors.white38,
+                              ? context.tokens.primary
+                              : context.tokens.onSurface.withValues(alpha: 0.38),
                       fontSize: 9,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             // Baud rate selector
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
+                color: context.tokens.onSurface.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: PopupMenuButton<String>(
@@ -1676,32 +1676,32 @@ class _PairSerialDeviceCard extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(selectedBaud,
-                        style: GoogleFonts.jetBrainsMono(
-                            color: Colors.white54,
+                        style: GoogleFonts.martianMono(
+                            color: context.tokens.onSurface.withValues(alpha: 0.54),
                             fontSize: 11,
                             fontWeight: FontWeight.w500)),
-                    const Icon(Icons.arrow_drop_down_rounded,
-                        size: 16, color: Colors.white38),
+                    Icon(Icons.arrow_drop_down_rounded,
+                        size: 16, color: context.tokens.onSurface.withValues(alpha: 0.38)),
                   ],
                 ),
                 itemBuilder: (ctx) => _baudRates
                     .map((rate) => PopupMenuItem(
                           value: rate,
                           child: Text(rate,
-                              style: GoogleFonts.jetBrainsMono(
-                                  fontSize: 12, color: Colors.white)),
+                              style: GoogleFonts.martianMono(
+                                  fontSize: 12, color: context.tokens.onSurface)),
                         ))
                     .toList(),
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             // Connect button
             SizedBox(
               height: 32,
               child: FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.brandOrange,
-                  foregroundColor: Colors.black,
+                  backgroundColor: context.tokens.primary,
+                  foregroundColor: context.tokens.onPrimary,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(4)),

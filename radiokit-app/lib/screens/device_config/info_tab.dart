@@ -6,9 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../providers/device_provider.dart';
 import '../../providers/history_provider.dart';
 import '../../models/device_info.dart';
-import '../../models/protocol.dart';
 import '../../theme/app_theme.dart';
-import '../../services/transport_service.dart';
 
 class InfoTabContent extends StatefulWidget {
   final DeviceInfo device;
@@ -118,20 +116,20 @@ class _InfoTabContentState extends State<InfoTabContent> {
                             fontSize: 22,
                             fontWeight: FontWeight.w900,
                             letterSpacing: -0.5,
-                            color: Colors.white)),
+                            color: context.tokens.onSurface)),
                     const SizedBox(height: 4),
                     Row(children: [
                       Container(
                           width: 6,
                           height: 6,
-                          decoration: const BoxDecoration(
-                              color: AppColors.connected,
+                          decoration: BoxDecoration(
+                              color: context.tokens.success,
                               shape: BoxShape.circle)),
                       const SizedBox(width: 6),
                       Text(
                         transportLabel(connectedTransport),
-                        style: const TextStyle(
-                            color: Colors.white54,
+                        style: TextStyle(
+                            color: context.tokens.onSurface.withValues(alpha: 0.54),
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.5),
@@ -143,10 +141,10 @@ class _InfoTabContentState extends State<InfoTabContent> {
             ],
           ),
           if (isBleConnected && widget.loadingBleInfo)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 12),
               child: Text('Fetching connection info...',
-                  style: TextStyle(color: Colors.white54, fontSize: 11)),
+                  style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.54), fontSize: 11)),
             )
           else ...[
             const SizedBox(height: 12),
@@ -156,13 +154,13 @@ class _InfoTabContentState extends State<InfoTabContent> {
                 'Connection: ${widget.bleInfo?['connIntervalMs'] ?? dp.latencyMs ?? '--'}ms '
                 '| MTU: ${widget.bleInfo?['negotiatedMtu'] ?? '--'}'
                 ' | Signal: ${widget.bleInfo?['rssi'] ?? dp.rssi ?? device.rssi ?? '--'} dBm',
-                style: const TextStyle(color: Colors.white54, fontSize: 11),
+                style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.54), fontSize: 11),
               ),
             ] else if (isWifiConnected || isCloudConnected) ...[
               Text(
                 'Latency: ${dp.latencyMs ?? '--'}ms'
                 ' | Signal: ${dp.rssi ?? device.rssi ?? '--'} dBm',
-                style: const TextStyle(color: Colors.white54, fontSize: 11),
+                style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.54), fontSize: 11),
               ),
             ],
           ],
@@ -228,28 +226,28 @@ class _InfoTabContentState extends State<InfoTabContent> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.1),
+                color: context.tokens.warning.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
-                    color: Colors.orange.withValues(alpha: 0.25)),
+                    color: context.tokens.warning.withValues(alpha: 0.25)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const SizedBox(
+                  SizedBox(
                     width: 14,
                     height: 14,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.orange,
+                      color: context.tokens.warning,
                     ),
                   ),
                   const SizedBox(width: 8),
                   Flexible(
                     child: Text(
                       _transportSwitchMessage!,
-                      style: const TextStyle(
-                        color: Colors.orange,
+                      style: TextStyle(
+                        color: context.tokens.warning,
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
                       ),
@@ -259,13 +257,13 @@ class _InfoTabContentState extends State<InfoTabContent> {
               ),
             ),
           ],
-          const SizedBox(height: 16),
-          const Divider(height: 1, color: Colors.white12),
+          SizedBox(height: 16),
+          Divider(height: 1, color: context.tokens.onSurface.withValues(alpha: 0.12)),
           const SizedBox(height: 24),
           // ── Chip Info ───────────────────────────────────────
           Text('CHIP INFO',
               style: TextStyle(
-                  color: AppColors.brandOrange,
+                  color: context.tokens.primary,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1,
@@ -282,17 +280,17 @@ class _InfoTabContentState extends State<InfoTabContent> {
               'Chip ID (MAC)': '--',
             })
           else if (chipInfo == null)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
               child: Row(children: [
                 SizedBox(
                     width: 14,
                     height: 14,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: AppColors.brandOrange)),
+                        strokeWidth: 2, color: context.tokens.primary)),
                 SizedBox(width: 12),
                 Text('Fetching chip info...',
-                    style: TextStyle(color: Colors.white54, fontSize: 12)),
+                    style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.54), fontSize: 12)),
               ]),
             )
           else
@@ -312,8 +310,8 @@ class _InfoTabContentState extends State<InfoTabContent> {
               'SDK Version': chipInfo['sdkVersion'] ?? '--',
               'Chip ID (MAC)': chipInfo['chipId'] ?? '--',
             }),
-          const SizedBox(height: 24),
-          const Divider(height: 1, color: Colors.white12),
+          SizedBox(height: 24),
+          Divider(height: 1, color: context.tokens.onSurface.withValues(alpha: 0.12)),
           const SizedBox(height: 24),
           // ── Device Action Buttons ────────────────────────────
           if (!isDemo) ...[
@@ -322,9 +320,9 @@ class _InfoTabContentState extends State<InfoTabContent> {
               height: 48,
               child: OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.redAccent,
+                  foregroundColor: context.tokens.error,
                   side: BorderSide(
-                      color: Colors.redAccent.withValues(alpha: 0.4)),
+                      color: context.tokens.error.withValues(alpha: 0.4)),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(6)),
                   padding: EdgeInsets.zero,
@@ -381,8 +379,8 @@ class _InfoTabContentState extends State<InfoTabContent> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.swap_horiz_rounded,
-            color: AppColors.brandOrange, size: 32),
+        icon: Icon(Icons.swap_horiz_rounded,
+            color: context.tokens.primary, size: 32),
         title: Text('Switch to $targetLabel?'),
         content: Text(
           'Connected via $currentLabel. Switching to $targetLabel '
@@ -392,12 +390,12 @@ class _InfoTabContentState extends State<InfoTabContent> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('CANCEL', style: TextStyle(color: Colors.white54)),
+            child: Text('CANCEL', style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.54))),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: AppColors.brandOrange,
-              foregroundColor: Colors.black,
+              backgroundColor: context.tokens.primary,
+              foregroundColor: context.tokens.onPrimary,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(6)),
             ),
@@ -436,7 +434,7 @@ class _InfoTabContentState extends State<InfoTabContent> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Connected via $targetLabel'),
-          backgroundColor: Colors.greenAccent,
+          backgroundColor: context.tokens.success,
         ),
       );
     } else {
@@ -451,7 +449,7 @@ class _InfoTabContentState extends State<InfoTabContent> {
         SnackBar(
           content: Text(
               'Failed to switch to $targetLabel — staying on $currentLabel'),
-          backgroundColor: Colors.orangeAccent,
+          backgroundColor: context.tokens.warning,
         ),
       );
     }
@@ -468,10 +466,10 @@ class _InfoTabContentState extends State<InfoTabContent> {
                 children: [
                   Text(e.key,
                       style:
-                          const TextStyle(color: Colors.white54, fontSize: 12)),
+                          TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.54), fontSize: 12)),
                   Text(e.value,
-                      style: GoogleFonts.jetBrainsMono(
-                          color: Colors.white,
+                      style: GoogleFonts.martianMono(
+                          color: context.tokens.onSurface,
                           fontSize: 12,
                           fontWeight: FontWeight.w500)),
                 ],
@@ -520,17 +518,17 @@ class TransportBadge extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: connected
-              ? AppColors.connected.withValues(alpha: 0.15)
+              ? context.tokens.success.withValues(alpha: 0.15)
               : available
-                  ? Colors.white.withValues(alpha: 0.05)
-                  : Colors.white.withValues(alpha: 0.02),
+                  ? context.tokens.onSurface.withValues(alpha: 0.05)
+                  : context.tokens.onSurface.withValues(alpha: 0.02),
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: connected
-                ? AppColors.connected.withValues(alpha: 0.3)
+                ? context.tokens.success.withValues(alpha: 0.3)
                 : available
-                    ? Colors.white12
-                    : Colors.white.withValues(alpha: 0.04),
+                    ? context.tokens.onSurface.withValues(alpha: 0.12)
+                    : context.tokens.onSurface.withValues(alpha: 0.04),
           ),
         ),
         child: Row(
@@ -542,10 +540,10 @@ class TransportBadge extends StatelessWidget {
               height: 6,
               decoration: BoxDecoration(
                 color: connected
-                    ? AppColors.connected
+                    ? context.tokens.success
                     : available
-                        ? Colors.white38
-                        : Colors.white.withValues(alpha: 0.1),
+                        ? context.tokens.onSurface.withValues(alpha: 0.38)
+                        : context.tokens.onSurface.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
             ),
@@ -553,18 +551,18 @@ class TransportBadge extends StatelessWidget {
             Icon(icon,
                 size: 14,
                 color: connected
-                    ? Colors.white
+                    ? context.tokens.onSurface
                     : available
-                        ? Colors.white54
-                        : Colors.white.withValues(alpha: 0.15)),
+                        ? context.tokens.onSurface.withValues(alpha: 0.54)
+                        : context.tokens.onSurface.withValues(alpha: 0.15)),
             const SizedBox(width: 4),
             Text(type.toUpperCase(),
                 style: TextStyle(
                     color: connected
-                        ? Colors.white
+                        ? context.tokens.onSurface
                         : available
-                            ? Colors.white54
-                            : Colors.white.withValues(alpha: 0.15),
+                            ? context.tokens.onSurface.withValues(alpha: 0.54)
+                            : context.tokens.onSurface.withValues(alpha: 0.15),
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1)),
@@ -572,7 +570,7 @@ class TransportBadge extends StatelessWidget {
               const SizedBox(width: 4),
               Text('${rssi}dBm',
                   style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5),
+                      color: context.tokens.onSurface.withValues(alpha: 0.5),
                       fontSize: 8,
                       fontFamily: 'monospace')),
             ],
@@ -580,7 +578,7 @@ class TransportBadge extends StatelessWidget {
               const SizedBox(width: 4),
               Icon(Icons.swap_horiz_rounded,
                   size: 12,
-                  color: AppColors.brandOrange.withValues(alpha: 0.6)),
+                  color: context.tokens.primary.withValues(alpha: 0.6)),
             ],
           ],
         ),
@@ -597,23 +595,23 @@ Future<void> confirmRemoveDevice(
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      backgroundColor: const Color(0xFF1A1A1A),
+      backgroundColor: context.tokens.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       icon:
-          const Icon(Icons.warning_rounded, color: Colors.redAccent, size: 32),
+          Icon(Icons.warning_rounded, color: context.tokens.error, size: 32),
       title:
-          const Text('Remove Device?', style: TextStyle(color: Colors.white)),
+          Text('Remove Device?', style: TextStyle(color: context.tokens.onSurface)),
       content: Text('Disconnect and remove "$deviceName" from paired devices.',
-          style: const TextStyle(color: Colors.white54, fontSize: 13)),
+          style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.54), fontSize: 13)),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(ctx).pop(false),
-          child: const Text('CANCEL', style: TextStyle(color: Colors.white54)),
+          child: Text('CANCEL', style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.54))),
         ),
         FilledButton.tonal(
           style: FilledButton.styleFrom(
-            backgroundColor: Colors.redAccent.withValues(alpha: 0.2),
-            foregroundColor: Colors.redAccent,
+            backgroundColor: context.tokens.error.withValues(alpha: 0.2),
+            foregroundColor: context.tokens.error,
           ),
           onPressed: () => Navigator.of(ctx).pop(true),
           child: const Text('REMOVE'),

@@ -34,6 +34,7 @@ class DesignsTab extends StatelessWidget {
         tabIndex: 1,
         onOpen: () => openConfigFile(context),
         onCreate: () => context.push('/designer'),
+        accentColor: context.tokens.primary,
       ),
       body: _buildContent(context, designs),
     );
@@ -45,12 +46,12 @@ class DesignsTab extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(LucideIcons.palette, size: 64, color: AppColors.brandGray.withValues(alpha: 0.5)),
-                const SizedBox(height: 16),
+                Icon(LucideIcons.palette, size: 64, color: context.tokens.onSurface.withValues(alpha: 0.5).withValues(alpha: 0.5)),
+                SizedBox(height: 16),
                 Text(
                   'No designs saved',
                   style: GoogleFonts.inter(
-                    color: AppColors.brandGray,
+                    color: context.tokens.onSurface.withValues(alpha: 0.5),
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -144,10 +145,10 @@ class _PillButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.05),
+            color: context.tokens.onSurface.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.15),
+              color: context.tokens.onSurface.withValues(alpha: 0.15),
               width: 1,
             ),
           ),
@@ -156,15 +157,15 @@ class _PillButton extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 14, color: Colors.white54),
-                const SizedBox(width: 6),
+                Icon(icon, size: 14, color: context.tokens.onSurface.withValues(alpha: 0.54)),
+                SizedBox(width: 6),
                 Text(
                   label,
                   style: GoogleFonts.changa(
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.8,
                     fontSize: 11,
-                    color: Colors.white54,
+                    color: context.tokens.onSurface.withValues(alpha: 0.54),
                   ),
                 ),
               ],
@@ -211,7 +212,7 @@ class _DesignsGrid extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(child: _DesignCard(design: designs[i], provider: provider)),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               if (i + 1 < designs.length)
                 Expanded(child: _DesignCard(design: designs[i + 1], provider: provider))
               else
@@ -257,21 +258,21 @@ class _DesignCard extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
+        backgroundColor: context.tokens.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        icon: const Icon(Icons.warning_rounded, color: Colors.redAccent, size: 32),
-        title: const Text('Delete Design?', style: TextStyle(color: Colors.white)),
+        icon: Icon(Icons.warning_rounded, color: context.tokens.error, size: 32),
+        title: Text('Delete Design?', style: TextStyle(color: context.tokens.onSurface)),
         content: Text('Remove "${design.name}" permanently?',
-            style: const TextStyle(color: Colors.white54, fontSize: 13)),
+            style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.54), fontSize: 13)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('CANCEL', style: TextStyle(color: Colors.white54)),
+            child: Text('CANCEL', style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.54))),
           ),
           FilledButton.tonal(
             style: FilledButton.styleFrom(
-              backgroundColor: Colors.redAccent.withValues(alpha: 0.2),
-              foregroundColor: Colors.redAccent,
+              backgroundColor: context.tokens.error.withValues(alpha: 0.2),
+              foregroundColor: context.tokens.error,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('DELETE'),
@@ -296,11 +297,11 @@ class _DesignCard extends StatelessWidget {
         width: 60,
         height: 60,
         decoration: BoxDecoration(
-          color: const Color(0xFF2A2A2A),
+          color: context.tokens.base200,
           borderRadius: BorderRadius.circular(4),
         ),
         child: Center(
-          child: Icon(LucideIcons.palette, color: AppColors.brandOrange, size: 36),
+          child: Icon(LucideIcons.palette, color: context.tokens.primary, size: 36),
         ),
       ),
       title: FittedBox(
@@ -318,7 +319,7 @@ class _DesignCard extends StatelessWidget {
       subtitle: Text(
         formattedDate.toUpperCase(),
         style: TextStyle(
-          color: AppColors.brandOrange.withValues(alpha: 0.7),
+          color: context.tokens.primary.withValues(alpha: 0.7),
           fontSize: 11,
           fontWeight: FontWeight.bold,
           letterSpacing: 0.5,
@@ -333,20 +334,20 @@ class _DesignCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: AppColors.brandOrange.withValues(alpha: 0.1),
+                color: context.tokens.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
                 'v${design.appVersion}',
-                style: GoogleFonts.jetBrainsMono(
-                  color: AppColors.brandOrange.withValues(alpha: 0.8),
+                style: GoogleFonts.martianMono(
+                  color: context.tokens.primary.withValues(alpha: 0.8),
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-          const SizedBox(width: 8),
-          Icon(Icons.chevron_right_rounded, color: Colors.white24, size: 20),
+          SizedBox(width: 8),
+          Icon(Icons.chevron_right_rounded, color: context.tokens.onSurface.withValues(alpha: 0.24), size: 20),
         ],
       ),
       onTap: () => _openDesign(context),

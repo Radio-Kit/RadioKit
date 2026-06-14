@@ -82,11 +82,12 @@ class _DebugScreenState extends State<DebugScreen>
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: RadioKitAppBar(
         title: 'DEBUG_MONITOR',
+        accentColor: context.tokens.primary,
         actions: [
           _buildDebugModeToggle(context),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           _buildTransportChip(),
-          const SizedBox(width: 16),
+          SizedBox(width: 16),
         ],
         bottom: TabBar(
           controller: _tabs,
@@ -117,7 +118,7 @@ class _DebugScreenState extends State<DebugScreen>
                 ? 'Connected'
                 : 'Disconnected';
         final color = (t?.isConnected ?? false)
-            ? AppColors.connected
+            ? context.tokens.success
             : Theme.of(context).disabledColor;
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -131,7 +132,7 @@ class _DebugScreenState extends State<DebugScreen>
             children: [
               Container(width: 7, height: 7,
                   decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-              const SizedBox(width: 6),
+              SizedBox(width: 6),
               Text(label,
                   style: TextStyle(
                       fontSize: 11,
@@ -152,14 +153,14 @@ class _DebugScreenState extends State<DebugScreen>
           icon: Icon(
             dp.debugMode ? Icons.bug_report_rounded : Icons.bug_report_outlined,
             size: 18,
-            color: dp.debugMode ? AppColors.brandOrange : Theme.of(context).disabledColor,
+            color: dp.debugMode ? context.tokens.primary : Theme.of(context).disabledColor,
           ),
           label: Text(
             dp.debugMode ? 'DISABLE DEBUG MODE' : 'ENABLE DEBUG MODE',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.bold,
-              color: dp.debugMode ? AppColors.brandOrange : Theme.of(context).disabledColor,
+              color: dp.debugMode ? context.tokens.primary : Theme.of(context).disabledColor,
             ),
           ),
         );
@@ -233,10 +234,10 @@ class _DebugScreenState extends State<DebugScreen>
               ),
             ),
           ),
-          const SizedBox(width: 6),
+          SizedBox(width: 6),
           // Direction filter
           _DirFilterButton(dp: dp),
-          const SizedBox(width: 4),
+          SizedBox(width: 4),
           // Pause
           _ToolbarIconButton(
             icon: dp.paused
@@ -306,7 +307,7 @@ class _DebugScreenState extends State<DebugScreen>
           children: [
             Icon(Icons.inbox_rounded, size: 56,
                 color: Theme.of(context).disabledColor),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Text(
               dp.paused ? 'Log paused' : 'Waiting for packets…',
               style: Theme.of(context).textTheme.bodyMedium,
@@ -332,7 +333,7 @@ class _DebugScreenState extends State<DebugScreen>
               // Quick-send buttons
               Text('Quick Send',
                   style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -344,19 +345,19 @@ class _DebugScreenState extends State<DebugScreen>
                   _QuickSendChip(label: 'GET_TELE', dp: dp),
                 ],
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
               const Divider(),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
 
               // Manual packet builder
               Text('Manual Packet',
                   style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Text(
                 'Header (START + LENGTH) and CRC are added automatically.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
 
               // CMD byte
               TextField(
@@ -372,7 +373,7 @@ class _DebugScreenState extends State<DebugScreen>
                 style: const TextStyle(fontFamily: 'monospace'),
                 onChanged: (_) => setState(() {}),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
 
               // Payload hex
               TextField(
@@ -388,7 +389,7 @@ class _DebugScreenState extends State<DebugScreen>
                 style: const TextStyle(fontFamily: 'monospace'),
                 maxLines: 3,
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
 
               // Error display
               if (_sendError != null)
@@ -410,7 +411,7 @@ class _DebugScreenState extends State<DebugScreen>
                   label: const Text('Send Packet'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
+                    foregroundColor: context.tokens.onPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   onPressed: _parsedCmd == null
@@ -453,10 +454,10 @@ class _LogRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isMcu = entry.direction == PacketDirection.mcu;
-    final dirColor = isMcu ? AppColors.brandBlue : AppColors.brandOrange;
+    final dirColor = isMcu ? context.tokens.info : context.tokens.primary;
     final crcColor = entry.crcOk == false
         ? Theme.of(context).colorScheme.error
-        : AppColors.connected;
+        : context.tokens.success;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -497,7 +498,7 @@ class _LogRow extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                     fontFamily: 'monospace'),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Flexible(
                 child: Text(
                   entry.hexDump,
@@ -519,7 +520,7 @@ class _LogRow extends StatelessWidget {
                     color: Theme.of(context).disabledColor,
                     fontFamily: 'monospace'),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text(
                 '${entry.bytes.length} B',
                 style: TextStyle(
@@ -527,7 +528,7 @@ class _LogRow extends StatelessWidget {
                     color: Theme.of(context).disabledColor),
               ),
               if (entry.crcOk != null) ...[
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Text(
                   entry.crcOk! ? 'CRC ✓' : 'CRC ✗',
                   style: TextStyle(
