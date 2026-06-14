@@ -1,0 +1,54 @@
+name: Release macOS
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+    tags-ignore:
+      - 'v*-apk'
+      - 'v*-ios'
+      - 'v*-linux'
+      - 'v*-win'
+
+jobs:
+  macos:
+    name: Build macOS
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: |
+          cd radiokit-app
+          flutter pub get
+
+      - name: Build macOS
+        run: |
+          cd radiokit-app
+          flutter build macos --release
+
+      - name: Rename artifact
+        run: |
+          VERSION=${GITHUB_REF_NAME}
+          cd radiokit-app/build/macos/Build/Products/Release
+          zip -r "${OLDPWD}/radiokit-${VERSION}.zip" Runner.app
+
+      - name: Create or update GitHub Release
+        if: startsWith(github.ref_name, 'v')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" --json id >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" radiokit-*.zip --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" radiokit-*.zip --generate-notes
+          fi

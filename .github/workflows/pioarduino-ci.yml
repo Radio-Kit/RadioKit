@@ -1,15 +1,18 @@
-name: Pioarduino Build
+name: Pioarduino Builds
 
 # Build all PlatformIO examples on every push and PR to catch
-# Arduino-side regressions early. Does not run on `*-flatpak` or `v*`
-# tags (those use the release workflow instead).
+# Arduino-side regressions early.
 
 on:
   push:
     branches: [main]
     tags-ignore:
-      - 'v*'
-      - '*-flatpak'
+      - "v*"
+      - "*-apk"
+      - "*-ios"
+      - "*-linux"
+      - "*-win"
+      - "*-mac"
   pull_request:
     branches: [main]
 
@@ -27,6 +30,8 @@ jobs:
           - SliderServo
           - BLE_RC_Truck
           - Filesystem_LED
+          - FsCommandTest
+          - WiFiCloudSwitch
     steps:
       - uses: actions/checkout@v4
 
