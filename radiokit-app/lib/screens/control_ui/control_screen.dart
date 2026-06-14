@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../models/protocol.dart';
-import '../providers/device_provider.dart';
-import '../providers/debug_provider.dart';
-import '../providers/settings_provider.dart';
-import '../theme/app_theme.dart';
-import '../widgets/device_designer_bridge.dart';
+import '../../models/protocol.dart';
+import '../../providers/device_provider.dart';
+import '../../providers/debug_provider.dart';
+import '../../providers/settings_provider.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/device_designer_bridge.dart';
 
 /// Dynamic widget rendering screen for the connected RadioKit device.
 class ControlScreen extends StatefulWidget {

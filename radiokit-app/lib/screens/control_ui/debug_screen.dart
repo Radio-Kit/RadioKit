@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../widgets/radiokit_app_bar.dart';
-import '../providers/debug_provider.dart';
-import '../models/debug_log_entry.dart';
-import '../theme/app_theme.dart';
+import '../../widgets/radiokit_app_bar.dart';
+import '../../providers/debug_provider.dart';
+import '../../models/debug_log_entry.dart';
+import '../../theme/app_theme.dart';
 
 /// Transport-agnostic debug monitor.
 ///

@@ -14,7 +14,7 @@ import 'providers/cloud_identity_provider.dart';
 import 'providers/remote_access_provider.dart';
 import 'providers/serial_provider.dart';
 import 'providers/settings_provider.dart';
-import 'providers/skin_provider.dart';
+import 'providers/theme_preset_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/account_provider.dart';
 import 'router.dart';
@@ -36,7 +36,7 @@ class _RadioKitAppState extends State<RadioKitApp> {
   late final HistoryProvider _historyProvider;
   late final ConsoleProvider _consoleProvider;
   late final DeviceProvider _deviceProvider;
-  late final SkinProvider _skinProvider;
+  late final ThemePresetProvider _themePresetProvider;
   late final SettingsProvider _settingsProvider;
   late final DesignsProvider _designsProvider;
   late final RemoteAccessProvider _remoteAccessProvider;
@@ -48,8 +48,8 @@ class _RadioKitAppState extends State<RadioKitApp> {
   void initState() {
     super.initState();
 
-    _skinProvider = SkinProvider();
-    _skinProvider.init(); // Restore persisted theme choice
+    _themePresetProvider = ThemePresetProvider();
+    _themePresetProvider.init(); // Restore persisted theme choice
     
     _settingsProvider = SettingsProvider();
     _designsProvider = DesignsProvider();
@@ -68,7 +68,7 @@ class _RadioKitAppState extends State<RadioKitApp> {
       transport: _bleProvider.bleService,
       debugSink: _debugProvider,
       console: _consoleProvider,
-      skinProvider: _skinProvider,
+      themePresetProvider: _themePresetProvider,
       historyProvider: _historyProvider,
     );
 
@@ -103,7 +103,7 @@ class _RadioKitAppState extends State<RadioKitApp> {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<ThemeProvider>.value(value: ThemeProvider()),
-        ChangeNotifierProvider<SkinProvider>.value(value: _skinProvider),
+        ChangeNotifierProvider<ThemePresetProvider>.value(value: _themePresetProvider),
         ChangeNotifierProvider<BleProvider>.value(value: _bleProvider),
         ChangeNotifierProvider<MdnsProvider>.value(value: _mdnsProvider),
         ChangeNotifierProvider<CloudIdentityProvider>.value(
@@ -119,10 +119,10 @@ class _RadioKitAppState extends State<RadioKitApp> {
             value: _remoteAccessProvider),
         ChangeNotifierProvider<AccountProvider>.value(value: _accountProvider),
       ],
-      child: Consumer2<ThemeProvider, SkinProvider>(
-        builder: (context, themeProvider, skinProvider, child) {
+      child: Consumer2<ThemeProvider, ThemePresetProvider>(
+        builder: (context, themeProvider, themePresetProvider, child) {
           return RKTheme(
-            tokens: skinProvider.tokens,
+            tokens: themePresetProvider.tokens,
             child: MaterialApp.router(
               title: 'RadioKit',
               debugShowCheckedModeBanner: false,

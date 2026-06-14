@@ -140,7 +140,6 @@ class RemoteAccessService {
     if (path.startsWith('/api/connection/reconnect')) return '/models';
     if (path.startsWith('/api/connection/demo')) return '/control';
     if (path == '/api/widgets' || path.startsWith('/api/widgets/')) return '/control';
-    if (path.startsWith('/api/fs/')) return '/dev-tools/esp32-fs';
     if (path.startsWith('/api/ota/')) return '/control';
     if (path.startsWith('/api/designs')) return '/designs';
     if (path.startsWith('/api/transport/')) return '/debug';
@@ -553,7 +552,6 @@ class RemoteAccessService {
     return _json({
       'showDemo': _settingsProvider.showDemo,
       'useFullscreen': _settingsProvider.useFullscreen,
-      'enableDevTools': _settingsProvider.enableDevTools,
       'enableRemoteAccess': _settingsProvider.enableRemoteAccess,
       'followRemoteAccess': _settingsProvider.followRemoteAccess,
     });
@@ -566,9 +564,6 @@ class RemoteAccessService {
     }
     if (body.containsKey('useFullscreen')) {
       await _settingsProvider.setUseFullscreen(body['useFullscreen'] as bool);
-    }
-    if (body.containsKey('enableDevTools')) {
-      await _settingsProvider.setEnableDevTools(body['enableDevTools'] as bool);
     }
     if (body.containsKey('enableRemoteAccess')) {
       await _settingsProvider.setEnableRemoteAccess(

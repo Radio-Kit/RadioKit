@@ -19,7 +19,7 @@ import '../services/websocket_service.dart';
 import '../services/cloud_identity.dart';
 
 import '../providers/console_provider.dart';
-import '../providers/skin_provider.dart';
+import '../providers/theme_preset_provider.dart';
 import '../providers/debug_provider.dart';
 import '../providers/history_provider.dart';
 
@@ -62,7 +62,7 @@ enum AuthLevel { none, user, device }
 class DeviceProvider extends ChangeNotifier {
   TransportService _transport;
   final ConsoleProvider? _console;
-  final SkinProvider? _skinProvider;
+  final ThemePresetProvider? _themePresetProvider;
 
   DeviceInfo?              _connectedDevice;
   DeviceConnectionState    _connectionState = DeviceConnectionState.disconnected;
@@ -204,11 +204,11 @@ class DeviceProvider extends ChangeNotifier {
     required TransportService transport,
     DebugLogSink? debugSink,
     ConsoleProvider? console,
-    SkinProvider? skinProvider,
+    ThemePresetProvider? themePresetProvider,
     HistoryProvider? historyProvider,
   })  : _debugSink = debugSink,
         _console = console,
-        _skinProvider = skinProvider,
+        _themePresetProvider = themePresetProvider,
         _transport = transport {
     this.historyProvider = historyProvider;
     setTransport(transport);
@@ -1800,7 +1800,7 @@ class DeviceProvider extends ChangeNotifier {
     );
 
     // Apply the skin provided by the device
-    _skinProvider?.setSkin(conf.theme);
+    _themePresetProvider?.setTheme(conf.theme);
 
     _startPolling();
     

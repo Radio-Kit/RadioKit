@@ -9,8 +9,8 @@ import '../providers/device_provider.dart';
 import '../models/device_info.dart';
 import '../providers/theme_provider.dart';
 import '../theme/app_theme.dart';
-import 'control_screen.dart';
-import 'debug_screen.dart';
+import 'control_ui/control_screen.dart';
+import 'control_ui/debug_screen.dart';
 
 /// Device scanner screen — BLE tab and USB Serial tab.
 ///

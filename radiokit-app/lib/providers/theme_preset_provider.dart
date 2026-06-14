@@ -12,13 +12,13 @@ const Map<String, RKTokens> kTokenPresets = {
 };
 
 /// The UI-facing provider that manages the active RKTokens preset.
-class SkinProvider extends ChangeNotifier {
-  static const String _prefsKey = 'active_skin';
+class ThemePresetProvider extends ChangeNotifier {
+  static const String _prefsKey = 'active_theme';
 
   String _activePreset = 'dragon';
   RKTokens _tokens = RKTokens.dragon;
 
-  SkinProvider();
+  ThemePresetProvider();
 
   /// Initialize from persisted preference.
   Future<void> init() async {
@@ -45,13 +45,13 @@ class SkinProvider extends ChangeNotifier {
   RKTokens get tokens => _tokens;
 
   /// The currently active preset name.
-  String get skinName => _activePreset;
+  String get themeName => _activePreset;
 
   /// Available preset names.
-  List<String> get availablePresets => kTokenPresets.keys.toList();
+  List<String> get availableThemes => kTokenPresets.keys.toList();
 
   /// Switches the active theme preset.
-  Future<void> setSkin(String presetName) async {
+  Future<void> setTheme(String presetName) async {
     if (!kTokenPresets.containsKey(presetName)) return;
     _activePreset = presetName;
     _tokens = kTokenPresets[presetName]!;

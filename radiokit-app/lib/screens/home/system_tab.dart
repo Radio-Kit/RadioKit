@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:go_router/go_router.dart';
 import '../../providers/theme_provider.dart';
 import '../../providers/history_provider.dart';
 import '../../providers/designs_provider.dart';
 import '../../providers/settings_provider.dart';
-import '../../providers/skin_provider.dart';
+import '../../providers/theme_preset_provider.dart';
 import '../../providers/remote_access_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/radiokit_app_bar.dart';
@@ -107,7 +106,7 @@ class SystemTab extends StatelessWidget {
 
     return Scaffold(
       appBar: RadioKitAppBar(
-        tabIndex: 3,
+        tabIndex: 2,
         actions: [
           FilledButton.tonal(
             style: FilledButton.styleFrom(
@@ -166,8 +165,8 @@ class SystemTab extends StatelessWidget {
             _buildApplicationCard(context, themeProvider),
             
             const SizedBox(height: 32),
-            _buildSectionTag(context, '03. SKIN_PACKS'),
-            _buildSkinPacksCard(context),
+            _buildSectionTag(context, '03. CONTROL_UI'),
+            _buildControlUiCard(context),
 
             const SizedBox(height: 32),
             _buildSectionTag(context, '04. ADVANCED_OPTIONS'),
@@ -265,64 +264,70 @@ class SystemTab extends StatelessWidget {
     );
   }
 
-  Widget _buildSkinPacksCard(BuildContext context) {
-    final skinProvider = context.watch<SkinProvider>();
+  Widget _buildControlUiCard(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => context.push('/skins'),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: AppColors.brandOrange.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppColors.brandOrange.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.gamepad_rounded, color: AppColors.brandOrange, size: 28),
                 ),
-                child: const Icon(Icons.palette_rounded, color: AppColors.brandOrange, size: 28),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'ACTIVE_SKIN',
-                      style: GoogleFonts.changa(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 14,
-                        letterSpacing: 1.5,
-                        color: AppColors.brandOrange,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'USE_FULLSCREEN',
+                        style: GoogleFonts.changa(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                          letterSpacing: 1.5,
+                          color: AppColors.brandOrange,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      skinProvider.skinName.toUpperCase(),
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                      const SizedBox(height: 4),
+                      Text(
+                        'Immersive mode for controller',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          fontSize: 13,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              Icon(Icons.chevron_right_rounded, color: Colors.white.withValues(alpha: 0.4)),
-            ],
-          ),
+                Consumer<SettingsProvider>(
+                  builder: (context, settings, _) => Switch(
+                    value: settings.useFullscreen,
+                    onChanged: (v) => settings.setUseFullscreen(v),
+                    activeThumbColor: AppColors.brandOrange,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildApplicationCard(BuildContext context, ThemeProvider themeProvider) {
+    final themePresetProvider = context.watch<ThemePresetProvider>();
     return Container(
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.05),
@@ -341,13 +346,34 @@ class SystemTab extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _buildSettingRow(
-              themeProvider.isDarkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+              Icons.palette_rounded,
               'INTERFACE_THEME',
-              themeProvider.isDarkMode ? 'Dark' : 'Light',
-              Switch(
-                value: themeProvider.isDarkMode,
-                onChanged: (v) => themeProvider.setThemeMode(v ? ThemeMode.dark : ThemeMode.light),
-                activeThumbColor: AppColors.brandOrange,
+              themePresetProvider.themeName.toUpperCase(),
+              DropdownButton<String>(
+                value: themePresetProvider.themeName,
+                underline: const SizedBox(),
+                isDense: true,
+                dropdownColor: const Color(0xFF1E1E1E),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                ),
+                onChanged: (v) {
+                  if (v == null) return;
+                  themePresetProvider.setTheme(v);
+                  // Sync the Material theme mode with the selected skin
+                  final isDarkSkin = v == 'dragon' || v == 'debug';
+                  themeProvider.setThemeMode(
+                    isDarkSkin ? ThemeMode.dark : ThemeMode.light,
+                  );
+                },
+                items: themePresetProvider.availableThemes
+                    .map((p) => DropdownMenuItem<String>(
+                          value: p,
+                          child: Text(p.toUpperCase()),
+                        ))
+                    .toList(),
               ),
             ),
             const SizedBox(height: 12),
@@ -359,19 +385,6 @@ class SystemTab extends StatelessWidget {
                 builder: (context, settings, _) => Switch(
                   value: settings.showDemo,
                   onChanged: (v) => settings.setShowDemo(v),
-                  activeThumbColor: AppColors.brandOrange,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            _buildSettingRow(
-              Icons.fullscreen_rounded,
-              'USE_FULLSCREEN',
-              'Immersive mode for controller',
-              Consumer<SettingsProvider>(
-                builder: (context, settings, _) => Switch(
-                  value: settings.useFullscreen,
-                  onChanged: (v) => settings.setUseFullscreen(v),
                   activeThumbColor: AppColors.brandOrange,
                 ),
               ),
@@ -493,61 +506,6 @@ class SystemTab extends StatelessWidget {
   Widget _buildAdvancedOptionsCard(BuildContext context) {
     return Column(
       children: [
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: AppColors.brandOrange.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.code_rounded, color: AppColors.brandOrange, size: 28),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'ENABLE_DEV_TOOLS',
-                        style: GoogleFonts.changa(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 14,
-                          letterSpacing: 1.5,
-                          color: AppColors.brandOrange,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Show Dev Tools tab',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.6),
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Consumer<SettingsProvider>(
-                  builder: (context, settings, _) => Switch(
-                    value: settings.enableDevTools,
-                    onChanged: (v) => settings.setEnableDevTools(v),
-                    activeThumbColor: AppColors.brandOrange,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
         _buildRemoteAccessCard(context),
       ],
     );

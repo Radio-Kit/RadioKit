@@ -4,16 +4,11 @@ import 'package:provider/provider.dart';
 import 'providers/device_provider.dart';
 import 'screens/home/models_tab.dart';
 import 'screens/home/system_tab.dart';
-import 'screens/home/dev_tools_tab.dart';
-import 'screens/control_screen.dart';
-import 'screens/debug_screen.dart';
-import 'screens/skin_browser_screen.dart';
+import 'screens/control_ui/control_screen.dart';
+import 'screens/control_ui/debug_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/designer/designer_screen.dart';
 import 'screens/home/designs_tab.dart';
-import 'screens/devtools/usb_serial_screen.dart';
-import 'screens/devtools/firmware_flasher_screen.dart';
-import 'screens/devtools/filesystem/filesystem_explorer_screen.dart';
 import 'theme/app_theme.dart';
 
 class ConnectionNotifier extends ChangeNotifier {
@@ -83,14 +78,6 @@ GoRouter createRouter(ConnectionNotifier connectionNotifier) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/dev-tools',
-                builder: (context, state) => const DevToolsTab(),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
                 path: '/system',
                 builder: (context, state) => const SystemTab(),
               ),
@@ -113,22 +100,6 @@ GoRouter createRouter(ConnectionNotifier connectionNotifier) {
          path: '/debug',
          builder: (context, state) => const DebugScreen(),
        ),
-        GoRoute(
-          path: '/skins',
-          builder: (context, state) => const SkinBrowserScreen(),
-        ),
-        GoRoute(
-          path: '/dev-tools/usb-serial',
-          builder: (context, state) => const UsbSerialScreen(),
-        ),
-        GoRoute(
-          path: '/dev-tools/esp32-fs',
-          builder: (context, state) => const FilesystemExplorerScreen(),
-        ),
-        GoRoute(
-          path: '/dev-tools/firmware-flasher',
-          builder: (context, state) => const FirmwareFlasherScreen(),
-        ),
     ],
   );
 }

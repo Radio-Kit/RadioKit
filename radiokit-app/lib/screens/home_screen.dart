@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 
-import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/radiokit_app_bar.dart';
 import 'home/designs_tab.dart';
@@ -21,92 +19,51 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final settings = context.watch<SettingsProvider>();
-    final showDevTools = settings.enableDevTools;
     final orientation = MediaQuery.of(context).orientation;
 
-    Widget body;
     if (orientation == Orientation.landscape) {
-      body = _buildLandscape(context, showDevTools);
-    } else {
-      body = _buildPortrait(context, showDevTools);
+      return _buildLandscape(context);
     }
-
-    return body;
+    return _buildPortrait(context);
   }
 
   // ─── Shared data ────────────────────────────────────────────────
 
-  List<_NavItem> _buildNavItems(bool showDevTools) {
-    return [
-      const _NavItem(
-        icon: Icons.dashboard_outlined,
-        activeIcon: Icons.dashboard_rounded,
-        label: 'MODELS',
-      ),
-      const _NavItem(
-        icon: Icons.create_new_folder_outlined,
-        activeIcon: Icons.create_new_folder_rounded,
-        label: 'PROJECTS',
-      ),
-      if (showDevTools)
-        const _NavItem(
-          icon: Icons.handyman_outlined,
-          activeIcon: Icons.handyman_rounded,
-          label: 'DEV_TOOLS',
-        ),
-      const _NavItem(
-        icon: Icons.settings_outlined,
-        activeIcon: Icons.settings_rounded,
-        label: 'SYSTEM',
-      ),
-    ];
-  }
+  static const _navItems = [
+    _NavItem(
+      icon: Icons.dashboard_outlined,
+      activeIcon: Icons.dashboard_rounded,
+      label: 'MODELS',
+    ),
+    _NavItem(
+      icon: Icons.create_new_folder_outlined,
+      activeIcon: Icons.create_new_folder_rounded,
+      label: 'PROJECTS',
+    ),
+    _NavItem(
+      icon: Icons.settings_outlined,
+      activeIcon: Icons.settings_rounded,
+      label: 'SYSTEM',
+    ),
+  ];
 
-  int _resolvedIndex(bool showDevTools) {
-    final branchIdx = widget.navigationShell.currentIndex;
-    if (showDevTools) return branchIdx;
-    // Without DEV_TOOLS: branch 0→0, 1→1, 2(hidden), 3→2
-    if (branchIdx >= 2) return branchIdx - 1;
-    return branchIdx;
-  }
-
-  int _branchIndex(int visibleIndex) {
-    if (visibleIndex < 2) return visibleIndex;
-    return visibleIndex + 1;
-  }
-
-  void _onTap(int visibleIndex, bool showDevTools) {
-    final branchIndex = showDevTools ? visibleIndex : _branchIndex(visibleIndex);
+  void _onTap(int index) {
     widget.navigationShell.goBranch(
-      branchIndex,
-      initialLocation: branchIndex == widget.navigationShell.currentIndex,
+      index,
+      initialLocation: index == widget.navigationShell.currentIndex,
     );
   }
 
   // ─── Portrait: BottomNavigationBar ────────────────────────────
 
-  Widget _buildPortrait(BuildContext context, bool showDevTools) {
-    final items = _buildNavItems(showDevTools);
-    final currentIdx = _resolvedIndex(showDevTools);
-
+  Widget _buildPortrait(BuildContext context) {
     return Scaffold(
       body: widget.navigationShell,
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
-        currentIndex: currentIdx,
-        onTap: (index) => _onTap(index, showDevTools),
+        currentIndex: widget.navigationShell.currentIndex,
+        onTap: _onTap,
         selectedItemColor: AppColors.brandOrange,
         unselectedItemColor:
             Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38),
@@ -120,7 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
           fontWeight: FontWeight.w500,
           letterSpacing: 1.0,
         ),
-        items: items
+        items: _navItems
             .map((e) => BottomNavigationBarItem(
                   icon: Icon(e.icon, size: 18),
                   activeIcon: Icon(e.activeIcon, size: 22),
@@ -133,14 +90,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ─── Landscape: NavigationRail ─────────────────────────────────
 
-  Widget _buildLandscape(BuildContext context, bool showDevTools) {
-    final items = _buildNavItems(showDevTools);
-    final currentIdx = _resolvedIndex(showDevTools);
+  Widget _buildLandscape(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      appBar: RadioKitAppBar(
-        tabIndex: currentIdx,
+    return Scaffold(        appBar: RadioKitAppBar(
+        tabIndex: widget.navigationShell.currentIndex,
         onConnect: () => showPairBottomSheet(context),
         onOpen: () => openConfigFile(context),
         onCreate: () => context.push('/designer'),
@@ -149,8 +103,8 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Row(
         children: [
           NavigationRail(
-            selectedIndex: currentIdx,
-            onDestinationSelected: (index) => _onTap(index, showDevTools),
+            selectedIndex: widget.navigationShell.currentIndex,
+            onDestinationSelected: _onTap,
             labelType: NavigationRailLabelType.all,
             backgroundColor: theme.colorScheme.surface,
             indicatorColor: Colors.transparent,
@@ -175,7 +129,7 @@ class _HomeScreenState extends State<HomeScreen> {
               letterSpacing: 1.0,
               color: theme.colorScheme.onSurface.withValues(alpha: 0.38),
             ),
-            destinations: items
+            destinations: _navItems
                 .map((e) => NavigationRailDestination(
                       icon: Icon(e.icon),
                       selectedIcon: Icon(e.activeIcon),
