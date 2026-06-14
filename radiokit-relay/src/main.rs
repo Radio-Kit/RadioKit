@@ -258,7 +258,13 @@ async fn handle_connection(
                                 if relay.verify_auth(account, &nonce, signature_b64).await {
                                     authenticated = true;
                                     relay.record_authenticated_account(account).await;
-                                    send_json(&tx, serde_json::json!({"type": "auth_ok"}));
+                                    // Send device list immediately so clients don't need
+                                    // a separate list_devices request.
+                                    let devices = relay.handle_list_devices(account).await;
+                                    send_json(&tx, serde_json::json!({
+                                        "type": "auth_ok",
+                                        "devices": devices
+                                    }));
                                 } else {
                                     stats.failed_auths.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                                     send_json(&tx, serde_json::json!({
