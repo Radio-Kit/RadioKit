@@ -128,10 +128,10 @@ class InspectorPanel extends StatelessWidget {
 
     return Container(
       width: 320,
-      decoration: const BoxDecoration(
-        color: Color(0xFF181818),
+      decoration: BoxDecoration(
+        color: tokens.surface,
         border: Border(
-          left: BorderSide(color: Color(0xFF222222), width: 1),
+          left: BorderSide(color: tokens.effectiveOutline, width: 1),
         ),
       ),
       child: Column(
@@ -213,9 +213,9 @@ class InspectorPanel extends StatelessWidget {
                       ],
                       if (selectedIndex != 6 && !isMultiple && !isLED) ...[
                         const SizedBox(height: 8),
-                        const Padding(
-                          padding: EdgeInsets.only(left: 20),
-                          child: Text('Leave empty for minimal look', style: TextStyle(color: Color(0xFF555555), fontSize: 9, fontStyle: FontStyle.italic)),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 20),
+                          child: Text('Leave empty for minimal look', style: TextStyle(color: tokens.onSurface.withValues(alpha: 0.35), fontSize: 9, fontStyle: FontStyle.italic)),
                         ),
                       ],
                     ]),
@@ -252,12 +252,12 @@ class InspectorPanel extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       child: Row(
         children: [
-          Icon(LucideIcons.list, color: tokens.primary, size: 20),
+          Icon(LucideIcons.list, color: tokens.onSurface, size: 20),
           const SizedBox(width: 10),
-          const Text(
+          Text(
             'CONFIGURATION',
             style: TextStyle(
-              color: Color(0xFFE0E0E0),
+              color: tokens.onSurface,
               fontSize: 14,
               fontFamily: 'monospace',
               fontWeight: FontWeight.w600,
@@ -281,29 +281,29 @@ class InspectorPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Color(0xFF666666), fontSize: 10, fontWeight: FontWeight.bold)),
+        Text(label, style: TextStyle(color: tokens.onSurface.withValues(alpha: 0.5), fontSize: 10, fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
         GestureDetector(
           onTap: () {
             showDialog(
               context: context,
-              builder: (context) => _IconPicker(onIconSelected: onChanged),
+              builder: (context) => _IconPicker(onIconSelected: onChanged, tokens: tokens),
             );
           },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFF222222),
+              color: tokens.base200,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Row(
               children: [
                 if (currentIcon != null) ...[
-                  Icon(currentIcon, color: Colors.white, size: 16),
+                  Icon(currentIcon, color: tokens.onSurface, size: 16),
                   const SizedBox(width: 8),
                 ] else
-                  const Text('NONE', style: TextStyle(color: Color(0xFF666666), fontSize: 12)),
-                const Icon(LucideIcons.chevronDown, color: Color(0xFF666666), size: 14),
+                  Text('NONE', style: TextStyle(color: tokens.onSurface.withValues(alpha: 0.5), fontSize: 12)),
+                Icon(LucideIcons.chevronDown, color: tokens.onSurface.withValues(alpha: 0.5), size: 14),
               ],
             ),
           ),
@@ -316,19 +316,19 @@ class InspectorPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Color(0xFF666666), fontSize: 10, fontWeight: FontWeight.bold)),
+        Text(label, style: TextStyle(color: tokens.onSurface.withValues(alpha: 0.5), fontSize: 10, fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
         GestureDetector(
           onTap: () {
             showDialog(
               context: context,
-              builder: (context) => _ColorPicker(initialColor: currentColor, onColorSelected: onChanged),
+              builder: (context) => _ColorPicker(initialColor: currentColor, onColorSelected: onChanged, tokens: tokens),
             );
           },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFF222222),
+              color: tokens.base200,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Row(
@@ -344,9 +344,9 @@ class InspectorPanel extends StatelessWidget {
                 const SizedBox(width: 10),
                 Text(
                   '#${currentColor.toARGB32().toRadixString(16).toUpperCase().substring(2)}',
-                  style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'monospace'),
+                  style: TextStyle(color: tokens.onSurface, fontSize: 12, fontFamily: 'monospace'),
                 ),
-                const Icon(LucideIcons.chevronDown, color: Color(0xFF666666), size: 14),
+                Icon(LucideIcons.chevronDown, color: tokens.onSurface.withValues(alpha: 0.5), size: 14),
               ],
             ),
           ),
@@ -366,7 +366,7 @@ class InspectorPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('SHAPE', style: TextStyle(color: Color(0xFF888888), fontSize: 10, fontFamily: 'monospace', letterSpacing: 0.5)),
+        Text('SHAPE', style: TextStyle(color: tokens.onSurface.withValues(alpha: 0.5), fontSize: 10, fontFamily: 'monospace', letterSpacing: 0.5)),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -377,9 +377,9 @@ class InspectorPanel extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: isSelected ? tokens.primary : const Color(0xFF1A1A1A),
+                  color: isSelected ? tokens.primary : tokens.surface,
                   border: Border.all(
-                    color: isSelected ? tokens.primary : const Color(0xFF444444),
+                    color: isSelected ? tokens.primary : tokens.effectiveOutline,
                     width: 1,
                   ),
                   borderRadius: BorderRadius.circular(4),
@@ -387,7 +387,7 @@ class InspectorPanel extends StatelessWidget {
                 child: Icon(
                   entry.value,
                   size: 20,
-                  color: isSelected ? Colors.black : const Color(0xFF888888),
+                  color: isSelected ? Colors.black : tokens.onSurface.withValues(alpha: 0.5),
                 ),
               ),
             );
@@ -403,23 +403,23 @@ class InspectorPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label.toUpperCase(), style: const TextStyle(color: Color(0xFF888888), fontSize: 10, fontFamily: 'monospace', letterSpacing: 0.5)),
+          Text(label.toUpperCase(), style: TextStyle(color: tokens.onSurface.withValues(alpha: 0.5), fontSize: 10, fontFamily: 'monospace', letterSpacing: 0.5)),
           const SizedBox(height: 8),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A1A),
-              border: Border.all(color: const Color(0xFF444444), width: 1),
+              color: tokens.surface,
+              border: Border.all(color: tokens.effectiveOutline, width: 1),
               borderRadius: BorderRadius.circular(2),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: current,
-                dropdownColor: const Color(0xFF1A1A1A),
-                icon: const Icon(LucideIcons.chevronDown, color: Color(0xFF666666), size: 14),
+                dropdownColor: tokens.surface,
+                icon: Icon(LucideIcons.chevronDown, color: tokens.onSurface.withValues(alpha: 0.5), size: 14),
                 isExpanded: true,
-                style: const TextStyle(color: Color(0xFFD0D0D0), fontSize: 12, fontFamily: 'monospace'),
+                style: TextStyle(color: tokens.onSurface.withValues(alpha: 0.8), fontSize: 12, fontFamily: 'monospace'),
                 onChanged: (String? newValue) {
                   if (newValue != null) onChanged(newValue);
                 },
@@ -436,8 +436,9 @@ class InspectorPanel extends StatelessWidget {
 }
 
 class _IconPicker extends StatefulWidget {
-  const _IconPicker({required this.onIconSelected});
+  const _IconPicker({required this.onIconSelected, required this.tokens});
   final ValueChanged<IconData?> onIconSelected;
+  final RKTokens tokens;
 
   @override
   State<_IconPicker> createState() => _IconPickerState();
@@ -485,20 +486,21 @@ class _IconPickerState extends State<_IconPicker> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = widget.tokens;
     final filteredKeys = _allIcons.keys.where((k) => k.toLowerCase().contains(_search.toLowerCase())).toList();
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF181818),
+      backgroundColor: tokens.surface,
       titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       title: TextField(
         onChanged: (v) => setState(() => _search = v),
-        style: const TextStyle(color: Colors.white, fontSize: 14),
-        decoration: const InputDecoration(
+        style: TextStyle(color: tokens.onSurface, fontSize: 14),
+        decoration: InputDecoration(
           hintText: 'Search icons...',
-          hintStyle: TextStyle(color: Color(0xFF666666)),
-          prefixIcon: Icon(LucideIcons.search, size: 16, color: Color(0xFF666666)),
+          hintStyle: TextStyle(color: tokens.onSurface.withValues(alpha: 0.4)),
+          prefixIcon: Icon(LucideIcons.search, size: 16, color: tokens.onSurface.withValues(alpha: 0.5)),
           border: InputBorder.none,
           isDense: true,
         ),
@@ -508,7 +510,7 @@ class _IconPickerState extends State<_IconPicker> {
         height: 400,
         child: Column(
           children: [
-            const Divider(color: Color(0xFF222222)),
+            Divider(color: tokens.effectiveOutline),
             const SizedBox(height: 8),
             Expanded(
               child: GridView.builder(
@@ -523,8 +525,8 @@ class _IconPickerState extends State<_IconPicker> {
                     return GestureDetector(
                       onTap: () { widget.onIconSelected(null); Navigator.pop(context); },
                       child: Container(
-                        decoration: BoxDecoration(color: const Color(0xFF222222), borderRadius: BorderRadius.circular(8)),
-                        child: const Center(child: Text('NONE', style: TextStyle(color: Color(0xFF888888), fontSize: 10, fontWeight: FontWeight.bold))),
+                        decoration: BoxDecoration(color: tokens.base200, borderRadius: BorderRadius.circular(8)),
+                        child: Center(child: Text('NONE', style: TextStyle(color: tokens.onSurface.withValues(alpha: 0.5), fontSize: 10, fontWeight: FontWeight.bold))),
                       ),
                     );
                   }
@@ -533,13 +535,13 @@ class _IconPickerState extends State<_IconPicker> {
                   return GestureDetector(
                     onTap: () { widget.onIconSelected(icon); Navigator.pop(context); },
                     child: Container(
-                      decoration: BoxDecoration(color: const Color(0xFF222222), borderRadius: BorderRadius.circular(8)),
+                      decoration: BoxDecoration(color: tokens.base200, borderRadius: BorderRadius.circular(8)),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(icon, color: Colors.white, size: 20),
+                          Icon(icon, color: tokens.onSurface, size: 20),
                           const SizedBox(height: 4),
-                          Text(key, style: const TextStyle(color: Color(0xFF888888), fontSize: 8), overflow: TextOverflow.ellipsis),
+                          Text(key, style: TextStyle(color: tokens.onSurface.withValues(alpha: 0.5), fontSize: 8), overflow: TextOverflow.ellipsis),
                         ],
                       ),
                     ),
@@ -555,9 +557,10 @@ class _IconPickerState extends State<_IconPicker> {
 }
 
 class _ColorPicker extends StatefulWidget {
-  const _ColorPicker({required this.initialColor, required this.onColorSelected});
+  const _ColorPicker({required this.initialColor, required this.onColorSelected, required this.tokens});
   final Color initialColor;
   final ValueChanged<Color> onColorSelected;
+  final RKTokens tokens;
 
   @override
   State<_ColorPicker> createState() => _ColorPickerState();
@@ -585,10 +588,12 @@ class _ColorPickerState extends State<_ColorPicker> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = widget.tokens;
+
     return AlertDialog(
-      backgroundColor: const Color(0xFF181818),
+      backgroundColor: tokens.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      title: const Text('COLOR PICKER', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
+      title: Text('COLOR PICKER', style: TextStyle(color: tokens.onSurface, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
       contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
       content: SizedBox(
         width: 300,
@@ -611,8 +616,8 @@ class _ColorPickerState extends State<_ColorPicker> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('HEX VALUE', style: TextStyle(color: Color(0xFF666666), fontSize: 9, fontWeight: FontWeight.bold)),
-                    Text('#${_currentColor.toARGB32().toRadixString(16).toUpperCase().substring(2)}', style: const TextStyle(color: Colors.white, fontSize: 16, fontFamily: 'monospace', fontWeight: FontWeight.bold)),
+                    Text('HEX VALUE', style: TextStyle(color: tokens.onSurface.withValues(alpha: 0.5), fontSize: 9, fontWeight: FontWeight.bold)),
+                    Text('#${_currentColor.toARGB32().toRadixString(16).toUpperCase().substring(2)}', style: TextStyle(color: tokens.onSurface, fontSize: 16, fontFamily: 'monospace', fontWeight: FontWeight.bold)),
                   ],
                 ),
               ],
@@ -630,7 +635,7 @@ class _ColorPickerState extends State<_ColorPicker> {
               _updateColor(Color.fromARGB((_currentColor.a * 255).round(), (_currentColor.r * 255).round(), (_currentColor.g * 255).round(), v));
             }),
             const SizedBox(height: 20),
-            const Text('PRESETS', style: TextStyle(color: Color(0xFF666666), fontSize: 9, fontWeight: FontWeight.bold)),
+            Text('PRESETS', style: TextStyle(color: tokens.onSurface.withValues(alpha: 0.5), fontSize: 9, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -672,8 +677,8 @@ class _ColorPickerState extends State<_ColorPicker> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(color: Color(0xFF888888), fontSize: 9, fontFamily: 'monospace')),
-            Text(value.toString(), style: const TextStyle(color: Colors.white, fontSize: 9, fontFamily: 'monospace')),
+            Text(label, style: TextStyle(color: widget.tokens.onSurface.withValues(alpha: 0.5), fontSize: 9, fontFamily: 'monospace')),
+            Text(value.toString(), style: TextStyle(color: widget.tokens.onSurface, fontSize: 9, fontFamily: 'monospace')),
           ],
         ),
         SliderTheme(
@@ -719,7 +724,7 @@ class _MultiItemEditorState extends State<_MultiItemEditor> {
           children: [
             Icon(Icons.edit_rounded, color: widget.tokens.primary, size: 14),
             const SizedBox(width: 8),
-            const Text('EDIT BUTTON', style: TextStyle(color: Color(0xFF888888), fontSize: 11, fontWeight: FontWeight.bold)),
+            Text('EDIT BUTTON', style: TextStyle(color: widget.tokens.onSurface.withValues(alpha: 0.5), fontSize: 11, fontWeight: FontWeight.bold)),
           ],
         ),
         const SizedBox(height: 12),
@@ -735,11 +740,11 @@ class _MultiItemEditorState extends State<_MultiItemEditor> {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: active ? widget.tokens.primary : const Color(0xFF222222),
+                    color: active ? widget.tokens.primary : widget.tokens.base200,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Center(
-                    child: Text('${i + 1}', style: TextStyle(color: active ? Colors.black : Colors.white, fontWeight: FontWeight.bold)),
+                    child: Text('${i + 1}', style: TextStyle(color: active ? Colors.black : widget.tokens.onSurface, fontWeight: FontWeight.bold)),
                   ),
                 ),
               );
@@ -762,13 +767,13 @@ class _MultiItemEditorState extends State<_MultiItemEditor> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label.toUpperCase(), style: const TextStyle(color: Color(0xFF666666), fontSize: 9, fontWeight: FontWeight.bold)),
+        Text(label.toUpperCase(), style: TextStyle(color: widget.tokens.onSurface.withValues(alpha: 0.5), fontSize: 9, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Row(
           children: [
-            Expanded(child: _InspectorTextField(label: 'Text', value: text, onChanged: onTextChanged)),
+            Expanded(child: _InspectorTextField(label: 'Text', value: text, onChanged: onTextChanged, tokens: widget.tokens)),
             const SizedBox(width: 12),
-            Expanded(child: _InspectorIconSelector(context: context, label: 'Icon', currentIcon: icon, onChanged: onIconChanged)),
+            Expanded(child: _InspectorIconSelector(context: context, label: 'Icon', currentIcon: icon, onChanged: onIconChanged, tokens: widget.tokens)),
           ],
         ),
       ],
@@ -777,30 +782,31 @@ class _MultiItemEditorState extends State<_MultiItemEditor> {
 }
 
 class _InspectorIconSelector extends StatelessWidget {
-  const _InspectorIconSelector({required this.context, required this.label, required this.currentIcon, required this.onChanged});
+  const _InspectorIconSelector({required this.context, required this.label, required this.currentIcon, required this.onChanged, required this.tokens});
   final BuildContext context;
   final String label;
   final IconData? currentIcon;
   final ValueChanged<IconData?> onChanged;
+  final RKTokens tokens;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label.toUpperCase(), style: const TextStyle(color: Color(0xFF555555), fontSize: 9, fontWeight: FontWeight.bold)),
+        Text(label.toUpperCase(), style: TextStyle(color: tokens.onSurface.withValues(alpha: 0.35), fontSize: 9, fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
         GestureDetector(
           onTap: () {
-            showDialog(context: context, builder: (context) => _IconPicker(onIconSelected: onChanged));
+            showDialog(context: context, builder: (context) => _IconPicker(onIconSelected: onChanged, tokens: tokens));
           },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(color: const Color(0xFF222222), borderRadius: BorderRadius.circular(4)),
+            decoration: BoxDecoration(color: tokens.base200, borderRadius: BorderRadius.circular(4)),
             child: Row(
               children: [
-                if (currentIcon != null) ...[Icon(currentIcon, color: Colors.white, size: 16)] else const Text('NONE', style: TextStyle(color: Color(0xFF666666), fontSize: 10)),
-                const Icon(LucideIcons.chevronDown, color: Color(0xFF666666), size: 14),
+                if (currentIcon != null) ...[Icon(currentIcon, color: tokens.onSurface, size: 16)] else Text('NONE', style: TextStyle(color: tokens.onSurface.withValues(alpha: 0.5), fontSize: 10)),
+                Icon(LucideIcons.chevronDown, color: tokens.onSurface.withValues(alpha: 0.5), size: 14),
               ],
             ),
           ),
@@ -811,10 +817,11 @@ class _InspectorIconSelector extends StatelessWidget {
 }
 
 class _InspectorTextField extends StatefulWidget {
-  const _InspectorTextField({required this.label, required this.value, required this.onChanged});
+  const _InspectorTextField({required this.label, required this.value, required this.onChanged, required this.tokens});
   final String label;
   final String value;
   final ValueChanged<String> onChanged;
+  final RKTokens tokens;
 
   @override
   State<_InspectorTextField> createState() => _InspectorTextFieldState();
@@ -849,7 +856,7 @@ class _InspectorTextFieldState extends State<_InspectorTextField> {
     return TextField(
       controller: _controller,
       onChanged: widget.onChanged,
-      style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'monospace'),
+      style: TextStyle(color: widget.tokens.onSurface, fontSize: 12, fontFamily: 'monospace'),
       decoration: InputDecoration(
         labelText: widget.label,
         labelStyle: const TextStyle(fontFamily: 'monospace', fontSize: 12),

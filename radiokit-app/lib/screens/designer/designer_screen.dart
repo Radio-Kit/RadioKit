@@ -212,8 +212,10 @@ class _DesignerScreenState extends State<DesignerScreen> {
                     children: [
                       RKTheme(
                         tokens: switch (_state.activeSkin) {
-                          'neon' => RKTokens.neon,
                           'minimal' => RKTokens.minimal,
+                          'retro' => RKTokens.retro,
+                          'rose' => RKTokens.rose,
+                          'debug' => RKTokens.debug,
                           _ => RKTokens.dragon,
                         },
                         child: DesignerCanvas(state: _state),

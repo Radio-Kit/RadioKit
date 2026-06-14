@@ -49,9 +49,9 @@ class LeftSidebar extends StatelessWidget {
 
     return Container(
       width: 80,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(
-          right: BorderSide(color: Color(0xFF222222), width: 1),
+          right: BorderSide(color: tokens.effectiveOutline, width: 1),
         ),
       ),
       child: Column(
@@ -60,7 +60,7 @@ class LeftSidebar extends StatelessWidget {
           Text(
             'WIDGETS',
             style: TextStyle(
-              color: tokens.primary,
+              color: tokens.onSurface,
               fontSize: 12,
               fontWeight: FontWeight.bold,
               fontFamily: 'monospace',
@@ -72,10 +72,10 @@ class LeftSidebar extends StatelessWidget {
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  _buildSectionLabel('INPUTS', tokens.primary),
+                  _buildSectionLabel('INPUTS', tokens.onSurface.withValues(alpha: 0.5)),
                   ...List.generate(_inputCount, (i) => _buildItem(context, i, tokens)),
                   const SizedBox(height: 8),
-                  _buildSectionLabel('OUTPUTS', tokens.primary),
+                  _buildSectionLabel('OUTPUTS', tokens.onSurface.withValues(alpha: 0.5)),
                   ...List.generate(_labels.length - _inputCount,
                       (i) => _buildItem(context, _inputCount + i, tokens)),
                 ],
@@ -93,7 +93,7 @@ class LeftSidebar extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          color: primary.withValues(alpha: 0.6),
+          color: primary,
           fontSize: 8,
           fontFamily: 'monospace',
           fontWeight: FontWeight.bold,
@@ -122,14 +122,14 @@ class LeftSidebar extends StatelessWidget {
           children: [
             Icon(
               _icons[index],
-              color: isSelected ? tokens.primary : const Color(0xFF666666),
+              color: isSelected ? tokens.primary : tokens.onSurface.withValues(alpha: 0.5),
               size: 22,
             ),
             const SizedBox(height: 4),
             Text(
               _labels[index],
               style: TextStyle(
-                color: isSelected ? tokens.primary : const Color(0xFF666666),
+                color: isSelected ? tokens.primary : tokens.onSurface.withValues(alpha: 0.5),
                 fontSize: 8,
                 fontFamily: 'monospace',
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -143,4 +143,3 @@ class LeftSidebar extends StatelessWidget {
     );
   }
 }
-

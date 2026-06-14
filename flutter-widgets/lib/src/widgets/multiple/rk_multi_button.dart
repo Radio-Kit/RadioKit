@@ -75,7 +75,7 @@ class RKMultiButton extends StatelessWidget {
       showDebug: showDebug,
       contentWidth: cw,
       contentHeight: ch,
-      labelColor: tokens.outlineColor.withValues(alpha: 0.8),
+      labelColor: tokens.effectiveOutline.withValues(alpha: 0.8),
       fitContent: true,
       child: Container(
         width: cw,
@@ -83,18 +83,16 @@ class RKMultiButton extends StatelessWidget {
         padding: EdgeInsets.all(shellPadding),
         decoration: BoxDecoration(
           color: tokens.surface,
-          border: Border.all(color: tokens.outlineColor, width: 1),
-          borderRadius:
-              BorderRadius.circular((buttonSize * 0.2).clamp(4.0, 24.0)),
-          boxShadow: tokens.shadows.isNotEmpty
-              ? tokens.shadows
-              : const [
+          border: Border.all(color: tokens.effectiveOutline, width: 1),
+          borderRadius: BorderRadius.circular(tokens.borderRadius * 0.6),
+          boxShadow: tokens.depth > 0
+              ? [
                   BoxShadow(
-                    color: Color(0xAA000000),
-                    blurRadius: 20,
-                    offset: Offset(0, 10),
+                    color: tokens.base300.withValues(alpha: 0.3),
+                    blurRadius: 1,
                   ),
-                ],
+                ]
+              : [],
         ),
         child: Listener(
           onPointerDown: (_) => onActiveChanged?.call(true),
@@ -195,7 +193,7 @@ class RKMultiSelect extends StatelessWidget {
       showDebug: showDebug,
       contentWidth: cw,
       contentHeight: ch,
-      labelColor: tokens.outlineColor.withValues(alpha: 0.8),
+      labelColor: tokens.effectiveOutline.withValues(alpha: 0.8),
       fitContent: true,
       child: Container(
         width: cw,
@@ -203,18 +201,16 @@ class RKMultiSelect extends StatelessWidget {
         padding: EdgeInsets.all(shellPadding),
         decoration: BoxDecoration(
           color: tokens.surface,
-          border: Border.all(color: tokens.outlineColor, width: 1),
-          borderRadius:
-              BorderRadius.circular((buttonSize * 0.2).clamp(4.0, 24.0)),
-          boxShadow: tokens.shadows.isNotEmpty
-              ? tokens.shadows
-              : const [
+          border: Border.all(color: tokens.effectiveOutline, width: 1),
+          borderRadius: BorderRadius.circular(tokens.borderRadius * 0.6),
+          boxShadow: tokens.depth > 0
+              ? [
                   BoxShadow(
-                    color: Color(0xAA000000),
-                    blurRadius: 20,
-                    offset: Offset(0, 10),
+                    color: tokens.base300.withValues(alpha: 0.3),
+                    blurRadius: 1,
                   ),
-                ],
+                ]
+              : [],
         ),
         child: Listener(
           onPointerDown: (_) => onActiveChanged?.call(true),
@@ -303,10 +299,10 @@ class _ToggleButton extends StatelessWidget {
             .withLightness((lightness + 0.03).clamp(0.0, 1.0))
             .toColor();
 
-    final borderColor = tokens.outlineColor;
+    final borderColor = tokens.effectiveOutline;
     final dullGrey = tokens.onSurface.withValues(alpha: 0.4);
 
-    final double radius = (buttonSize * 0.25).clamp(4.0, 32.0);
+    final double radius = tokens.radiusSelector;
     final double scale = buttonSize / 120.0;
 
     final iconData = item.iconFor(selected);
@@ -411,31 +407,14 @@ class _ToggleButton extends StatelessWidget {
               color: selected ? activeAccent : borderColor,
               width: selected ? selectedBorderWidth : unselectedBorderWidth,
             ),
-            boxShadow: selected
+            boxShadow: tokens.depth > 0 && selected
                 ? [
                     BoxShadow(
-                      color: activeAccent.withValues(alpha: 0.35),
-                      blurRadius: (22 * scale).clamp(2.0, 22.0),
-                      spreadRadius: (2 * scale).clamp(0.2, 2.0),
-                    ),
-                    BoxShadow(
                       color: activeAccent.withValues(alpha: 0.15),
-                      blurRadius: (40 * scale).clamp(4.0, 40.0),
-                      spreadRadius: (4 * scale).clamp(0.4, 4.0),
-                    ),
-                    BoxShadow(
-                      color: const Color(0xAA000000),
-                      blurRadius: (12 * scale).clamp(1.0, 12.0),
-                      offset: Offset(0, (8 * scale).clamp(1.0, 8.0)),
+                      blurRadius: 0.5,
                     ),
                   ]
-                : [
-                    BoxShadow(
-                      color: const Color(0x77000000),
-                      blurRadius: (10 * scale).clamp(1.0, 10.0),
-                      offset: Offset(0, (6 * scale).clamp(1.0, 6.0)),
-                    ),
-                  ],
+                : [],
           ),
           child: Stack(
             children: [

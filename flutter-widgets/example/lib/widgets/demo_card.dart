@@ -32,12 +32,12 @@ class DemoCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 20),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(
-          color: Color(0xFF222222),
+        side: BorderSide(
+          color: tokens.effectiveOutline,
           width: 1,
         ),
       ),
-      color: const Color(0xFF141414),
+      color: tokens.surface,
       clipBehavior: Clip.antiAlias,
       elevation: 4,
       child: Column(
@@ -45,18 +45,18 @@ class DemoCard extends StatelessWidget {
           // ─── Card header ───
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: const BoxDecoration(
-              color: Color(0xFF141414),
+            decoration: BoxDecoration(
+              color: tokens.surface,
               border: Border(
-                bottom: BorderSide(color: Color(0xFF222222), width: 1),
+                bottom: BorderSide(color: tokens.effectiveOutline, width: 1),
               ),
             ),
             child: Row(
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: Color(0xFFE0E0E0),
+                  style: TextStyle(
+                    color: tokens.onSurface,
                     fontSize: 13,
                     fontFamily: 'monospace',
                     fontWeight: FontWeight.bold,
@@ -64,9 +64,9 @@ class DemoCard extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                const Icon(
+                Icon(
                   LucideIcons.ellipsisVertical,
-                  color: Color(0xFF444444),
+                  color: tokens.onSurface.withValues(alpha: 0.3),
                   size: 16,
                 ),
               ],
@@ -76,13 +76,13 @@ class DemoCard extends StatelessWidget {
           Container(
             height: 220,
             padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: RadialGradient(
                 center: Alignment.center,
                 radius: 1.2,
                 colors: [
-                  Color(0xFF151515),
-                  Color(0xFF0F0F0F),
+                  tokens.surface,
+                  tokens.base200,
                 ],
               ),
             ),
@@ -95,9 +95,9 @@ class DemoCard extends StatelessWidget {
           ),
           // ─── Bottom panel: INPUT + TELEMETRY ───
           Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(
-                top: BorderSide(color: Color(0xFF222222), width: 1),
+                top: BorderSide(color: tokens.effectiveOutline, width: 1),
               ),
             ),
             child: Row(
@@ -112,8 +112,8 @@ class DemoCard extends StatelessWidget {
                       children: [
                         Text(
                           inputLabel.toUpperCase(),
-                          style: const TextStyle(
-                            color: Color(0xFF666666),
+                          style: TextStyle(
+                            color: tokens.onSurface.withValues(alpha: 0.5),
                             fontSize: 10,
                             fontFamily: 'monospace',
                             fontWeight: FontWeight.bold,
@@ -126,10 +126,10 @@ class DemoCard extends StatelessWidget {
                         else ...[
                           Row(
                             children: [
-                              const Text(
+                              Text(
                                 '> SET VAL: ',
                                 style: TextStyle(
-                                  color: Color(0xFF888888),
+                                  color: tokens.onSurface.withValues(alpha: 0.6),
                                   fontSize: 12,
                                   fontFamily: 'monospace',
                                 ),
@@ -140,9 +140,9 @@ class DemoCard extends StatelessWidget {
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF1A1A1A),
+                                  color: tokens.surface,
                                   border: Border.all(
-                                    color: const Color(0xFF333333),
+                                    color: tokens.effectiveOutline,
                                     width: 1,
                                   ),
                                   borderRadius: BorderRadius.circular(2),
@@ -168,7 +168,7 @@ class DemoCard extends StatelessWidget {
                 Container(
                   width: 1,
                   height: 120,
-                  color: const Color(0xFF222222),
+                  color: tokens.effectiveOutline,
                 ),
                 // Right: TELEMETRY
                 Expanded(
@@ -177,10 +177,10 @@ class DemoCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'TELEMETRY',
                           style: TextStyle(
-                            color: Color(0xFF666666),
+                            color: tokens.onSurface.withValues(alpha: 0.5),
                             fontSize: 10,
                             fontFamily: 'monospace',
                             fontWeight: FontWeight.bold,
@@ -223,6 +223,8 @@ class TelemetryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = RKTheme.of(context);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Row(
@@ -230,8 +232,8 @@ class TelemetryRow extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(
-              color: Color(0xFF555555),
+            style: TextStyle(
+              color: tokens.onSurface.withValues(alpha: 0.35),
               fontSize: 9,
               fontFamily: 'monospace',
             ),
@@ -239,7 +241,7 @@ class TelemetryRow extends StatelessWidget {
           Text(
             value,
             style: TextStyle(
-              color: color ?? const Color(0xFFBBBBBB),
+              color: color ?? tokens.onSurface.withValues(alpha: 0.8),
               fontSize: 9,
               fontFamily: 'monospace',
               fontWeight: FontWeight.bold,

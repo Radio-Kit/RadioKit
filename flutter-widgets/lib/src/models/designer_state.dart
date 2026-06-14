@@ -688,10 +688,14 @@ class DesignerState extends ChangeNotifier {
   /// Build the serialisable map for saveToHeaderFile.
   String _themeToArduino(String skin) {
     switch (skin) {
-      case 'neon':
-        return 'RK_NEON';
       case 'minimal':
         return 'RK_MINIMAL';
+      case 'retro':
+        return 'RK_RETRO';
+      case 'rose':
+        return 'RK_ROSE';
+      case 'debug':
+        return 'RK_DEBUG';
       case 'dragon':
       default:
         return 'RK_DEFAULT';
@@ -700,10 +704,14 @@ class DesignerState extends ChangeNotifier {
 
   String _arduinoToTheme(String theme) {
     switch (theme) {
-      case 'RK_NEON':
-        return 'neon';
       case 'RK_MINIMAL':
         return 'minimal';
+      case 'RK_RETRO':
+        return 'retro';
+      case 'RK_ROSE':
+        return 'rose';
+      case 'RK_DEBUG':
+        return 'debug';
       case 'RK_DEFAULT':
       default:
         return 'dragon';

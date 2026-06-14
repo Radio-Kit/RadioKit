@@ -1,304 +1,287 @@
 import 'package:flutter/material.dart';
 
 /// Design tokens shared across all RadioKit widgets.
+///
+/// Follows the DaisyUI semantic color model with 20 color fields,
+/// 3 border-radius tokens, 3 sizing tokens, and 2 effect tokens.
 class RKTokens {
   const RKTokens({
-    this.primary = const Color(0xFF00F2FF),
-    this.secondary = const Color(0xFF122A59),
-    this.tertiary = const Color(0xFF7C4DFF),
-    this.error = const Color(0xFFFF0053),
-    this.neutralVariant = const Color(0xFFF2F2F2),
-    this.surface = const Color(0xFF1E1E2E),
-    this.onSurface = const Color(0xFFFFFFFF),
-    this.outlineColor = const Color(0xFF313244),
-    this.glowColor = const Color(0x6600F2FF),
-    this.shadowColor = const Color(0x99000000),
-    this.onPrimary = const Color(0xFFFFFFFF),
-    this.borderRadius = 12.0,
-    this.elevation = 4.0,
-    this.primaryGradient = const LinearGradient(
-      colors: [Color(0xFF00F2FF), Color(0xFF00B8D4)],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    ),
-    this.surfaceGradient = const LinearGradient(
-      colors: [Color(0xFF2D2D3F), Color(0xFF1E1E2E)],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    ),
-    this.shadows = const [
-      BoxShadow(
-        color: Color(0x66000000),
-        blurRadius: 6,
-        offset: Offset(0, 2),
-      ),
-    ],
-    this.glows = const [
-      BoxShadow(
-        color: Color(0x66FF00FF),
-        blurRadius: 12,
-        spreadRadius: 2,
-      ),
-    ],
-    this.displayTextStyle = const TextStyle(
-      color: Color(0xFF00F2FF),
-      fontSize: 24,
-      fontWeight: FontWeight.bold,
-      fontFamily: 'monospace',
-      letterSpacing: 2,
-      shadows: [
-        Shadow(
-          color: Color(0x6600F2FF),
-          blurRadius: 8,
-        ),
-      ],
-    ),
-    this.bodyTextStyle = const TextStyle(
-      color: Color(0xFFD0D0D0),
-      fontSize: 14,
-      fontWeight: FontWeight.normal,
-    ),
-    this.headlineTextStyle = const TextStyle(
-      color: Color(0xFFFFFFFF),
-      fontSize: 28,
-      fontWeight: FontWeight.w600,
-    ),
+    required this.primary,
+    required this.onPrimary,
+    required this.secondary,
+    required this.onSecondary,
+    required this.accent,
+    required this.onAccent,
+    required this.neutral,
+    required this.onNeutral,
+    required this.surface,
+    required this.onSurface,
+    required this.base200,
+    required this.base300,
+    required this.info,
+    required this.onInfo,
+    required this.success,
+    required this.onSuccess,
+    required this.warning,
+    required this.onWarning,
+    required this.error,
+    required this.onError,
+    this.outlineColor,
+    this.borderRadius = 16.0,
+    this.radiusSelector = 16.0,
+    this.radiusField = 8.0,
+    this.sizeSelector = 4.0,
+    this.sizeField = 4.0,
+    this.borderWidth = 1.0,
+    this.depth = 1,
+    this.noise = 0,
   });
 
   final Color primary;
-  final Color secondary;
-  final Color tertiary;
-  final Color error;
-  final Color neutralVariant;
   final Color onPrimary;
+  final Color secondary;
+  final Color onSecondary;
+  final Color accent;
+  final Color onAccent;
+  final Color neutral;
+  final Color onNeutral;
   final Color surface;
   final Color onSurface;
-  final Color outlineColor;
-  final Color glowColor;
-  final Color shadowColor;
+  final Color base200;
+  final Color base300;
+  final Color info;
+  final Color onInfo;
+  final Color success;
+  final Color onSuccess;
+  final Color warning;
+  final Color onWarning;
+  final Color error;
+  final Color onError;
+  final Color? outlineColor;
   final double borderRadius;
-  final double elevation;
-  final Gradient primaryGradient;
-  final Gradient surfaceGradient;
-  final TextStyle displayTextStyle;
-  final List<BoxShadow> shadows;
-  final List<BoxShadow> glows;
-  final TextStyle bodyTextStyle;
-  final TextStyle headlineTextStyle;
+  final double radiusSelector;
+  final double radiusField;
+  final double sizeSelector;
+  final double sizeField;
+  final double borderWidth;
+  final int depth;
+  final int noise;
 
-  /// Default neon dark theme tokens.
-  static const RKTokens neon = RKTokens();
+  Color get effectiveOutline => outlineColor ?? onSurface.withValues(alpha: 0.2);
 
-  /// Dragon industrial theme tokens (matches the reference design).
-  static const RKTokens dragon = RKTokens(
-    primary: Color(0xFFFFA200),
-    secondary: Color(0xFF404040),
-    tertiary: Color(0xFFFF8000),
-    error: Color(0xFFFF5800),
-    neutralVariant: Color(0xFFF2F2F2),
-    onPrimary: Color(0xFF000000),
-    surface: Color(0xFF1A1A1A),
-    onSurface: Color(0xFFE0E0E0),
-    outlineColor: Color(0xFF2A2A2A),
-    glowColor: Color(0x66FFA200),
-    shadowColor: Color(0x99000000),
-    borderRadius: 4.0,
-    elevation: 2.0,
-    primaryGradient: LinearGradient(
-      colors: [Color(0xFFFFA200), Color(0xFFFFB84D)],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    ),
-    surfaceGradient: LinearGradient(
-      colors: [Color(0xFF222222), Color(0xFF1A1A1A)],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    ),
-    shadows: [
-      BoxShadow(
-        color: Color(0x66000000),
-        blurRadius: 8,
-        offset: Offset(0, 2),
-      ),
-    ],
-    glows: [
-      BoxShadow(
-        color: Color(0x66FFA200),
-        blurRadius: 12,
-        spreadRadius: 1,
-      ),
-    ],
-    displayTextStyle: TextStyle(
-      color: Color(0xFFFFA200),
-      fontSize: 24,
-      fontWeight: FontWeight.bold,
-      fontFamily: 'monospace',
-      letterSpacing: 2,
-      shadows: [
-        Shadow(
-          color: Color(0x66FFA200),
-          blurRadius: 8,
-        ),
-      ],
-    ),
-    bodyTextStyle: TextStyle(
-      color: Color(0xFFB0B0B0),
-      fontSize: 13,
-      fontWeight: FontWeight.normal,
-      fontFamily: 'monospace',
-    ),
-    headlineTextStyle: TextStyle(
-      color: Color(0xFFFFFFFF),
-      fontSize: 36,
-      fontWeight: FontWeight.w700,
-      letterSpacing: 1,
-    ),
-  );
-
-  /// Minimal monochrome theme tokens.
-  static const RKTokens minimal = RKTokens(
-    primary: Color(0xFFFFFFFF),
-    secondary: Color(0xFF000000),
-    tertiary: Color(0xFFE6FFF6),
-    error: Color(0xFFFFCA91),
-    neutralVariant: Color(0xFFF2F2F2),
-    onPrimary: Color(0xFF000000),
-    surface: Color(0xFF050505),
-    onSurface: Color(0xFFFFFFFF),
-    outlineColor: Color(0xFF1A1A1A),
-    glowColor: Colors.transparent,
-    shadowColor: Colors.transparent,
-    borderRadius: 0.0,
-    elevation: 0.0,
-    primaryGradient: LinearGradient(
-      colors: [Color(0xFFFFFFFF), Color(0xFFDDDDDD)],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    ),
-    surfaceGradient: LinearGradient(
-      colors: [Color(0xFF111111), Color(0xFF050505)],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    ),
-    shadows: [],
-    glows: [],
-    displayTextStyle: TextStyle(
-      color: Color(0xFFFFFFFF),
-      fontSize: 24,
-      fontWeight: FontWeight.w300,
-      fontFamily: 'monospace',
-      letterSpacing: 4,
-    ),
-    bodyTextStyle: TextStyle(
-      color: Color(0xFFAAAAAA),
-      fontSize: 12,
-      fontWeight: FontWeight.w300,
-    ),
-    headlineTextStyle: TextStyle(
-      color: Color(0xFFFFFFFF),
-      fontSize: 32,
-      fontWeight: FontWeight.w200,
-      letterSpacing: 2,
-    ),
-  );
-
-  /// High-visibility debug theme tokens for development.
+  // -- Presets --
   static const RKTokens debug = RKTokens(
-    primary: Color(0xFF00FF00),
-    secondary: Color(0xFF00CC00),
-    tertiary: Color(0xFF00AA00),
-    error: Color(0xFFFF0000),
-    neutralVariant: Color(0xFF0A1A0A),
-    onPrimary: Color(0xFF000000),
-    surface: Color(0xFF0A0A0A),
-    onSurface: Color(0xFF00FF00),
-    outlineColor: Color(0xFF1A3A1A),
-    glowColor: Color(0x6600FF00),
-    shadowColor: Colors.transparent,
-    borderRadius: 2.0,
-    elevation: 0.0,
-    primaryGradient: LinearGradient(
-      colors: [Color(0xFF00FF00), Color(0xFF00CC00)],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    ),
-    surfaceGradient: LinearGradient(
-      colors: [Color(0xFF0A1A0A), Color(0xFF0A0A0A)],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    ),
-    shadows: [],
-    glows: [
-      BoxShadow(
-        color: Color(0x6600FF00),
-        blurRadius: 8,
-        spreadRadius: 1,
-      ),
-    ],
-    displayTextStyle: TextStyle(
-      color: Color(0xFF00FF00),
-      fontSize: 24,
-      fontWeight: FontWeight.bold,
-      fontFamily: 'monospace',
-      letterSpacing: 4,
-    ),
-    bodyTextStyle: TextStyle(
-      color: Color(0xFF00CC00),
-      fontSize: 12,
-      fontWeight: FontWeight.w400,
-      fontFamily: 'monospace',
-    ),
-    headlineTextStyle: TextStyle(
-      color: Color(0xFF00FF00),
-      fontSize: 28,
-      fontWeight: FontWeight.w700,
-      letterSpacing: 2,
-    ),
+    surface: Color(0xFFFFF248),
+    onSurface: Color(0xFF000000),
+    base200: Color(0xFFF7E83A),
+    base300: Color(0xFFE3D40E),
+    primary: Color(0xFFFF6596),
+    onPrimary: Color(0xFF180408),
+    secondary: Color(0xFF00E8FF),
+    onSecondary: Color(0xFF001316),
+    accent: Color(0xFFCE74FF),
+    onAccent: Color(0xFF0F0517),
+    neutral: Color(0xFF111A3B),
+    onNeutral: Color(0xFFFFF248),
+    info: Color(0xFF00B5FF),
+    onInfo: Color(0xFF000000),
+    success: Color(0xFF00A96E),
+    onSuccess: Color(0xFF000000),
+    warning: Color(0xFFFFBE00),
+    onWarning: Color(0xFF000000),
+    error: Color(0xFFFF5861),
+    onError: Color(0xFF000000),
+    borderRadius: 0.0,
+    radiusSelector: 0.0,
+    radiusField: 0.0,
+    sizeSelector: 4.0,
+    sizeField: 4.0,
+    borderWidth: 1.0,
+    depth: 0,
+    noise: 0,
+  );
+  static const RKTokens dragon = RKTokens(
+    surface: Color(0xFF1B1816),
+    onSurface: Color(0xFFCDCDCD),
+    base200: Color(0xFF0B0908),
+    base300: Color(0xFF000000),
+    primary: Color(0xFFFCB700),
+    onPrimary: Color(0xFF131616),
+    secondary: Color(0xFF7A00C2),
+    onSecondary: Color(0xFFE3D4F6),
+    accent: Color(0xFF42AA00),
+    onAccent: Color(0xFF000000),
+    neutral: Color(0xFF2F1B05),
+    onNeutral: Color(0xFFD2CCC7),
+    info: Color(0xFF2563EB),
+    onInfo: Color(0xFFD2E2FF),
+    success: Color(0xFF18A34A),
+    onSuccess: Color(0xFF000A02),
+    warning: Color(0xFFD97708),
+    onWarning: Color(0xFF110500),
+    error: Color(0xFFF35248),
+    onError: Color(0xFF140202),
+    borderRadius: 16.0,
+    radiusSelector: 16.0,
+    radiusField: 8.0,
+    sizeSelector: 4.0,
+    sizeField: 4.0,
+    borderWidth: 1.0,
+    depth: 1,
+    noise: 0,
+  );
+  static const RKTokens minimal = RKTokens(
+    surface: Color(0xFFFFFFFF),
+    onSurface: Color(0xFF161616),
+    base200: Color(0xFFF5F5F5),
+    base300: Color(0xFFEBEBEB),
+    primary: Color(0xFFD4D4D4),
+    onPrimary: Color(0xFF242424),
+    secondary: Color(0xFFD4D4D4),
+    onSecondary: Color(0xFF242424),
+    accent: Color(0xFFD4D4D4),
+    onAccent: Color(0xFF242424),
+    neutral: Color(0xFFD4D4D4),
+    onNeutral: Color(0xFF242424),
+    info: Color(0xFF005889),
+    onInfo: Color(0xFFB8E6FE),
+    success: Color(0xFF006044),
+    onSuccess: Color(0xFFA3F2CE),
+    warning: Color(0xFF963B00),
+    onWarning: Color(0xFFFDE484),
+    error: Color(0xFF9D0410),
+    onError: Color(0xFFFEC8C8),
+    borderRadius: 0.0,
+    radiusSelector: 0.0,
+    radiusField: 0.0,
+    sizeSelector: 4.0,
+    sizeField: 4.0,
+    borderWidth: 1.0,
+    depth: 1,
+    noise: 0,
+  );
+  static const RKTokens retro = RKTokens(
+    surface: Color(0xFFECE3CA),
+    onSurface: Color(0xFF793205),
+    base200: Color(0xFFE4D8B4),
+    base300: Color(0xFFDBCA9B),
+    primary: Color(0xFFFF9FA0),
+    onPrimary: Color(0xFF801518),
+    secondary: Color(0xFFB7F6CD),
+    onSecondary: Color(0xFF00642E),
+    accent: Color(0xFFD08700),
+    onAccent: Color(0xFF793205),
+    neutral: Color(0xFF56524C),
+    onNeutral: Color(0xFFD4D0CE),
+    info: Color(0xFF0082CE),
+    onInfo: Color(0xFFFEF2C6),
+    success: Color(0xFF00776F),
+    onSuccess: Color(0xFFFEF2C6),
+    warning: Color(0xFFF34700),
+    onWarning: Color(0xFFFEF2C6),
+    error: Color(0xFFFF6266),
+    onError: Color(0xFF7C2808),
+    borderRadius: 32.0,
+    radiusSelector: 0.0,
+    radiusField: 0.0,
+    sizeSelector: 4.0,
+    sizeField: 4.0,
+    borderWidth: 1.0,
+    depth: 0,
+    noise: 0,
+  );
+  static const RKTokens rose = RKTokens(
+    surface: Color(0xFFFCF2F8),
+    onSurface: Color(0xFFC5005A),
+    base200: Color(0xFFF9E4F0),
+    base300: Color(0xFFF9CBE5),
+    primary: Color(0xFFF43098),
+    onPrimary: Color(0xFFFFFFFF),
+    secondary: Color(0xFFAB44FF),
+    onSecondary: Color(0xFFF8F3FD),
+    accent: Color(0xFF71D1FE),
+    onAccent: Color(0xFF014A70),
+    neutral: Color(0xFF830C41),
+    onNeutral: Color(0xFFF9CBE5),
+    info: Color(0xFF51E8FB),
+    onInfo: Color(0xFF005889),
+    success: Color(0xFF5CE8B3),
+    onSuccess: Color(0xFF006044),
+    warning: Color(0xFFFF8904),
+    onWarning: Color(0xFF421104),
+    error: Color(0xFFF82834),
+    onError: Color(0xFFFEF2F2),
+    borderRadius: 16.0,
+    radiusSelector: 16.0,
+    radiusField: 32.0,
+    sizeSelector: 4.0,
+    sizeField: 4.0,
+    borderWidth: 1.0,
+    depth: 0,
+    noise: 0,
   );
 
   RKTokens copyWith({
     Color? primary,
-    Color? secondary,
-    Color? tertiary,
-    Color? error,
-    Color? neutralVariant,
     Color? onPrimary,
+    Color? secondary,
+    Color? onSecondary,
+    Color? accent,
+    Color? onAccent,
+    Color? neutral,
+    Color? onNeutral,
     Color? surface,
     Color? onSurface,
+    Color? base200,
+    Color? base300,
+    Color? info,
+    Color? onInfo,
+    Color? success,
+    Color? onSuccess,
+    Color? warning,
+    Color? onWarning,
+    Color? error,
+    Color? onError,
     Color? outlineColor,
-    Color? glowColor,
-    Color? shadowColor,
     double? borderRadius,
-    double? elevation,
-    Gradient? primaryGradient,
-    Gradient? surfaceGradient,
-    TextStyle? displayTextStyle,
-    List<BoxShadow>? shadows,
-    List<BoxShadow>? glows,
-    TextStyle? bodyTextStyle,
-    TextStyle? headlineTextStyle,
+    double? radiusSelector,
+    double? radiusField,
+    double? sizeSelector,
+    double? sizeField,
+    double? borderWidth,
+    int? depth,
+    int? noise,
   }) {
     return RKTokens(
       primary: primary ?? this.primary,
-      secondary: secondary ?? this.secondary,
-      tertiary: tertiary ?? this.tertiary,
-      error: error ?? this.error,
-      neutralVariant: neutralVariant ?? this.neutralVariant,
       onPrimary: onPrimary ?? this.onPrimary,
+      secondary: secondary ?? this.secondary,
+      onSecondary: onSecondary ?? this.onSecondary,
+      accent: accent ?? this.accent,
+      onAccent: onAccent ?? this.onAccent,
+      neutral: neutral ?? this.neutral,
+      onNeutral: onNeutral ?? this.onNeutral,
       surface: surface ?? this.surface,
       onSurface: onSurface ?? this.onSurface,
+      base200: base200 ?? this.base200,
+      base300: base300 ?? this.base300,
+      info: info ?? this.info,
+      onInfo: onInfo ?? this.onInfo,
+      success: success ?? this.success,
+      onSuccess: onSuccess ?? this.onSuccess,
+      warning: warning ?? this.warning,
+      onWarning: onWarning ?? this.onWarning,
+      error: error ?? this.error,
+      onError: onError ?? this.onError,
       outlineColor: outlineColor ?? this.outlineColor,
-      glowColor: glowColor ?? this.glowColor,
-      shadowColor: shadowColor ?? this.shadowColor,
       borderRadius: borderRadius ?? this.borderRadius,
-      elevation: elevation ?? this.elevation,
-      primaryGradient: primaryGradient ?? this.primaryGradient,
-      surfaceGradient: surfaceGradient ?? this.surfaceGradient,
-      displayTextStyle: displayTextStyle ?? this.displayTextStyle,
-      shadows: shadows ?? this.shadows,
-      glows: glows ?? this.glows,
-      bodyTextStyle: bodyTextStyle ?? this.bodyTextStyle,
-      headlineTextStyle: headlineTextStyle ?? this.headlineTextStyle,
+      radiusSelector: radiusSelector ?? this.radiusSelector,
+      radiusField: radiusField ?? this.radiusField,
+      sizeSelector: sizeSelector ?? this.sizeSelector,
+      sizeField: sizeField ?? this.sizeField,
+      borderWidth: borderWidth ?? this.borderWidth,
+      depth: depth ?? this.depth,
+      noise: noise ?? this.noise,
     );
   }
 }

@@ -56,7 +56,7 @@ class _ThemeCard extends StatelessWidget {
     final previewColors = [
       tokens.primary,
       tokens.surface,
-      tokens.outlineColor,
+      tokens.effectiveOutline,
       tokens.onSurface,
     ];
 
@@ -169,14 +169,16 @@ class _ThemeCard extends StatelessWidget {
 
   String _presetDescription(String name) {
     switch (name) {
-      case 'rambros':
-        return 'Industrial orange theme with mechanical aesthetics';
-      case 'neon':
-        return 'Cyberpunk cyan glow with dark surface';
+      case 'dragon':
+        return 'Dark industrial theme with warm orange accent';
       case 'minimal':
-        return 'Monochrome wireframe with zero-decoration';
+        return 'Pure monochrome light theme with zero decoration';
+      case 'retro':
+        return 'Warm sepia/cream vintage aesthetic';
+      case 'rose':
+        return 'Soft pink pastel theme with floral accents';
       case 'debug':
-        return 'High-visibility green-on-black for development';
+        return 'High-visibility cyberpunk theme for debugging';
       default:
         return '';
     }

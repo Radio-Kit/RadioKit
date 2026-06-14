@@ -5,8 +5,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Maps preset names to RKTokens instances.
 const Map<String, RKTokens> kTokenPresets = {
   'dragon': RKTokens.dragon,
-  'neon': RKTokens.neon,
   'minimal': RKTokens.minimal,
+  'retro': RKTokens.retro,
+  'rose': RKTokens.rose,
+  'debug': RKTokens.debug,
 };
 
 /// The UI-facing provider that manages the active RKTokens preset.
@@ -27,7 +29,11 @@ class SkinProvider extends ChangeNotifier {
         _activePreset = saved;
         _tokens = kTokenPresets[saved]!;
       } else if (saved == 'debug') {
-        // Fallback if they were on the removed debug skin
+        // Fallback if they were on the debug skin (not in picker)
+        _activePreset = 'dragon';
+        _tokens = RKTokens.dragon;
+      } else if (saved == 'rambros') {
+        // Legacy alias — rambros is now dragon
         _activePreset = 'dragon';
         _tokens = RKTokens.dragon;
       }

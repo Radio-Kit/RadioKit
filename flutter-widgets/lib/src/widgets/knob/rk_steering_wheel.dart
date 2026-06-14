@@ -157,7 +157,7 @@ class _RKSteeringWheelState extends State<RKSteeringWheel> with SingleTickerProv
       showDebug: widget.showDebug,
       contentWidth: contentW,
       contentHeight: contentH,
-      labelColor: tokens.outlineColor.withValues(alpha: 0.8),
+      labelColor: tokens.effectiveOutline.withValues(alpha: 0.8),
       fitContent: true,
       indicator: _RKKnobIndicator(normalized: normalized, tokens: tokens, knobSize: widget.size * 0.5),
       child: GestureDetector(
@@ -243,13 +243,13 @@ class _SteeringWheelPainter extends CustomPainter {
     canvas.scale(0.96);
     canvas.translate(-center.dx, -center.dy);
 
-    final rimDark = Color.lerp(Colors.black, tokens.surface, 0.4)!;
-    final rimMid = tokens.surface;
+    final rimDark = tokens.base300;
+    final rimMid = Color.lerp(tokens.base300, tokens.surface, 0.3)!;
     final rimLight = tokens.primary;
-    final spokeDark = Color.lerp(Colors.black, tokens.surface, 0.2)!;
-    final spoke = tokens.surface;
-    final hubDark = Color.lerp(Colors.black, tokens.surface, 0.5)!;
-    final hubMid = tokens.surface;
+    final spokeDark = Color.lerp(tokens.base300, tokens.surface, 0.15)!;
+    final spoke = tokens.base200;
+    final hubDark = tokens.base300;
+    final hubMid = Color.lerp(tokens.base300, tokens.surface, 0.4)!;
 
     final fillPaint = Paint()..isAntiAlias = true;
     final strokePaint = Paint()
@@ -273,8 +273,8 @@ class _SteeringWheelPainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          rimLight.withValues(alpha: 0.9),
-          Colors.black.withValues(alpha: 0.5),
+          rimLight.withValues(alpha: 0.8),
+          rimLight.withValues(alpha: 0.3),
         ],
       ).createShader(Rect.fromCircle(center: center, radius: w * 0.5))
       ..strokeWidth = 1.5
@@ -283,12 +283,12 @@ class _SteeringWheelPainter extends CustomPainter {
 
     strokePaint
       ..shader = null
-      ..color = Colors.black.withValues(alpha: 0.85)
+      ..color = tokens.onSurface.withValues(alpha: 0.5)
       ..strokeWidth = 2.5;
     canvas.drawCircle(center, w * 0.45, strokePaint);
 
     strokePaint
-      ..color = Colors.black.withValues(alpha: 0.15)
+      ..color = tokens.onSurface.withValues(alpha: 0.12)
       ..strokeWidth = 1.0;
     for (int i = 0; i < 360; i += 15) {
       final rad = i * math.pi / 180;
@@ -300,8 +300,8 @@ class _SteeringWheelPainter extends CustomPainter {
     strokePaint
       ..shader = null
       ..maskFilter = null
-      ..color = Colors.black.withValues(alpha: 0.28)
-      ..strokeWidth = w * 0.02;
+      ..color = rimLight.withValues(alpha: 0.25)
+      ..strokeWidth = w * 0.015;
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: w * 0.445),
       0.55, 2.0, false,
@@ -388,7 +388,7 @@ class _SteeringWheelPainter extends CustomPainter {
       ..shader = LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [rimLight, Colors.black],
+        colors: [rimLight, rimLight.withValues(alpha: 0.6)],
       ).createShader(hubRect)
       ..maskFilter = null
       ..strokeWidth = w * 0.015;
@@ -396,7 +396,7 @@ class _SteeringWheelPainter extends CustomPainter {
 
     strokePaint
       ..shader = null
-      ..color = rimLight.withValues(alpha: 0.4)
+      ..color = rimLight.withValues(alpha: 0.3)
       ..strokeWidth = 1.0;
     canvas.drawCircle(center, w * 0.108, strokePaint);
 
@@ -432,20 +432,21 @@ class _SteeringWheelHub extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             tokens.surface,
-            Color.lerp(Colors.black, tokens.surface, 0.5)!,
+            Color.lerp(tokens.base300, tokens.surface, 0.5)!,
           ],
         ),
         border: Border.all(
           color: tokens.primary.withValues(alpha: 0.55),
           width: 1.5,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.6),
-            blurRadius: hubSize * 0.16,
-            offset: Offset.zero,
-          ),
-        ],
+        boxShadow: tokens.depth > 0
+            ? [
+                BoxShadow(
+                  color: tokens.base300.withValues(alpha: 0.3),
+                  blurRadius: 1,
+                ),
+              ]
+            : [],
       ),
       child: Center(
         child: centerIcon != null ? Icon(
@@ -485,6 +486,7 @@ class _RKKnobIndicator extends StatelessWidget {
           child: _GlowDot(
             intensity: intensity,
             color: tokens.primary,
+            tokens: tokens,
             knobSize: knobSize,
           ),
         );
@@ -503,13 +505,14 @@ class _RKKnobIndicator extends StatelessWidget {
 class _GlowDot extends StatelessWidget {
   final double intensity;
   final Color color;
+  final RKTokens tokens;
   final double knobSize;
 
-  const _GlowDot({required this.intensity, required this.color, required this.knobSize});
+  const _GlowDot({required this.intensity, required this.color, required this.tokens, required this.knobSize});
 
   @override
   Widget build(BuildContext context) {
-    final dimColor = Colors.white.withValues(alpha: 0.08);
+    final dimColor = tokens.onSurface.withValues(alpha: 0.08);
     final baseSize = knobSize * 0.036;
 
     final scale = 1.0 + (1.5 * intensity);
@@ -524,24 +527,18 @@ class _GlowDot extends StatelessWidget {
         child: Container(
           width: currentSize,
           height: currentSize,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Color.lerp(dimColor, Colors.white, intensity),
-            boxShadow: [
-              if (intensity > 0.1)
-                BoxShadow(
-                  color: color.withValues(alpha: intensity * 0.3),
-                  blurRadius: knobSize * 0.04 * intensity,
-                  spreadRadius: knobSize * 0.005 * intensity,
-                ),
-              if (intensity > 0.6)
-                BoxShadow(
-                  color: color.withValues(alpha: (intensity - 0.6) * 0.6),
-                  blurRadius: knobSize * 0.08 * intensity,
-                  spreadRadius: knobSize * 0.012 * intensity,
-                ),
-            ],
-          ),
+decoration: BoxDecoration(
+             shape: BoxShape.circle,
+             color: Color.lerp(dimColor, tokens.onSurface, intensity),
+             boxShadow: tokens.depth > 0 && intensity > 0.1
+                 ? [
+                     BoxShadow(
+                       color: color.withValues(alpha: 0.15 * intensity),
+                       blurRadius: 0.5,
+                     ),
+                   ]
+                 : [],
+           ),
         ),
       ),
     );

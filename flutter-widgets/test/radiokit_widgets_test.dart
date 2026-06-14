@@ -7,7 +7,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: RKTheme(
-          tokens: RKTokens.neon,
+          tokens: RKTokens.dragon,
           child: const RKLed(state: RKLEDState.on),
         ),
       ),
@@ -19,7 +19,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: RKTheme(
-          tokens: RKTokens.neon,
+          tokens: RKTokens.dragon,
           child: const RKDisplay(text: 'Hello'),
         ),
       ),
@@ -32,7 +32,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: RKTheme(
-          tokens: RKTokens.neon,
+          tokens: RKTokens.dragon,
           child: StatefulBuilder(
             builder: (context, setState) {
               return Scaffold(

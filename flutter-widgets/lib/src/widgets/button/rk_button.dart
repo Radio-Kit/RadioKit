@@ -120,7 +120,7 @@ class _RKButtonState extends State<RKButton> with SingleTickerProviderStateMixin
       showDebug: widget.showDebug,
       contentWidth: widget.size,
       contentHeight: widget.size,
-      labelColor: tokens.outlineColor.withValues(alpha: 0.8),
+      labelColor: tokens.effectiveOutline.withValues(alpha: 0.8),
       fitContent: true,
       child: Listener(
         onPointerDown: (_) => _handleDown(),
@@ -130,33 +130,35 @@ class _RKButtonState extends State<RKButton> with SingleTickerProviderStateMixin
           animation: _glowController,
           builder: (context, _) {
             final t = Curves.easeOutCubic.transform(_glowController.value);
-            
+
             return Transform.scale(
               scale: _pressed ? 0.98 : 1.0,
               child: Container(
                 width: widget.size,
                 height: widget.size,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.6),
-                      blurRadius: widget.size * 0.2,
-                      offset: Offset(0, widget.size * 0.1),
-                    ),
-                    BoxShadow(
-                      color: activeColor.withValues(alpha: 0.5 * t),
-                      blurRadius: widget.size * (0.1 + 0.12 * t),
-                      spreadRadius: widget.size * (0.01 + 0.02 * t),
-                    ),
-                  ],
+                  borderRadius: BorderRadius.circular(tokens.radiusSelector),
+                  boxShadow: tokens.depth > 0
+                      ? [
+                          BoxShadow(
+                            color: tokens.base300.withValues(alpha: 0.30),
+                            blurRadius: 1,
+                            offset: Offset.zero,
+                          ),
+                          BoxShadow(
+                            color: activeColor.withValues(alpha: 0.5 * t),
+                            blurRadius: 1,
+                            offset: Offset.zero,
+                          ),
+                        ]
+                      : [],
                 ),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFF222428),
+                    borderRadius: BorderRadius.circular(tokens.radiusSelector),
+                    color: tokens.surface,
                     border: Border.all(
-                      color: const Color(0xFF1A1C1E),
+                      color: tokens.effectiveOutline,
                       width: widget.size * 0.02,
                     ),
                   ),
@@ -164,57 +166,61 @@ class _RKButtonState extends State<RKButton> with SingleTickerProviderStateMixin
                     padding: EdgeInsets.all(widget.size * 0.04),
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        shape: BoxShape.circle,
+                        borderRadius: BorderRadius.circular(tokens.radiusSelector),
                         gradient: SweepGradient(
                           colors: [
                             Color.lerp(
-                              const Color(0xFF2A2C30),
+                              tokens.surface,
                               activeColor,
                               t,
                             )!,
                             Color.lerp(
-                              const Color(0xFF1E2024),
-                              Color.lerp(activeColor, Colors.white, 0.3)!,
+                              tokens.base200,
+                              Color.lerp(activeColor, tokens.onSurface, 0.3)!,
                               t,
                             )!,
                             Color.lerp(
-                              const Color(0xFF2A2C30),
+                              tokens.surface,
                               activeColor,
                               t,
                             )!,
                           ],
                           stops: const [0.0, 0.5, 1.0],
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: activeColor.withValues(alpha: 0.5 * t),
-                            blurRadius: widget.size * (0.06 + 0.1 * t),
-                            spreadRadius: widget.size * (0 + 0.02 * t),
-                          ),
-                        ],
+                        boxShadow: tokens.depth > 0
+                            ? [
+                                BoxShadow(
+                                  color: activeColor.withValues(alpha: 0.5 * t),
+                                  blurRadius: 1,
+                                  offset: Offset.zero,
+                                ),
+                              ]
+                            : [],
                       ),
                       child: Padding(
                         padding: EdgeInsets.all(widget.size * 0.08),
                         child: Container(
                           decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: const Color(0xFF25272B),
+                            borderRadius: BorderRadius.circular(tokens.radiusSelector),
+                            color: tokens.surface,
                             border: Border.all(
-                              color: const Color(0xFF1C1E22),
+                              color: tokens.effectiveOutline,
                               width: widget.size * 0.015,
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.4),
-                                blurRadius: widget.size * 0.1,
-                                offset: Offset(0, widget.size * 0.04),
-                              ),
-                            ],
+                            boxShadow: tokens.depth > 0
+                                ? [
+                                    BoxShadow(
+                                      color: tokens.base300.withValues(alpha: 0.30),
+                                      blurRadius: 1,
+                                      offset: Offset.zero,
+                                    ),
+                                  ]
+                                : [],
                           ),
                           child: Center(
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
-                              children: _buildContent(t, activeColor),
+                              children: _buildContent(t, activeColor, tokens),
                             ),
                           ),
                         ),
@@ -230,7 +236,7 @@ class _RKButtonState extends State<RKButton> with SingleTickerProviderStateMixin
     );
   }
 
-  List<Widget> _buildContent(double t, Color activeColor) {
+  List<Widget> _buildContent(double t, Color activeColor, RKTokens tokens) {
     final currentIcon = (t > 0.5 ? widget.onIcon : widget.offIcon) ?? Icons.power_settings_new_rounded;
     final currentText = (t > 0.5 ? widget.onText : widget.offText);
     final hasText = (widget.onText ?? widget.offText) != null;
@@ -240,7 +246,7 @@ class _RKButtonState extends State<RKButton> with SingleTickerProviderStateMixin
         currentIcon,
         size: widget.size * (hasText ? 0.25 : 0.35),
         color: Color.lerp(
-          const Color(0xFF6E7278),
+          tokens.onSurface.withValues(alpha: 0.4),
           activeColor,
           t,
         ),
@@ -251,7 +257,7 @@ class _RKButtonState extends State<RKButton> with SingleTickerProviderStateMixin
           (currentText ?? '').toUpperCase(),
           style: TextStyle(
             color: Color.lerp(
-              const Color(0xFF6E7278),
+              tokens.onSurface.withValues(alpha: 0.4),
               activeColor,
               t,
             ),
@@ -269,7 +275,7 @@ class _RKButtonState extends State<RKButton> with SingleTickerProviderStateMixin
     if (widget.enableHapticFeedback) HapticFeedback.lightImpact();
     setState(() => _pressed = true);
     widget.onInteractionChanged?.call(true);
-    
+
     if (widget.mode == RKButtonMode.toggle) {
       _isLatched = !_isLatched;
       if (_isLatched) {

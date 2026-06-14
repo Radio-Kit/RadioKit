@@ -251,7 +251,7 @@ class _RKSliderState extends State<RKSlider>
       showDebug: false,
       contentWidth: contentW,
       contentHeight: contentH,
-      labelColor: tokens.outlineColor.withValues(alpha: 0.8),
+      labelColor: tokens.effectiveOutline.withValues(alpha: 0.8),
       fitContent: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -326,8 +326,8 @@ class _LinearSliderPainter extends CustomPainter {
   final bool showPillBackground;
   final bool showDebug;
 
-  double get _pillRadius => thickness * 0.8;
-  double get _trackRadius => thickness * 0.5;
+  double get _pillRadius => tokens.radiusSelector;
+  double get _trackRadius => tokens.radiusField;
   double get _travelInset => math.max(2, thickness * 0.9);
 
   @override
@@ -369,7 +369,7 @@ class _LinearSliderPainter extends CustomPainter {
             travelLength,
           );
 
-    if (showPillBackground) {
+    if (showPillBackground && tokens.depth > 0) {
       final pillRect = Offset.zero & size;
 
       if (size.width > 0 && size.height > 0) {
@@ -379,15 +379,15 @@ class _LinearSliderPainter extends CustomPainter {
         );
 
         final shadowPaint = Paint()
-          ..color = Colors.black.withValues(alpha: 0.30)
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, _pillRadius * 0.55);
+          ..color = tokens.base300.withValues(alpha: 0.30)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 1);
         canvas.drawRRect(
-          pillRRect.shift(const Offset(0, 2)),
+          pillRRect,
           shadowPaint,
         );
 
         final fillPaint = Paint()
-          ..color = const Color(0xFF232323)
+          ..color = tokens.surface
           ..style = PaintingStyle.fill;
         canvas.drawRRect(pillRRect, fillPaint);
       }
@@ -416,7 +416,7 @@ class _LinearSliderPainter extends CustomPainter {
       for (final metric in metrics) {
         double distance = 0;
         while (distance < metric.length) {
-          final end = (distance + dashLength).clamp(0.0, metric.length) as double;
+          final end = (distance + dashLength).clamp(0.0, metric.length);
           final segment = metric.extractPath(distance, end);
           canvas.drawPath(segment, debugPaint);
           distance += dashLength + gapLength;
@@ -433,12 +433,12 @@ class _LinearSliderPainter extends CustomPainter {
         RRect.fromRectAndRadius(trackRect, Radius.circular(_trackRadius));
 
     final trackBgPaint = Paint()
-      ..color = const Color(0xFF101010)
+      ..color = tokens.base200
       ..style = PaintingStyle.fill;
     canvas.drawRRect(trackRRect, trackBgPaint);
 
     final trackBorderPaint = Paint()
-      ..color = const Color(0xFF2C2C2C)
+      ..color = tokens.effectiveOutline
       ..style = PaintingStyle.stroke
       ..strokeWidth = math.max(1.0, thickness * 0.08);
     canvas.drawRRect(trackRRect, trackBorderPaint);
@@ -447,7 +447,7 @@ class _LinearSliderPainter extends CustomPainter {
     final innerTrackRect = trackRect.deflate(innerDeflate);
     if (innerTrackRect.width > 0 && innerTrackRect.height > 0) {
       final innerPaint = Paint()
-        ..color = Colors.white.withValues(alpha: 0.035);
+        ..color = tokens.onSurface.withValues(alpha: 0.035);
       canvas.drawRRect(
         RRect.fromRectAndRadius(
           innerTrackRect,
@@ -467,7 +467,7 @@ class _LinearSliderPainter extends CustomPainter {
 
     final activeHeight = thickness * 0.48;
     final activeFillPaint = Paint()
-      ..color = tokens.outlineColor.withValues(alpha: 0.92)
+      ..color = tokens.effectiveOutline.withValues(alpha: 0.92)
       ..style = PaintingStyle.fill;
 
     final activeRect = isHorizontal
@@ -496,12 +496,12 @@ class _LinearSliderPainter extends CustomPainter {
 
     if (showTicks && tickCount > 0) {
       final minorPaint = Paint()
-        ..color = const Color(0xFF4D4D4D)
+        ..color = tokens.onSurface.withValues(alpha: 0.40)
         ..strokeWidth = math.max(1.0, thickness * 0.09)
         ..strokeCap = StrokeCap.round;
 
       final majorPaint = Paint()
-        ..color = const Color(0xFF6A6A6A)
+        ..color = tokens.onSurface.withValues(alpha: 0.55)
         ..strokeWidth = math.max(1.0, thickness * 0.13)
         ..strokeCap = StrokeCap.round;
 
@@ -563,36 +563,21 @@ class _LinearSliderPainter extends CustomPainter {
       width: thumbWidth,
       height: thumbHeight,
     );
-    final outerRadius = math.min(thumbWidth, thumbHeight) * 0.10;
+    final outerRadius = tokens.radiusField;
     final outerRRect = RRect.fromRectAndRadius(
       outerRect,
       Radius.circular(outerRadius),
     );
 
-    final dropShadowPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.42)
-      ..maskFilter = MaskFilter.blur(
-        BlurStyle.normal,
-        math.min(thumbWidth, thumbHeight) * 0.08,
+    if (tokens.depth > 0) {
+      final dropShadowPaint = Paint()
+        ..color = tokens.base300.withValues(alpha: 0.30)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 1);
+      canvas.drawRRect(
+        outerRRect,
+        dropShadowPaint,
       );
-    canvas.drawRRect(
-      outerRRect.shift(Offset(thumbWidth * 0.02, thumbHeight * 0.04)),
-      dropShadowPaint,
-    );
-
-    final glowPaint = Paint()
-      ..color = tokens.primary.withValues(alpha: 0.20)
-      ..maskFilter = MaskFilter.blur(
-        BlurStyle.normal,
-        math.min(thumbWidth, thumbHeight) * 0.10,
-      );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        outerRect.inflate(math.min(thumbWidth, thumbHeight) * 0.03),
-        Radius.circular(outerRadius + 2),
-      ),
-      glowPaint,
-    );
+    }
 
     final fillPaint = Paint()
       ..color = tokens.primary
@@ -600,7 +585,7 @@ class _LinearSliderPainter extends CustomPainter {
     canvas.drawRRect(outerRRect, fillPaint);
 
     final borderPaint = Paint()
-      ..color = const Color(0xFFB84D00).withValues(alpha: 0.85)
+      ..color = tokens.primary.withValues(alpha: 0.50)
       ..style = PaintingStyle.stroke
       ..strokeWidth = math.max(1.0, thickness * 0.14);
     canvas.drawRRect(

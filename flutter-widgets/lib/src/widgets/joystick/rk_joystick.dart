@@ -259,7 +259,7 @@ class _RKJoystickState extends State<RKJoystick> with SingleTickerProviderStateM
       showDebug: widget.showDebug,
       contentWidth: widget.size,
       contentHeight: widget.size,
-      labelColor: tokens.outlineColor.withValues(alpha: 0.8),
+      labelColor: tokens.effectiveOutline.withValues(alpha: 0.8),
       fitContent: true,
       child: GestureDetector(
         onPanStart: _onPanStart,
@@ -296,23 +296,25 @@ class _JoystickPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = size.center(Offset.zero);
     final trackPaint = Paint()
-      ..shader = tokens.surfaceGradient.createShader(Rect.fromCircle(center: center, radius: radius))
+      ..shader = LinearGradient(colors: [tokens.surface, tokens.base200]).createShader(Rect.fromCircle(center: center, radius: radius))
       ..style = PaintingStyle.fill;
 
-    canvas.drawCircle(center, radius, Paint()
-      ..color = tokens.shadowColor
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10));
-
     canvas.drawCircle(center, radius, trackPaint);
-    
+
+    if (tokens.depth > 0) {
+      canvas.drawCircle(center, radius, Paint()
+        ..color = tokens.base300.withValues(alpha: 0.30)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1));
+    }
+
     final bevelPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.3)
+      ..color = tokens.onSurface.withValues(alpha: 0.3)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4;
     canvas.drawCircle(center, radius - 2, bevelPaint);
 
     final guidePaint = Paint()
-      ..color = tokens.outlineColor.withValues(alpha: 0.5)
+      ..color = tokens.effectiveOutline.withValues(alpha: 0.5)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     canvas.drawLine(Offset(center.dx - radius, center.dy), Offset(center.dx + radius, center.dy), guidePaint);
@@ -321,23 +323,20 @@ class _JoystickPainter extends CustomPainter {
     final knobCenter = center + knobOffset;
     final knobRadius = radius * 0.35;
 
-    canvas.drawCircle(knobCenter, knobRadius + 4, Paint()
-      ..color = tokens.glowColor
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12));
-
     final knobPaint = Paint()
-      ..shader = tokens.primaryGradient.createShader(Rect.fromCircle(center: knobCenter, radius: knobRadius))
+      ..shader = LinearGradient(colors: [tokens.primary, tokens.primary.withValues(alpha: 0.8)]).createShader(Rect.fromCircle(center: knobCenter, radius: knobRadius))
       ..style = PaintingStyle.fill;
 
-    final shadowOffset = knobOffset * 0.2;
-    canvas.drawCircle(knobCenter + shadowOffset, knobRadius, Paint()
-      ..color = tokens.shadowColor.withValues(alpha: 0.5)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
+    if (tokens.depth > 0) {
+      canvas.drawCircle(knobCenter, knobRadius, Paint()
+        ..color = tokens.base300.withValues(alpha: 0.30)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1));
+    }
 
     canvas.drawCircle(knobCenter, knobRadius, knobPaint);
 
     canvas.drawCircle(knobCenter - Offset(knobRadius * 0.3, knobRadius * 0.3), knobRadius * 0.2, Paint()
-      ..color = Colors.white.withValues(alpha: 0.2)
+      ..color = tokens.onSurface.withValues(alpha: 0.2)
       ..style = PaintingStyle.fill);
   }
 

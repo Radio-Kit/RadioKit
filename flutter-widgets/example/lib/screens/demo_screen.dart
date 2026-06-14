@@ -201,7 +201,7 @@ class _DemoScreenState extends State<DemoScreen> {
             child: Container(
               height: 32,
               decoration: BoxDecoration(
-                color: !value ? tokens.primary : const Color(0xFF222222),
+                color: !value ? tokens.primary : tokens.base200,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(4),
                   bottomLeft: Radius.circular(4),
@@ -228,7 +228,7 @@ class _DemoScreenState extends State<DemoScreen> {
             child: Container(
               height: 32,
               decoration: BoxDecoration(
-                color: value ? tokens.primary : const Color(0xFF222222),
+                color: value ? tokens.primary : tokens.base200,
                 borderRadius: const BorderRadius.only(
                   topRight: Radius.circular(4),
                   bottomRight: Radius.circular(4),
@@ -1245,7 +1245,7 @@ class _DemoScreenState extends State<DemoScreen> {
                   child: Container(
                     height: 32,
                     decoration: BoxDecoration(
-                      color: isSelected ? tokens.primary : const Color(0xFF222222),
+                      color: isSelected ? tokens.primary : tokens.base200,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Center(
@@ -1271,8 +1271,10 @@ class _DemoScreenState extends State<DemoScreen> {
   String _getSkinName(RKTokens tokens) {
     if (tokens == _customTokens) return 'CUSTOM';
     if (identical(tokens, RKTokens.dragon)) return 'DRAGON';
-    if (identical(tokens, RKTokens.neon)) return 'NEON';
     if (identical(tokens, RKTokens.minimal)) return 'MINIMAL';
+    if (identical(tokens, RKTokens.retro)) return 'RETRO';
+    if (identical(tokens, RKTokens.rose)) return 'ROSE';
+    if (identical(tokens, RKTokens.debug)) return 'DEBUG';
     return 'SKIN';
   }
 
@@ -1282,10 +1284,10 @@ class _DemoScreenState extends State<DemoScreen> {
 
     return Container(
       width: 320,
-      decoration: const BoxDecoration(
-        color: Color(0xFF181818),
+      decoration: BoxDecoration(
+        color: currentTokens.surface,
         border: Border(
-          left: BorderSide(color: Color(0xFF222222), width: 1),
+          left: BorderSide(color: currentTokens.effectiveOutline, width: 1),
         ),
       ),
       child: Column(
@@ -1295,12 +1297,12 @@ class _DemoScreenState extends State<DemoScreen> {
             padding: const EdgeInsets.all(20),
             child: Row(
               children: [
-                Icon(LucideIcons.palette, color: currentTokens.primary, size: 20),
+                Icon(LucideIcons.palette, color: currentTokens.onSurface, size: 20),
                 const SizedBox(width: 10),
-                const Text(
+                Text(
                   'TOKENS',
                   style: TextStyle(
-                    color: Color(0xFFE0E0E0),
+                    color: currentTokens.onSurface,
                     fontSize: 14,
                     fontFamily: 'monospace',
                     fontWeight: FontWeight.w600,
@@ -1310,12 +1312,12 @@ class _DemoScreenState extends State<DemoScreen> {
                 const Spacer(),
                 GestureDetector(
                   onTap: () => setState(() => _showTokensPanel = false),
-                  child: const Icon(Icons.close, color: Color(0xFF666666), size: 18),
+                  child: Icon(Icons.close, color: currentTokens.onSurface.withValues(alpha: 0.5), size: 18),
                 ),
               ],
             ),
           ),
-          const Divider(color: Color(0xFF222222), height: 1),
+          Divider(color: currentTokens.effectiveOutline, height: 1),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
@@ -1338,7 +1340,7 @@ class _DemoScreenState extends State<DemoScreen> {
         Text(
           name,
           style: TextStyle(
-            color: tokens.primary,
+            color: tokens.onSurface.withValues(alpha: 0.6),
             fontSize: 12,
             fontFamily: 'monospace',
             letterSpacing: 1,
@@ -1346,29 +1348,86 @@ class _DemoScreenState extends State<DemoScreen> {
         ),
         const SizedBox(height: 12),
         _colorRow('Primary', tokens.primary, editable,
-            editable ? (c) => _updateCustom((t) => t.copyWith(primary: c)) : null),
+            editable ? (c) => _updateCustom((t) => t.copyWith(primary: c)) : null, tokens),
         const SizedBox(height: 2),
         _colorRow('OnPrimary', tokens.onPrimary, editable,
-            editable ? (c) => _updateCustom((t) => t.copyWith(onPrimary: c)) : null),
+            editable ? (c) => _updateCustom((t) => t.copyWith(onPrimary: c)) : null, tokens),
+        const SizedBox(height: 2),
+        _colorRow('Secondary', tokens.secondary, editable,
+            editable ? (c) => _updateCustom((t) => t.copyWith(secondary: c)) : null, tokens),
+        const SizedBox(height: 2),
+        _colorRow('OnSecondary', tokens.onSecondary, editable,
+            editable ? (c) => _updateCustom((t) => t.copyWith(onSecondary: c)) : null, tokens),
+        const SizedBox(height: 2),
+        _colorRow('Accent', tokens.accent, editable,
+            editable ? (c) => _updateCustom((t) => t.copyWith(accent: c)) : null, tokens),
+        const SizedBox(height: 2),
+        _colorRow('OnAccent', tokens.onAccent, editable,
+            editable ? (c) => _updateCustom((t) => t.copyWith(onAccent: c)) : null, tokens),
+        const SizedBox(height: 2),
+        _colorRow('Neutral', tokens.neutral, editable,
+            editable ? (c) => _updateCustom((t) => t.copyWith(neutral: c)) : null, tokens),
+        const SizedBox(height: 2),
+        _colorRow('OnNeutral', tokens.onNeutral, editable,
+            editable ? (c) => _updateCustom((t) => t.copyWith(onNeutral: c)) : null, tokens),
         const SizedBox(height: 2),
         _colorRow('Surface', tokens.surface, editable,
-            editable ? (c) => _updateCustom((t) => t.copyWith(surface: c)) : null),
+            editable ? (c) => _updateCustom((t) => t.copyWith(surface: c)) : null, tokens),
         const SizedBox(height: 2),
         _colorRow('OnSurface', tokens.onSurface, editable,
-            editable ? (c) => _updateCustom((t) => t.copyWith(onSurface: c)) : null),
+            editable ? (c) => _updateCustom((t) => t.copyWith(onSurface: c)) : null, tokens),
         const SizedBox(height: 2),
-        _colorRow('Track', tokens.outlineColor, editable,
-            editable ? (c) => _updateCustom((t) => t.copyWith(outlineColor: c)) : null),
+        _colorRow('Base200', tokens.base200, editable,
+            editable ? (c) => _updateCustom((t) => t.copyWith(base200: c)) : null, tokens),
         const SizedBox(height: 2),
-        _colorRow('Glow', tokens.glowColor, editable,
-            editable ? (c) => _updateCustom((t) => t.copyWith(glowColor: c)) : null),
+        _colorRow('Base300', tokens.base300, editable,
+            editable ? (c) => _updateCustom((t) => t.copyWith(base300: c)) : null, tokens),
+        const SizedBox(height: 2),
+        _colorRow('Outline', tokens.effectiveOutline, editable,
+            editable ? (c) => _updateCustom((t) => t.copyWith(outlineColor: c)) : null, tokens),
         const SizedBox(height: 8),
-        const Divider(color: Color(0xFF222222), height: 1),
+        Divider(color: tokens.effectiveOutline, height: 1),
+        const SizedBox(height: 8),
+        Text(
+          'SEMANTIC',
+          style: TextStyle(
+            color: tokens.onSurface.withValues(alpha: 0.6),
+            fontSize: 12,
+            fontFamily: 'monospace',
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: 8),
+        _colorRow('Info', tokens.info, editable,
+            editable ? (c) => _updateCustom((t) => t.copyWith(info: c)) : null, tokens),
+        const SizedBox(height: 2),
+        _colorRow('OnInfo', tokens.onInfo, editable,
+            editable ? (c) => _updateCustom((t) => t.copyWith(onInfo: c)) : null, tokens),
+        const SizedBox(height: 2),
+        _colorRow('Success', tokens.success, editable,
+            editable ? (c) => _updateCustom((t) => t.copyWith(success: c)) : null, tokens),
+        const SizedBox(height: 2),
+        _colorRow('OnSuccess', tokens.onSuccess, editable,
+            editable ? (c) => _updateCustom((t) => t.copyWith(onSuccess: c)) : null, tokens),
+        const SizedBox(height: 2),
+        _colorRow('Warning', tokens.warning, editable,
+            editable ? (c) => _updateCustom((t) => t.copyWith(warning: c)) : null, tokens),
+        const SizedBox(height: 2),
+        _colorRow('OnWarning', tokens.onWarning, editable,
+            editable ? (c) => _updateCustom((t) => t.copyWith(onWarning: c)) : null, tokens),
+        const SizedBox(height: 2),
+        _colorRow('Error', tokens.error, editable,
+            editable ? (c) => _updateCustom((t) => t.copyWith(error: c)) : null, tokens),
+        const SizedBox(height: 2),
+        _colorRow('OnError', tokens.onError, editable,
+            editable ? (c) => _updateCustom((t) => t.copyWith(onError: c)) : null, tokens),
+        const SizedBox(height: 8),
+        Divider(color: tokens.effectiveOutline, height: 1),
         const SizedBox(height: 8),
         Text(
           'NUMBERS',
           style: TextStyle(
-            color: tokens.primary,
+            color: tokens.onSurface.withValues(alpha: 0.6),
             fontSize: 12,
             fontFamily: 'monospace',
             letterSpacing: 1,
@@ -1376,17 +1435,41 @@ class _DemoScreenState extends State<DemoScreen> {
         ),
         const SizedBox(height: 8),
         if (editable)
-          _sliderRow('Radius', tokens.borderRadius, 0, 24, (v) {
+          _sliderRow('Border Radius', tokens.borderRadius, 0, 24, (v) {
             _updateCustom((t) => t.copyWith(borderRadius: v));
-          })
+          }, tokens)
         else
-          _valueRow('Radius', tokens.borderRadius.toStringAsFixed(0)),
+          _valueRow('Border Radius', tokens.borderRadius.toStringAsFixed(0), tokens),
         if (editable)
-          _sliderRow('Elevation', tokens.elevation, 0, 12, (v) {
-            _updateCustom((t) => t.copyWith(elevation: v));
-          })
+          _sliderRow('Selector Radius', tokens.radiusSelector, 0, 24, (v) {
+            _updateCustom((t) => t.copyWith(radiusSelector: v));
+          }, tokens)
         else
-          _valueRow('Elevation', tokens.elevation.toStringAsFixed(0)),
+          _valueRow('Selector Radius', tokens.radiusSelector.toStringAsFixed(0), tokens),
+        if (editable)
+          _sliderRow('Field Radius', tokens.radiusField, 0, 24, (v) {
+            _updateCustom((t) => t.copyWith(radiusField: v));
+          }, tokens)
+        else
+          _valueRow('Field Radius', tokens.radiusField.toStringAsFixed(0), tokens),
+        if (editable)
+          _sliderRow('Selector Size', tokens.sizeSelector, 0, 16, (v) {
+            _updateCustom((t) => t.copyWith(sizeSelector: v));
+          }, tokens)
+        else
+          _valueRow('Selector Size', tokens.sizeSelector.toStringAsFixed(0), tokens),
+        if (editable)
+          _sliderRow('Field Size', tokens.sizeField, 0, 16, (v) {
+            _updateCustom((t) => t.copyWith(sizeField: v));
+          }, tokens)
+        else
+          _valueRow('Field Size', tokens.sizeField.toStringAsFixed(0), tokens),
+        if (editable)
+          _sliderRow('Border Width', tokens.borderWidth, 0, 4, (v) {
+            _updateCustom((t) => t.copyWith(borderWidth: v));
+          }, tokens)
+        else
+          _valueRow('Border Width', tokens.borderWidth.toStringAsFixed(1), tokens),
       ],
     );
   }
@@ -1401,7 +1484,7 @@ class _DemoScreenState extends State<DemoScreen> {
     });
   }
 
-  Widget _colorRow(String label, Color color, bool editable, void Function(Color)? onChanged) {
+  Widget _colorRow(String label, Color color, bool editable, void Function(Color)? onChanged, RKTokens tokens) {
     final hex = '#${color.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
     return GestureDetector(
       onTap: editable && onChanged != null
@@ -1415,7 +1498,7 @@ class _DemoScreenState extends State<DemoScreen> {
             decoration: BoxDecoration(
               color: color,
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: editable ? Colors.white24 : const Color(0xFF444444), width: editable ? 2 : 1),
+              border: Border.all(color: editable ? Colors.white24 : tokens.effectiveOutline, width: editable ? 2 : 1),
               boxShadow: [
                 BoxShadow(
                   color: color.withValues(alpha: 0.4),
@@ -1437,8 +1520,8 @@ class _DemoScreenState extends State<DemoScreen> {
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
-                    color: Color(0xFF888888),
+                  style: TextStyle(
+                    color: tokens.onSurface.withValues(alpha: 0.5),
                     fontSize: 9,
                     fontFamily: 'monospace',
                     fontWeight: FontWeight.w600,
@@ -1449,7 +1532,7 @@ class _DemoScreenState extends State<DemoScreen> {
                 Text(
                   hex,
                   style: TextStyle(
-                    color: editable ? const Color(0xFFDDDDDD) : const Color(0xFFB0B0B0),
+                    color: editable ? tokens.onSurface.withValues(alpha: 0.85) : tokens.onSurface.withValues(alpha: 0.7),
                     fontSize: 12,
                     fontFamily: 'monospace',
                     fontWeight: FontWeight.bold,
@@ -1460,13 +1543,13 @@ class _DemoScreenState extends State<DemoScreen> {
             ),
           ),
           if (editable)
-            Icon(Icons.chevron_right, color: const Color(0xFF666666), size: 16),
+            Icon(Icons.chevron_right, color: tokens.onSurface.withValues(alpha: 0.5), size: 16),
         ],
       ),
     );
   }
 
-  Widget _valueRow(String label, String value) {
+  Widget _valueRow(String label, String value, RKTokens tokens) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -1475,8 +1558,8 @@ class _DemoScreenState extends State<DemoScreen> {
             width: 60,
             child: Text(
               label,
-              style: const TextStyle(
-                color: Color(0xFF888888),
+              style: TextStyle(
+                color: tokens.onSurface.withValues(alpha: 0.5),
                 fontSize: 9,
                 fontFamily: 'monospace',
                 fontWeight: FontWeight.w600,
@@ -1486,8 +1569,8 @@ class _DemoScreenState extends State<DemoScreen> {
           ),
           Text(
             value,
-            style: const TextStyle(
-              color: Color(0xFFB0B0B0),
+            style: TextStyle(
+              color: tokens.onSurface.withValues(alpha: 0.7),
               fontSize: 12,
               fontFamily: 'monospace',
               fontWeight: FontWeight.bold,
@@ -1498,7 +1581,7 @@ class _DemoScreenState extends State<DemoScreen> {
     );
   }
 
-  Widget _sliderRow(String label, double value, double min, double max, ValueChanged<double> onChanged) {
+  Widget _sliderRow(String label, double value, double min, double max, ValueChanged<double> onChanged, RKTokens tokens) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Column(
@@ -1510,8 +1593,8 @@ class _DemoScreenState extends State<DemoScreen> {
                 width: 60,
                 child: Text(
                   label,
-                  style: const TextStyle(
-                    color: Color(0xFF888888),
+                  style: TextStyle(
+                    color: tokens.onSurface.withValues(alpha: 0.5),
                     fontSize: 9,
                     fontFamily: 'monospace',
                     fontWeight: FontWeight.w600,
@@ -1521,8 +1604,8 @@ class _DemoScreenState extends State<DemoScreen> {
               ),
               Text(
                 value.toStringAsFixed(0),
-                style: const TextStyle(
-                  color: Color(0xFFDDDDDD),
+                style: TextStyle(
+                  color: tokens.onSurface.withValues(alpha: 0.85),
                   fontSize: 12,
                   fontFamily: 'monospace',
                   fontWeight: FontWeight.bold,
@@ -1536,7 +1619,7 @@ class _DemoScreenState extends State<DemoScreen> {
             max: max,
             divisions: ((max - min) * 2).toInt(),
             activeColor: _customTokens.primary,
-            inactiveColor: const Color(0xFF333333),
+            inactiveColor: tokens.effectiveOutline,
             onChanged: onChanged,
           ),
         ],
@@ -1548,10 +1631,10 @@ class _DemoScreenState extends State<DemoScreen> {
     final newColor = await showColorPickerDialog(
       context,
       current,
-      title: const Text(
+      title: Text(
         'PICK COLOR',
         style: TextStyle(
-          color: Color(0xFFB0B0B0),
+          color: Theme.of(context).colorScheme.onSurface,
           fontSize: 12,
           fontFamily: 'monospace',
           letterSpacing: 1,
@@ -1599,6 +1682,8 @@ class TelemetryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = RKTheme.of(context);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
@@ -1606,8 +1691,8 @@ class TelemetryRow extends StatelessWidget {
         children: [
           Text(
             label.toUpperCase(),
-            style: const TextStyle(
-              color: Color(0xFF888888),
+            style: TextStyle(
+              color: tokens.onSurface.withValues(alpha: 0.5),
               fontSize: 10,
               fontFamily: 'monospace',
               letterSpacing: 0.5,
@@ -1615,8 +1700,8 @@ class TelemetryRow extends StatelessWidget {
           ),
           Text(
             value,
-            style: const TextStyle(
-              color: Color(0xFFD0D0D0),
+            style: TextStyle(
+              color: tokens.onSurface.withValues(alpha: 0.8),
               fontSize: 10,
               fontFamily: 'monospace',
               fontWeight: FontWeight.bold,
@@ -1687,12 +1772,12 @@ class _TextInputState extends State<TextInput> {
       cursorColor: tokens.primary,
       decoration: InputDecoration(
         labelText: widget.label.toUpperCase(),
-        labelStyle: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Color(0xFF888888)),
+        labelStyle: TextStyle(fontFamily: 'monospace', fontSize: 11, color: tokens.onSurface.withValues(alpha: 0.5)),
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         border: const OutlineInputBorder(),
         hintText: 'ENTER VALUE...',
-        hintStyle: const TextStyle(color: Color(0xFF444444), fontSize: 10, fontFamily: 'monospace'),
+        hintStyle: TextStyle(color: tokens.onSurface.withValues(alpha: 0.3), fontSize: 10, fontFamily: 'monospace'),
       ),
     );
   }
@@ -1728,8 +1813,8 @@ class InputSlider extends StatelessWidget {
           children: [
             Text(
               label.toUpperCase(),
-              style: const TextStyle(
-                color: Color(0xFF888888),
+              style: TextStyle(
+                color: tokens.onSurface.withValues(alpha: 0.5),
                 fontSize: 10,
                 fontFamily: 'monospace',
               ),
@@ -1780,10 +1865,10 @@ class _TopBar extends StatelessWidget {
     return Container(
       height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      decoration: const BoxDecoration(
-        color: Color(0xFF111111),
+      decoration: BoxDecoration(
+        color: tokens.base300,
         border: Border(
-          bottom: BorderSide(color: Color(0xFF222222), width: 1),
+          bottom: BorderSide(color: tokens.effectiveOutline, width: 1),
         ),
       ),
         child: Row(
@@ -1791,7 +1876,7 @@ class _TopBar extends StatelessWidget {
             Text(
               title,
               style: TextStyle(
-                color: tokens.primary,
+                color: tokens.onSurface,
                 fontSize: 18,
                 fontFamily: 'monospace',
                 fontWeight: FontWeight.bold,
@@ -1805,7 +1890,7 @@ class _TopBar extends StatelessWidget {
               onPressed: onDebugToggle,
             ),
             IconButton(
-              icon: const Icon(Icons.palette_outlined, color: Color(0xFF888888)),
+              icon: Icon(Icons.palette_outlined, color: tokens.onSurface.withValues(alpha: 0.5)),
               tooltip: 'View Colors',
               onPressed: onOpenColors,
             ),
@@ -1829,32 +1914,37 @@ class _AestheticCoreBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final skins = {
       'DRAGON': RKTokens.dragon,
-      'NEON': RKTokens.neon,
       'MINIMAL': RKTokens.minimal,
+      'RETRO': RKTokens.retro,
+      'ROSE': RKTokens.rose,
+      'DEBUG': RKTokens.debug,
     };
     bool isCustom(Object tokens) =>
         tokens != RKTokens.dragon &&
-        tokens != RKTokens.neon &&
-        tokens != RKTokens.minimal;
+        tokens != RKTokens.minimal &&
+        tokens != RKTokens.retro &&
+        tokens != RKTokens.rose &&
+        tokens != RKTokens.debug;
 
     return ValueListenableBuilder<RKTokens>(
       valueListenable: themeNotifier,
       builder: (context, currentTokens, _) {
+        final tokens = currentTokens;
         return Container(
           height: 48,
           padding: const EdgeInsets.symmetric(horizontal: 24),
-          decoration: const BoxDecoration(
-            color: Color(0xFF141414),
+          decoration: BoxDecoration(
+            color: tokens.surface,
             border: Border(
-              bottom: BorderSide(color: Color(0xFF222222), width: 1),
+              bottom: BorderSide(color: tokens.effectiveOutline, width: 1),
             ),
           ),
           child: Row(
             children: [
-              const Text(
+              Text(
                 'SKINS:',
                 style: TextStyle(
-                  color: Color(0xFFB0B0B0),
+                  color: tokens.onSurface.withValues(alpha: 0.7),
                   fontSize: 12,
                   fontFamily: 'monospace',
                   letterSpacing: 1,
@@ -1870,9 +1960,9 @@ class _AestheticCoreBar extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                       decoration: BoxDecoration(
-                        color: isSelected ? entry.value.primary : const Color(0xFF1A1A1A),
+                        color: isSelected ? entry.value.primary : tokens.surface,
                         border: Border.all(
-                          color: isSelected ? entry.value.primary : const Color(0xFF444444),
+                          color: isSelected ? entry.value.primary : tokens.effectiveOutline,
                           width: 1,
                         ),
                         borderRadius: BorderRadius.circular(2),
@@ -1880,7 +1970,7 @@ class _AestheticCoreBar extends StatelessWidget {
                       child: Text(
                         entry.key,
                         style: TextStyle(
-                          color: isSelected ? Colors.black : const Color(0xFF888888),
+                          color: isSelected ? Colors.black : tokens.onSurface.withValues(alpha: 0.5),
                           fontSize: 11,
                           fontFamily: 'monospace',
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -1898,17 +1988,17 @@ class _AestheticCoreBar extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                     decoration: BoxDecoration(
-                      color: isCustom(currentTokens) ? const Color(0xFF888888) : const Color(0xFF1A1A1A),
+                      color: isCustom(currentTokens) ? tokens.onSurface.withValues(alpha: 0.5) : tokens.surface,
                       border: Border.all(
-                        color: isCustom(currentTokens) ? const Color(0xFF888888) : const Color(0xFF444444),
+                        color: isCustom(currentTokens) ? tokens.onSurface.withValues(alpha: 0.5) : tokens.effectiveOutline,
                         width: 1,
                       ),
                       borderRadius: BorderRadius.circular(2),
                     ),
-                    child: const Text(
+                    child: Text(
                       'CUSTOM',
                       style: TextStyle(
-                        color: Color(0xFFB0B0B0),
+                        color: tokens.onSurface.withValues(alpha: 0.7),
                         fontSize: 11,
                         fontFamily: 'monospace',
                         fontWeight: FontWeight.bold,

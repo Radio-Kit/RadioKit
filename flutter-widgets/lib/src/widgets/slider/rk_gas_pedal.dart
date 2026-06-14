@@ -91,32 +91,21 @@ class RKGasPedal extends StatelessWidget {
             horizontal: isHorizontal ? containerW * 0.05 : containerW * 0.12,
           ),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(tokens.borderRadius * 1.5),
-            gradient: tokens.surfaceGradient,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.8),
-                blurRadius: 15,
-                offset: isHorizontal
-                    ? const Offset(-10, 0)
-                    : const Offset(0, 10),
-              ),
-              BoxShadow(
-                color: tokens.primary.withValues(alpha: 0.1 + (0.3 * normalized)),
-                blurRadius: 10 + (15 * normalized),
-                spreadRadius: 2 * normalized,
-              ),
-              BoxShadow(
-                color: Colors.white.withValues(alpha: 0.05),
-                blurRadius: 1,
-                offset: const Offset(-1, -1),
-              ),
-            ],
-            border: Border.all(
-              color: tokens.primary.withValues(alpha: 0.8),
-              width: 1.5,
-            ),
+          borderRadius: BorderRadius.circular(tokens.borderRadius * 1.5),
+          gradient: LinearGradient(colors: [tokens.surface, tokens.base200]),
+          boxShadow: tokens.depth > 0
+              ? [
+                  BoxShadow(
+                    color: tokens.base300.withValues(alpha: 0.3),
+                    blurRadius: 1,
+                  ),
+                ]
+              : [],
+          border: Border.all(
+            color: tokens.primary.withValues(alpha: 0.8),
+            width: 1.5,
           ),
+        ),
           child: isHorizontal
               ? Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -173,35 +162,28 @@ class _PedalGrip extends StatelessWidget {
     final double gripH = isHorizontal
         ? containerHeight * 0.55
         : containerHeight * 0.04;
-    final double radius = (gripW < gripH ? gripW : gripH) * 0.12;
-    final double blur = (gripW < gripH ? gripW : gripH) * 0.08;
-
     return Container(
       width: gripW,
       height: gripH,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(radius.clamp(2, 12)),
+        borderRadius: BorderRadius.circular(tokens.radiusField),
         gradient: LinearGradient(
           colors: [
-            Colors.black.withValues(alpha: 0.9),
-            tokens.outlineColor,
-            Colors.black.withValues(alpha: 1.0),
+            tokens.base300.withValues(alpha: 0.9),
+            tokens.effectiveOutline,
+            tokens.onSurface,
           ],
           begin: isHorizontal ? Alignment.centerLeft : Alignment.topCenter,
           end: isHorizontal ? Alignment.centerRight : Alignment.bottomCenter,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.9),
-            blurRadius: blur.clamp(1, 8),
-            offset: isHorizontal ? const Offset(3, 0) : const Offset(0, 3),
-          ),
-          BoxShadow(
-            color: tokens.primary.withValues(alpha: 0.2 * normalized),
-            blurRadius: 2,
-            offset: isHorizontal ? const Offset(-1, 0) : const Offset(0, -1),
-          ),
-        ],
+        boxShadow: tokens.depth > 0
+            ? [
+                BoxShadow(
+                  color: tokens.base300.withValues(alpha: 0.3),
+                  blurRadius: 1,
+                ),
+              ]
+            : [],
       ),
     );
   }

@@ -720,7 +720,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
               tokens,
               'Skin',
               widget.state.activeSkin,
-              ['dragon', 'neon', 'minimal'],
+              ['dragon', 'minimal', 'retro', 'rose', 'debug'],
               (v) {
                 widget.state.setSkin(v);
               },

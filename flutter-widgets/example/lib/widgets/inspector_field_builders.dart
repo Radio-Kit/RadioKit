@@ -11,7 +11,7 @@ class InspectorFieldBuilders {
           child: Text(
             title,
             style: TextStyle(
-              color: tokens.primary,
+              color: tokens.onSurface.withValues(alpha: 0.6),
               fontSize: 12,
               fontFamily: 'monospace',
               letterSpacing: 1,
@@ -19,7 +19,7 @@ class InspectorFieldBuilders {
           ),
         ),
         ...children,
-        const Divider(color: Color(0xFF222222), height: 1),
+        Divider(color: tokens.effectiveOutline, height: 1),
       ],
     );
   }
@@ -30,8 +30,8 @@ class InspectorFieldBuilders {
       child: TextField(
         controller: TextEditingController(text: value)
           ..selection = TextSelection.collapsed(offset: value.length),
-        style: const TextStyle(
-          color: Color(0xFFE0E0E0),
+        style: TextStyle(
+          color: tokens.onSurface,
           fontSize: 12,
           fontFamily: 'monospace',
         ),
@@ -54,7 +54,7 @@ class InspectorFieldBuilders {
         controller: TextEditingController(text: value.toString())
           ..selection = TextSelection.collapsed(offset: value.toString().length),
         keyboardType: TextInputType.number,
-        style: const TextStyle(color: Color(0xFFE0E0E0), fontSize: 12, fontFamily: 'monospace'),
+        style: TextStyle(color: tokens.onSurface, fontSize: 12, fontFamily: 'monospace'),
         decoration: InputDecoration(
           labelText: label,
           labelStyle: const TextStyle(fontFamily: 'monospace', fontSize: 12),
@@ -79,7 +79,7 @@ class InspectorFieldBuilders {
         controller: TextEditingController(text: value.toStringAsFixed(decimalPlaces))
           ..selection = TextSelection.collapsed(offset: value.toStringAsFixed(decimalPlaces).length),
         keyboardType: TextInputType.numberWithOptions(decimal: true, signed: true),
-        style: const TextStyle(color: Color(0xFFE0E0E0), fontSize: 12, fontFamily: 'monospace'),
+        style: TextStyle(color: tokens.onSurface, fontSize: 12, fontFamily: 'monospace'),
         decoration: InputDecoration(
           labelText: label,
           labelStyle: const TextStyle(fontFamily: 'monospace', fontSize: 12),
@@ -105,8 +105,8 @@ class InspectorFieldBuilders {
         children: [
           Text(
             label,
-            style: const TextStyle(
-              color: Color(0xFF888888),
+            style: TextStyle(
+              color: tokens.onSurface.withValues(alpha: 0.5),
               fontSize: 12,
               fontFamily: 'monospace',
             ),
@@ -130,10 +130,10 @@ class InspectorFieldBuilders {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'ROTATION',
                 style: TextStyle(
-                  color: Color(0xFF888888),
+                  color: tokens.onSurface.withValues(alpha: 0.5),
                   fontSize: 12,
                   fontFamily: 'monospace',
                 ),
@@ -192,8 +192,8 @@ class InspectorFieldBuilders {
         children: [
           Text(
             label.toUpperCase(),
-            style: const TextStyle(
-              color: Color(0xFF888888),
+            style: TextStyle(
+              color: tokens.onSurface.withValues(alpha: 0.5),
               fontSize: 11,
               fontFamily: 'monospace',
             ),
@@ -231,12 +231,12 @@ class InspectorFieldBuilders {
                       isDense: true,
                       contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                     ),
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: tokens.onSurface,
                       fontSize: 12,
                       fontFamily: 'monospace',
                     ),
-                    dropdownColor: const Color(0xFF1C1C1C),
+                    dropdownColor: tokens.surface,
                     onChanged: (val) {
                       if (val != null) onChanged(val);
                     },

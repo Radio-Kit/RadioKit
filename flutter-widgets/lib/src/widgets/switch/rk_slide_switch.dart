@@ -114,8 +114,8 @@ class _RKSlideSwitchState extends State<RKSlideSwitch> with SingleTickerProvider
             child: IconTheme(
               data: IconThemeData(
                 color: widget.value
-                    ? Colors.white
-                    : Colors.white.withValues(alpha: 0.5),
+                    ? tokens.onSurface
+                    : tokens.onSurface.withValues(alpha: 0.5),
                 size: thumbHeight * 0.4,
               ),
               child: widget.icon!,
@@ -129,7 +129,7 @@ class _RKSlideSwitchState extends State<RKSlideSwitch> with SingleTickerProvider
       showDebug: widget.showDebug,
       contentWidth: outerWidth,
       contentHeight: outerHeight,
-      labelColor: tokens.outlineColor.withValues(alpha: 0.8),
+      labelColor: tokens.effectiveOutline.withValues(alpha: 0.8),
       fitContent: true,
       child: GestureDetector(
         onTapDown: (_) => widget.onInteractionChanged?.call(true),
@@ -173,42 +173,37 @@ class _RKSlideSwitchState extends State<RKSlideSwitch> with SingleTickerProvider
           width: outerWidth,
           height: outerHeight,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(outerHeight * 0.5),
+            borderRadius: BorderRadius.circular(tokens.radiusSelector),
             color: tokens.surface,
             border: Border.all(
-              color: tokens.outlineColor.withValues(alpha: 0.5),
+              color: tokens.effectiveOutline.withValues(alpha: 0.5),
               width: 2.0,
             ),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black87,
-                blurRadius: 15.0,
-                offset: Offset(0, 8),
-              ),
-              BoxShadow(
-                color: Color(0xFF28282A),
-                blurRadius: 2.0,
-                offset: Offset(0, 1),
-                blurStyle: BlurStyle.inner,
-              ),
-            ],
+            boxShadow: tokens.depth > 0
+                ? [
+                    BoxShadow(
+                      color: tokens.base300.withValues(alpha: 0.3),
+                      blurRadius: 1,
+                    ),
+                  ]
+                : [],
           ),
           child: Center(
             child: Container(
               width: trackWidth,
               height: trackHeight,
               decoration: BoxDecoration(
-                color: Color.alphaBlend(Colors.black.withValues(alpha: 0.3), tokens.surface),
-                borderRadius: BorderRadius.circular(trackHeight * 0.5),
-                border: Border.all(color: tokens.outlineColor.withValues(alpha: 0.3), width: 1.0),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black,
-                    blurRadius: 6.0,
-                    offset: Offset(0, 3),
-                    blurStyle: BlurStyle.inner,
-                  ),
-                ],
+                color: Color.alphaBlend(tokens.onSurface.withValues(alpha: 0.3), tokens.surface),
+                borderRadius: BorderRadius.circular(tokens.radiusSelector),
+                border: Border.all(color: tokens.effectiveOutline.withValues(alpha: 0.3), width: 1.0),
+                boxShadow: tokens.depth > 0
+                    ? [
+                        BoxShadow(
+                          color: tokens.base300.withValues(alpha: 0.15),
+                          blurRadius: 0.5,
+                        ),
+                      ]
+                    : [],
               ),
               child: Stack(
                 alignment: Alignment.center,
@@ -235,7 +230,7 @@ class _RKSlideSwitchState extends State<RKSlideSwitch> with SingleTickerProvider
                           width: thumbWidth,
                           height: thumbHeight,
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(thumbHeight * 0.5),
+                            borderRadius: BorderRadius.circular(tokens.radiusSelector),
                             gradient: LinearGradient(
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
@@ -247,19 +242,15 @@ class _RKSlideSwitchState extends State<RKSlideSwitch> with SingleTickerProvider
                               color: widget.value ? borderActive : borderMuted,
                               width: 1.5,
                             ),
-                            boxShadow: [
-                              const BoxShadow(
-                                color: Colors.black54,
-                                blurRadius: 4.0,
-                                offset: Offset(0, 3),
-                              ),
-                              if (widget.value)
-                                BoxShadow(
-                                  color: baseActiveColor.withValues(alpha: 0.5),
-                                  blurRadius: 12.0,
-                                  spreadRadius: 2.0,
-                                ),
-                            ],
+boxShadow: tokens.depth > 0
+                                ? [
+                                    if (widget.value)
+                                      BoxShadow(
+                                        color: baseActiveColor.withValues(alpha: 0.15),
+                                        blurRadius: 0.5,
+                                      ),
+                                  ]
+                                : [],
                           ),
                           child: thumbChild,
                         ),
@@ -322,9 +313,7 @@ class _ThumbGripTexture extends StatelessWidget {
     final activeHSL = HSLColor.fromColor(baseColor);
     
     final darkGrip = activeHSL.withLightness((activeHSL.lightness - 0.2).clamp(0, 1)).toColor();
-    final lightGrip = activeHSL.withLightness((activeHSL.lightness + 0.2).clamp(0, 1)).toColor();
     final mutedGrip = activeHSL.withSaturation(activeHSL.saturation * 0.4).withLightness((activeHSL.lightness * 0.4).clamp(0, 1)).toColor();
-    final mutedHighlight = activeHSL.withSaturation(activeHSL.saturation * 0.4).withLightness((activeHSL.lightness * 0.5).clamp(0, 1)).toColor();
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -333,16 +322,9 @@ class _ThumbGripTexture extends StatelessWidget {
           duration: const Duration(milliseconds: 300),
           width: thumbHeight * 0.07,
           margin: EdgeInsets.symmetric(vertical: thumbHeight * 0.275),
-          decoration: BoxDecoration(
-            color: isActive ? darkGrip : mutedGrip,
-            borderRadius: BorderRadius.circular(2.0),
-            boxShadow: [
-              BoxShadow(
-                color: isActive ? lightGrip : mutedHighlight,
-                offset: const Offset(1, 0),
-                blurRadius: 0.0,
-              ),
-            ],
+decoration: BoxDecoration(
+             color: isActive ? darkGrip : mutedGrip,
+             borderRadius: BorderRadius.circular(tokens.radiusField),
           ),
         );
       }),

@@ -154,7 +154,7 @@ class _RKKnobState extends State<RKKnob> with SingleTickerProviderStateMixin {
       showDebug: widget.showDebug,
       contentWidth: widget.size,
       contentHeight: widget.size,
-      labelColor: tokens.outlineColor.withValues(alpha: 0.8),
+      labelColor: tokens.effectiveOutline.withValues(alpha: 0.8),
       fitContent: true,
       child: GestureDetector(
         onPanStart: (details) {
@@ -254,13 +254,12 @@ class _KnobPainter extends CustomPainter {
     // Proportional scaling based on size (baseline: size=100)
     final trackStrokeWidth = size.width * 0.04;
     final arcRadius = radius - trackStrokeWidth;
-    final shadowBlur = size.width * 0.04;
     final knobBorderWidth = size.width * 0.01;
     final pointerDistanceFromCenter = knobRadius * 0.7;
     final pointerRadius = size.width * 0.04;
 
     final trackPaint = Paint()
-      ..color = tokens.outlineColor
+      ..color = tokens.effectiveOutline
       ..style = PaintingStyle.stroke
       ..strokeWidth = trackStrokeWidth
       ..strokeCap = StrokeCap.round;
@@ -290,9 +289,11 @@ class _KnobPainter extends CustomPainter {
       activePaint,
     );
 
-    canvas.drawCircle(center, knobRadius, Paint()
-      ..color = tokens.shadowColor.withValues(alpha: 0.3)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, shadowBlur));
+    if (tokens.depth > 0) {
+      canvas.drawCircle(center, knobRadius, Paint()
+        ..color = tokens.onSurface.withValues(alpha: 0.30)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 1));
+    }
 
     canvas.drawCircle(center, knobRadius, Paint()
       ..color = tokens.surface

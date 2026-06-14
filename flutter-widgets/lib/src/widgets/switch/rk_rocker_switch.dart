@@ -156,7 +156,7 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
       showDebug: widget.showDebug,
       contentWidth: totalWidth,
       contentHeight: totalHeight,
-      labelColor: tokens.outlineColor.withValues(alpha: 0.8),
+      labelColor: tokens.effectiveOutline.withValues(alpha: 0.8),
       fitContent: true,
       child: GestureDetector(
         onTapDown: (_) => widget.onInteractionChanged?.call(true),
@@ -213,24 +213,19 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
       width: actualWidth,
       height: actualHeight,
       decoration: BoxDecoration(
-        color: const Color(0xFF131313),
+        color: tokens.base200,
         borderRadius:
             BorderRadius.circular((tokens.borderRadius * 1.35).clamp(4, 24)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.65),
-            blurRadius: 14,
-            offset: const Offset(0, 8),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.85),
-            blurRadius: 4,
-            spreadRadius: 1,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        boxShadow: tokens.depth > 0
+            ? [
+                BoxShadow(
+                  color: tokens.base300.withValues(alpha: 0.3),
+                  blurRadius: 1,
+                ),
+              ]
+            : [],
         border: Border.all(
-          color: const Color(0xFF050505),
+          color: tokens.base300,
           width: outerBorderWidth,
         ),
       ),
@@ -241,7 +236,7 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
             borderRadius:
                 BorderRadius.circular((tokens.borderRadius * 1.1).clamp(2, 20)),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.03),
+              color: tokens.onSurface.withValues(alpha: 0.03),
               width: innerBorderWidth,
             ),
           ),
@@ -256,15 +251,15 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
     final isTopPressed = shadowOffset < 0;
     final rockerW = actualWidth * 0.88;
     final rockerH = actualHeight * 0.92;
-    final rockerRadius = actualWidth * 0.18;
+    final rockerRadius = tokens.radiusSelector;
 
     final topLight = Color.lerp(
-      const Color(0xFF404040),
+      tokens.surface,
       activeColor.withValues(alpha: 0.55),
       glowIntensity,
     )!;
     final topDark = Color.lerp(
-      const Color(0xFF1F1F1F),
+      tokens.base300,
       activeColor.withValues(alpha: 0.20),
       glowIntensity,
     )!;
@@ -280,14 +275,14 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
           Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(rockerRadius),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.78),
-                  blurRadius: 12,
-                  spreadRadius: 1,
-                  offset: Offset(0, shadowOffset),
-                ),
-              ],
+              boxShadow: tokens.depth > 0
+                  ? [
+                      BoxShadow(
+                        color: tokens.base300.withValues(alpha: 0.3),
+                        blurRadius: 1,
+                      ),
+                    ]
+                  : [],
             ),
           ),
           ClipRRect(
@@ -300,21 +295,17 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
                   end: Alignment.bottomCenter,
                   colors: [faceTop, faceBottom],
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: activeColor.withValues(alpha: 0.28 * glowIntensity),
-                    blurRadius: 18 * glowIntensity,
-                    spreadRadius: -1,
-                  ),
-                  BoxShadow(
-                    color: activeColor.withValues(alpha: 0.18 * glowIntensity),
-                    blurRadius: 8 * glowIntensity,
-                    spreadRadius: -2,
-                  ),
-                ],
+boxShadow: tokens.depth > 0 && glowIntensity > 0.1
+                    ? [
+                        BoxShadow(
+                          color: activeColor.withValues(alpha: 0.15 * glowIntensity),
+                          blurRadius: 0.5,
+                        ),
+                      ]
+                    : [],
                 border: Border.all(
                   color: Color.lerp(
-                    Colors.white.withValues(alpha: 0.08),
+                    tokens.onSurface.withValues(alpha: 0.08),
                     activeColor.withValues(alpha: 0.55),
                     glowIntensity,
                   )!,
@@ -326,6 +317,7 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
                   Positioned.fill(
                     child: CustomPaint(
                       painter: _DiagonalGridPainter(
+                        tokens: tokens,
                         glowColor: activeColor,
                         glowIntensity: glowIntensity,
                         spacing: rockerH * 0.109,
@@ -340,11 +332,11 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
                           end: Alignment.bottomCenter,
                           stops: const [0.0, 0.10, 0.48, 0.52, 1.0],
                           colors: [
-                            Colors.white.withValues(alpha: 0.16),
-                            Colors.white.withValues(alpha: 0.04),
+                            tokens.onSurface.withValues(alpha: 0.16),
+                            tokens.onSurface.withValues(alpha: 0.04),
                             Colors.transparent,
-                            Colors.black.withValues(alpha: 0.10),
-                            Colors.black.withValues(alpha: 0.22),
+                            tokens.onSurface.withValues(alpha: 0.10),
+                            tokens.onSurface.withValues(alpha: 0.22),
                           ],
                         ),
                       ),
@@ -360,7 +352,7 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
                         borderRadius: BorderRadius.circular(rockerRadius - 4),
                         border: Border.all(
                           color: Color.lerp(
-                            Colors.white.withValues(alpha: 0.05),
+                            tokens.onSurface.withValues(alpha: 0.05),
                             activeColor.withValues(alpha: 0.22),
                             glowIntensity,
                           )!,
@@ -384,8 +376,8 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: [
-                              Colors.white.withValues(alpha: 0.12),
-                              Colors.white.withValues(alpha: 0.01),
+                              tokens.onSurface.withValues(alpha: 0.12),
+                              tokens.onSurface.withValues(alpha: 0.01),
                             ],
                           ),
                         ),
@@ -403,9 +395,9 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
                           colors: [
-                            Colors.white.withValues(alpha: 0.05),
-                            Colors.black.withValues(alpha: 0.30),
-                            Colors.white.withValues(alpha: 0.04),
+                            tokens.onSurface.withValues(alpha: 0.05),
+                            tokens.onSurface.withValues(alpha: 0.30),
+                            tokens.onSurface.withValues(alpha: 0.04),
                           ],
                         ),
                       ),
@@ -418,18 +410,20 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
                     child: Center(
                       child: Opacity(
                         opacity: (0.35 + 0.65 * glowIntensity).clamp(0.0, 1.0),
-                        child: widget.onIcon != null
-                            ? _surfaceGlowIcon(
-                                child: Icon(widget.onIcon,
-                                    size: rockerH * 0.26, color: activeColor),
-                                color: activeColor,
-                                intensity: glowIntensity,
-                              )
-                            : _surfaceGlowIcon(
-                                child: _defaultOnIcon(rockerH),
-                                color: activeColor,
-                                intensity: glowIntensity,
-                              ),
+child: widget.onIcon != null
+                             ? _surfaceGlowIcon(
+                                 child: Icon(widget.onIcon,
+                                     size: rockerH * 0.26, color: activeColor),
+                                 color: activeColor,
+                                 intensity: glowIntensity,
+                                 tokens: tokens,
+                               )
+                             : _surfaceGlowIcon(
+                                 child: _defaultOnIcon(tokens, rockerH),
+                                 color: activeColor,
+                                 intensity: glowIntensity,
+                                 tokens: tokens,
+                               ),
                       ),
                     ),
                   ),
@@ -443,8 +437,8 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
                         child: widget.offIcon != null
                             ? Icon(widget.offIcon,
                                 size: rockerH * 0.26,
-                                color: Colors.white.withValues(alpha: 0.5))
-                            : _defaultOffIcon(rockerH),
+        color: tokens.onSurface.withValues(alpha: 0.5))
+                        : _defaultOffIcon(tokens, rockerH),
                       ),
                     ),
                   ),
@@ -461,43 +455,44 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
     required Widget child,
     required Color color,
     required double intensity,
+    required RKTokens tokens,
   }) {
     if (intensity <= 0.05) return child;
 
-    return Container(
-      decoration: BoxDecoration(
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.25 * intensity),
-            blurRadius: 10 * intensity,
-            spreadRadius: 0.5,
-          ),
-        ],
-      ),
-      child: child,
-    );
+    return tokens.depth > 0 && intensity > 0.05
+        ? Container(
+            decoration: BoxDecoration(
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.15 * intensity),
+                  blurRadius: 0.5,
+                ),
+              ],
+            ),
+            child: child,
+          )
+        : child;
   }
 
-  Widget _defaultOnIcon(double rockerH) {
+  Widget _defaultOnIcon(RKTokens tokens, double rockerH) {
     return Container(
       width: rockerH * 0.04,
       height: rockerH * 0.198,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(99),
+        color: tokens.onSurface,        borderRadius: BorderRadius.circular(tokens.radiusSelector),
       ),
     );
   }
 
-  Widget _defaultOffIcon(double rockerH) {
+  Widget _defaultOffIcon(RKTokens tokens, double rockerH) {
     final size = rockerH * 0.198;
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
+        borderRadius: BorderRadius.circular(tokens.radiusSelector),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.78),
+          color: tokens.onSurface.withValues(alpha: 0.78),
           width: size * 0.15,
         ),
       ),
@@ -507,11 +502,13 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
 
 class _DiagonalGridPainter extends CustomPainter {
   const _DiagonalGridPainter({
+    required this.tokens,
     required this.glowColor,
     required this.glowIntensity,
     required this.spacing,
   });
 
+  final RKTokens tokens;
   final Color glowColor;
   final double glowIntensity;
   final double spacing;
@@ -521,13 +518,13 @@ class _DiagonalGridPainter extends CustomPainter {
     final clipRect = Offset.zero & size;
 
     final darkStroke = Paint()
-      ..color = Colors.black.withValues(alpha: 0.16)
+      ..color = tokens.onSurface.withValues(alpha: 0.16)
       ..strokeWidth = 1.2
       ..style = PaintingStyle.stroke;
 
     final lightStroke = Paint()
       ..color = Color.lerp(
-        Colors.white.withValues(alpha: 0.06),
+        tokens.onSurface.withValues(alpha: 0.06),
         glowColor.withValues(alpha: 0.18),
         glowIntensity,
       )!
@@ -559,7 +556,7 @@ class _DiagonalGridPainter extends CustomPainter {
         Offset(x, 0),
         Offset(x - size.height, size.height),
         Paint()
-          ..color = Colors.white.withValues(alpha: 0.025)
+          ..color = tokens.onSurface.withValues(alpha: 0.025)
           ..strokeWidth = 0.7,
       );
     }
@@ -569,7 +566,8 @@ class _DiagonalGridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _DiagonalGridPainter oldDelegate) {
-    return oldDelegate.glowColor != glowColor ||
+    return oldDelegate.tokens != tokens ||
+        oldDelegate.glowColor != glowColor ||
         oldDelegate.glowIntensity != glowIntensity;
   }
 }
