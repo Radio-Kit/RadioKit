@@ -48,7 +48,11 @@ public:
     int8_t getRssi()                                   override;
 
     /// ms since last valid packet before isConnected() returns false.
-    static constexpr uint32_t TIMEOUT_MS = 3000;
+    /// Increased from 3s to 30s to match the app-side session timeout and
+    /// prevent premature disconnection during slow serial operations (e.g.
+    /// auth handshake, FS transfers, config loading). Serial auth bypass
+    /// (per-transport _packetSource) makes this timeout harmless for auth.
+    static constexpr uint32_t TIMEOUT_MS = 30000;
 
 private:
     Stream*             _stream;

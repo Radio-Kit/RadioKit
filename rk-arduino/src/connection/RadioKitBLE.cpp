@@ -251,7 +251,6 @@ NimBLECharacteristic* RadioKitBLE::_charForBuf(const uint8_t* buf) const {
 
 void RadioKitBLE::sendPacket(const uint8_t* buf, uint16_t len) {
     if (!_connected) {
-        Serial.printf("BLE: Cannot send (not connected)\n");
         return;
     }
 

@@ -48,8 +48,8 @@ dependencies:
   lucide_icons_flutter: ^3.1.14+1
   share_plus: ^13.1.0
 
-  # Serial: Linux desktop (libserialport — termios-based, wraps /dev/ttyACM* etc.)
-  flutter_libserialport: ^0.6.0
+  # Serial: Linux desktop
+  flserial: ^0.7.1
 
   # HTTP API server for remote access / test automation
   shelf: ^1.4.2

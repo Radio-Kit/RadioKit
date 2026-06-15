@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../providers/device_provider.dart';
 import '../../services/ble_service_impl.dart';
 import '../../services/serial_service_native.dart';
-import '../../services/serial_service_linux.dart';
 import '../../services/websocket_service.dart';
 import '../../theme/app_theme.dart';
 
@@ -87,7 +86,7 @@ class _DeviceSettingsDialogState extends State<DeviceSettingsDialog> {
     final t = dp.currentTransport;
     if (t is BleService) return 'BLE';
     if (t is WebSocketService) return 'WIFI';
-    if (t is LinuxSerialService || t is SerialService) return 'Serial';
+    if (t is SerialService) return 'Serial';
     return null;
   }
 

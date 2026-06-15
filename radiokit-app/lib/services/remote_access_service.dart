@@ -677,7 +677,7 @@ class RemoteAccessService {
       return _error('invalid_params', 'id and type are required');
     }
 
-    final baudRate = (body['baudRate'] as num?)?.toInt() ?? 1000000;
+    final baudRate = (body['baudRate'] as num?)?.toInt() ?? 115200;
 
     // Find device info
     DeviceInfo? target;

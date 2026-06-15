@@ -366,15 +366,16 @@ class DeviceProvider extends ChangeNotifier {
   }
 
   /// Send factory reset command via settings protocol — erases NVS config and reboots.
-  /// Also removes the device from history automatically.
+  /// Also removes the device from history and clears saved password.
   /// Returns true if the command was sent successfully (device will reboot).
   Future<bool> sendFactoryReset() async {
     if (!_transport.isConnected) return false;
     try {
       await _transport.writePacket(SettingsProtocolService.buildFactoryReset());
-      // Remove from history
+      // Remove from history and clean up saved password
       if (_connectedDevice != null) {
         historyProvider?.removeDevice(_connectedDevice!.id);
+        SecureStorageService.deletePassword(_connectedDevice!.id);
       }
       return true;
     } catch (e) {
@@ -689,7 +690,7 @@ class DeviceProvider extends ChangeNotifier {
 
   // ── Connection ─────────────────────────────────────────────────────────────
 
-  Future<void> connectToDevice(DeviceInfo device, {int baudRate = 1000000}) async {
+  Future<void> connectToDevice(DeviceInfo device, {int baudRate = 115200}) async {
     _connectionState = DeviceConnectionState.connecting;
     _connectedDevice = device;
     _errorMessage    = null;
@@ -1392,10 +1393,15 @@ class DeviceProvider extends ChangeNotifier {
         'devicePwd=${hasDevicePassword}, userPwd=${hasUserPassword})',
         level: ConsoleLogLevel.success);
     
-    if (hasPassword && _authLevel == AuthLevel.none && _connectionState == DeviceConnectionState.connected) {
+    // Skip auth timeout for serial — physical access implies full access.
+    final isSerial = _connectedDevice?.currentTransport == TransportType.serial;
+    if (hasPassword && _authLevel == AuthLevel.none && _connectionState == DeviceConnectionState.connected && !isSerial) {
       _startAuthTimeout();
     }
-    if (!hasUserPassword && _connectedDevice != null) {
+    // Clear saved password only if the device has NO passwords at all.
+    // If either device or user password is set, keep the saved password
+    // so auto-auth on reconnect can use it.
+    if (!hasPassword && _connectedDevice != null) {
       SecureStorageService.deletePassword(_connectedDevice!.id);
     }
     
@@ -1521,6 +1527,29 @@ class DeviceProvider extends ChangeNotifier {
     }
     _log('DEVICE_INFO: All 3 attempts timed out — device may not support GET_DEVICE_INFO',
         level: ConsoleLogLevel.warning);
+  }
+
+  /// Send SET_CLOUD_INFO command via settings protocol to configure cloud relay URL and account.
+  /// The device saves to NVS (no reboot). Returns true if command was sent successfully.
+  Future<bool> sendSetCloudInfo({
+    String? url,
+    String? account,
+  }) async {
+    if (!_transport.isConnected) return false;
+    try {
+      final pkt = SettingsProtocolService.buildSetCloudInfo(
+        url: url,
+        account: account,
+      );
+      await _writePacket(pkt);
+      _log('SET_CLOUD_INFO sent (URL=${url != null ? "yes" : "no"} '
+          'ACCT=${account != null ? "yes" : "no"})',
+          level: ConsoleLogLevel.info);
+      return true;
+    } catch (e) {
+      _log('sendSetCloudInfo failed: $e', level: ConsoleLogLevel.error);
+      return false;
+    }
   }
 
   /// Send GET_CLOUD_INFO and wait for response.

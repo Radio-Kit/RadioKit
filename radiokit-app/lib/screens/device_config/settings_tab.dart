@@ -5,11 +5,16 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:go_router/go_router.dart';
 import '../../providers/device_provider.dart';
+import '../../providers/account_provider.dart';
 import '../../models/device_info.dart';
+import '../../models/account.dart';
 import '../../models/protocol.dart';
 import '../../theme/app_theme.dart';
 import '../../services/cloud_identity.dart';
+import '../../services/websocket_service.dart';
+import '../../services/secure_storage_service.dart';
 import '../designer/widgets/inspector_field_builders.dart';
+import '../home/accounts_sheet.dart';
 import 'package:radiokit_widgets/src/utils/icon_registry.dart';
 
 class SettingsTabContent extends StatefulWidget {
@@ -41,6 +46,26 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
   bool _hasDevicePassword = false;
   bool _iconChanged = false;
 
+  // STA WiFi config
+  late TextEditingController _staSsidCtrl;
+  late TextEditingController _staPwdCtrl;
+  bool _staPwdVisible = false;
+  bool _savingSta = false;
+  String? _staValidationStatus; // 'connected', 'pending', 'error'
+  String? _staValidationDetail;
+  Timer? _staValidateTimer;
+  String _originalStaSsid = '';
+
+  // Cloud config
+  late TextEditingController _relayHostCtrl;
+  bool _savingCloud = false;
+  String? _cloudValidationStatus; // 'verified', 'pending', 'error'
+  String? _cloudValidationDetail;
+  Timer? _cloudValidateTimer;
+  String _selectedAccountId = '';
+  String _originalRelayUrl = '';
+  String _originalAccountKey = '';
+
   @override
   void initState() {
     super.initState();
@@ -54,6 +79,13 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
     _adminPwdCtrl = TextEditingController();
     _hasDevicePassword = dp.hasPassword;
 
+    // STA WiFi config
+    _staSsidCtrl = TextEditingController();
+    _staPwdCtrl = TextEditingController();
+
+    // Cloud config
+    _relayHostCtrl = TextEditingController();
+
     // Load NVS transport enable states
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadTransportNvsKeys(dp));
   }
@@ -63,11 +95,37 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
     final bleResult = await dp.readNvsRawKey('rk_ble_on');
     final wifiResult = await dp.readNvsRawKey('rk_wifi_on');
     final cloudResult = await dp.readNvsRawKey('rk_cloud_on');
+
+    // Load STA WiFi and Cloud config
+    final staSsidResult = await dp.readNvsRawKey('rk_sta_ssid');
+    final staPwdResult = await dp.readNvsRawKey('rk_sta_pwd');
+    final cloudUrlResult = await dp.readNvsRawKey('rk_cloud_url');
+    final cloudAccountResult = await dp.readNvsRawKey('rk_cloud_account');
+
     if (!mounted) return;
     setState(() {
       _bleEnabled = (bleResult.value ?? 1) != 0;
       _wifiEnabled = (wifiResult.value ?? 0) != 0;
       _cloudEnabled = (cloudResult.value ?? 0) != 0;
+
+      // Pre-fill STA fields (password left empty — security)
+      _originalStaSsid = staSsidResult.rawString ?? '';
+      _staSsidCtrl.text = _originalStaSsid;
+
+      // Pre-fill cloud fields
+      _originalRelayUrl = cloudUrlResult.rawString ?? '';
+      _originalAccountKey = cloudAccountResult.rawString ?? '';
+      _relayHostCtrl.text = _originalRelayUrl;
+
+      // Match account from stored public key
+      if (_originalAccountKey.isNotEmpty) {
+        final ap = context.read<AccountProvider>();
+        final match = ap.accounts.cast<Account?>().firstWhere(
+              (a) => a!.publicKey == _originalAccountKey,
+              orElse: () => null,
+            );
+        _selectedAccountId = match?.id ?? '';
+      }
     });
 
     // Check cloud account match
@@ -88,6 +146,11 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
     _descCtrl.dispose();
     _pwdCtrl.dispose();
     _adminPwdCtrl.dispose();
+    _staSsidCtrl.dispose();
+    _staPwdCtrl.dispose();
+    _relayHostCtrl.dispose();
+    _staValidateTimer?.cancel();
+    _cloudValidateTimer?.cancel();
     super.dispose();
   }
 
@@ -350,6 +413,22 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
                       activeThumbColor: context.tokens.primary,
                     ),
                   ),
+
+                  // ── STA WiFi ─────────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Divider(height: 1, color: context.tokens.onSurface.withValues(alpha: 0.1)),
+                  ),
+                  _buildStaWifiSection(dp),
+
+                  // ── Cloud config ────────────────────────────────
+                  if (_cloudEnabled) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Divider(height: 1, color: context.tokens.onSurface.withValues(alpha: 0.1)),
+                    ),
+                    _buildCloudConfigSection(dp),
+                  ],
                 ],
               ],
             ),
@@ -544,6 +623,566 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
         trailing,
       ],
     );
+  }
+
+  // ── STA WiFi ───────────────────────────────────────────────────────────
+
+  bool get _staChanged =>
+      _staSsidCtrl.text.trim() != _originalStaSsid ||
+      _staPwdCtrl.text.trim().isNotEmpty;
+
+  bool _isCloudChanged(BuildContext context) {
+    final relayChanged = _relayHostCtrl.text.trim() != _originalRelayUrl;
+    if (_originalAccountKey.isEmpty && _selectedAccountId.isNotEmpty) return true;
+    if (_originalAccountKey.isNotEmpty) {
+      final ap = context.read<AccountProvider>();
+      final selected = ap.accounts.where((a) => a.id == _selectedAccountId).firstOrNull;
+      if (selected == null) return false;
+      return selected.publicKey != _originalAccountKey || relayChanged;
+    }
+    return relayChanged;
+  }
+
+  Widget _buildStaWifiSection(DeviceProvider dp) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('STA SSID',
+            style: TextStyle(
+                color: context.tokens.onSurface.withValues(alpha: 0.54),
+                fontSize: 10,
+                fontWeight: FontWeight.bold)),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _staSsidCtrl,
+                maxLength: 32,
+                style: GoogleFonts.martianMono(
+                    color: context.tokens.onSurface,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: context.tokens.onSurface.withValues(alpha: 0.05),
+                  hintText: 'Network name (SSID)',
+                  hintStyle: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.24)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: BorderSide(color: context.tokens.onSurface.withValues(alpha: 0.12)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: BorderSide(color: context.tokens.onSurface.withValues(alpha: 0.12)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: BorderSide(color: context.tokens.primary.withValues(alpha: 0.5)),
+                  ),
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text('STA PASSWORD',
+            style: TextStyle(
+                color: context.tokens.onSurface.withValues(alpha: 0.54),
+                fontSize: 10,
+                fontWeight: FontWeight.bold)),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _staPwdCtrl,
+                maxLength: 64,
+                obscureText: !_staPwdVisible,
+                style: GoogleFonts.martianMono(
+                    color: context.tokens.onSurface,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: context.tokens.onSurface.withValues(alpha: 0.05),
+                  hintText: 'WiFi password (leave empty to keep current)',
+                  hintStyle: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.24)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                        _staPwdVisible
+                            ? Icons.visibility_off_rounded
+                            : Icons.visibility_rounded,
+                        size: 18,
+                        color: context.tokens.onSurface.withValues(alpha: 0.38)),
+                    onPressed: () => setState(() => _staPwdVisible = !_staPwdVisible),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: BorderSide(color: context.tokens.onSurface.withValues(alpha: 0.12)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: BorderSide(color: context.tokens.onSurface.withValues(alpha: 0.12)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: BorderSide(color: context.tokens.primary.withValues(alpha: 0.5)),
+                  ),
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            if (_staChanged) ...[
+              SizedBox(
+                height: 36,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: context.tokens.primary,
+                    foregroundColor: context.tokens.onPrimary,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  ),
+                  onPressed: _savingSta ? null : () => _saveStaWifi(dp),
+                  child: _savingSta
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Text('SAVE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+            _buildValidationBadge(context, 'STA', _staValidationStatus, _staValidationDetail),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ── Cloud Config ────────────────────────────────────────────────────────
+
+  Widget _buildCloudConfigSection(DeviceProvider dp) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('CLOUD ACCOUNT',
+            style: TextStyle(
+                color: context.tokens.primary.withValues(alpha: 0.7),
+                fontSize: 10,
+                fontWeight: FontWeight.bold)),
+        const SizedBox(height: 6),
+        Consumer<AccountProvider>(
+          builder: (context, ap, _) {
+            final accounts = ap.accounts;
+            return DropdownButtonFormField<String>(
+              value: _selectedAccountId.isNotEmpty ? _selectedAccountId : null,
+              isExpanded: true,
+              dropdownColor: context.tokens.base200,
+              style: GoogleFonts.martianMono(
+                color: context.tokens.onSurface,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: context.tokens.onSurface.withValues(alpha: 0.05),
+                hintText: accounts.isNotEmpty ? 'Select an account' : 'No accounts saved',
+                hintStyle: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.24), fontSize: 13),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: BorderSide(color: context.tokens.onSurface.withValues(alpha: 0.12)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: BorderSide(color: context.tokens.onSurface.withValues(alpha: 0.12)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: BorderSide(color: context.tokens.primary.withValues(alpha: 0.5)),
+                ),
+              ),
+              items: [
+                ...accounts.map((a) => DropdownMenuItem<String>(
+                      value: a.id,
+                      child: Row(
+                        children: [
+                          Icon(Icons.person_rounded,
+                              size: 16,
+                              color: context.tokens.primary.withValues(alpha: 0.7)),
+                          SizedBox(width: 10),
+                          Text(a.name,
+                              style: TextStyle(color: context.tokens.onSurface, fontSize: 13)),
+                        ],
+                      ),
+                    )),
+                DropdownMenuItem<String>(
+                  value: '__manage__',
+                  child: Container(
+                    decoration: accounts.isNotEmpty
+                        ? BoxDecoration(
+                            border: Border(
+                              top: BorderSide(color: context.tokens.onSurface.withValues(alpha: 0.08)),
+                            ),
+                          )
+                        : null,
+                    padding: EdgeInsets.only(top: accounts.isNotEmpty ? 8 : 0),
+                    child: Row(
+                      children: [
+                        Icon(Icons.settings_rounded,
+                            size: 16,
+                            color: context.tokens.onSurface.withValues(alpha: 0.5)),
+                        SizedBox(width: 10),
+                        Text('Manage accounts',
+                            style: TextStyle(
+                              color: context.tokens.onSurface.withValues(alpha: 0.7),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            )),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              onChanged: (value) {
+                if (value == '__manage__') {
+                  AccountsSheet.show(context);
+                  return;
+                }
+                if (value != null) {
+                  final account = accounts.firstWhere((a) => a.id == value);
+                  setState(() {
+                    _selectedAccountId = value;
+                    if (account.relay.isNotEmpty) {
+                      _relayHostCtrl.text = account.relay;
+                    }
+                  });
+                }
+              },
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        Text('RELAY HOST',
+            style: TextStyle(
+                color: context.tokens.onSurface.withValues(alpha: 0.54),
+                fontSize: 10,
+                fontWeight: FontWeight.bold)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _relayHostCtrl,
+          style: GoogleFonts.martianMono(
+              color: context.tokens.onSurface,
+              fontSize: 13,
+              fontWeight: FontWeight.w500),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: context.tokens.onSurface.withValues(alpha: 0.05),
+            hintText: 'relay.radiokit.app:443',
+            hintStyle: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.24)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: BorderSide(color: context.tokens.onSurface.withValues(alpha: 0.12)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: BorderSide(color: context.tokens.onSurface.withValues(alpha: 0.12)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: BorderSide(color: context.tokens.primary.withValues(alpha: 0.5)),
+            ),
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            if (_isCloudChanged(context)) ...[
+              SizedBox(
+                height: 36,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: context.tokens.primary,
+                    foregroundColor: context.tokens.onPrimary,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  ),
+                  onPressed: _savingCloud ? null : () => _saveCloudConfig(dp),
+                  child: _savingCloud
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Text('SAVE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+            _buildValidationBadge(context, 'CLOUD', _cloudValidationStatus, _cloudValidationDetail),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ── Validation Badge ────────────────────────────────────────────────────
+
+  Widget _buildValidationBadge(
+      BuildContext context, String prefix, String? status, String? detail) {
+    if (status == null) return const SizedBox.shrink();
+
+    final Color color;
+    final IconData icon;
+    final String label;
+    switch (status) {
+      case 'connected':
+      case 'verified':
+        color = context.tokens.success;
+        icon = Icons.check_circle_rounded;
+        label = prefix == 'STA' ? 'Connected' : 'Verified';
+        break;
+      case 'pending':
+        color = context.tokens.warning;
+        icon = Icons.access_time_rounded;
+        label = 'Pending';
+        break;
+      case 'error':
+        color = context.tokens.error;
+        icon = Icons.error_rounded;
+        label = 'Error';
+        break;
+      default:
+        return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              detail ?? label,
+              style: TextStyle(
+                color: color,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── STA Save + Validation ───────────────────────────────────────────────
+
+  Future<void> _saveStaWifi(DeviceProvider dp) async {
+    setState(() => _savingSta = true);
+
+    final ssid = _staSsidCtrl.text.trim();
+    final password = _staPwdCtrl.text.trim();
+
+    final ok = await dp.sendSetWifi(
+      ssid: ssid.isNotEmpty ? ssid : null,
+      password: password.isNotEmpty ? password : null,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _savingSta = false;
+      if (ok) {
+        _originalStaSsid = ssid;
+        _staPwdCtrl.clear();
+        _staValidationStatus = 'pending';
+        _staValidationDetail = 'Saved — waiting for connection...';
+        _startStaValidation(dp);
+      } else {
+        _staValidationStatus = 'error';
+        _staValidationDetail = 'Failed to save credentials';
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok ? 'STA WiFi credentials saved' : 'Failed to save STA WiFi'),
+        backgroundColor: ok ? context.tokens.success : context.tokens.error,
+      ),
+    );
+  }
+
+  void _startStaValidation(DeviceProvider dp) {
+    _staValidateTimer?.cancel();
+    int attempts = 0;
+
+    _staValidateTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+      attempts++;
+      if (attempts > 6) {
+        // 30s timeout
+        _staValidateTimer?.cancel();
+        if (mounted) {
+          setState(() {
+            _staValidationStatus = 'error';
+            _staValidationDetail = 'Connection timeout — check credentials';
+          });
+        }
+        return;
+      }
+
+      if (!mounted || !dp.isConnected) {
+        _staValidateTimer?.cancel();
+        return;
+      }
+
+      final wifiInfo = await dp.sendGetWifiInfo();
+      if (!mounted) return;
+
+      if (wifiInfo != null && wifiInfo.mode == kWifiModeSta && wifiInfo.ip.isNotEmpty) {
+        _staValidateTimer?.cancel();
+        setState(() {
+          _staValidationStatus = 'connected';
+          _staValidationDetail = '${wifiInfo.ssid} | ${wifiInfo.ip} | ${wifiInfo.rssi} dBm';
+        });
+      } else if (wifiInfo != null && wifiInfo.ssid.isNotEmpty) {
+        setState(() {
+          _staValidationStatus = 'pending';
+          _staValidationDetail = 'Saved — connecting to ${wifiInfo.ssid}...';
+        });
+      }
+    });
+  }
+
+  // ── Cloud Save + Validation ─────────────────────────────────────────────
+
+  Future<void> _saveCloudConfig(DeviceProvider dp) async {
+    setState(() => _savingCloud = true);
+
+    final relayUrl = _relayHostCtrl.text.trim();
+    final ap = context.read<AccountProvider>();
+    final account = ap.accounts.where((a) => a.id == _selectedAccountId).firstOrNull;
+    final accountKey = account?.publicKey ?? '';
+
+    if (accountKey.isEmpty) {
+      setState(() {
+        _savingCloud = false;
+        _cloudValidationStatus = 'error';
+        _cloudValidationDetail = 'No account selected';
+      });
+      return;
+    }
+
+    // Write both keys via SET_CLOUD_INFO command
+    final ok = await dp.sendSetCloudInfo(
+      url: relayUrl,
+      account: accountKey,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _savingCloud = false;
+    });
+
+    if (ok) {
+      setState(() {
+        _originalRelayUrl = relayUrl;
+        _originalAccountKey = accountKey;
+        _cloudValidationStatus = 'pending';
+        _cloudValidationDetail = 'Saved — validating relay...';
+      });
+      _validateCloudRelay(relayUrl);
+    } else {
+      setState(() {
+        _cloudValidationStatus = 'error';
+        _cloudValidationDetail = 'Failed to save to device';
+      });
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok ? 'Cloud config saved' : 'Failed to save cloud config'),
+        backgroundColor: ok ? context.tokens.success : context.tokens.error,
+      ),
+    );
+  }
+
+  Future<void> _validateCloudRelay(String relayUrl) async {
+    if (relayUrl.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _cloudValidationStatus = 'error';
+          _cloudValidationDetail = 'Relay URL is empty';
+        });
+      }
+      return;
+    }
+
+    // Parse host:port from relay URL
+    String host = relayUrl;
+    int port = 443;
+    if (relayUrl.contains(':')) {
+      final parts = relayUrl.split(':');
+      host = parts[0];
+      port = int.tryParse(parts[1]) ?? 443;
+    }
+
+    final scheme = port == 443 ? 'wss' : 'ws';
+    final url = '$scheme://$host:$port';
+
+    try {
+      final ws = WebSocketService();
+      _log('Validating cloud relay: $url');
+
+      // Timeout after 5 seconds
+      await ws.connect(url).timeout(const Duration(seconds: 5));
+      final connected = ws.isConnected;
+      await ws.disconnect();
+
+      if (!mounted) return;
+      if (connected) {
+        setState(() {
+          _cloudValidationStatus = 'verified';
+          _cloudValidationDetail = 'Relay reachable';
+        });
+      } else {
+        setState(() {
+          _cloudValidationStatus = 'error';
+          _cloudValidationDetail = 'Could not connect to relay';
+        });
+      }
+    } on TimeoutException catch (_) {
+      if (mounted) {
+        setState(() {
+          _cloudValidationStatus = 'error';
+          _cloudValidationDetail = 'Relay unreachable — timeout';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _cloudValidationStatus = 'error';
+          _cloudValidationDetail = 'Relay unreachable: $e';
+        });
+      }
+    }
+  }
+
+  void _log(String msg) {
+    debugPrint('SETTINGS_TAB: $msg');
   }
 
   Widget _buildSaveField({
@@ -810,6 +1449,21 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
     );
 
     if (!mounted) return;
+    // Sync saved password when device password changes
+    if (ok && field == 'password') {
+      if (pwd != null && pwd.isNotEmpty) {
+        // New password set — save to secure storage
+        if (dp.connectedDevice != null) {
+          SecureStorageService.savePassword(dp.connectedDevice!.id, pwd);
+        }
+      } else {
+        // Password cleared — remove from secure storage
+        if (dp.connectedDevice != null) {
+          SecureStorageService.deletePassword(dp.connectedDevice!.id);
+        }
+      }
+    }
+
     setState(() {
       _savingName = false;
       _savingDesc = false;

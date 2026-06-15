@@ -221,9 +221,10 @@ private:
     uint8_t            _widgetCount;
     RadioKitTransport* _transport;
 
-    // Additional transport pointers (WiFi, Cloud) — separate from _transport
+    // Additional transport pointers (WiFi, Cloud, Serial) — separate from _transport
     bool _wifiActive;       ///< True after startWiFi() called
     bool _cloudActive;      ///< True after startCloud() called
+    bool _serialActive;     ///< True after startSerial() called
 
     // VAR_UPDATE / SET_INPUT batch dispatch
     uint32_t _pendingUpdatesMask;
@@ -266,6 +267,7 @@ private:
     void _handleSettingsNvsRawRead(const uint8_t* payload, uint16_t len);
     void _handleSettingsNvsRawWrite(const uint8_t* payload, uint16_t len);
     void _handleSettingsSetWifi(const uint8_t* payload, uint16_t len);
+    void _handleSettingsSetCloud(const uint8_t* payload, uint16_t len);
     void _handleSettingsGetCloudInfo();
     void _handleSettingsReboot();
     void _handleGetWifiInfo();
@@ -309,6 +311,10 @@ private:
     // Device UID (16 hex chars + null)
     char _nvsDeviceUid[17];
 
+    // Per-transport auth source tracking — set before callback dispatch
+    // so auth gates can check which transport delivered the current frame.
+    volatile uint8_t _packetSource;
+
     // ── Print stream circular buffer ─────────────────────────
     static constexpr uint16_t kPrintBufSize = RK_PRINT_BUF_SIZE;
     uint8_t  _printBuf[kPrintBufSize];
@@ -319,6 +325,18 @@ private:
     void _flushPrintBuffer();
     uint16_t _printSpace() const;  ///< Available space in circular buffer
     void _printByte(uint8_t b);    ///< Write single byte to circular buffer
+
+    // Per-transport source wrapper templates (private — used by startXxx())
+    template<int S>
+    static void _onPktW(uint8_t cmd, const uint8_t* p, uint16_t l);
+    template<int S>
+    static void _onFsPktW(uint8_t subCmd, const uint8_t* p, uint16_t l);
+    template<int S>
+    static void _onOtaPktW(uint8_t subCmd, const uint8_t* p, uint16_t l);
+    template<int S>
+    static void _onSetPktW(uint8_t subCmd, const uint8_t* p, uint16_t l);
+    template<int S>
+    static void _onPrnPktW(const uint8_t* p, uint16_t l);
 
     // Internal helpers
     void _syncNvsToBuffers();

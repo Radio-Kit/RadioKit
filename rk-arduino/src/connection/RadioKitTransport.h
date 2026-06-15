@@ -13,6 +13,13 @@
 #include <Arduino.h>
 #include <stdint.h>
 
+// ── Transport source identifiers (for per-transport auth tracking) ────
+#define RK_SOURCE_NONE    0
+#define RK_SOURCE_BLE     1
+#define RK_SOURCE_SERIAL  2
+#define RK_SOURCE_WIFI    3
+#define RK_SOURCE_CLOUD   4
+
 /// Callback signature: called by the transport when a complete
 /// widget-protocol (0x55) frame has been received and CRC-validated.
 typedef void (*RK_PacketCallback)(uint8_t cmd,

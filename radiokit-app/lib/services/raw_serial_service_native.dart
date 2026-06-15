@@ -1,11 +1,9 @@
-/// Native raw serial service dispatcher.
+/// Native raw serial service (Android only).
 ///
 /// `dart.library.io` is true on Android, iOS, and all desktop platforms.
-/// Runtime platform check routes to the correct concrete implementation.
-///
-///   Android → uses usb_serial (this file contains the Android impl)
-///   Linux   → delegates to RawSerialService from raw_serial_service_linux.dart
-///   Other   → isSupported = false (stub behaviour)
+/// On Android uses USB-CDC via usb_serial.
+/// On Linux, use [SerialService] from serial_service_native.dart instead.
+/// On other platforms returns [isSupported] = false.
 library;
 
 import 'dart:async';
@@ -13,21 +11,12 @@ import 'package:flutter/foundation.dart';
 import 'package:usb_serial/usb_serial.dart';
 import '../models/device_info.dart';
 
-// Linux implementation (flutter_libserialport)
-import 'raw_serial_service_linux.dart' as linux;
-
 /// Platform-dispatched raw serial service.
 ///
 /// On Android wraps USB-CDC via usb_serial.
-/// On Linux wraps termios ports via flutter_libserialport.
+/// On Linux, use [SerialService] from serial_service_native.dart instead.
 /// On other platforms returns [isSupported] = false.
 class RawSerialService {
-  // On Linux, delegate every call to the Linux implementation.
-  final linux.RawSerialService? _linuxImpl =
-      defaultTargetPlatform == TargetPlatform.linux
-          ? linux.RawSerialService()
-          : null;
-
   UsbPort? _port;
   StreamSubscription<Uint8List>? _rxSub;
   final StreamController<List<int>> _dataController =
@@ -35,28 +24,17 @@ class RawSerialService {
   bool _androidConnected = false;
 
   bool get isSupported =>
-      defaultTargetPlatform == TargetPlatform.android ||
-      defaultTargetPlatform == TargetPlatform.linux;
+      defaultTargetPlatform == TargetPlatform.android;
 
-  bool get isConnected {
-    if (_linuxImpl != null) return _linuxImpl.isConnected;
-    return _androidConnected;
-  }
+  bool get isConnected => _androidConnected;
 
-  Stream<List<int>> get dataStream {
-    if (_linuxImpl != null) return _linuxImpl.dataStream;
-    return _dataController.stream;
-  }
+  Stream<List<int>> get dataStream => _dataController.stream;
 
   // ---------------------------------------------------------------------------
   // Port discovery
   // ---------------------------------------------------------------------------
 
   Stream<DeviceInfo> listPorts() async* {
-    if (_linuxImpl != null) {
-      yield* _linuxImpl.listPorts();
-      return;
-    }
     if (!isSupported) return;
     final devices = await UsbSerial.listDevices();
     for (final d in devices) {
@@ -82,15 +60,6 @@ class RawSerialService {
     int stopBits = 1,
     String parity = 'none',
   }) async {
-    if (_linuxImpl != null) {
-      return _linuxImpl.connect(
-        portId,
-        baudRate: baudRate,
-        dataBits: dataBits,
-        stopBits: stopBits,
-        parity: parity,
-      );
-    }
     if (!isSupported) {
       throw UnsupportedError('Raw serial not supported on this platform');
     }
@@ -139,7 +108,6 @@ class RawSerialService {
   // ---------------------------------------------------------------------------
 
   Future<void> write(List<int> data) async {
-    if (_linuxImpl != null) return _linuxImpl.write(data);
     final port = _port;
     if (port == null) throw StateError('Serial port not open');
     await port.write(Uint8List.fromList(data));
@@ -158,7 +126,6 @@ class RawSerialService {
   }
 
   Future<void> disconnect() async {
-    if (_linuxImpl != null) return _linuxImpl.disconnect();
     _androidConnected = false;
     await _rxSub?.cancel();
     _rxSub = null;
@@ -167,10 +134,6 @@ class RawSerialService {
   }
 
   void dispose() {
-    if (_linuxImpl != null) {
-      _linuxImpl.dispose();
-      return;
-    }
     _dataController.close();
     disconnect();
   }

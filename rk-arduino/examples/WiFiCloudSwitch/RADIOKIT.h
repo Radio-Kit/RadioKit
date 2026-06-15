@@ -101,6 +101,7 @@ static inline void initRadioKit() {
     }
   }
 
+  RadioKit.startSerial(Serial);  // USB CDC serial transport for testing
   RadioKit.startBLE(RadioKit.config.name);
   RadioKit.startWiFi();
   RadioKit.startCloud();  // Cloud relay requires WiFi + relay server running

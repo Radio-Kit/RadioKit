@@ -195,6 +195,10 @@ Widget _buildActiveLinkCard(
         return Card(
           clipBehavior: Clip.antiAlias,
           color: context.tokens.onSurface.withValues(alpha: 0.05),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(context.tokens.borderRadius.clamp(0, 32)),
+            side: BorderSide.none,
+          ),
           child: Padding(
             padding: EdgeInsets.all(paddingSize),
             child: Column(
@@ -359,7 +363,9 @@ class _ActiveLinkSectionState extends State<_ActiveLinkSection> {
     }
 
     final device = deviceProvider.connectedDevice!;
-    final needAuth =
+    // Serial bypass: physical access implies full access — no auth dialog.
+    final isSerial = device.currentTransport == TransportType.serial;
+    final needAuth = !isSerial &&
         deviceProvider.hasPassword && !deviceProvider.isAuthenticated;
 
     // If auth is needed and dialog hasn't been shown yet, trigger it
@@ -722,15 +728,15 @@ class _DeviceInfoTabsState extends State<_DeviceInfoTabs>
 /// Returns true if auth succeeded, false if cancelled or failed.
 Future<bool> _showAuthDialog(
   BuildContext context,
-  DeviceInfo device, {
-  bool isAdminAuth = false,
-}) async {
+  DeviceInfo device,
+) async {
   final dp = context.read<DeviceProvider>();
   bool obscure = true;
   bool loading = false;
   bool remember = true;
   String? error;
   String password = '';
+  bool _autoPopHandled = false;
 
   // Load saved password
   final saved = await SecureStorageService.loadPassword(device.id);
@@ -748,7 +754,8 @@ Future<bool> _showAuthDialog(
         builder: (context, setDialogState) {
           // Auto-dismiss when auth happens externally (e.g., via remote API)
           final authDp = context.watch<DeviceProvider>();
-          if (authDp.isAuthenticated) {
+          if (authDp.isAuthenticated && !_autoPopHandled) {
+            _autoPopHandled = true;
             Future.microtask(() {
               if (context.mounted) Navigator.of(ctx).pop(true);
             });
@@ -771,8 +778,12 @@ Future<bool> _showAuthDialog(
             final ok = await dp.authenticate(pwd);
             if (!context.mounted) return;
             if (ok) {
+              _autoPopHandled = true;
               if (remember) {
-                SecureStorageService.savePassword(device.id, pwd);
+                final saved = await SecureStorageService.savePassword(device.id, pwd);
+                if (!saved) {
+                  debugPrint('Auth dialog: failed to save password for ${device.id}');
+                }
               }
               Navigator.of(ctx).pop(true);
             } else {
@@ -1772,86 +1783,30 @@ class _PairedModelCard extends StatelessWidget {
       trailing: trailingWidget,
       onLongPress: () => onContextMenu?.call(null),
       onSecondaryTap: (pos) => onContextMenu?.call(pos),
-      leading: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(4),
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: context.tokens.base200,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Center(
-              child: Icon(
-                deviceIconData ?? connectionIcon,
-                color: context.tokens.primary.withValues(alpha: deviceIconData != null ? 1.0 : 0.7),
-                size: 36,
-              ),
-            ),
+      leading: ModelCard.standardLeading(
+        context: context,
+        icon: deviceIconData ?? connectionIcon,
+        badge: Container(
+          width: 18,
+          height: 18,
+          decoration: BoxDecoration(
+            color: context.tokens.surface,
+            borderRadius: BorderRadius.circular(3),
           ),
-          // Transport badge overlay (small icon in corner)
-          Positioned(
-            right: -2,
-            bottom: -2,
-            child: Container(
-              width: 18,
-              height: 18,
-              decoration: BoxDecoration(
-                color: context.tokens.surface,
-                borderRadius: BorderRadius.circular(3),
-              ),
-              child: Center(
-                child: Icon(
-                  connectionIcon,
-                  size: 12,
-                  color: badgeColor,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-      title: FittedBox(
-        fit: BoxFit.scaleDown,
-        alignment: Alignment.centerLeft,
-        child: Text(
-          (device.configName?.isNotEmpty == true
-                  ? device.configName!
-                  : device.name)
-              .toUpperCase(),
-          style: GoogleFonts.exo2(
-            fontWeight: FontWeight.w900,
-            letterSpacing: -0.5,
-            fontSize: 18,
+          child: Center(
+            child: Icon(connectionIcon, size: 12, color: badgeColor),
           ),
         ),
       ),
+      title: ModelCard.standardTitle(
+        (device.configName?.isNotEmpty == true
+                ? device.configName!
+                : device.name),
+      ),
       subtitle: state.message != null
-          ? Text(
-              state.message!,
-              style: TextStyle(
-                color: context.tokens.primary.withValues(alpha: 0.7),
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            )
+          ? ModelCard.standardSubtitle(context, state.message!)
           : device.description?.isNotEmpty == true
-              ? Text(
-                  device.description!.toUpperCase(),
-                  style: TextStyle(
-                    color: context.tokens.primary.withValues(alpha: 0.7),
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                )
+              ? ModelCard.standardSubtitle(context, device.description!.toUpperCase())
               : const SizedBox.shrink(),
     );
   }
@@ -1912,6 +1867,7 @@ void _confirmRemoveDevice(BuildContext context, PairedDevice device) {
         TextButton(
           onPressed: () {
             context.read<HistoryProvider>().removeDevice(device.uid);
+            SecureStorageService.deletePassword(device.uid);
             Navigator.of(ctx).pop();
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -1980,38 +1936,11 @@ class _InteractiveDemoSection extends StatelessWidget {
       return Column(children: demos.map((demo) => _buildCard(context, demo)).toList());
   }
 
-  Widget _buildCard(BuildContext context, _DemoTile demo) {
-    final tokens = context.tokens;
+  Widget _buildCard(BuildContext context, _DemoTile demo) {    final tokens = context.tokens;
     return ModelCard(
-      leading: Container(
-        padding: const EdgeInsets.all(4),
-        width: 60,
-        height: 60,
-        decoration: BoxDecoration(
-          color: context.tokens.base200,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Center(
-          child: Icon(demo.icon, color: context.tokens.primary, size: 36),
-        ),
-      ),
-      title: FittedBox(
-        fit: BoxFit.scaleDown,
-        alignment: Alignment.centerLeft,
-        child: Text(demo.title.toUpperCase(),
-            style: GoogleFonts.exo2(
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.5,
-                fontSize: 18)),
-      ),
-      subtitle: Text(demo.subtitle.toUpperCase(),
-          style: TextStyle(
-              color: context.tokens.primary.withValues(alpha: 0.7),
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis),
+      leading: ModelCard.standardLeading(context: context, icon: demo.icon),
+      title: ModelCard.standardTitle(demo.title),
+      subtitle: ModelCard.standardSubtitle(context, demo.subtitle.toUpperCase()),
       trailing: PopupMenuButton<String>(
         icon: Icon(Icons.more_vert_rounded,
             size: 18, color: tokens.onSurface.withValues(alpha: 0.5)),

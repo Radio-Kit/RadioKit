@@ -62,6 +62,7 @@
 #define RK_SETTINGS_CMD_SET_WIFI         0x0B
 #define RK_SETTINGS_CMD_GET_CLOUD_INFO  0x0C
 #define RK_SETTINGS_CMD_REBOOT            0x0D
+#define RK_SETTINGS_CMD_SET_CLOUD_INFO   0x0E
 
 // ── Sub-commands (MCU → App) ────────────────────────────────────────────────
 // Response = subCmd | 0x80
@@ -78,6 +79,11 @@
 #define RK_SETTINGS_RESP_SET_WIFI_ACK       0x8B
 #define RK_SETTINGS_RESP_CLOUD_INFO_DATA    0x8C
 #define RK_SETTINGS_RESP_REBOOT_ACK          0x8D
+#define RK_SETTINGS_RESP_SET_CLOUD_INFO_ACK   0x8E
+
+// ── SET_CLOUD_INFO field mask bits ──────────────────────────────────────────
+#define RK_SETTINGS_SET_CLOUD_URL       (1 << 0)
+#define RK_SETTINGS_SET_CLOUD_ACCOUNT   (1 << 1)
 
 // ── NVS_RAW_READ/WRITE status codes ─────────────────────────────────────────
 #define RK_SETTINGS_NVS_RAW_OK        0x00

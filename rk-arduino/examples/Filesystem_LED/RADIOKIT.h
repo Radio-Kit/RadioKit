@@ -70,6 +70,7 @@ static inline void initRadioKit() {
   slide_switch_1.rk.labelHidden = true;
 
   RadioKit.begin();
+  RadioKit.startSerial(Serial);
   RadioKit.startBLE(RadioKit.config.name);
 }
 

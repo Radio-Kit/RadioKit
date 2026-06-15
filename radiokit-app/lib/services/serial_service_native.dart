@@ -7,7 +7,7 @@
 ///
 /// File routing:
 ///   Android → [serial_service_android.dart] (usb_serial)
-///   Linux   → [serial_service_linux.dart]   (flutter_libserialport)
+///   Linux   → [serial_service_flserial.dart]  (flserial native FFI)
 ///   iOS / macOS / Windows → stub (unsupported)
 library;
 
@@ -22,13 +22,13 @@ import 'serial_service_android.dart'
     if (dart.library.js_interop) 'serial_service_stub.dart'
     as android;
 
-// Linux: flutter_libserialport
-import 'serial_service_linux.dart' as linux;
+// Linux: flserial (native FFI via termios) — primary and only Linux backend
+import 'serial_service_flserial.dart' as fls;
 
 /// The platform-dispatched [SerialService] that providers interact with.
 ///
 /// On Android it wraps [android.SerialService] (usb_serial).
-/// On Linux it wraps [linux.LinuxSerialService] (flutter_libserialport).
+/// On Linux it wraps [fls.FlserialSerialService] (native FFI via termios).
 /// On all other native platforms it returns [isSupported] = false.
 class SerialService implements TransportService {
   late final TransportService _impl;
@@ -37,7 +37,7 @@ class SerialService implements TransportService {
     if (defaultTargetPlatform == TargetPlatform.android) {
       _impl = android.SerialService();
     } else if (defaultTargetPlatform == TargetPlatform.linux) {
-      _impl = linux.LinuxSerialService();
+      _impl = fls.FlserialSerialService();
     } else {
       _impl = _UnsupportedSerialService();
     }
@@ -89,7 +89,7 @@ class SerialService implements TransportService {
   Stream<DeviceInfo> listPorts() {
     final impl = _impl;
     if (impl is android.SerialService) return impl.listPorts();
-    if (impl is linux.LinuxSerialService) return impl.listPorts();
+    if (impl is fls.FlserialSerialService) return impl.listPorts();
     return const Stream.empty();
   }
 

@@ -67,6 +67,38 @@ class SettingsProtocolService {
     return buildFrame(kSettingsCmdNvsRawWrite, payload);
   }
 
+  /// Build SETTINGS_SET_CLOUD_INFO frame. Payload: [FIELD_MASK(2 LE)] [URL_LEN(1)?][URL...?][ACCT_LEN(1)?][ACCT...?]
+  /// Fields: URL (mask bit 0), Account (mask bit 1).
+  static Uint8List buildSetCloudInfo({
+    String? url,
+    String? account,
+  }) {
+    final payload = <int>[];
+    int fieldMask = 0;
+
+    if (url != null) fieldMask |= kSettingsSetCloudUrl;
+    if (account != null) fieldMask |= kSettingsSetCloudAccount;
+
+    payload.add(fieldMask & 0xFF);
+    payload.add((fieldMask >> 8) & 0xFF);
+
+    if (url != null) {
+      final encoded = utf8.encode(url);
+      final len = encoded.length.clamp(0, 128);
+      payload.add(len);
+      payload.addAll(encoded.take(len));
+    }
+
+    if (account != null) {
+      final encoded = utf8.encode(account);
+      final len = encoded.length.clamp(0, 128);
+      payload.add(len);
+      payload.addAll(encoded.take(len));
+    }
+
+    return buildFrame(kSettingsCmdSetCloudInfo, payload);
+  }
+
   /// Build SETTINGS_SET_WIFI frame. Payload: [FIELD_MASK(2 LE)] [SSID_LEN(1)?][SSID...?][PWD_LEN(1)?][PWD...?]
   /// Fields: SSID (mask bit 0), Password (mask bit 1).
   static Uint8List buildSetWifi({

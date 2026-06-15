@@ -38,6 +38,32 @@ static RadioKitClass* s_instance = nullptr;
 // Forward-declared in Widget.cpp
 extern void RadioKit_Widget_drainDeferred();
 
+// ── Per-transport source wrapper templates ────────────────────────────────
+// Each transport registers a wrapper (instantiated with its source constant)
+// instead of the raw handler. The wrapper sets _packetSource before calling
+// the real handler so auth gates can check which transport delivered the frame.
+
+template<int S>
+void RadioKitClass::_onPktW(uint8_t cmd, const uint8_t* p, uint16_t l) {
+    if (s_instance) { s_instance->_packetSource = S; _onPacket(cmd, p, l); s_instance->_packetSource = RK_SOURCE_NONE; }
+}
+template<int S>
+void RadioKitClass::_onFsPktW(uint8_t subCmd, const uint8_t* p, uint16_t l) {
+    if (s_instance) { s_instance->_packetSource = S; _onFsPacket(subCmd, p, l); s_instance->_packetSource = RK_SOURCE_NONE; }
+}
+template<int S>
+void RadioKitClass::_onOtaPktW(uint8_t subCmd, const uint8_t* p, uint16_t l) {
+    if (s_instance) { s_instance->_packetSource = S; _onOtaPacket(subCmd, p, l); s_instance->_packetSource = RK_SOURCE_NONE; }
+}
+template<int S>
+void RadioKitClass::_onSetPktW(uint8_t subCmd, const uint8_t* p, uint16_t l) {
+    if (s_instance) { s_instance->_packetSource = S; _onSettingsPacket(subCmd, p, l); s_instance->_packetSource = RK_SOURCE_NONE; }
+}
+template<int S>
+void RadioKitClass::_onPrnPktW(const uint8_t* p, uint16_t l) {
+    if (s_instance) { s_instance->_packetSource = S; _onPrintPacket(p, l); s_instance->_packetSource = RK_SOURCE_NONE; }
+}
+
 RadioKitClass::RadioKitClass()
     : _widgetCount(0)
     , _transport(nullptr)
@@ -48,8 +74,10 @@ RadioKitClass::RadioKitClass()
     , _nvsActive(false)
     , _wifiActive(false)
     , _cloudActive(false)
+    , _serialActive(false)
     , _deviceAuthenticated(false)
     , _userAuthenticated(false)
+    , _packetSource(RK_SOURCE_NONE)
     , _printHead(0)
     , _printTail(0)
     , _printLineStart(0)
@@ -223,27 +251,28 @@ void RadioKitClass::startBLE(const char* deviceName) {
     static char bleAdvName[RADIOKIT_MAX_NAME + 4]; // 3 for "RK_" + null
     snprintf(bleAdvName, sizeof(bleAdvName), "RK_%s", baseName ? baseName : "RadioKit");
     _transport = &RadioKitBLEInstance;
-    _transport->begin(bleAdvName, RadioKitClass::_onPacket);
-    _transport->setFsCallback(RadioKitClass::_onFsPacket);
-    rk_otaSetCallback(RadioKitClass::_onOtaPacket);
-    _transport->setOtaCallback(RadioKitClass::_onOtaPacket);
-    rk_settingsSetCallback(RadioKitClass::_onSettingsPacket);
-    _transport->setSettingsCallback(RadioKitClass::_onSettingsPacket);
+    _transport->begin(bleAdvName, _onPktW<RK_SOURCE_BLE>);
+    _transport->setFsCallback(_onFsPktW<RK_SOURCE_BLE>);
+    rk_otaSetCallback(_onOtaPktW<RK_SOURCE_BLE>);
+    _transport->setOtaCallback(_onOtaPktW<RK_SOURCE_BLE>);
+    rk_settingsSetCallback(_onSetPktW<RK_SOURCE_BLE>);
+    _transport->setSettingsCallback(_onSetPktW<RK_SOURCE_BLE>);
     // Print stream callback — 0xEE frames over BLE are sent via _charPrint notify
     // No incoming 0xEE handler needed (unidirectional)
 }
 
 void RadioKitClass::startSerial(Stream& stream) {
     _transport = &RadioKitSerialInstance;
-    RadioKitSerialInstance.begin(stream, RadioKitClass::_onPacket);
-    RadioKitSerialInstance.setFsCallback(RadioKitClass::_onFsPacket);
-    rk_otaSetCallback(RadioKitClass::_onOtaPacket);
-    RadioKitSerialInstance.setOtaCallback(RadioKitClass::_onOtaPacket);
-    rk_settingsSetCallback(RadioKitClass::_onSettingsPacket);
-    RadioKitSerialInstance.setSettingsCallback(RadioKitClass::_onSettingsPacket);
+    _serialActive = true;
+    RadioKitSerialInstance.begin(stream, _onPktW<RK_SOURCE_SERIAL>);
+    RadioKitSerialInstance.setFsCallback(_onFsPktW<RK_SOURCE_SERIAL>);
+    rk_otaSetCallback(_onOtaPktW<RK_SOURCE_SERIAL>);
+    RadioKitSerialInstance.setOtaCallback(_onOtaPktW<RK_SOURCE_SERIAL>);
+    rk_settingsSetCallback(_onSetPktW<RK_SOURCE_SERIAL>);
+    RadioKitSerialInstance.setSettingsCallback(_onSetPktW<RK_SOURCE_SERIAL>);
     // Print stream callback — catch incoming 0xEE frames on Serial
     // (mainly for diagnostic/debug use; print stream is normally device→app)
-    RadioKitSerialInstance.setPrintCallback(RadioKitClass::_onPrintPacket);
+    RadioKitSerialInstance.setPrintCallback(_onPrnPktW<RK_SOURCE_SERIAL>);
 }
 
 void RadioKitClass::startWiFi() {
@@ -266,14 +295,14 @@ void RadioKitClass::startWiFi() {
     // No AP password — AP is always open. Auth is done via PWD_AUTH protocol.
 
     // Register all callbacks
-    RadioKitWiFiInstance.begin(baseName, RadioKitClass::_onPacket);
-    RadioKitWiFiInstance.setFsCallback(RadioKitClass::_onFsPacket);
-    rk_otaSetCallback(RadioKitClass::_onOtaPacket);
-    RadioKitWiFiInstance.setOtaCallback(RadioKitClass::_onOtaPacket);
-    rk_settingsSetCallback(RadioKitClass::_onSettingsPacket);
-    RadioKitWiFiInstance.setSettingsCallback(RadioKitClass::_onSettingsPacket);
+    RadioKitWiFiInstance.begin(baseName, _onPktW<RK_SOURCE_WIFI>);
+    RadioKitWiFiInstance.setFsCallback(_onFsPktW<RK_SOURCE_WIFI>);
+    rk_otaSetCallback(_onOtaPktW<RK_SOURCE_WIFI>);
+    RadioKitWiFiInstance.setOtaCallback(_onOtaPktW<RK_SOURCE_WIFI>);
+    rk_settingsSetCallback(_onSetPktW<RK_SOURCE_WIFI>);
+    RadioKitWiFiInstance.setSettingsCallback(_onSetPktW<RK_SOURCE_WIFI>);
     // Print stream callback — catch incoming 0xEE frames on WiFi
-    RadioKitWiFiInstance.setPrintCallback(RadioKitClass::_onPrintPacket);
+    RadioKitWiFiInstance.setPrintCallback(_onPrnPktW<RK_SOURCE_WIFI>);
 
     _wifiActive = true;
     RadioKit.print("WiFi: Transport started\n");
@@ -309,14 +338,14 @@ void RadioKitClass::startCloud() {
                            (config.name ? config.name : "RadioKit");
 
     // Register all callbacks
-    RadioKitCloudInstance.begin(baseName, RadioKitClass::_onPacket);
-    RadioKitCloudInstance.setFsCallback(RadioKitClass::_onFsPacket);
-    rk_otaSetCallback(RadioKitClass::_onOtaPacket);
-    RadioKitCloudInstance.setOtaCallback(RadioKitClass::_onOtaPacket);
-    rk_settingsSetCallback(RadioKitClass::_onSettingsPacket);
-    RadioKitCloudInstance.setSettingsCallback(RadioKitClass::_onSettingsPacket);
+    RadioKitCloudInstance.begin(baseName, _onPktW<RK_SOURCE_CLOUD>);
+    RadioKitCloudInstance.setFsCallback(_onFsPktW<RK_SOURCE_CLOUD>);
+    rk_otaSetCallback(_onOtaPktW<RK_SOURCE_CLOUD>);
+    RadioKitCloudInstance.setOtaCallback(_onOtaPktW<RK_SOURCE_CLOUD>);
+    rk_settingsSetCallback(_onSetPktW<RK_SOURCE_CLOUD>);
+    RadioKitCloudInstance.setSettingsCallback(_onSetPktW<RK_SOURCE_CLOUD>);
     // Print stream callback — catch incoming 0xEE frames on Cloud
-    RadioKitCloudInstance.setPrintCallback(RadioKitClass::_onPrintPacket);
+    RadioKitCloudInstance.setPrintCallback(_onPrnPktW<RK_SOURCE_CLOUD>);
 
     _cloudActive = true;
     RadioKit.print("Cloud: Transport started\n");
@@ -335,6 +364,11 @@ void RadioKitClass::update() {
 
     // Poll Cloud transport (lower priority)
     if (_cloudActive) RadioKitCloudInstance.update();
+
+    // Poll Serial transport if it's not the primary transport
+    if (_serialActive && _transport != &RadioKitSerialInstance) {
+        RadioKitSerialInstance.update();
+    }
 
     // Track connection state — reset auth on all-transport disconnect
     static bool s_lastConnected = false;
@@ -626,6 +660,9 @@ bool RadioKitClass::isConnected() const {
     if (_transport && _transport->isConnected()) return true;
     if (_wifiActive && RadioKitWiFiInstance.isConnected()) return true;
     if (_cloudActive && RadioKitCloudInstance.isConnected()) return true;
+    if (_serialActive && _transport != &RadioKitSerialInstance) {
+        if (RadioKitSerialInstance.isConnected()) return true;
+    }
     return false;
 }
 
@@ -639,7 +676,9 @@ void RadioKitClass::_onPacket(uint8_t cmd,
     // Only widget commands live here now. Unauthenticated clients can
     // GET_CONF (to display UI). Auth is gated in the Settings protocol.
     // Auth gate: allow GET_CONF for unauthenticated clients (to display UI)
-    bool isDeviceAuthed = s_instance->_deviceAuthenticated || s_instance->_nvsPwd[0] == '\0';
+    // Serial bypass: physical access implies full access.
+    bool isSerial = s_instance->_packetSource == RK_SOURCE_SERIAL;
+    bool isDeviceAuthed = isSerial || s_instance->_deviceAuthenticated || s_instance->_nvsPwd[0] == '\0';
     bool isUserAuthed = isDeviceAuthed || s_instance->_userAuthenticated || s_instance->_nvsUserPwd[0] == '\0';
     if (!isUserAuthed && cmd != RK_CMD_GET_CONF) {
         RadioKit.printf("RK: Rejected CMD 0x%02X — not authenticated\n", cmd);
@@ -676,7 +715,9 @@ void RadioKitClass::_onSettingsPacket(uint8_t subCmd,
     if (!s_instance) return;
 
     // ── Auth gate (device/user level) ────────────────────────────────
-    bool isDeviceAuthed = s_instance->_deviceAuthenticated || s_instance->_nvsPwd[0] == '\0';
+    // Serial bypass: physical access implies full access.
+    bool isSerial = s_instance->_packetSource == RK_SOURCE_SERIAL;
+    bool isDeviceAuthed = isSerial || s_instance->_deviceAuthenticated || s_instance->_nvsPwd[0] == '\0';
     bool isUserAuthed = isDeviceAuthed || s_instance->_userAuthenticated || s_instance->_nvsUserPwd[0] == '\0';
     
     if (!isUserAuthed) {
@@ -695,7 +736,8 @@ void RadioKitClass::_onSettingsPacket(uint8_t subCmd,
     } else if (!isDeviceAuthed) {
         // User-authenticated: block device-level-only commands
         if (subCmd == RK_SETTINGS_CMD_SET_CONF || subCmd == RK_SETTINGS_CMD_FACTORY_RESET ||
-            subCmd == RK_SETTINGS_CMD_NVS_RAW_WRITE || subCmd == RK_SETTINGS_CMD_SET_WIFI ||
+            subCmd == RK_SETTINGS_CMD_NVS_RAW_WRITE || subCmd == RK_SETTINGS_CMD_SET_CLOUD_INFO ||
+            subCmd == RK_SETTINGS_CMD_SET_WIFI ||
             subCmd == RK_SETTINGS_CMD_REBOOT) {
             RadioKit.printf("RK: Rejected SETTINGS 0x%02X — device password required\n", subCmd);
             Serial.printf("RK: Rejected SETTINGS 0x%02X — device password required\n", subCmd);
@@ -722,6 +764,7 @@ void RadioKitClass::_onSettingsPacket(uint8_t subCmd,
         case RK_SETTINGS_CMD_NVS_RAW_WRITE: s_instance->_handleSettingsNvsRawWrite(payload, payloadLen); break;
         case RK_SETTINGS_CMD_SET_WIFI:      s_instance->_handleSettingsSetWifi(payload, payloadLen);      break;
         case RK_SETTINGS_CMD_GET_CLOUD_INFO: s_instance->_handleSettingsGetCloudInfo();                        break;
+        case RK_SETTINGS_CMD_SET_CLOUD_INFO: s_instance->_handleSettingsSetCloud(payload, payloadLen);           break;
         case RK_SETTINGS_CMD_REBOOT:         s_instance->_handleSettingsReboot();                                break;
         default:
             RadioKit.printf("RK: Unknown SETTINGS sub-command 0x%02X\n", subCmd);
@@ -1196,6 +1239,9 @@ void RadioKitClass::_sendToAllTransports(const uint8_t* buf, uint16_t len) {
     if (_transport) _transport->sendPacket(buf, len);
     if (_wifiActive) RadioKitWiFiInstance.sendPacket(buf, len);
     if (_cloudActive) RadioKitCloudInstance.sendPacket(buf, len);
+    if (_serialActive && _transport != &RadioKitSerialInstance) {
+        RadioKitSerialInstance.sendPacket(buf, len);
+    }
 }
 
 // ── Filesystem bulk protocol ────────────────────────────────────────────────
@@ -1227,7 +1273,9 @@ void RadioKitClass::_onFsPacket(uint8_t subCmd,
     // ── Admin gate ─────────────────────────────────────────────────────
     // FS operations require admin auth. If only user-authenticated, reject.
     if (s_instance) {
-        bool isDeviceAuthd = s_instance->_deviceAuthenticated || s_instance->_nvsPwd[0] == '\0';
+        // Serial bypass: physical access implies full access.
+        bool isSerial = s_instance->_packetSource == RK_SOURCE_SERIAL;
+        bool isDeviceAuthd = isSerial || s_instance->_deviceAuthenticated || s_instance->_nvsPwd[0] == '\0';
         if (!isDeviceAuthd) {
             RK_DEBUG_PRINT("RK: Rejected FS 0x%02X — device password required\n", subCmd);
             uint8_t err = RK_FS_ERR_ACCESS_DENIED;
@@ -1267,7 +1315,9 @@ void RadioKitClass::_onOtaPacket(uint8_t subCmd,
     
     // ── Device-level gate ──────────────────────────────────────────────
     // OTA operations require device-level authentication.
-    bool isDeviceAuthd = s_instance->_deviceAuthenticated || s_instance->_nvsPwd[0] == '\0';
+    // Serial bypass: physical access implies full access.
+    bool isSerial = s_instance->_packetSource == RK_SOURCE_SERIAL;
+    bool isDeviceAuthd = isSerial || s_instance->_deviceAuthenticated || s_instance->_nvsPwd[0] == '\0';
     if (!isDeviceAuthd) {
         RK_DEBUG_PRINT("RK: Rejected OTA 0x%02X — device password required\n", subCmd);
         uint8_t err = RK_OTA_ERR_INVALID_STATE;
@@ -2072,6 +2122,67 @@ void RadioKitClass::_handleSettingsSetConf(const uint8_t* payload, uint16_t len)
 
     RadioKit.printf("NVS: SETTINGS_SET_CONF applied mask=0x%04X\n", fieldMask);
     Serial.printf("NVS: SETTINGS_SET_CONF applied mask=0x%04X\n", fieldMask);
+}
+
+// ── SETTINGS_SET_CLOUD_INFO handler (0x0E) ─────────────────────────────────────
+
+void RadioKitClass::_handleSettingsSetCloud(const uint8_t* payload, uint16_t len) {
+    if (!_nvsActive || len < 2) {
+        uint8_t status = RK_SETTINGS_SET_CONF_ERROR;
+        uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+            RK_SETTINGS_RESP_SET_CLOUD_INFO_ACK, &status, 1);
+        _sendSettingsFrame(frameLen);
+        return;
+    }
+
+    uint16_t fieldMask = (uint16_t)payload[0] | ((uint16_t)payload[1] << 8);
+    uint16_t offset = 2;
+    bool appliedOk = true;
+
+    // Cloud URL
+    if (fieldMask & RK_SETTINGS_SET_CLOUD_URL) {
+        if (offset < len) {
+            uint8_t strLen = payload[offset++];
+            if (strLen > RADIOKIT_MAX_CLOUD_URL) strLen = RADIOKIT_MAX_CLOUD_URL;
+            if (offset + strLen <= len) {
+                memcpy(_nvsCloudUrl, &payload[offset], strLen);
+                _nvsCloudUrl[strLen] = '\0';
+                RKNvs::writeString(RK_NVS_KEY_CLOUD_URL, _nvsCloudUrl);
+            }
+            offset += strLen;
+        }
+    }
+
+    // Cloud Account
+    if (fieldMask & RK_SETTINGS_SET_CLOUD_ACCOUNT) {
+        if (offset < len) {
+            uint8_t strLen = payload[offset++];
+            if (strLen > RADIOKIT_MAX_CLOUD_ACCOUNT) strLen = RADIOKIT_MAX_CLOUD_ACCOUNT;
+            if (offset + strLen <= len) {
+                memcpy(_nvsCloudAccount, &payload[offset], strLen);
+                _nvsCloudAccount[strLen] = '\0';
+                RKNvs::writeString(RK_NVS_KEY_CLOUD_ACCOUNT, _nvsCloudAccount);
+            }
+            offset += strLen;
+        }
+    }
+
+    RKNvs::commit();
+
+    // Send ACK
+    uint8_t status = appliedOk ? (fieldMask & 0x7F) : RK_SETTINGS_SET_CONF_ERROR;
+    uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+        RK_SETTINGS_RESP_SET_CLOUD_INFO_ACK, &status, 1);
+    _sendSettingsFrame(frameLen);
+
+    RadioKit.printf("NVS: SETTINGS_SET_CLOUD_INFO applied mask=0x%04X -- URL=%s, Account=%s\n",
+        fieldMask,
+        (fieldMask & RK_SETTINGS_SET_CLOUD_URL) ? _nvsCloudUrl : "(unchanged)",
+        (fieldMask & RK_SETTINGS_SET_CLOUD_ACCOUNT) ? _nvsCloudAccount : "(unchanged)");
+    Serial.printf("NVS: SETTINGS_SET_CLOUD_INFO applied mask=0x%04X -- URL=%s, Account=%s\n",
+        fieldMask,
+        (fieldMask & RK_SETTINGS_SET_CLOUD_URL) ? _nvsCloudUrl : "(unchanged)",
+        (fieldMask & RK_SETTINGS_SET_CLOUD_ACCOUNT) ? _nvsCloudAccount : "(unchanged)");
 }
 
 // ── SETTINGS_SET_WIFI handler (0x0B) ─────────────────────────────────────────

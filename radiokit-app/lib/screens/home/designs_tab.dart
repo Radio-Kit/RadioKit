@@ -292,41 +292,12 @@ class _DesignCard extends StatelessWidget {
     );
 
     return ModelCard(
-      leading: Container(
-        padding: const EdgeInsets.all(4),
-        width: 60,
-        height: 60,
-        decoration: BoxDecoration(
-          color: context.tokens.base200,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Center(
-          child: Icon(LucideIcons.palette, color: context.tokens.primary, size: 36),
-        ),
+      leading: ModelCard.standardLeading(
+        context: context,
+        icon: LucideIcons.palette,
       ),
-      title: FittedBox(
-        fit: BoxFit.scaleDown,
-        alignment: Alignment.centerLeft,
-        child: Text(
-          design.name.toUpperCase(),
-          style: GoogleFonts.exo2(
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -0.5,
-          ),
-        ),
-      ),
-      subtitle: Text(
-        formattedDate.toUpperCase(),
-        style: TextStyle(
-          color: context.tokens.primary.withValues(alpha: 0.7),
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 0.5,
-        ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
+      title: ModelCard.standardTitle(design.name),
+      subtitle: ModelCard.standardSubtitle(context, formattedDate.toUpperCase()),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
