@@ -617,6 +617,17 @@ curl -s -X POST http://$APP_IP:7007/api/connection/disconnect
 | POST | `/api/cloud/join` | Join a device through the relay |
 | POST | `/api/cloud/disconnect` | Disconnect from relay |
 | GET | `/api/session/route` | Current app route (follow-mode / test sync) |
+| GET | `/api/flasher/ports` | List scanned serial ports |
+| POST | `/api/flasher/scan` | Trigger serial port scan |
+| POST | `/api/flasher/connect` | Connect to port, sync, detect chip |
+| POST | `/api/flasher/disconnect` | Disconnect from serial port |
+| GET | `/api/flasher/status` | Full flasher state (chip, firmware, progress) |
+| GET | `/api/flasher/log` | Flasher console log |
+| POST | `/api/flasher/log/clear` | Clear flasher log |
+| POST | `/api/flasher/select-firmware` | Upload firmware binary (base64) |
+| POST | `/api/flasher/clear-firmware` | Clear firmware selection |
+| POST | `/api/flasher/erase-all` | Toggle erase-all before flash |
+| POST | `/api/flasher/flash` | Start flashing |
 
 ---
 
@@ -717,6 +728,7 @@ curl -s -X PUT http://$APP_IP:7007/api/settings \
 | `/api/console` | `/system` |
 | `/api/log` | `/system` |
 | `/api/models` | `/models` |
+| `/api/flasher/` | `/flasher` |
 
 **Blocking behavior:**
 - All screens except `/control` are wrapped in `AbsorbPointer` — touch is fully blocked

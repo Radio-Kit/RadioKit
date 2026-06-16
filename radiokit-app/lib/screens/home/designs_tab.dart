@@ -31,7 +31,7 @@ class DesignsTab extends StatelessWidget {
 
     return Scaffold(
       appBar: RadioKitAppBar(
-        tabIndex: 1,
+        tabIndex: 2,
         onOpen: () => openConfigFile(context),
         onCreate: () => context.push('/designer'),
         accentColor: context.tokens.primary,

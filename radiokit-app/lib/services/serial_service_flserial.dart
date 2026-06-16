@@ -20,15 +20,19 @@ import 'protocol_service.dart';
 import 'transport_service.dart';
 export 'transport_service.dart';
 
-/// USB Serial transport for Linux desktop using `flserial`.
+/// USB Serial transport using `flserial`.
 ///
-/// Uses Dart FFI + termios directly (no libserialport or c-periphery).
-/// Event-based I/O via [FlSerial.events] stream — no polling needed.
+/// Active on both Android and Linux. Uses Dart FFI + termios directly
+/// (no libserialport or c-periphery). Event-based I/O via [FlSerial.events]
+/// stream — no polling needed.
 class FlserialSerialService implements TransportService {
   /// Time before declaring the session dead when no packets arrive.
   /// Increased from 3s to 30s because serial protocol requests (auth, FS)
   /// can take several seconds round-trip. Also resets on outgoing writes.
   static const _kSessionTimeout = Duration(seconds: 30);
+
+  /// Default baud rate — 1 Mbps for RadioKit protocol.
+  static const _kDefaultBaud = 1000000;
 
   @override PacketReceivedCallback? onPacketReceived;
   @override FsPacketReceivedCallback? onFsPacketReceived;
@@ -66,7 +70,11 @@ class FlserialSerialService implements TransportService {
       for (final port in ports) {
         yield DeviceInfo(
           id: port.path,
-          name: port.path.split('/').last,
+          // Use the USB product description (e.g. "CP2102N USB to UART Bridge")
+          // as the display name, falling back to the path segment.
+          name: port.description.isNotEmpty
+              ? port.description
+              : port.path.split('/').last,
           rssi: 0,
           currentTransport: TransportType.serial,
         );
@@ -81,7 +89,7 @@ class FlserialSerialService implements TransportService {
   // ---------------------------------------------------------------------------
 
   @override
-  Future<void> connect(String deviceId, {int baudRate = 115200}) async {
+  Future<void> connect(String deviceId, {int baudRate = _kDefaultBaud}) async {
     await disconnect();
 
     _log('Opening $deviceId @ $baudRate baud...');
@@ -99,12 +107,14 @@ class FlserialSerialService implements TransportService {
         _eventSub?.cancel();
         _eventSub = null;
         _serial = null;
+        _log('open() returned false for $deviceId — check USB permission or interface claim');
         throw Exception('Failed to open $deviceId');
       }
     } catch (e) {
       _eventSub?.cancel();
       _eventSub = null;
       _serial = null;
+      _log('open() threw: $e');
       rethrow;
     }
 
@@ -123,6 +133,7 @@ class FlserialSerialService implements TransportService {
         if (event.data is Uint8List) {
           final data = event.data as Uint8List;
           if (data.isNotEmpty) {
+            _log('RX ${data.length} bytes');
             _receiveBuffer.addAll(data);
             _processBuffer();
           }
@@ -141,6 +152,15 @@ class FlserialSerialService implements TransportService {
       default:
         debugPrint('FLSERIAL: unhandled event type: ${event.type}');
     }
+  }
+
+  @override
+  Future<void> writePacket(Uint8List data) async {
+    final serial = _serial;
+    if (serial == null) throw StateError('Serial not connected');
+    _resetSessionTimer();
+    _log('TX ${data.length} bytes: ${data.length > 20 ? "${data[0].toRadixString(16).padLeft(2, '0')}..${data[data.length-1].toRadixString(16).padLeft(2, '0')}" : data.map((b) => b.toRadixString(16).padLeft(2, '0')).join(" ")}');
+    serial.write(data);
   }
 
   // ---------------------------------------------------------------------------
@@ -173,21 +193,6 @@ class FlserialSerialService implements TransportService {
         onConnectionLost?.call('Serial session timed out (no packet for 3 s)');
       }
     });
-  }
-
-  // ---------------------------------------------------------------------------
-  // Write path
-  // ---------------------------------------------------------------------------
-
-  @override
-  Future<void> writePacket(Uint8List data) async {
-    final serial = _serial;
-    if (serial == null) throw StateError('Serial not connected');
-    // Reset session timer on outgoing writes — the response will keep
-    // the session alive, but the gap between request and response could
-    // exceed the timeout for slow operations (auth, FS read/write).
-    _resetSessionTimer();
-    serial.write(data);
   }
 
   @override

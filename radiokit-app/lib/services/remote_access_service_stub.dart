@@ -17,6 +17,8 @@ class RemoteAccessService {
     required dynamic designsProvider,
     // ignore: avoid_unused_constructor_parameters
     required dynamic cloudIdentityProvider,
+    // ignore: avoid_unused_constructor_parameters
+    required dynamic flasherProvider,
     void Function(String route)? onFollowEvent,
   }) : onLog = onLog {
     this.onLog = onLog;

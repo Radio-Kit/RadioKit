@@ -107,7 +107,7 @@ class SystemTab extends StatelessWidget {
 
     return Scaffold(
       appBar: RadioKitAppBar(
-        tabIndex: 2,
+        tabIndex: 3,
         onAccounts: () => AccountsSheet.show(context),
         accentColor: context.tokens.primary,
       ),

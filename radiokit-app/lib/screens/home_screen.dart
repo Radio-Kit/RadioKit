@@ -37,6 +37,11 @@ class _HomeScreenState extends State<HomeScreen> {
       label: 'MODELS',
     ),
     _NavItem(
+      icon: Icons.memory_outlined,
+      activeIcon: Icons.memory_rounded,
+      label: 'FLASHER',
+    ),
+    _NavItem(
       icon: Icons.create_new_folder_outlined,
       activeIcon: Icons.create_new_folder_rounded,
       label: 'PROJECTS',

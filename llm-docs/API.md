@@ -1412,7 +1412,257 @@ Returns an empty string if no route has been synced yet:
 
 ---
 
-## 14. Cloud Relay (Cloud Auth)
+## 14. Flasher (ESP32 Serial Flashing)
+
+The flasher API exposes ESP32 firmware flashing via `flutter_esptool` over the app's local serial port. All serial operations run in the app process — no raw serial access is exposed over HTTP.
+
+> **Guard**: `POST /api/flasher/flash` returns 503 if not connected to a serial port, 400 if no firmware selected, and 409 if a flash is already in progress.
+
+### `GET /api/flasher/ports`
+
+Return the currently scanned serial port list.
+
+**Response `200`:**
+
+```json
+{
+  "ports": [
+    {"id": "/dev/ttyACM0", "name": "/dev/ttyACM0"},
+    {"id": "/dev/ttyUSB0", "name": "/dev/ttyUSB0"}
+  ]
+}
+```
+
+### `POST /api/flasher/scan`
+
+Trigger a serial port scan. Fire-and-forget — poll `GET /api/flasher/ports` for results.
+
+**Response `200`:**
+
+```json
+{"ok": true, "message": "Port scan started"}
+```
+
+### `POST /api/flasher/connect`
+
+Connect to a serial port, enter ESP32 download mode (DTR/RTS bootloader toggle), sync with the ROM bootloader, and detect chip info.
+
+**Request:**
+
+```json
+{
+  "portId": "/dev/ttyACM0"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `portId` | string | yes | Serial port identifier from `GET /api/flasher/ports` |
+
+**Response `200`:**
+
+```json
+{"ok": true, "message": "Connected to /dev/ttyACM0"}
+```
+
+**Response on failure:**
+
+```json
+{
+  "error": "connection_failed",
+  "message": "Sync failed. Check connection and boot mode."
+}
+```
+
+### `POST /api/flasher/disconnect`
+
+Disconnect from the serial port and clean up all esptool services.
+
+**Response `200`:**
+
+```json
+{"ok": true, "message": "Disconnected"}
+```
+
+### `GET /api/flasher/status`
+
+Returns the full flasher state: connection status, chip info, firmware selection, flash progress.
+
+**Response `200`:**
+
+```json
+{
+  "isConnected": true,
+  "isScanning": false,
+  "isLoadingChipInfo": false,
+  "isFlashing": false,
+  "isOperationActive": false,
+  "portName": "/dev/ttyACM0",
+  "baudRate": 921600,
+  "errorMessage": null,
+  "flashProgress": 0.0,
+  "flashStatus": "",
+  "eraseAll": false,
+  "chipInfo": {
+    "model": "ESP32-S3",
+    "revision": "v1.0",
+    "mac": "7c:9e:bd:xx:xx:xx",
+    "flashSize": "16.0 MB",
+    "psramSize": "8.0 MB",
+    "cores": "2"
+  },
+  "selectedFirmware": null
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `isConnected` | bool | Whether a serial port is connected and synced |
+| `isFlashing` | bool | Whether a flash operation is in progress |
+| `flashProgress` | double | Progress 0.0–1.0 |
+| `flashStatus` | string | Human-readable flash status text |
+| `chipInfo` | object? | ESP chip information (null when not connected) |
+| `chipInfo.model` | string | Chip model (e.g. "ESP32-S3") |
+| `chipInfo.revision` | string | Chip revision (e.g. "v1.0") |
+| `chipInfo.mac` | string | MAC address |
+| `chipInfo.flashSize` | string | Flash size (e.g. "16.0 MB") |
+| `chipInfo.psramSize` | string | PSRAM size (e.g. "8.0 MB") |
+| `chipInfo.cores` | string | Number of cores |
+| `selectedFirmware` | object? | Selected firmware info (null if no firmware selected) |
+| `selectedFirmware.name` | string | Firmware file name |
+| `selectedFirmware.size` | string | Formatted size (e.g. "1.2 MB") |
+| `selectedFirmware.bytes` | int | Size in bytes |
+
+### `GET /api/flasher/log`
+
+Returns the flasher log entries (color-coded: `[OK]`, `[ERROR]`, `[WARN]`).
+
+**Response `200`:**
+
+```json
+{
+  "entries": [
+    "[14:23:45] Connecting to /dev/ttyACM0...",
+    "[14:23:46] [OK] Port opened at 115200 baud",
+    "[14:23:47] Chip is ESP32-S3 (revision v1.0)"
+  ]
+}
+```
+
+### `POST /api/flasher/log/clear`
+
+Clear the flasher log.
+
+**Request:** (no body)
+
+**Response `200`:**
+
+```json
+{"ok": true}
+```
+
+### `POST /api/flasher/select-firmware`
+
+Upload a firmware binary (base64-encoded) to be flashed. The file is saved to a temp directory and set as the selected firmware.
+
+**Request:**
+
+```json
+{
+  "data": "<base64-encoded firmware binary>",
+  "name": "my_firmware.bin"
+}
+```
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `data` | string | yes | — | Base64-encoded ESP32 firmware binary |
+| `name` | string | no | `firmware.bin` | Firmware file name |
+
+**Response `200`:**
+
+```json
+{
+  "ok": true,
+  "name": "my_firmware.bin",
+  "size": 1048576
+}
+```
+
+### `POST /api/flasher/clear-firmware`
+
+Clear the current firmware selection.
+
+**Response `200`:**
+
+```json
+{"ok": true}
+```
+
+### `POST /api/flasher/erase-all`
+
+Set or clear the "erase all before flashing" flag.
+
+**Request:**
+
+```json
+{
+  "eraseAll": true
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `eraseAll` | bool | yes | Erase entire flash before writing firmware |
+
+**Response `200`:**
+
+```json
+{"ok": true, "eraseAll": true}
+```
+
+### `POST /api/flasher/flash`
+
+Start the flashing operation. Fire-and-forget — poll `GET /api/flasher/status` for progress (`flashProgress`, `flashStatus`, `isFlashing`). Requires firmware selected via `select-firmware` and an active serial connection.
+
+**Request:** (no body)
+
+**Response `200`:**
+
+```json
+{"ok": true, "message": "Flashing started"}
+```
+
+**Response `503` (not connected):**
+
+```json
+{
+  "error": "not_connected",
+  "message": "Not connected to a serial port"
+}
+```
+
+**Response `400` (no firmware):**
+
+```json
+{
+  "error": "no_firmware",
+  "message": "No firmware selected. Use /api/flasher/select-firmware first"
+}
+```
+
+**Response `409` (already flashing):**
+
+```json
+{
+  "error": "already_flashing",
+  "message": "A flashing operation is already in progress"
+}
+```
+
+---
+
+## 15. Cloud Relay (Cloud Auth)
 
 Cloud relay endpoints manage the Ed25519 challenge-response authentication flow with the Rust relay server. The relay acts as a bridge between the app and the ESP32 device over the internet.
 
@@ -1597,7 +1847,7 @@ Disconnect from the relay. Clears the cached device list and closes the WebSocke
 
 ---
 
-## 15. Error Reference
+## 16. Error Reference
 
 | `error` | Meaning |
 |---------|---------|
@@ -1626,3 +1876,8 @@ Disconnect from the relay. Clears the cached device list and closes the WebSocke
 | `invalid_password` | Password exceeds max length |
 | `invalid_admin_password` | Admin password exceeds max length |
 | `cloud_error` | Cloud relay operation failed (check `message` for details) |
+| `not_connected` (flasher) | Not connected to a serial port |
+| `no_firmware` | No firmware selected for flashing |
+| `already_flashing` | A flashing operation is already in progress |
+| `invalid_encoding` | Failed to decode base64-encoded data |
+| `file_error` | Failed to write temp file for firmware |

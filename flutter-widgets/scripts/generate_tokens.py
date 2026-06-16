@@ -12,7 +12,7 @@ import re
 import math
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-THEMES_DIR = os.path.join(SCRIPT_DIR, "..", "themes")
+THEMES_DIR = os.path.join(SCRIPT_DIR, "..", "..", "themes")
 OUTPUT_FILE = os.path.join(SCRIPT_DIR, "..", "lib", "src", "theme", "rk_tokens.dart")
 
 # ── oklch → hex (pure math, no dependencies) ──

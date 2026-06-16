@@ -16,6 +16,7 @@ import 'console_provider.dart';
 import 'designs_provider.dart';
 import 'cloud_identity_provider.dart';
 import 'account_provider.dart';
+import 'flasher_provider.dart';
 
 class RemoteAccessProvider extends ChangeNotifier {
   final SettingsProvider _settingsProvider;
@@ -27,6 +28,7 @@ class RemoteAccessProvider extends ChangeNotifier {
   final DesignsProvider _designsProvider;
   final CloudIdentityProvider _cloudIdentityProvider;
   final AccountProvider _accountProvider;
+  final FlasherProvider _flasherProvider;
 
   RemoteAccessService? _service;
   bool _isRunning = false;
@@ -69,9 +71,11 @@ class RemoteAccessProvider extends ChangeNotifier {
     required DesignsProvider designsProvider,
     required CloudIdentityProvider cloudIdentityProvider,
     required AccountProvider accountProvider,
+    required FlasherProvider flasherProvider,
   })  : _settingsProvider = settingsProvider,
         _cloudIdentityProvider = cloudIdentityProvider,
         _accountProvider = accountProvider,
+        _flasherProvider = flasherProvider,
         _deviceProvider = deviceProvider,
         _bleProvider = bleProvider,
         _serialProvider = serialProvider,
@@ -96,6 +100,7 @@ class RemoteAccessProvider extends ChangeNotifier {
       designsProvider: _designsProvider,
       cloudIdentityProvider: _cloudIdentityProvider,
       accountProvider: _accountProvider,
+      flasherProvider: _flasherProvider,
       onLog: _addLogEntry,
       onFollowEvent: _onFollowEvent,
       currentRouteGetter: () => _currentRoute,

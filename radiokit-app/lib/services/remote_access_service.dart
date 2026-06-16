@@ -28,6 +28,7 @@ import 'websocket_service.dart';
 import 'cloud_identity.dart';
 import '../providers/cloud_identity_provider.dart';
 import '../providers/account_provider.dart';
+import '../providers/flasher_provider.dart';
 import '../models/account.dart';
 
 class RemoteAccessService {
@@ -40,6 +41,7 @@ class RemoteAccessService {
   final DesignsProvider _designsProvider;
   final CloudIdentityProvider _cloudIdentityProvider;
   final AccountProvider _accountProvider;
+  final FlasherProvider _flasherProvider;
   final void Function(ApiLogEntry) _onLog;
   final void Function(String route)? _onFollowEvent;
   final String Function() _currentRouteGetter;
@@ -64,6 +66,7 @@ class RemoteAccessService {
     required DesignsProvider designsProvider,
     required CloudIdentityProvider cloudIdentityProvider,
     required AccountProvider accountProvider,
+    required FlasherProvider flasherProvider,
     required void Function(ApiLogEntry) onLog,
     void Function(String route)? onFollowEvent,
     String Function() currentRouteGetter = _defaultRouteGetter,
@@ -76,6 +79,7 @@ class RemoteAccessService {
         _designsProvider = designsProvider,
         _cloudIdentityProvider = cloudIdentityProvider,
         _accountProvider = accountProvider,
+        _flasherProvider = flasherProvider,
         _onLog = onLog,
         _onFollowEvent = onFollowEvent,
         _currentRouteGetter = currentRouteGetter;
@@ -147,6 +151,7 @@ class RemoteAccessService {
     if (path.startsWith('/api/console')) return '/system';
     if (path.startsWith('/api/log')) return '/system';
     if (path.startsWith('/api/models')) return '/models';
+    if (path.startsWith('/api/flasher/')) return '/flasher';
     return null;
   }
 
@@ -212,6 +217,19 @@ class RemoteAccessService {
     router.delete('/api/designs', _handleDesignsDeleteAll);
     router.delete('/api/designs/<id>', _handleDesignsDeleteOne);
     router.get('/api/session/route', _handleSessionRoute);
+
+    // ── Flasher API ───────────────────────────────────────────────────
+    router.get('/api/flasher/ports', _handleFlasherPorts);
+    router.post('/api/flasher/scan', _handleFlasherScan);
+    router.post('/api/flasher/connect', _handleFlasherConnect);
+    router.post('/api/flasher/disconnect', _handleFlasherDisconnect);
+    router.get('/api/flasher/status', _handleFlasherStatus);
+    router.get('/api/flasher/log', _handleFlasherLog);
+    router.post('/api/flasher/log/clear', _handleFlasherLogClear);
+    router.post('/api/flasher/select-firmware', _handleFlasherSelectFirmware);
+    router.post('/api/flasher/clear-firmware', _handleFlasherClearFirmware);
+    router.post('/api/flasher/erase-all', _handleFlasherEraseAll);
+    router.post('/api/flasher/flash', _handleFlasherFlash);
 
     // ── Cloud relay API ────────────────────────────────────────────────
     router.post('/api/cloud/connect', _handleCloudConnect);
@@ -690,10 +708,44 @@ class RemoteAccessService {
     } else if (type == 'serial') {
       target = _serialProvider.ports.where((p) => p.id == id).firstOrNull;
       if (target == null) {
-        return _error('not_found',
-            'Serial device $id not found in scan results');
+        // Fall back to flasher's last connected port (auto-handoff after flash).
+        if (_flasherProvider.lastPortId == id) {
+          await _flasherProvider.handoffSerial();
+          // Scan for the device via serial provider. Now both the serial
+          // provider and the flasher use flserial, so port IDs match
+          // exactly (usb:/dev/bus/usb/... format).
+          await _serialProvider.startScan();
+          await Future.delayed(const Duration(seconds: 3));
+          if (_serialProvider.ports.isNotEmpty) {
+            // Exact port ID match — both use the same library now.
+            target = _serialProvider.ports
+                .where((p) => p.id == id)
+                .firstOrNull;
+            // Fallback: any ESP-compatible port by name.
+            target ??= _serialProvider.ports.where((p) {
+              final n = p.name.toLowerCase();
+              return n.contains('espressif') ||
+                  n.contains('esp32') || n.contains('esp8266') ||
+                  n.contains('cp210') || n.contains('ch340') ||
+                  n.contains('ch910') || n.contains('silicon labs') ||
+                  n.startsWith('ftdi');
+            }).firstOrNull;
+            // Last resort: pick the first available port.
+            target ??= _serialProvider.ports.first;
+            _deviceProvider.setTransport(_serialProvider.serialService);
+            await _serialProvider.stopScan();
+          } else {
+            return _error('not_found',
+                'No serial ports found after flasher handoff. '
+                'Try reconnecting the device manually.');
+          }
+        } else {
+          return _error('not_found',
+              'Serial device $id not found in scan results');
+        }
+      } else {
+        _deviceProvider.setTransport(_serialProvider.serialService);
       }
-      _deviceProvider.setTransport(_serialProvider.serialService);
     } else if (type == 'wifi') {
       if (!id.startsWith('ws://') && !id.startsWith('wss://')) {
         return _error('invalid_url', 'WiFi ID must be a WebSocket URL (ws:// or wss://)');
@@ -1655,6 +1707,179 @@ class RemoteAccessService {
     } catch (e) {
       return _error('nvs_error', e.toString(), status: 500);
     }
+  }
+
+  // ── Flasher Handlers ────────────────────────────────────────────────────
+
+  /// Handle GET /api/flasher/ports — return currently scanned serial ports.
+  Future<Response> _handleFlasherPorts(Request request) async {
+    final ports = _flasherProvider.availablePorts.map((p) => {
+      'id': p.id,
+      'name': p.name,
+      if (p.description != null) 'description': p.description,
+    }).toList();
+    return _json({'ports': ports});
+  }
+
+  /// Handle POST /api/flasher/scan — trigger a port scan.
+  /// Fire-and-forget: the scan runs asynchronously. Poll /api/flasher/status
+  /// and /api/flasher/ports for results.
+  Future<Response> _handleFlasherScan(Request request) async {
+    // Not awaited — fire-and-forget, status is polled via status endpoint
+    _flasherProvider.scanPorts();
+    return _json({'ok': true, 'message': 'Port scan started'});
+  }
+
+  /// Handle POST /api/flasher/connect — connect to a serial port and sync.
+  /// Body: { "portId": "/dev/ttyACM0" }
+  Future<Response> _handleFlasherConnect(Request request) async {
+    final body = await _parseBody(request);
+    final portId = body['portId'] as String?;
+    if (portId == null || portId.isEmpty) {
+      return _error('invalid_params', 'portId is required');
+    }
+    try {
+      await _flasherProvider.connect(portId);
+      if (_flasherProvider.isConnected) {
+        return _json({'ok': true, 'message': 'Connected to $portId'});
+      }
+      return _error('connection_failed',
+          _flasherProvider.errorMessage ?? 'Failed to connect to $portId',
+          status: 500);
+    } catch (e) {
+      return _error('connection_failed', e.toString(), status: 500);
+    }
+  }
+
+  /// Handle POST /api/flasher/disconnect — disconnect from the serial port.
+  Future<Response> _handleFlasherDisconnect(Request request) async {
+    await _flasherProvider.disconnect();
+    return _json({'ok': true, 'message': 'Disconnected'});
+  }
+
+  /// Handle GET /api/flasher/status — return current flasher state.
+  Future<Response> _handleFlasherStatus(Request request) async {
+    final info = _flasherProvider.chipInfo;
+    final firmware = _flasherProvider.selectedFirmware;
+    return _json({
+      'isConnected': _flasherProvider.isConnected,
+      'isScanning': _flasherProvider.isScanning,
+      'isLoadingChipInfo': _flasherProvider.isLoadingChipInfo,
+      'isFlashing': _flasherProvider.isFlashing,
+      'isOperationActive': _flasherProvider.isOperationActive,
+      'portName': _flasherProvider.portName,
+      'baudRate': _flasherProvider.baudRate,
+      'errorMessage': _flasherProvider.errorMessage,
+      'flashProgress': _flasherProvider.flashProgress,
+      'flashStatus': _flasherProvider.flashStatus,
+      'eraseAll': _flasherProvider.eraseAll,
+      'chipInfo': info != null
+          ? {
+              'model': info.model,
+              'revision': info.revision,
+              'mac': info.mac,
+              'flashSize': info.flashSize,
+              'psramSize': info.psramSize,
+              'cores': info.cores,
+            }
+          : null,
+      'selectedFirmware': firmware != null
+          ? {
+              'name': firmware.name,
+              'size': firmware.size,
+              'bytes': firmware.bytes,
+            }
+          : null,
+    });
+  }
+
+  /// Handle GET /api/flasher/log — return flasher log entries.
+  Future<Response> _handleFlasherLog(Request request) async {
+    return _json({
+      'entries': _flasherProvider.logEntries,
+    });
+  }
+
+  /// Handle POST /api/flasher/log/clear — clear flasher log.
+  Future<Response> _handleFlasherLogClear(Request request) async {
+    _flasherProvider.clearLog();
+    return _json({'ok': true});
+  }
+
+  /// Handle POST /api/flasher/select-firmware — accept base64 firmware data.
+  /// Body: { "data": "<base64>", "name": "firmware.bin" }
+  /// Saves the firmware to a temp file and sets it as the selected firmware.
+  Future<Response> _handleFlasherSelectFirmware(Request request) async {
+    final body = await _parseBody(request);
+    final dataB64 = body['data'] as String?;
+    final name = body['name'] as String? ?? 'firmware.bin';
+    if (dataB64 == null || dataB64.isEmpty) {
+      return _error('invalid_params', 'data (base64-encoded firmware) is required');
+    }
+    List<int> firmwareBytes;
+    try {
+      firmwareBytes = base64Decode(dataB64);
+    } catch (e) {
+      return _error('invalid_encoding', 'Failed to decode base64: $e', status: 400);
+    }
+    // Write to a temp file so FlasherProvider can read it
+    final tempDir = Directory.systemTemp;
+    final tempFile = File('${tempDir.path}/$name');
+    try {
+      await tempFile.writeAsBytes(firmwareBytes);
+    } catch (e) {
+      return _error('file_error', 'Failed to write temp file: $e', status: 500);
+    }
+    // Directly set the selected firmware on the provider
+    // (bypassing the file picker in selectFirmwareFile)
+    _flasherProvider.setSelectedFirmwareDirect(
+      name: name,
+      path: tempFile.path,
+      bytes: firmwareBytes.length,
+    );
+    return _json({
+      'ok': true,
+      'name': name,
+      'size': firmwareBytes.length,
+    });
+  }
+
+  /// Handle POST /api/flasher/clear-firmware — clear firmware selection.
+  Future<Response> _handleFlasherClearFirmware(Request request) async {
+    _flasherProvider.clearFirmwareSelection();
+    return _json({'ok': true});
+  }
+
+  /// Handle POST /api/flasher/erase-all — toggle erase all setting.
+  /// Body: { "eraseAll": true }
+  Future<Response> _handleFlasherEraseAll(Request request) async {
+    final body = await _parseBody(request);
+    final value = body['eraseAll'] as bool?;
+    if (value == null) {
+      return _error('invalid_params', 'eraseAll (boolean) is required');
+    }
+    _flasherProvider.setEraseAll(value);
+    return _json({'ok': true, 'eraseAll': value});
+  }
+
+  /// Handle POST /api/flasher/flash — start the flashing operation.
+  /// Requires firmware selected via [select-firmware] first.
+  /// Fire-and-forget: the flash runs asynchronously. Poll /api/flasher/status
+  /// for progress (flashProgress, flashStatus, isFlashing).
+  Future<Response> _handleFlasherFlash(Request request) async {
+    if (!_flasherProvider.isConnected) {
+      return _error('not_connected', 'Not connected to a serial port', status: 503);
+    }
+    if (_flasherProvider.selectedFirmware == null) {
+      return _error('no_firmware', 'No firmware selected. Use /api/flasher/select-firmware first', status: 400);
+    }
+    if (_flasherProvider.isFlashing) {
+      return _error('already_flashing', 'A flashing operation is already in progress', status: 409);
+    }
+    // Fire-and-forget: startFlashing has its own error handling
+    // and the provider's state is pollable via /api/flasher/status
+    _flasherProvider.startFlashing();
+    return _json({'ok': true, 'message': 'Flashing started'});
   }
 
   // ── Cloud Relay Handlers ────────────────────────────────────────────────────

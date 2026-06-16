@@ -5,10 +5,9 @@
 /// runtime check via [defaultTargetPlatform] and forwards every call to the
 /// correct concrete implementation.
 ///
-/// File routing:
-///   Android → [serial_service_android.dart] (usb_serial)
-///   Linux   → [serial_service_flserial.dart]  (flserial native FFI)
-///   iOS / macOS / Windows → stub (unsupported)
+/// [FlserialSerialService] (flserial native FFI) is used on all platforms
+/// except iOS (no USB serial access). Port IDs use the `usb:/dev/bus/usb/...`
+/// format — identical to the flasher, making auto-handoff a trivial ID match.
 library;
 
 import 'dart:async';
@@ -17,36 +16,28 @@ import '../models/device_info.dart';
 import 'transport_service.dart';
 export 'transport_service.dart';
 
-// Android: usb_serial
-import 'serial_service_android.dart'
-    if (dart.library.js_interop) 'serial_service_stub.dart'
-    as android;
-
-// Linux: flserial (native FFI via termios) — primary and only Linux backend
+// flserial (native FFI via termios/Win32) — single backend for all platforms
 import 'serial_service_flserial.dart' as fls;
 
 /// The platform-dispatched [SerialService] that providers interact with.
 ///
-/// On Android it wraps [android.SerialService] (usb_serial).
-/// On Linux it wraps [fls.FlserialSerialService] (native FFI via termios).
-/// On all other native platforms it returns [isSupported] = false.
+/// Uses [fls.FlserialSerialService] on all platforms except iOS (no USB serial
+/// access). Port IDs are always `usb:/dev/bus/usb/...` — matching the flasher.
 class SerialService implements TransportService {
   late final TransportService _impl;
 
   SerialService() {
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      _impl = android.SerialService();
-    } else if (defaultTargetPlatform == TargetPlatform.linux) {
-      _impl = fls.FlserialSerialService();
-    } else {
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
       _impl = _UnsupportedSerialService();
+    } else {
+      _impl = fls.FlserialSerialService();
     }
   }
 
   /// Whether USB Serial is supported on the current platform.
+  /// iOS is the only unsupported native platform (no USB serial access).
   bool get isSupported =>
-      defaultTargetPlatform == TargetPlatform.android ||
-      defaultTargetPlatform == TargetPlatform.linux;
+      defaultTargetPlatform != TargetPlatform.iOS;
 
   // Delegate everything to _impl
 
@@ -88,7 +79,6 @@ class SerialService implements TransportService {
   /// List available serial ports. Returns an empty stream on unsupported platforms.
   Stream<DeviceInfo> listPorts() {
     final impl = _impl;
-    if (impl is android.SerialService) return impl.listPorts();
     if (impl is fls.FlserialSerialService) return impl.listPorts();
     return const Stream.empty();
   }

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'providers/device_provider.dart';
 import 'screens/home/models_tab.dart';
 import 'screens/home/system_tab.dart';
+import 'screens/home/flasher_tab.dart';
 import 'screens/control_ui/control_screen.dart';
 import 'screens/control_ui/debug_screen.dart';
 import 'screens/home_screen.dart';
@@ -63,6 +64,15 @@ GoRouter createRouter(ConnectionNotifier connectionNotifier) {
               GoRoute(
                 path: '/models',
                 builder: (context, state) => const ModelsTab(),
+              ),
+            ],
+          ),
+
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/flasher',
+                builder: (context, state) => const FlasherTab(),
               ),
             ],
           ),

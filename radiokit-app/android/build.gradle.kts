@@ -2,6 +2,9 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        // JitPack — required by platform_serial (flutter_esptool dependency)
+        // for com.github.mik3y:usb-serial-for-android
+        maven { url = uri("https://jitpack.io") }
     }
 }
 
