@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../providers/device_provider.dart';
+import '../../providers/multi_device_provider.dart';
 import '../../providers/history_provider.dart';
 import '../../providers/ble_provider.dart';
 import '../../providers/mdns_provider.dart';
@@ -92,17 +93,17 @@ class _PairBottomSheetState extends State<PairBottomSheet>
 
     try {
       final bleProvider = context.read<BleProvider>();
-      final deviceProvider = context.read<DeviceProvider>();
+      final multiDevice = context.read<MultiDeviceProvider>();
       final history = context.read<HistoryProvider>();
 
       await bleProvider.stopScan();
       if (!mounted) return;
 
-      deviceProvider.setTransport(bleProvider.bleService);
-      await deviceProvider.connectToDevice(device);
+      await multiDevice.connectDevice(device: device, transport: bleProvider.bleService);
       if (!mounted) return;
 
-      if (deviceProvider.isConnected) {
+      final connected = multiDevice.isDeviceConnected(device.id) || multiDevice.isDeviceConnected(url);
+        if (connected) {
         await history.saveDevice(
           device,
           'ble',
@@ -138,17 +139,17 @@ class _PairBottomSheetState extends State<PairBottomSheet>
 
     try {
       final serialProvider = context.read<SerialProvider>();
-      final deviceProvider = context.read<DeviceProvider>();
+      final multiDevice = context.read<MultiDeviceProvider>();
       final history = context.read<HistoryProvider>();
 
       await serialProvider.stopScan();
       if (!mounted) return;
 
-      deviceProvider.setTransport(serialProvider.serialService);
-      await deviceProvider.connectToDevice(device, baudRate: baudRate);
+      await multiDevice.connectDevice(device: device, transport: serialProvider.serialService, baudRate: baudRate);
       if (!mounted) return;
 
-      if (deviceProvider.isConnected) {
+      final connected = multiDevice.isDeviceConnected(device.id) || multiDevice.isDeviceConnected(url);
+        if (connected) {
         await history.saveDevice(
           device,
           'serial',
@@ -183,18 +184,18 @@ class _PairBottomSheetState extends State<PairBottomSheet>
     });
 
     try {
-      final deviceProvider = context.read<DeviceProvider>();
+      final multiDevice = context.read<MultiDeviceProvider>();
       final history = context.read<HistoryProvider>();
       final mdns = context.read<MdnsProvider>();
       await mdns.stopScan();
       if (!mounted) return;
 
       final wsService = WebSocketService();
-      deviceProvider.setTransport(wsService);
-      await deviceProvider.connectToDevice(device);
+      await multiDevice.connectDevice(device: device, transport: wsService);
       if (!mounted) return;
 
-      if (deviceProvider.isConnected) {
+      final connected = multiDevice.isDeviceConnected(device.id) || multiDevice.isDeviceConnected(url);
+        if (connected) {
         await history.saveDevice(
           device,
           'wifi',
@@ -244,7 +245,8 @@ class _PairBottomSheetState extends State<PairBottomSheet>
       ));
       if (!mounted) return;
 
-      if (deviceProvider.isConnected) {
+      final connected = multiDevice.isDeviceConnected(device.id) || multiDevice.isDeviceConnected(url);
+        if (connected) {
         await history.saveDevice(
           DeviceInfo(id: url, name: displayName, rssi: 0, hasFs: false,
           currentTransport: TransportType.wifi,
@@ -1642,6 +1644,15 @@ class _PairSerialDeviceCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   SizedBox(height: 3),
+                  Text(
+                    device.id,
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: context.tokens.onSurface.withValues(alpha: 0.38),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  SizedBox(height: 2),
                   Text(
                     isConnecting
                         ? 'Connecting...'

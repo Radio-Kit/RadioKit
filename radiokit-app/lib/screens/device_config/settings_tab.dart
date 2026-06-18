@@ -18,6 +18,9 @@ import '../home/accounts_sheet.dart';
 import 'package:radiokit_widgets/src/utils/icon_registry.dart';
 
 class SettingsTabContent extends StatefulWidget {
+  final DeviceProvider? deviceProvider;
+  const SettingsTabContent({super.key, this.deviceProvider});
+
   @override
   State<SettingsTabContent> createState() => _SettingsTabContentState();
 }
@@ -69,7 +72,7 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
   @override
   void initState() {
     super.initState();
-    final dp = context.read<DeviceProvider>();
+    final dp = widget.deviceProvider ?? context.read<DeviceProvider>();
     _originalName = dp.configName ?? '';
     _originalDesc = dp.description ?? '';
     _deviceIcon = dp.deviceIcon ?? '';
@@ -255,7 +258,7 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
 
   @override
   Widget build(BuildContext context) {
-    final dp = context.watch<DeviceProvider>();
+    final dp = widget.deviceProvider ?? context.watch<DeviceProvider>();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),

@@ -8,6 +8,7 @@ import 'providers/console_provider.dart';
 import 'providers/debug_provider.dart';
 import 'providers/designs_provider.dart';
 import 'providers/device_provider.dart';
+import 'providers/multi_device_provider.dart';
 import 'providers/history_provider.dart';
 import 'providers/mdns_provider.dart';
 import 'providers/cloud_identity_provider.dart';
@@ -37,6 +38,7 @@ class _RadioKitAppState extends State<RadioKitApp> {
   late final HistoryProvider _historyProvider;
   late final ConsoleProvider _consoleProvider;
   late final DeviceProvider _deviceProvider;
+  late final MultiDeviceProvider _multiDeviceProvider;
   late final ThemePresetProvider _themePresetProvider;
   late final SettingsProvider _settingsProvider;
   late final DesignsProvider _designsProvider;
@@ -51,12 +53,12 @@ class _RadioKitAppState extends State<RadioKitApp> {
     super.initState();
 
     _themePresetProvider = ThemePresetProvider();
-    _themePresetProvider.init(); // Restore persisted theme choice
-    
+    _themePresetProvider.init();
+
     _settingsProvider = SettingsProvider();
     _designsProvider = DesignsProvider();
     _designsProvider.load();
-    
+
     _bleProvider = BleProvider();
     _mdnsProvider = MdnsProvider();
     _cloudIdentityProvider = CloudIdentityProvider();
@@ -66,10 +68,18 @@ class _RadioKitAppState extends State<RadioKitApp> {
     _historyProvider = HistoryProvider();
     _consoleProvider = ConsoleProvider();
 
+    // Primary device provider (backward compat during migration)
     _deviceProvider = DeviceProvider(
       transport: _bleProvider.bleService,
       debugSink: _debugProvider,
       console: _consoleProvider,
+      themePresetProvider: _themePresetProvider,
+      historyProvider: _historyProvider,
+    );
+
+    // Multi-device provider
+    _multiDeviceProvider = MultiDeviceProvider(
+      debugSink: _debugProvider,
       themePresetProvider: _themePresetProvider,
       historyProvider: _historyProvider,
     );
@@ -100,6 +110,7 @@ class _RadioKitAppState extends State<RadioKitApp> {
   void dispose() {
     _connectionNotifier.dispose();
     _settingsProvider.dispose();
+    _multiDeviceProvider.dispose();
     super.dispose();
   }
 
@@ -118,6 +129,7 @@ class _RadioKitAppState extends State<RadioKitApp> {
         ChangeNotifierProvider<HistoryProvider>.value(value: _historyProvider),
         ChangeNotifierProvider<ConsoleProvider>.value(value: _consoleProvider),
         ChangeNotifierProvider<DeviceProvider>.value(value: _deviceProvider),
+        ChangeNotifierProvider<MultiDeviceProvider>.value(value: _multiDeviceProvider),
         ChangeNotifierProvider<SettingsProvider>.value(value: _settingsProvider),
         ChangeNotifierProvider<DesignsProvider>.value(value: _designsProvider),
         ChangeNotifierProvider<RemoteAccessProvider>.value(
@@ -152,18 +164,6 @@ class _RadioKitAppState extends State<RadioKitApp> {
   }
 }
 
-/// App-level follow-mode overlay.
-///
-/// Wraps every route with:
-/// 1. Follow navigation listener (navigates when followNavigationTarget fires)
-/// 2. Edge glow halo (pulses blue then fades to yellow on navigation)
-/// 3. [AbsorbPointer] on all routes EXCEPT `/control` (user interacts with
-///    the controller even in follow mode)
-/// 4. Red STOP button to exit follow mode
-///
-/// Uses [GoRouter] directly (passed from parent) instead of
-/// [GoRouter.of(context)] because the InheritedWidget is inside the
-/// Navigator and not accessible from this widget's build context.
 class _FollowModeWrapper extends StatefulWidget {
   final GoRouter router;
   final Widget child;
@@ -185,12 +185,9 @@ class _FollowModeWrapperState extends State<_FollowModeWrapper> {
     final ra = context.read<RemoteAccessProvider>();
     ra.followNavigationTarget.addListener(_onFollow);
 
-    // Defer initial location sync and listener registration to post-frame
-    // so the router delegate is fully initialized.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _syncLocation();
-      // RouterDelegate extends Listenable — exposes addListener/removeListener.
       widget.router.routerDelegate.addListener(_onRouteChanged);
     });
   }
@@ -217,7 +214,6 @@ class _FollowModeWrapperState extends State<_FollowModeWrapper> {
       if (loc != _currentLocation) {
         setState(() => _currentLocation = loc);
       }
-      // Expose current route to the remote API session endpoint.
       context.read<RemoteAccessProvider>().updateCurrentRoute(loc);
     } catch (e) {
       debugPrint('FollowMode: _syncLocation error: $e');
@@ -230,8 +226,6 @@ class _FollowModeWrapperState extends State<_FollowModeWrapper> {
     if (!settings.followRemoteAccess) return;
     final route = ra.consumeFollowTarget();
     if (route == null) return;
-    // Skip re-navigation if already on this route — avoids recreating
-    // screens and triggering redundant FS operations during transfers.
     if (_currentLocation == route) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -251,8 +245,7 @@ class _FollowModeWrapperState extends State<_FollowModeWrapper> {
 
     if (!follow) return widget.child;
 
-    final isControlScreen = _currentLocation == '/control' ||
-        _currentLocation.startsWith('/control?');
+    final isControlScreen = _currentLocation.startsWith('/control');
 
     Widget body = widget.child;
     if (!isControlScreen) {
@@ -262,7 +255,6 @@ class _FollowModeWrapperState extends State<_FollowModeWrapper> {
     return Stack(
       children: [
         body,
-        // Edge glow that pulses on navigation
         Positioned.fill(
           child: IgnorePointer(
             child: ValueListenableBuilder<Color>(
@@ -334,7 +326,6 @@ class _FollowModeWrapperState extends State<_FollowModeWrapper> {
             ),
           ),
         ),
-        // Red STOP button
         Positioned(
           right: 20,
           bottom: 20,

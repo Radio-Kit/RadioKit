@@ -5,48 +5,50 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../models/protocol.dart';
 import '../../providers/device_provider.dart';
+import '../../providers/multi_device_provider.dart';
 import '../../providers/debug_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/device_designer_bridge.dart';
 
-/// Dynamic widget rendering screen for the connected RadioKit device.
+/// Dynamic widget rendering screen for a connected RadioKit device.
+///
+/// When [deviceId] is provided, the screen renders widgets for that specific
+/// device. When null, falls back to the primary (legacy single-device) provider.
 class ControlScreen extends StatefulWidget {
-  const ControlScreen({super.key});
+  final String? deviceId;
+  const ControlScreen({super.key, this.deviceId});
 
   @override
   State<ControlScreen> createState() => _ControlScreenState();
 }
 
 class _ControlScreenState extends State<ControlScreen> {
-
   @override
   void initState() {
     super.initState();
     _applyFullscreen();
     _applyCanvasOrientation();
+
+    // Set focused device when entering control screen
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final multiDevice = context.read<MultiDeviceProvider>();
+      multiDevice.setFocusedDevice(widget.deviceId);
+    });
   }
 
-  void _applyFullscreen() {
-    final settings = context.read<SettingsProvider>();
-    if (settings.useFullscreen) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  @override
+  void didUpdateWidget(covariant ControlScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.deviceId != oldWidget.deviceId) {
+      // Update focused device when navigating between devices
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final multiDevice = context.read<MultiDeviceProvider>();
+        multiDevice.setFocusedDevice(widget.deviceId);
+      });
     }
-  }
-
-  /// Lock device orientation to match the canvas orientation from the config.
-  void _applyCanvasOrientation() {
-    final device = context.read<DeviceProvider>();
-    final isLandscape = device.orientation == kOrientationLandscape;
-    SystemChrome.setPreferredOrientations([
-      if (isLandscape) ...[
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ] else ...[
-        DeviceOrientation.portraitUp,
-        DeviceOrientation.portraitDown,
-      ],
-    ]);
   }
 
   @override
@@ -58,24 +60,60 @@ class _ControlScreenState extends State<ControlScreen> {
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
+    // Clear focused device when leaving control screen
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final multiDevice = context.read<MultiDeviceProvider>();
+      multiDevice.setFocusedDevice(null);
+    });
     super.dispose();
   }
 
+  void _applyFullscreen() {
+    final settings = context.read<SettingsProvider>();
+    if (settings.useFullscreen) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    }
+  }
+
+  void _applyCanvasOrientation() {
+    final dp = _resolveDeviceProvider();
+    if (dp == null) return;
+    final isLandscape = dp.orientation == kOrientationLandscape;
+    SystemChrome.setPreferredOrientations([
+      if (isLandscape) ...[
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ] else ...[
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ],
+    ]);
+  }
+
+  /// Resolve the DeviceProvider for this screen from MultiDeviceProvider.
+  DeviceProvider? _resolveDeviceProvider() {
+    final multiDevice = context.read<MultiDeviceProvider>();
+    return multiDevice.getDevice(widget.deviceId!);
+  }
+
   Future<void> _disconnect() async {
-    final dp = context.read<DeviceProvider>();
-    await dp.disconnect();
+    final multiDevice = context.read<MultiDeviceProvider>();
+    if (widget.deviceId != null) {
+      await multiDevice.disconnectDevice(widget.deviceId!);
+    } else {
+      // Legacy: disconnect primary
+      final dp = multiDevice.primaryDevice;
+      if (dp != null) await dp.disconnect();
+    }
     if (mounted) context.go('/models');
   }
 
   void _openDebug() {
-    final dp     = context.read<DeviceProvider>();
-    if (!mounted) return;
+    final dp = _resolveDeviceProvider();
+    if (dp == null || !mounted) return;
     final debugP = context.read<DebugProvider>();
-
-    // No need to wrap here, DeviceProvider handles it robustly.
-    // We just ensure the DebugProvider knows about the current transport for manual sends.
     debugP.attachTransport(dp.currentTransport);
-
     if (mounted) {
       context.push('/debug');
     }
@@ -84,17 +122,57 @@ class _ControlScreenState extends State<ControlScreen> {
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<SettingsProvider>();
-    
-    // Update system UI mode based on setting, but keep the App's UI (AppBar) visible
+    final multiDevice = context.watch<MultiDeviceProvider>();
+
+    // Resolve device provider for this screen
+    DeviceProvider? deviceProvider;
+    if (widget.deviceId != null) {
+      deviceProvider = multiDevice.getDevice(widget.deviceId!);
+    } else {
+      deviceProvider = multiDevice.primaryDevice;
+    }
+
+    // Device not found - show error
+    if (deviceProvider == null) {
+      return Scaffold(
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          title: const Text('Device Not Found'),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline_rounded,
+                  size: 64, color: context.tokens.error),
+              const SizedBox(height: 20),
+              Text('Device not connected',
+                  style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              Text('This device is no longer connected.',
+                  style: Theme.of(context).textTheme.bodyMedium),
+              const SizedBox(height: 32),
+              FilledButton(
+                onPressed: () => context.go('/models'),
+                child: const Text('GO BACK'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Update system UI mode
     if (settings.useFullscreen) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
     } else {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     }
 
-    return Consumer<DeviceProvider>(
-      builder: (context, deviceProvider, _) {
-        final device      = deviceProvider.connectedDevice;
+    return ListenableBuilder(
+      listenable: deviceProvider,
+      builder: (context, _) {
+        final device = deviceProvider!.connectedDevice;
         final isConnected = deviceProvider.isConnected;
 
         return PopScope(
@@ -115,64 +193,64 @@ class _ControlScreenState extends State<ControlScreen> {
                   padding: const EdgeInsets.only(left: 4),
                   child: Row(
                     children: [
-                    IconButton(
-                      icon: const Icon(Icons.home_rounded),
-                      tooltip: 'Home',
-                      onPressed: () => context.go('/models'),
-                    ),
-                    SizedBox(width: 4),
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: isConnected ? context.tokens.success : context.tokens.error,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: (isConnected ? context.tokens.success : context.tokens.error)
-                                .withValues(alpha: 0.4),
-                            blurRadius: 6,
-                            spreadRadius: 1,
-                          ),
-                        ],
+                      IconButton(
+                        icon: const Icon(Icons.home_rounded),
+                        tooltip: 'Home',
+                        onPressed: () => context.go('/models'),
                       ),
-                    ),
-                    SizedBox(width: 12),
-                    if (isConnected)
-                      Flexible(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: context.tokens.onSurface.withValues(alpha: 0.05),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: context.tokens.onSurface.withValues(alpha: 0.1), width: 0.5),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                                Icon(Icons.signal_cellular_alt_rounded, 
-                                  size: 14, color: _getRssiColor(deviceProvider.rssi ?? -127)),
-                                SizedBox(width: 4),
-                                Text('${deviceProvider.rssi ?? "--"} dBm', 
-                                  style: TextStyle(fontSize: 10, color: context.tokens.onSurface.withValues(alpha: 0.7), fontWeight: FontWeight.bold)),
-                              if (deviceProvider.rssi != null && deviceProvider.latencyMs != null)
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                                  child: Text('|', style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.1), fontSize: 10)),
-                                ),
-                                Icon(Icons.timer_rounded, size: 14, color: context.tokens.onSurface.withValues(alpha: 0.54)),
-                                SizedBox(width: 4),
-                                Text('${deviceProvider.latencyMs ?? "--"}ms', 
-                                  style: TextStyle(fontSize: 10, color: context.tokens.onSurface.withValues(alpha: 0.54))),
-                            ],
-                          ),
+                      const SizedBox(width: 4),
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: isConnected ? context.tokens.success : context.tokens.error,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: (isConnected ? context.tokens.success : context.tokens.error)
+                                  .withValues(alpha: 0.4),
+                              blurRadius: 6,
+                              spreadRadius: 1,
+                            ),
+                          ],
                         ),
                       ),
-                  ],
+                      const SizedBox(width: 12),
+                      if (isConnected)
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: context.tokens.onSurface.withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: context.tokens.onSurface.withValues(alpha: 0.1), width: 0.5),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.signal_cellular_alt_rounded,
+                                    size: 14, color: _getRssiColor(deviceProvider!.rssi ?? -127)),
+                                const SizedBox(width: 4),
+                                Text('${deviceProvider.rssi ?? "--"} dBm',
+                                    style: TextStyle(fontSize: 10, color: context.tokens.onSurface.withValues(alpha: 0.7), fontWeight: FontWeight.bold)),
+                                if (deviceProvider.rssi != null && deviceProvider.latencyMs != null)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                                    child: Text('|', style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.1), fontSize: 10)),
+                                  ),
+                                Icon(Icons.timer_rounded, size: 14, color: context.tokens.onSurface.withValues(alpha: 0.54)),
+                                const SizedBox(width: 4),
+                                Text('${deviceProvider.latencyMs ?? "--"}ms',
+                                    style: TextStyle(fontSize: 10, color: context.tokens.onSurface.withValues(alpha: 0.54))),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            title: Text(
+              title: Text(
                 device?.displayName ?? 'RadioKit Device',
                 style: const TextStyle(
                   fontSize: 17,
@@ -195,10 +273,10 @@ class _ControlScreenState extends State<ControlScreen> {
                   tooltip: 'Disconnect',
                   color: context.tokens.error,
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
               ],
             ),
-            body: _buildBody(deviceProvider),
+            body: _buildBody(deviceProvider!),
           ),
         );
       },
@@ -215,9 +293,9 @@ class _ControlScreenState extends State<ControlScreen> {
       case DeviceConnectionState.connected:
         return _buildCanvas(deviceProvider);
       case DeviceConnectionState.otaRebooting:
-        return _buildLoadingState('Device rebooting — reconnecting...');
+        return _buildLoadingState('Device rebooting - reconnecting...');
       case DeviceConnectionState.disconnected:
-        return _buildLoadingState('Disconnecting...');
+        return _buildDisconnectedOverlay(deviceProvider);
       default:
         return _buildLoadingState('Connecting...');
     }
@@ -230,9 +308,45 @@ class _ControlScreenState extends State<ControlScreen> {
         children: [
           CircularProgressIndicator(
               color: context.tokens.primary, strokeWidth: 2),
-          SizedBox(height: 20),
+          const SizedBox(height: 20),
           Text(message, style: Theme.of(context).textTheme.bodyMedium),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDisconnectedOverlay(DeviceProvider deviceProvider) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.wifi_off_rounded,
+                size: 64, color: context.tokens.error),
+            const SizedBox(height: 20),
+            Text('Device Disconnected',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            Text(deviceProvider.errorMessage ?? 'Connection lost',
+                style: Theme.of(context).textTheme.bodyMedium,
+                textAlign: TextAlign.center),
+            const SizedBox(height: 32),
+            FilledButton.icon(
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('RECONNECT'),
+              onPressed: () async {
+                final device = deviceProvider.connectedDevice;
+                if (device != null) {
+                  final multiDevice = context.read<MultiDeviceProvider>();
+                  await multiDevice.reconnectDevice(device.id);
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+            TextButton(onPressed: _disconnect, child: const Text('Go Back')),
+          ],
+        ),
       ),
     );
   }
@@ -246,14 +360,14 @@ class _ControlScreenState extends State<ControlScreen> {
           children: [
             Icon(Icons.error_outline_rounded,
                 size: 64, color: context.tokens.error),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             Text('Connection Error',
                 style: Theme.of(context).textTheme.titleMedium),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             Text(message,
                 style: Theme.of(context).textTheme.bodyMedium,
                 textAlign: TextAlign.center),
-            SizedBox(height: 32),
+            const SizedBox(height: 32),
             ElevatedButton.icon(
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('Retry'),
@@ -264,15 +378,13 @@ class _ControlScreenState extends State<ControlScreen> {
                 }
               },
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             TextButton(onPressed: _disconnect, child: const Text('Go Back')),
           ],
         ),
       ),
     );
   }
-
-
 
   Color _getRssiColor(int rssi) {
     if (rssi == -127) return context.tokens.onSurface.withValues(alpha: 0.24);

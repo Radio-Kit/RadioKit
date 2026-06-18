@@ -89,7 +89,7 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
   }
 
   Future<void> _startUpload(Uint8List firmware) async {
-    final dp = context.read<DeviceProvider>();
+    final dp = widget.deviceProvider ?? context.read<DeviceProvider>();
     final eraseAll = _eraseAll;
     setState(() {
       _uploading = true;
@@ -170,7 +170,7 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
 
   @override
   Widget build(BuildContext context) {
-    final dp = context.watch<DeviceProvider>();
+    final dp = widget.deviceProvider ?? context.watch<DeviceProvider>();
     final configName = dp.configName ?? 'Unknown';
 
     return SingleChildScrollView(
