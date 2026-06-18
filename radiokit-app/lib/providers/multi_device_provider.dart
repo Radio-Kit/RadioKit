@@ -126,10 +126,10 @@ class MultiDeviceProvider extends ChangeNotifier {
       // Start connection (async - state will settle via notifyListeners)
       await deviceProvider.connectToDevice(device, baudRate: baudRate);
     } catch (e) {
-      // Connection threw - clean up
+      // Connection failed - clean up the provider
       _devices.remove(deviceId);
       notifyListeners();
-      rethrow;
+      return deviceProvider; // Return the provider so caller can check state
     }
 
     return deviceProvider;
