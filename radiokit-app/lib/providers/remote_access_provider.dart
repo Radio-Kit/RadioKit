@@ -8,6 +8,7 @@ import '../services/remote_access_service.dart'
     if (dart.library.html) '../services/remote_access_service_stub.dart';
 
 import 'device_provider.dart';
+import 'multi_device_provider.dart';
 import 'ble_provider.dart';
 import 'serial_provider.dart';
 import 'history_provider.dart';
@@ -20,7 +21,7 @@ import 'flasher_provider.dart';
 
 class RemoteAccessProvider extends ChangeNotifier {
   final SettingsProvider _settingsProvider;
-  final DeviceProvider _deviceProvider;
+  final MultiDeviceProvider _multiDeviceProvider;
   final BleProvider _bleProvider;
   final SerialProvider _serialProvider;
   final HistoryProvider _historyProvider;
@@ -63,7 +64,7 @@ class RemoteAccessProvider extends ChangeNotifier {
 
   RemoteAccessProvider({
     required SettingsProvider settingsProvider,
-    required DeviceProvider deviceProvider,
+    required MultiDeviceProvider multiDeviceProvider,
     required BleProvider bleProvider,
     required SerialProvider serialProvider,
     required HistoryProvider historyProvider,
@@ -76,7 +77,7 @@ class RemoteAccessProvider extends ChangeNotifier {
         _cloudIdentityProvider = cloudIdentityProvider,
         _accountProvider = accountProvider,
         _flasherProvider = flasherProvider,
-        _deviceProvider = deviceProvider,
+        _multiDeviceProvider = multiDeviceProvider,
         _bleProvider = bleProvider,
         _serialProvider = serialProvider,
         _historyProvider = historyProvider,
@@ -91,7 +92,7 @@ class RemoteAccessProvider extends ChangeNotifier {
     if (_isRunning) return null;
 
     _service = RemoteAccessService(
-      deviceProvider: _deviceProvider,
+      deviceProvider: _multiDeviceProvider,
       bleProvider: _bleProvider,
       serialProvider: _serialProvider,
       historyProvider: _historyProvider,

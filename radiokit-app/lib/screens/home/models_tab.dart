@@ -765,6 +765,9 @@ Future<bool> _showAuthDialog(
     context: context,
     barrierDismissible: false,
     builder: (ctx) {
+          return ListenableBuilder(
+            listenable: dp,
+            builder: (context, _) {
       return StatefulBuilder(
         builder: (context, setDialogState) {
           // Watch the per-device provider for auth state changes
