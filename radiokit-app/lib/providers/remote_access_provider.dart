@@ -22,6 +22,9 @@ import 'flasher_provider.dart';
 class RemoteAccessProvider extends ChangeNotifier {
   final SettingsProvider _settingsProvider;
   final MultiDeviceProvider _multiDeviceProvider;
+  /// Backward-compatible getter: returns the primary (focused or first connected) DeviceProvider.
+  /// Used by RemoteAccessService which still expects a single DeviceProvider.
+  DeviceProvider? get _deviceProvider => _multiDeviceProvider.primaryDevice;
   final BleProvider _bleProvider;
   final SerialProvider _serialProvider;
   final HistoryProvider _historyProvider;
