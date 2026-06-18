@@ -24,7 +24,7 @@ class RemoteAccessProvider extends ChangeNotifier {
   final MultiDeviceProvider _multiDeviceProvider;
   /// Backward-compatible getter: returns the primary (focused or first connected) DeviceProvider.
   /// Used by RemoteAccessService which still expects a single DeviceProvider.
-  DeviceProvider? get _deviceProvider => _multiDeviceProvider.primaryDevice;
+  DeviceProvider? get _deviceProvider => _deviceProvider.primaryDevice;
   final BleProvider _bleProvider;
   final SerialProvider _serialProvider;
   final HistoryProvider _historyProvider;
@@ -80,8 +80,7 @@ class RemoteAccessProvider extends ChangeNotifier {
         _cloudIdentityProvider = cloudIdentityProvider,
         _accountProvider = accountProvider,
         _flasherProvider = flasherProvider,
-        _multiDeviceProvider = multiDeviceProvider,
-        _bleProvider = bleProvider,
+        _multiDeviceProvider = multiDeviceProvider,        _bleProvider = bleProvider,
         _serialProvider = serialProvider,
         _historyProvider = historyProvider,
         _consoleProvider = consoleProvider,
@@ -95,7 +94,7 @@ class RemoteAccessProvider extends ChangeNotifier {
     if (_isRunning) return null;
 
     _service = RemoteAccessService(
-      deviceProvider: _multiDeviceProvider,
+      deviceProvider: _deviceProvider,
       bleProvider: _bleProvider,
       serialProvider: _serialProvider,
       historyProvider: _historyProvider,

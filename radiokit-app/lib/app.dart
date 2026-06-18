@@ -91,7 +91,7 @@ class _RadioKitAppState extends State<RadioKitApp> {
 
     _remoteAccessProvider = RemoteAccessProvider(
       settingsProvider: _settingsProvider,
-      deviceProvider: _deviceProvider,
+      multiDeviceProvider: _multiDeviceProvider,
       bleProvider: _bleProvider,
       serialProvider: _serialProvider,
       historyProvider: _historyProvider,
