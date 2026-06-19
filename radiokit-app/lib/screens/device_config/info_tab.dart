@@ -44,7 +44,7 @@ class _InfoTabContentState extends State<InfoTabContent> {
   }
 
   Future<void> _loadNvsStates() async {
-    final dp = context.read<DeviceProvider>();
+    final dp = widget.deviceProvider ?? context.read<DeviceProvider>();
     if (!dp.isConnected) {
       if (mounted) setState(() => _nvsLoading = false);
       return;
@@ -64,7 +64,7 @@ class _InfoTabContentState extends State<InfoTabContent> {
   @override
   Widget build(BuildContext context) {
     final device = widget.device;
-    final dp = context.watch<DeviceProvider>();
+    final dp = widget.deviceProvider ?? context.watch<DeviceProvider>();
 
     // Close the sheet when device disconnects (fire once per disconnect)
     if (!dp.isConnected && !_sheetAutoClosed) {

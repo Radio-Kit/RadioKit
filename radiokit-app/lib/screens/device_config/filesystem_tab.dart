@@ -17,6 +17,9 @@ import '../filesystem/file_editor_cache.dart';
 import '../filesystem/file_editor_dialog.dart';
 
 class FsTabContent extends StatefulWidget {
+  final DeviceProvider? deviceProvider;
+  const FsTabContent({super.key, this.deviceProvider});
+
   @override
   State<FsTabContent> createState() => _FsTabContentState();
 }
@@ -46,7 +49,7 @@ class _FsTabContentState extends State<FsTabContent> {
 
   void _initFs() {
     if (!mounted || _initTriggered) return;
-    final dp = context.read<DeviceProvider>();
+    final dp = widget.deviceProvider ?? context.read<DeviceProvider>();
     if (!dp.isConnected) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _initFs());
       return;
