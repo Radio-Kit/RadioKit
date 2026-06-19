@@ -25,7 +25,8 @@
 // ────────────────────────────────────────────────────────────
 void setup() {
   Serial.begin(1000000);
-  delay(2000); // Give time for USB Serial to connect
+  while (!Serial) { delay(10); } // Wait for host to open port (DTR/RTS)
+  delay(500); // Brief settle time after DTR received
   Serial.println("--- RadioKit BasicSwitch Start ---");
 
   pinMode(LED_PIN, OUTPUT);

@@ -1,0 +1,69 @@
+---
+title: Arduino Library Overview
+description: Overview of the RadioKit Arduino library
+---
+
+RadioKit is a powerful, object-oriented Arduino library that bridges your hardware and a highly customizable mobile dashboard. It allows you to build industrial-grade control interfaces using simple C++ structures.
+
+## Key Features
+
+- **Hardware Agnostic**: Supports ESP32 (NimBLE), Nordic nRF52, STM32, and any board with a Hardware Serial port.
+- **Tailored Memory Model**: Each widget only consumes the RAM it needs — no dynamic allocation.
+- **Zero Configuration**: The UI is defined in your Arduino code; the app dynamically builds the dashboard upon connection.
+- **Reliable Communication**: Built-in sequence tracking and retransmission for critical commands (VAR_UPDATE, META_UPDATE).
+- **Spring Physics**: High-fidelity spring simulations for sliders, knobs, and joysticks.
+- **Multiple Transports**: BLE (NimBLE) and Serial (USB CDC, FTDI, CP210x, CH340).
+
+## Widget Types
+
+| Widget | Class | Type | Description |
+|--------|-------|------|-------------|
+| Push Button | `RK_PushButton` | Input | Momentary (true while held) |
+| Toggle Button | `RK_ToggleButton` | Input | Latching on/off |
+| Slide Switch | `RK_SlideSwitch` | Input | iOS-style slide toggle |
+| Rocker Switch | `RK_RockerSwitch` | Input | Rocker-style on/off |
+| Slider | `RK_Slider` | Input | Linear -100..+100 |
+| Gas Pedal | `RK_GasPedal` | Input | Slider variant, springs to min |
+| Knob | `RK_Knob` | Input | Rotary -100..+100 |
+| Steering Wheel | `RK_SteeringWheel` | Input | Knob variant, springs to center |
+| Joystick | `RK_Joystick` | Input | 2-axis (-100..+100 each) |
+| Multi Button | `RK_MultipleButton` | Input | Radio-style button group |
+| Multi Select | `RK_MultipleSelect` | Input | Checkbox-style multi-select |
+| LED | `RK_LED` | Output | RGB indicator |
+| Text | `RK_Text` | Output | Read-only text display |
+| Serial Monitor | `RK_Serial` | Output | Serial console in the app |
+| Telemetry | `RK_Telemetry` | Output | Display-only metrics |
+
+## Transports
+
+| Transport | Activation | Use case |
+|-----------|-----------|----------|
+| **BLE** | `RadioKit.startBLE(name)` | Local control via RadioKit app (NimBLE on ESP32) |
+| **Serial** | `RadioKit.startSerial(Serial)` | USB/UART communication (1000000 baud recommended) |
+| **WiFi** | `RadioKit.startWiFi()` | Local WiFi WebSocket server on port 5555 |
+| **Cloud** | `RadioKit.startCloud()` | Internet relay via WebSocket |
+
+Multiple transports can run simultaneously. The library broadcasts widget state changes across all active transports automatically.
+
+## Supported Hardware
+
+| Platform | BLE | Serial | Notes |
+|----------|-----|--------|-------|
+| **ESP32** | [X] NimBLE | [X] USB CDC, FTDI | Fully supported |
+| **nRF52** | [X] Native | [X] UART | Nordic SDK |
+| **STM32** | [-] | [X] UART | Use Serial only |
+| **SAMD** | [-] | [X] UART | Use Serial only |
+
+## Examples
+
+- **`SerialTest`** — Full feature demo over USB Serial (LED, buttons, sliders, knobs, joysticks)
+- **`BasicSwitch`** — Minimal BLE example (toggle switch + LED)
+- **`JoystickMotor`** — Joystick controlling a servo
+- **`SliderServo`** — Slider controlling a servo
+
+## See Also
+
+- [Widgets Reference](/arduino/widgets) — Complete widget API
+- [Transports](/arduino/transports) — Transport configuration
+- [UI Layout](/arduino/ui-layout) — Coordinate system and sizing
+- [Protocol](/arduino/protocol) — Binary packet format

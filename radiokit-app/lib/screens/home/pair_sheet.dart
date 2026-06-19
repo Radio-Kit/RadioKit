@@ -1643,6 +1643,15 @@ class _PairSerialDeviceCard extends StatelessWidget {
                   ),
                   SizedBox(height: 3),
                   Text(
+                    device.id,
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: context.tokens.onSurface.withValues(alpha: 0.38),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
                     isConnecting
                         ? 'Connecting...'
                         : hasError

@@ -10,6 +10,21 @@
 #include "RadioKitSettings.h"
 #include "RadioKitPrint.h"
 
+// TinyUSB CDC connection guard for sendPacket.
+// Only active when Serial uses the native USB Serial/JTAG controller (ARDUINO_USB_MODE=1).
+// When MODE=0 (TinyUSB/USB-OTG), TinyUSB handles enumeration automatically
+// and the tud_cdc_connected() guard is not compiled in.
+//
+// NOTE: The ESP32-S3 has two USB controllers sharing a single internal PHY:
+//   ARDUINO_USB_MODE=1 → Native USB Serial/JTAG controller (fixed-function HW block)
+//   ARDUINO_USB_MODE=0 → USB-OTG controller (TinyUSB, software-controllable stack)
+//
+// The keepalive null byte in update() is only needed for MODE=1 (native controller)
+// to prevent the hardware IN endpoint from stalling. TinyUSB handles this properly.
+#if defined(ARDUINO_USB_MODE) && ARDUINO_USB_MODE == 1
+#include "tusb.h"
+#endif
+
 RadioKitSerialTransport RadioKitSerialInstance;
 
 RadioKitSerialTransport::RadioKitSerialTransport()
@@ -53,6 +68,20 @@ void RadioKitSerialTransport::setPrintCallback(RK_PrintPacketCallback cb) {
 
 void RadioKitSerialTransport::update() {
     if (!_stream) return;
+
+    // --- USB IN endpoint keepalive ---
+    // The ESP32-S3's native USB Serial/JTAG controller may stall the IN
+    // endpoint when no data is pending to send. Android's USB Host API
+    // cannot reliably recover from this stall. By periodically writing a
+    // null byte, we keep the endpoint active and prevent STALL.
+    static unsigned long _lastKeepaliveMs = 0;
+    if (millis() - _lastKeepaliveMs > 250) {
+        _lastKeepaliveMs = millis();
+        if (_stream->availableForWrite()) {
+            _stream->write(static_cast<uint8_t>(0x00));
+        }
+    }
+    // --- End keepalive ---
 
     uint8_t        cmd;
     const uint8_t* payload;
@@ -117,6 +146,14 @@ void RadioKitSerialTransport::update() {
 
 void RadioKitSerialTransport::sendPacket(const uint8_t* buf, uint16_t len) {
     if (!_stream) return;
+#if defined(ARDUINO_USB_MODE) && ARDUINO_USB_MODE == 1
+    // TinyUSB CDC mode: only write if host has finished enumeration.
+    // Writing before the host is ready causes the IN endpoint to STALL,
+    // which Android may never recover from even with clearHalt.
+    if (!tud_cdc_connected()) {
+        return;
+    }
+#endif
     _stream->write(buf, len);
 }
 

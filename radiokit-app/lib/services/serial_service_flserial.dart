@@ -133,7 +133,9 @@ class FlserialSerialService implements TransportService {
         if (event.data is Uint8List) {
           final data = event.data as Uint8List;
           if (data.isNotEmpty) {
-            _log('RX ${data.length} bytes');
+            final hex = data.take(64).map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ');
+            final suffix = data.length > 64 ? ' ... (${data.length} total)' : '';
+            _log('RX ${data.length} bytes: $hex$suffix');
             _receiveBuffer.addAll(data);
             _processBuffer();
           }

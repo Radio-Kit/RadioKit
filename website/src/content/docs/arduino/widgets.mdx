@@ -1,0 +1,538 @@
+---
+title: Widgets Reference
+description: Complete reference for all RadioKit widget classes
+---
+
+RadioKit v2.0 uses a **Fields struct + `rk` member** pattern. All widget state is accessed through the public `rk` member:
+
+```cpp
+// Read widget state
+bool state   = button.rk.state;
+int8_t value = slider.rk.value;
+
+// Write widget state (auto-synced on next RadioKit.update())
+led.rk.state     = true;
+led.rk.color     = 0xFF0000;
+```
+
+**There are no getter/setter methods.** All access goes through `rk` fields directly.
+
+### Instantiation
+
+Constructors take positional parameters: `(x, y, height, width = 0, rotation = 0)`.
+
+```cpp
+// Minimal constructor — only spatial params
+RK_Slider slider(100, 60, 12, 80);
+
+// Post-construction: set optional fields via rk
+slider.rk.label     = "Speed";
+slider.rk.centering = RK_SPRING_CENTER;
+```
+
+### Auto-Sync
+
+When you write to any `rk` field, the change is automatically detected on the next `RadioKit.update()` and pushed to the app.
+
+---
+
+## PushButton & ToggleButton
+
+The primary binary input widgets.
+
+**Fields (RK_ButtonFields):**
+
+```cpp
+struct RK_ButtonFields {
+    uint8_t     x, y;
+    uint8_t     height, width;
+    int16_t     rotation;
+    const char* icon, *onText, *offText, *label;
+    bool        active;     ///< Transport active flag
+    bool        state;      ///< Push/toggle state
+};
+```
+
+**Access Pattern:**
+
+| Access | Code |
+|--------|------|
+| Read state | `bool pressed = btn.rk.state;` |
+| Write state | `btn.rk.state = true;` |
+| Set onText | `btn.rk.onText = "ON";` |
+| Set offText | `btn.rk.offText = "OFF";` |
+| Set icon | `btn.rk.icon = "power";` |
+
+**Examples:**
+
+```cpp
+// Push button
+RK_PushButton fire(20, 50, 20);
+fire.rk.label   = "FIRE";
+fire.rk.icon    = "flame";
+fire.rk.onText  = "ON";
+fire.rk.offText = "OFF";
+
+// Toggle button
+RK_ToggleButton power(20, 80, 20);
+power.rk.label   = "Power";
+power.rk.icon    = "power";
+
+// Usage in loop()
+void loop() {
+    RadioKit.update();
+    if (fire.rk.state) { triggerFire(); }
+    if (power.rk.state) { enableSystems(); }
+}
+```
+
+**Edge detection (rising/falling edge):**
+
+```cpp
+static bool lastState = false;
+if (btn.rk.state && !lastState) {
+    // Rising edge — button was just pressed
+}
+if (!btn.rk.state && lastState) {
+    // Falling edge — button was just released
+}
+lastState = btn.rk.state;
+```
+
+---
+
+## MultipleButton / MultipleSelect
+
+Selection groups (Radio or Checkbox).
+
+**Fields (RK_MultipleFields):**
+
+```cpp
+struct RK_MultipleFields {
+    uint8_t     x, y;
+    uint8_t     height, width;
+    int16_t     rotation;
+    const char* label;
+    bool        active;
+    uint8_t     value;            ///< Bitmask (bit 0 = item 0, ...)
+    uint8_t     variant;          ///< 0=Segments, 1=Grid, 2=Wheel
+    RK_Item     items[8];         ///< Item pool
+    uint8_t     itemCount;
+};
+
+struct RK_Item {
+    const char* label;   ///< Display text
+    const char* icon;    ///< Optional icon name
+    uint8_t     pos;     ///< Bitmask position (0-7)
+};
+```
+
+**Access Pattern:**
+
+| Access | Code |
+|--------|------|
+| Read bitmask | `uint8_t mask = multi.rk.value;` |
+| Check item | `bool active = (multi.rk.value & (1 << i)) != 0;` |
+| Set items | `multi.rk.items[0] = {"WiFi", "wifi", 0};` |
+| Set item count | `multi.rk.itemCount = 3;` |
+
+**Example:**
+
+```cpp
+RK_MultipleSelect toolbar(50, 85, 10);
+toolbar.rk.label = "Gear";
+toolbar.rk.items[0] = {"D", "drive_eta", 0};
+toolbar.rk.items[1] = {"P", "local_parking", 1};
+toolbar.rk.items[2] = {"R", "settings_backup_restore", 2};
+toolbar.rk.itemCount = 3;
+
+void loop() {
+    RadioKit.update();
+    if ((toolbar.rk.value & (1 << 0)) != 0) { /* D selected */ }
+    if ((toolbar.rk.value & (1 << 1)) != 0) { /* P selected */ }
+}
+```
+
+---
+
+## SlideSwitch & RockerSwitch
+
+Slide/rocker switch for binary on/off control.
+
+**Fields (RK_SlideSwitchFields):**
+
+```cpp
+struct RK_SlideSwitchFields {
+    uint8_t     x, y;
+    uint8_t     height, width;
+    int16_t     rotation;
+    const char* icon, *onText, *offText, *label;
+    bool        labelHidden;
+    bool        active;
+    bool        state;
+    uint8_t     variant;       ///< 0=Slide Switch, 1=Rocker Switch
+};
+```
+
+**Access Pattern:**
+
+| Access | Code |
+|--------|------|
+| Read state | `bool s = sw.rk.state;` |
+| Set state | `sw.rk.state = true;` |
+| Set text | `sw.rk.onText = "ON"; sw.rk.offText = "OFF";` |
+| Hide label | `sw.rk.labelHidden = true;` |
+
+**Example:**
+
+```cpp
+RK_SlideSwitch headlights(50, 60, 15);
+headlights.rk.label    = "Headlights";
+headlights.rk.icon     = "sun";
+headlights.rk.onText   = "ON";
+headlights.rk.offText  = "OFF";
+
+void loop() {
+    RadioKit.update();
+    digitalWrite(LED_PIN, headlights.rk.state ? HIGH : LOW);
+}
+```
+
+---
+
+## Slider & GasPedal
+
+Linear analog input control (-100 to +100).
+
+**Fields (RK_SliderFields):**
+
+```cpp
+struct RK_SliderFields {
+    uint8_t     x, y;
+    uint8_t     height, width;
+    int16_t     rotation;
+    const char* label;
+    bool        labelHidden;
+    bool        active;
+    int8_t      value;         ///< -100 to +100
+    uint8_t     centering;     ///< Spring mode
+    uint8_t     detents;       ///< 0 = continuous, 1-31 = snap positions
+};
+```
+
+**Access Pattern:**
+
+| Access | Code |
+|--------|------|
+| Read value | `int8_t v = slider.rk.value;` |
+| Write value | `slider.rk.value = 50;` |
+| Set centering | `slider.rk.centering = RK_SPRING_NONE;` |
+| Set detents | `slider.rk.detents = 5;` |
+
+**Example:**
+
+```cpp
+// Continuous horizontal slider
+RK_Slider throttle(50, 40, 10, 80);
+throttle.rk.label     = "Throttle";
+throttle.rk.centering = RK_SPRING_NONE;
+
+// Gas pedal (springs to minimum)
+RK_GasPedal gas(80, 40, 10);
+gas.rk.label = "Gas";
+
+void loop() {
+    RadioKit.update();
+    int8_t gasVal = gas.rk.value;
+    setMotorSpeed(map(gasVal, -100, 100, 0, 255));
+}
+```
+
+---
+
+## Knob & SteeringWheel
+
+Rotary analog input control (-100 to +100).
+
+**Fields (RK_KnobFields):**
+
+```cpp
+struct RK_KnobFields {
+    uint8_t     x, y;
+    uint8_t     height, width;
+    int16_t     rotation;
+    const char* icon, *label;
+    bool        labelHidden;
+    bool        active;
+    int8_t      value;          ///< -100 to +100
+    int16_t     startAngle;     ///< Default -135
+    int16_t     endAngle;       ///< Default 135
+    uint8_t     centering;      ///< Spring mode
+    uint8_t     detents;        ///< 0 = continuous, 1-63 = snap
+    uint8_t     variant;        ///< 0=standard, 1=steeringWheel
+    const char* centerIcon;     ///< Icon in the middle of knob
+};
+```
+
+**Access Pattern:**
+
+| Access | Code |
+|--------|------|
+| Read value | `int8_t v = knob.rk.value;` |
+| Set value | `knob.rk.value = 25;` |
+| Set angles | `knob.rk.startAngle = -90; knob.rk.endAngle = 90;` |
+
+**Example:**
+
+```cpp
+// Standard knob
+RK_Knob vol(140, 40, 10);
+vol.rk.label   = "Vol";
+vol.rk.icon    = "volume-2";
+
+// Steering wheel (auto-centering knob variant)
+RK_Knob steering(85, 60, 30);
+steering.rk.label      = "Steering";
+steering.rk.startAngle = -150;
+steering.rk.endAngle   = 150;
+steering.rk.centering  = RK_SPRING_CENTER;
+steering.rk.variant    = 1;  // steeringWheel
+
+void loop() {
+    RadioKit.update();
+    int8_t steer = steering.rk.value;
+    setSteeringPosition(steer);
+}
+```
+
+---
+
+## Joystick
+
+2-axis analog controller (-100 to +100).
+
+**Fields (RK_JoystickFields):**
+
+```cpp
+struct RK_JoystickFields {
+    uint8_t     x, y;
+    uint8_t     height, width;
+    int16_t     rotation;
+    const char* icon, *label;
+    bool        labelHidden;
+    bool        enabled;
+    bool        active;
+    int8_t      xvalue, yvalue;    ///< -100 to +100 each
+    uint8_t     centering;
+};
+```
+
+**Access Pattern:**
+
+| Access | Code |
+|--------|------|
+| Read X | `int8_t x = joy.rk.xvalue;` |
+| Read Y | `int8_t y = joy.rk.yvalue;` |
+
+**Example:**
+
+```cpp
+RK_Joystick drive(180, 50, 20);
+drive.rk.label     = "Drive";
+drive.rk.centering = RK_SPRING_CENTER;
+
+void loop() {
+    RadioKit.update();
+    int8_t x = drive.rk.xvalue;  // Left/Right
+    int8_t y = drive.rk.yvalue;  // Forward/Back
+    setMotorSpeeds(y + x, y - x);
+}
+```
+
+---
+
+## LED
+
+Visual status indicator (Arduino -> App).
+
+**Fields (RK_LedFields):**
+
+```cpp
+struct RK_LedFields {
+    uint8_t     x, y;
+    uint8_t     height, width;
+    int16_t     rotation;
+    const char* label;
+    bool        labelHidden;
+    uint32_t    color;        ///< RGB hex (e.g. 0xFF0000)
+    bool        state;        ///< ON/OFF
+    uint8_t     shape;        ///< 0=circle, 1=square, 2=diamond, 3=star
+    uint8_t     ledState;     ///< 0=OFF, 1=ON, 2=BLINK, 3=BREATHE
+    uint16_t    timing;       ///< ms for blink/breathe
+};
+```
+
+**Access Pattern:**
+
+| Action | Code |
+|--------|------|
+| Turn on | `led.rk.state = true;` |
+| Turn off | `led.rk.state = false;` |
+| Set color | `led.rk.color = 0x00FF00;` |
+| Set shape | `led.rk.shape = RK_LED_SHAPE_SQUARE;` |
+| Set blink | `led.rk.ledState = RK_LED_STATE_BLINK;` |
+| Set timing | `led.rk.timing = 300;` |
+
+**Example:**
+
+```cpp
+RK_LED status(20, 20, 14);
+status.rk.label = "Status";
+
+void loop() {
+    RadioKit.update();
+    if (linkEstablished) {
+        status.rk.state = true;
+        status.rk.color = 0x00FF00;  // Green
+    } else {
+        status.rk.state = false;
+    }
+}
+```
+
+---
+
+## Text & Serial
+
+Dynamic text display (Arduino -> App).
+
+**Fields (RK_TextFields):**
+
+```cpp
+struct RK_TextFields {
+    uint8_t     x, y;
+    uint8_t     height, width;
+    const char* label;
+    bool        labelHidden;
+    const char* content;    ///< Pointer to text content
+};
+```
+
+**Access Pattern:**
+
+| Action | Code |
+|--------|------|
+| Set text | `text.rk.content = "Hello";` |
+| Read text | `const char* t = text.rk.content;` |
+
+Note: `rk.content` is a pointer. The pointed-to string must outlive the current loop iteration. Use `static` buffers or string literals.
+
+**Example:**
+
+```cpp
+RK_Text status(50, 10, 10);
+status.rk.label = "LOG:";
+status.rk.content = "System Ready";
+
+// Serial Monitor in the app
+RK_Serial serialMonitor(100, 80, 20, 180);
+serialMonitor.rk.label = "Serial Console";
+
+void loop() {
+    RadioKit.update();
+    static char buf[32];
+    snprintf(buf, sizeof(buf), "Uptime: %lus", millis() / 1000);
+    status.rk.content = buf;
+    serialMonitor.println("Log entry");
+}
+```
+
+---
+
+## Telemetry
+
+Display-only widget for telemetry values (Arduino -> App). Rendered in the active link card, not on the control canvas.
+
+**Fields (RK_TelemetryFields):**
+
+```cpp
+struct RK_TelemetryFields {
+    const char* label;
+    const char* icon;
+    const char* unit;
+    const char* content;    ///< Dynamic text value
+};
+```
+
+**Access Pattern:**
+
+| Action | Code |
+|--------|------|
+| Set value | `telemetry.rk.content = "25.5";` |
+| Set icon | `telemetry.rk.icon = "thermometer";` |
+| Set unit | `telemetry.rk.unit = "°C";` |
+
+**Example:**
+
+```cpp
+RK_Telemetry temp("Temperature");
+temp.rk.icon    = "thermometer";
+temp.rk.unit    = "°C";
+temp.rk.content = "25.5";
+```
+
+---
+
+## Constants & Enums
+
+### LED Shapes
+
+| Constant | Value | Shape |
+|----------|-------|-------|
+| `RK_LED_SHAPE_CIRCLE` | 0 | Circle |
+| `RK_LED_SHAPE_SQUARE` | 1 | Square |
+| `RK_LED_SHAPE_DIAMOND` | 2 | Diamond |
+| `RK_LED_SHAPE_STAR` | 3 | Star |
+
+### LED States
+
+| Constant | Value | Behaviour |
+|----------|-------|-----------|
+| `RK_LED_STATE_OFF` | 0 | Off (no light) |
+| `RK_LED_STATE_ON` | 1 | Solid on |
+| `RK_LED_STATE_BLINK` | 2 | Blinking |
+| `RK_LED_STATE_BREATHE` | 3 | Breathing (fade in/out) |
+
+### Multiple Variants
+
+| Constant | Value | Behaviour |
+|----------|-------|-----------|
+| `RK_SEGMENTS` | 0 | Segmented button group |
+| `RK_GRID` | 1 | Grid layout |
+| `RK_WHEEL` | 2 | Wheel/selector |
+
+### Widget Style
+
+| Constant | Value | Usage |
+|----------|-------|-------|
+| `RK_PRIMARY` | 0 | Primary style |
+| `RK_DIM` | 1 | Dim/secondary |
+| `RK_SUCCESS` | 2 | Green/success |
+| `RK_WARNING` | 3 | Yellow/warning |
+| `RK_DANGER` | 4 | Red/danger |
+
+---
+
+## Best Practices
+
+1. **Always call `update()`** — Never block in `loop()` with `delay()` or long computations.
+2. **Declare widgets globally** — They self-register on construction.
+3. **Configure before `begin()`** — `config` fields are read-only after `begin()`.
+4. **Use consistent buffer lifetimes** — Text content via `rk.content` must point to persistent storage (`static` variables or string literals). Stack-local buffers will dangle.
+5. **Keep `loop()` fast** — Defer heavy work to timers or state machines.
+
+## See Also
+
+- [Getting Started](/arduino/setup) — Installation and first sketch
+- [UI Layout](/arduino/ui-layout) — Coordinate system and sizing details
+- [Protocol Specification](/arduino/protocol) — Binary packet format details

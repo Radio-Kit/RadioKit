@@ -1,0 +1,56 @@
+/* Fonts — https://api.fonts.coollabs.io */
+@import url('https://api.fonts.coollabs.io/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import url('https://api.fonts.coollabs.io/css2?family=Exo+2:wght@400;500;600;700;800;900&display=swap');
+@import url('https://api.fonts.coollabs.io/css2?family=Changa:wght@400;500;600;700;800&display=swap');
+@import url('https://api.fonts.coollabs.io/css2?family=Audiowide&display=swap');
+@import url('https://api.fonts.coollabs.io/css2?family=Martian+Mono:wght@400;500;600;700;800&display=swap');
+
+/* Theme variable mappings — auto-generated from themes/ */
+@import "./themes-starlight.css";
+
+:root {
+  --sl-font: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --sl-font-mono: 'Martian Mono', ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Font applications */
+h1, h2, h3, h4, h5, h6,
+.sl-markdown-content h1,
+.sl-markdown-content h2,
+.sl-markdown-content h3,
+.sl-markdown-content h4 {
+  font-family: 'Exo 2', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Navigation labels */
+.header a,
+.sidebar a,
+.sl-sidebar a,
+nav a {
+  font-family: 'Changa', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Action buttons / pill buttons */
+.sl-link-button,
+a.sl-link-button {
+  font-family: 'Changa', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* App logo/title */
+.site-title,
+.header .title-wrapper a {
+  font-family: 'Audiowide', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Code / terminal / hex values */
+pre, code, .sl-markdown-content code,
+.sl-markdown-content pre,
+astro-code, .expressive-code {
+  font-family: 'Martian Mono', ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Search bar bottom border */
+.search-wrapper {
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--sl-color-hairline-shade);
+}

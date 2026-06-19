@@ -205,15 +205,29 @@ class ProtocolService {
   // ── Packet parsing ────────────────────────────────────────────────────────
 
   static ParsedPacket? parsePacket(List<int> data) {
-    if (data.length < 6) return null;
-    if (data[0] != kStartByte) return null;
+    if (data.length < 6) {
+      debugPrint('RadioKit parsePacket: too short (${data.length} bytes)');
+      return null;
+    }
+    if (data[0] != kStartByte) {
+      debugPrint('RadioKit parsePacket: bad start byte 0x${data[0].toRadixString(16).padLeft(2, "0")}');
+      return null;
+    }
     final length = data[1] | (data[2] << 8);
-    if (data.length < length) return null;
+    if (data.length < length) {
+      debugPrint('RadioKit parsePacket: buffer shorter than declared length (${data.length} < $length)');
+      return null;
+    }
     final cmd        = data[3];
     final payloadEnd = length - 2;
     final payload    = data.sublist(4, payloadEnd);
     final rxCrc      = data[payloadEnd] | (data[payloadEnd + 1] << 8);
-    if (rxCrc != _crc16([cmd, ...payload])) return null;
+    final calcCrc    = _crc16([cmd, ...payload]);
+    if (rxCrc != calcCrc) {
+      debugPrint('RadioKit parsePacket: CRC mismatch (got 0x${rxCrc.toRadixString(16)}, calc 0x${calcCrc.toRadixString(16)}) cmd=0x${cmd.toRadixString(16)} len=$length');
+      debugPrint('RadioKit parsePacket: raw bytes: ${data.take(length).map((b) => b.toRadixString(16).padLeft(2, "0")).join(" ")}');
+      return null;
+    }
     return ParsedPacket(cmd: cmd, payload: Uint8List.fromList(payload));
   }
 

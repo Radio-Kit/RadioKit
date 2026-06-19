@@ -1,0 +1,68 @@
+---
+title: RKMultiSelect
+description: Bitmask multi-select group widget
+---
+
+Bitmask multi-select group for RadioKit — displays a grid or wrap of buttons where multiple items can be active simultaneously, represented by a bitmask.
+
+## Constructor
+
+```dart
+RKMultiSelect({
+  required List<RKToggleItem> items,
+  required int bitmask,
+  required ValueChanged<int> onChanged,
+  double buttonSize = 64.0,
+  double spacing = 8.0,
+  double padding = 12.0,
+  bool enableHapticFeedback = true,
+  RKAxis orientation = RKAxis.horizontal,
+  ValueChanged<bool>? onActiveChanged,
+  double rotation = 0.0,
+  String? label,
+})
+```
+
+## Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `items` | List of `RKToggleItem` (labels and icons) to display. |
+| `bitmask` | An integer where the i-th bit represents the state of `items[i]`. |
+| `onChanged` | Called with the updated bitmask when an item is toggled. |
+| `buttonSize` | Size (width and height) of each individual button. |
+| `spacing` | Distance between buttons in the group. |
+| `padding` | Inner padding of the group container. |
+| `enableHapticFeedback` | Whether to trigger haptic feedback on interaction. |
+| `orientation` | Horizontal or vertical layout (`RKAxis`). |
+| `onActiveChanged` | Callback when the user starts/stops touching the group. |
+| `rotation` | Visual rotation of the widget in radians. |
+| `label` | Optional text label displayed above the widget. |
+
+## RKToggleItem
+
+```dart
+const RKToggleItem({
+  String? onLabel,
+  String? offLabel,
+  IconData? onIcon,
+  IconData? offIcon,
+});
+```
+
+## Example
+
+```dart
+int _bitmask = 0;
+
+RKMultiSelect(
+  items: const [
+    RKToggleItem(onLabel: 'Radar', onIcon: Icons.radar),
+    RKToggleItem(onLabel: 'GPS', onIcon: Icons.gps_fixed),
+    RKToggleItem(onLabel: 'Comms', onIcon: Icons.settings_input_antenna),
+  ],
+  bitmask: _bitmask,
+  orientation: RKAxis.horizontal,
+  onChanged: (int newBitmask) => setState(() => _bitmask = newBitmask),
+);
+```

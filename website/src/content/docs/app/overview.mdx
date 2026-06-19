@@ -1,0 +1,58 @@
+---
+title: Flutter App Overview
+description: Overview of the RadioKit Flutter companion app
+---
+
+The RadioKit Flutter app is a native companion application that connects to Arduino devices over BLE, Serial, WiFi, or Cloud relay and dynamically renders control widgets.
+
+## Key Features
+
+- **Multi-Transport** — BLE, Serial, WiFi, and Cloud relay support
+- **Dynamic UI** — Renders widgets defined in Arduino code at runtime
+- **Real-Time Control** — 100ms polling for instant feedback
+- **Visual Designer** — Create and edit UI layouts visually
+- **Filesystem Explorer** — Browse and manage device files
+- **Firmware Flasher** — Over-the-air firmware updates
+- **Multiple Skins** — Dragon, Neon, Minimal, and Custom themes
+
+## Supported Platforms
+
+| Platform | Status | Notes |
+|----------|--------|-------|
+| Android | Supported | API 21+ with BLE permissions |
+| iOS | Supported | iOS 13+ with BLE support |
+| Linux | Supported | Desktop with BLE support |
+| Web | Supported | Web Serial (no BLE) |
+| macOS | Planned | Future release |
+| Windows | Planned | Future release |
+
+## Screens
+
+| Screen | Description |
+|--------|-------------|
+| **Models** | Device discovery, pairing, and connection management |
+| **Designs** | Saved design projects |
+| **Dev Tools** | USB Serial, Filesystem Explorer, Firmware Flasher |
+| **System** | App settings, API log, console log |
+| **Control** | Dynamic widget canvas for connected devices |
+| **Designer** | Visual UI designer with JSON/Code view |
+
+## Widget Types
+
+The app renders these widget types from Arduino configurations:
+
+- **Button** (push/toggle variants)
+- **Slide Switch** / **Rocker Switch**
+- **Slider** / **Gas Pedal**
+- **Knob** / **Steering Wheel**
+- **Joystick** (2-axis)
+- **LED** (RGB indicator)
+- **Text Display** (read-only)
+- **Serial Monitor**
+- **Multiple Button** / **Multiple Select**
+- **Telemetry** (display-only metrics)
+
+## See Also
+
+- [Features](/app/features) — Detailed feature list
+- [Arduino Library](/arduino/overview) — Hardware side documentation

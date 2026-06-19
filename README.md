@@ -32,7 +32,7 @@ RadioKit/
 │   ├── src/              # Relay, session, rate limiter
 │   └── Dockerfile
 │
-├── docs/                  # Docsify documentation site
+├── website/               # Astro/Starlight documentation site
 ├── llm-docs/              # AI agent reference docs
 ├── flatpak/               # Flatpak packaging
 └── .github/workflows/     # CI configuration
@@ -102,11 +102,11 @@ Scan for nearby devices and tap your board. The UI appears automatically.
 
 | Resource | Description |
 |----------|-------------|
-| [Arduino Setup](docs/arduino/setup.md) | Install and write your first sketch |
-| [Widgets Reference](docs/arduino/widgets.md) | Complete widget API |
-| [UI Layout](docs/arduino/ui_layout.md) | Coordinate system and sizing |
-| [Protocol Spec](docs/arduino/protocol.md) | Binary packet format |
-| [Flutter Widgets](docs/flutter-widgets/README.md) | Flutter widget library API |
+| [Arduino Setup](https://rambros3d.github.io/RadioKit/arduino/setup/) | Install and write your first sketch |
+| [Widgets Reference](https://rambros3d.github.io/RadioKit/arduino/widgets/) | Complete widget API |
+| [UI Layout](https://rambros3d.github.io/RadioKit/arduino/ui-layout/) | Coordinate system and sizing |
+| [Protocol Spec](https://rambros3d.github.io/RadioKit/arduino/protocol/) | Binary packet format |
+| [Flutter Widgets](https://rambros3d.github.io/RadioKit/widgets/overview/) | Flutter widget library API |
 | [Remote Access API](llm-docs/API.md) | HTTP API for test automation |
 | [Agent Test Manual](llm-docs/AGENT-TEST.md) | End-to-end testing guide |
 | [AI Agent Guidelines](AGENTS.md) | Conventions for AI coding agents |

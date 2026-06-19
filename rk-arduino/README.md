@@ -186,8 +186,8 @@ Set these in `setup()` before calling `RadioKit.begin()`:
 
 ## Documentation
 
-- **[Widgets Reference](../docs/arduino/widgets.md)** — Complete widget API
-- **[UI Layout](../docs/arduino/ui_layout.md)** — Coordinate system and sizing
-- **[Protocol Spec](../docs/arduino/protocol.md)** — Binary packet format (v3)
+- **[Widgets Reference](https://rambros3d.github.io/RadioKit/arduino/widgets/)** — Complete widget API
+- **[UI Layout](https://rambros3d.github.io/RadioKit/arduino/ui-layout/)** — Coordinate system and sizing
+- **[Protocol Spec](https://rambros3d.github.io/RadioKit/arduino/protocol/)** — Binary packet format (v3)
 - **[Remote Access API](../llm-docs/API.md)** — HTTP REST API for automated testing
 - **[Agent Test Manual](../llm-docs/AGENT-TEST.md)** — End-to-end testing guide

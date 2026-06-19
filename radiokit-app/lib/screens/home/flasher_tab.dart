@@ -398,23 +398,17 @@ class _PortTile extends StatelessWidget {
       dense: true,
       leading: Icon(Icons.usb_rounded,
           size: 18, color: context.tokens.primary),
-      title: Text(port.name,
-          style: GoogleFonts.martianMono(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
+      title: Text(port.description ?? port.name,
+          style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
               color: context.tokens.onSurface)),
-      subtitle: port.description != null
-          ? Text(port.description!,
-              style: TextStyle(
-                  fontSize: 10,
-                  color: context.tokens.onSurface
-                      .withValues(alpha: 0.54),
-                  overflow: TextOverflow.ellipsis))
-          : Text(port.id,
-              style: TextStyle(
-                  fontSize: 10,
-                  color: context.tokens.onSurface
-                      .withValues(alpha: 0.54))),
+      subtitle: Text(port.id,
+          style: TextStyle(
+              fontSize: 10,
+              color: context.tokens.onSurface
+                  .withValues(alpha: 0.54),
+              overflow: TextOverflow.ellipsis)),
       trailing: FilledButton(
         style: FilledButton.styleFrom(
           padding: const EdgeInsets.symmetric(

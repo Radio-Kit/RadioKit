@@ -723,7 +723,7 @@ class DeviceProvider extends ChangeNotifier {
       return;
     }
 
-    await Future.delayed(const Duration(milliseconds: 3500));
+    await Future.delayed(const Duration(milliseconds: 5000));
     if (_connectionState == DeviceConnectionState.disconnected) return;
 
     await _requestConfig();
@@ -1202,6 +1202,8 @@ class DeviceProvider extends ChangeNotifier {
 
   void _handlePacket(ParsedPacket packet) {
     _lastRxAt = DateTime.now(); // Activity detected
+    final hex = packet.payload.take(32).map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ');
+    debugPrint('RadioKit _handlePacket: cmd=0x${packet.cmd.toRadixString(16).padLeft(2, '0')} payloadLen=${packet.payload.length} hex=$hex');
     switch (packet.cmd) {
       case kCmdConfData:  _handleConfData(packet.payload);  break;
       case kCmdVarData:   _handleVarData(packet.payload);   break;
@@ -1800,11 +1802,12 @@ class DeviceProvider extends ChangeNotifier {
 
   void _handleConfData(List<int> payload) {
     _log('MCU <- CONF_DATA (${payload.length} bytes)');
+    debugPrint('RadioKit CONF_DATA raw hex: ${payload.take(64).map((b) => b.toRadixString(16).padLeft(2, "0")).join(" ")}${payload.length > 64 ? ' ...' : ''}');
     final conf = ProtocolService.parseConfData(payload);
     if (conf == null) {
       _log('PARSE FAILED: Invalid CONF_DATA payload.', level: ConsoleLogLevel.error);
       debugPrint('RadioKit: CONF_DATA parse failed — raw: '
-          '${payload.take(32).map((b) => b.toRadixString(16).padLeft(2, "0")).join(" ")}');
+          '${payload.take(64).map((b) => b.toRadixString(16).padLeft(2, "0")).join(" ")}');
       return;
     }
     _log('RECEIVED CONFIG: ${_connectedDevice?.name ?? conf.name} with ${conf.widgets.length} widgets', level: ConsoleLogLevel.success);

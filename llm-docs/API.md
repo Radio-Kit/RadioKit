@@ -4,6 +4,8 @@ The RadioKit Flutter app exposes a REST API on the local network for test automa
 
 > **Security**: This API is intended for LAN use only. There is no authentication or encryption. Do not expose the port to the public internet.
 
+> **Multi-Device Mode**: The app supports simultaneous connections to multiple RadioKit devices. When multiple devices are connected, device-specific endpoints (widgets, filesystem, transport, NVS, OTA) operate on the **active** device — the one currently focused in the app's UI. Use `GET /api/connection` to inspect which device is active. Only one device can be controlled at a time through the API.
+
 ---
 
 ## Base URL
@@ -171,6 +173,7 @@ Write new config values to the device's NVS. Only fields provided in the request
 | `description` | string | no | Device description (0–128 chars) |
 | `password` | string | no | Connection password (0–32 chars, empty to clear) |
 | `adminPassword` | string | no | Admin password (0–32 chars, empty to clear) |
+| `icon` | string | no | Device icon (max 32 chars, empty to clear) |
 
 **Response `200`:**
 
@@ -186,7 +189,7 @@ Write new config values to the device's NVS. Only fields provided in the request
 ```json
 {
   "error": "invalid_params",
-  "message": "At least one of: name, description, password, adminPassword"
+  "message": "At least one of: name, description, password, adminPassword, icon"
 }
 ```
 
@@ -226,6 +229,23 @@ Authenticate with the device password. The entered password is first tried as a 
 }
 ```
 
+### `POST /api/settings/nvs/reboot`
+
+Reboot the device without erasing NVS. The device's NVS keys (`rk_ble_on`, `rk_wifi_on`, etc.) are preserved.
+
+> **Guard**: Returns `503` if not connected to a device.
+
+**Request:** (no body)
+
+**Response `200`:**
+
+```json
+{
+  "ok": true,
+  "message": "Reboot sent — device will reboot (NVS preserved)"
+}
+```
+
 ### `POST /api/settings/nvs/factory-reset`
 
 Erase all NVS config (name, description, passwords) and reboot the device. Compile-time defaults will be restored after reboot. **This cannot be undone.**
@@ -261,6 +281,81 @@ Erase all NVS config (name, description, passwords) and reboot the device. Compi
   "message": "Set confirm: true to proceed with factory reset. This will erase all config and reboot the device."
 }
 ```
+
+### `GET /api/settings/nvs/raw/<key>`
+
+Read a raw NVS key from the device. Supports both uint8 and string keys.
+
+> **Guard**: Returns `503` if not connected to a device.
+
+**Response `200` (string key):**
+
+```json
+{
+  "ok": true,
+  "key": "device_name",
+  "value": "6X6 OFF ROAD CHASSIS"
+}
+```
+
+**Response `200` (uint8 key, not found):**
+
+```json
+{
+  "ok": true,
+  "key": "rk_ble_on",
+  "value": null
+}
+```
+
+### `POST /api/settings/nvs/raw/<key>`
+
+Write a raw uint8 value to an NVS key.
+
+> **Guard**: Returns `503` if not connected to a device.
+
+**Request:**
+
+```json
+{
+  "value": 1
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `value` | int | yes | Value 0–255 |
+
+**Response `200`:**
+
+```json
+{
+  "ok": true,
+  "key": "rk_ble_on",
+  "value": 1
+}
+```
+
+### `GET /api/settings/nvs/cloud-info`
+
+Read cloud relay URL and account from the device via the `GET_CLOUD_INFO` protocol command.
+
+> **Guard**: Returns `503` if not connected to a device.
+
+**Response `200`:**
+
+```json
+{
+  "ok": true,
+  "url": "wss://relay.radiokit.app:443",
+  "account": "4b6afa33fb4d3de07f9382ff9dbac48733d3aca7206218c82c982391210e1bed"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `url` | string? | Cloud relay WebSocket URL configured on the device |
+| `account` | string? | Ed25519 public key (account) configured on the device |
 
 ---
 
@@ -440,7 +535,8 @@ Current connection state and telemetry.
     "configName": "6X6 OFF ROAD CHASSIS",
     "description": "Unit 02",
     "hasFs": true,
-    "hasOta": true
+    "hasOta": true,
+    "deviceIcon": "truck"
   },
   "configJson": {
     "version": 1,
@@ -487,9 +583,11 @@ Connect to a device by its ID.
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `id` | string | yes | — | Device ID from `/api/pair/devices` |
-| `type` | string | yes | — | `"ble"` or `"serial"` |
-| `baudRate` | int | no | `1000000` | Serial baud rate (ignored for BLE) |
+| `id` | string | yes | — | Device ID from `/api/pair/devices`, or a WebSocket URL for WiFi |
+| `type` | string | yes | — | `"ble"`, `"serial"`, or `"wifi"` |
+| `baudRate` | int | no | `1000000` | Serial baud rate (ignored for BLE/WiFi) |
+
+> **WiFi connect**: For `type: "wifi"`, set `id` to a full WebSocket URL (e.g. `ws://192.168.1.42:81` or `wss://device.example.com:443`). |
 
 **Response `200`:**
 
@@ -573,6 +671,43 @@ Returns detailed BLE connection parameters. Fetches live data from the device (m
 | `latencyMs` | int? | Current ping latency |
 | `deviceRssi` | int? | RSSI reported by the device |
 
+### `POST /api/connection/switch`
+
+Switch the active transport for the connected device without disconnecting first (connect-first, then disconnect source on success).
+
+> **Guard**: Returns `503` if not connected to a device.
+
+**Request:**
+
+```json
+{
+  "transport": "wifi"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `transport` | string | yes | `"ble"`, `"wifi"`, or `"cloud"` |
+
+**Response `200`:**
+
+```json
+{
+  "ok": true,
+  "message": "Switched to wifi",
+  "transport": "wifi"
+}
+```
+
+**Response `500` (switch failed):**
+
+```json
+{
+  "error": "switch_failed",
+  "message": "Failed to switch to wifi — target transport unreachable"
+}
+```
+
 ### `POST /api/connection/disconnect`
 
 Disconnect from the currently connected device (or unload the demo).
@@ -626,7 +761,8 @@ List all paired devices from history.
       "name": "RadioKit RC Truck",
       "type": "ble",
       "configName": "6X6 OFF ROAD CHASSIS",
-      "description": "Unit 02"
+      "description": "Unit 02",
+      "deviceIcon": "truck"
     }
   ]
 }
@@ -1847,7 +1983,155 @@ Disconnect from the relay. Clears the cached device list and closes the WebSocke
 
 ---
 
-## 16. Error Reference
+## 16. Cloud Account Management
+
+Cloud accounts store Ed25519 identity (keypair) and relay connection info. The app generates a keypair on first launch and stores it in platform secure storage. Accounts allow multiple relay configurations to be saved and switched.
+
+### `GET /api/cloud/account`
+
+Returns the current Ed25519 identity info. The account public key is what users set on their ESP32 devices' `cloud_account` config.
+
+**Response `200`:**
+
+```json
+{
+  "hasIdentity": true,
+  "account": "4b6afa33fb4d3de07f9382ff9dbac48733d3aca7206218c82c982391210e1bed"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `hasIdentity` | bool | Whether an Ed25519 keypair has been generated |
+| `account` | string? | Public key hex (null if no identity exists) |
+
+### `POST /api/cloud/account`
+
+Generate a new Ed25519 identity. This resets the account — after calling this, update the `cloud_account` config on your ESP32 device to match the new public key.
+
+**Response `200`:**
+
+```json
+{
+  "ok": true,
+  "account": "7c9ebd...",
+  "message": "New Ed25519 identity generated. Set cloud_account on your ESP32 to the public key above."
+}
+```
+
+### `GET /api/cloud/accounts`
+
+List all stored cloud accounts.
+
+**Response `200`:**
+
+```json
+{
+  "accounts": [
+    {
+      "id": "m1abc",
+      "name": "Local Relay",
+      "publicKey": "4b6afa33fb4d3de07f9382ff9dbac48733d3aca7206218c82c982391210e1bed",
+      "relay": "ws://10.0.0.17:9000"
+    }
+  ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Account ID (unique) |
+| `name` | string | Account display name |
+| `publicKey` | string | Ed25519 public key hex |
+| `relay` | string | Relay WebSocket URL |
+
+### `POST /api/cloud/accounts`
+
+Create a new cloud account with a name and relay URL. Uses the existing Ed25519 keypair from `CloudIdentityService`.
+
+**Request:**
+
+```json
+{
+  "name": "Local Relay",
+  "relay": "ws://10.0.0.17:9000"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | yes | Account display name |
+| `relay` | string | no | Relay WebSocket URL (default: empty) |
+
+**Response `200`:**
+
+```json
+{
+  "ok": true,
+  "account": {
+    "id": "m1abc",
+    "name": "Local Relay",
+    "publicKey": "4b6afa33fb4d3de07f9382ff9dbac48733d3aca7206218c82c982391210e1bed",
+    "relay": "ws://10.0.0.17:9000"
+  }
+}
+```
+
+### `PUT /api/cloud/accounts/{id}`
+
+Update an account's name or relay URL.
+
+**Request:**
+
+```json
+{
+  "name": "Office Relay",
+  "relay": "wss://relay.example.com:443"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | no | New display name |
+| `relay` | string | no | New relay URL |
+
+**Response `200`:**
+
+```json
+{"ok": true}
+```
+
+**Response `404`:**
+
+```json
+{
+  "error": "not_found",
+  "message": "Account m1abc not found"
+}
+```
+
+### `DELETE /api/cloud/accounts/{id}`
+
+Delete a cloud account.
+
+**Response `200`:**
+
+```json
+{"ok": true, "message": "Account deleted"}
+```
+
+**Response `404`:**
+
+```json
+{
+  "error": "not_found",
+  "message": "Account m1abc not found"
+}
+```
+
+---
+
+## 17. Error Reference
 
 | `error` | Meaning |
 |---------|---------|
@@ -1876,6 +2160,10 @@ Disconnect from the relay. Clears the cached device list and closes the WebSocke
 | `invalid_password` | Password exceeds max length |
 | `invalid_admin_password` | Admin password exceeds max length |
 | `cloud_error` | Cloud relay operation failed (check `message` for details) |
+| `no_identity` | No Ed25519 identity found (generate one first) |
+| `invalid_transport` | Transport must be 'ble', 'wifi', or 'cloud' |
+| `switch_failed` | Transport switch failed — target unreachable |
+| `switch_error` | Transport switch threw an exception |
 | `not_connected` (flasher) | Not connected to a serial port |
 | `no_firmware` | No firmware selected for flashing |
 | `already_flashing` | A flashing operation is already in progress |

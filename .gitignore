@@ -12,6 +12,7 @@
 .codex/
 .claude/
 references/
+.worktree/
 ref/
 tmp/
 *.iml

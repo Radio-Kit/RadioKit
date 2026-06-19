@@ -1,6 +1,0 @@
-- [Home](../README.md)
-- **Arduino Library**
-  - [Getting Started](arduino/setup.md)
-  - [Widgets Reference](arduino/widgets.md)
-  - [UI Layout](arduino/ui_layout.md)
-  - [Protocol Spec](arduino/protocol.md)

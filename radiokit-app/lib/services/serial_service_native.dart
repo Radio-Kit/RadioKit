@@ -5,9 +5,13 @@
 /// runtime check via [defaultTargetPlatform] and forwards every call to the
 /// correct concrete implementation.
 ///
-/// [FlserialSerialService] (flserial native FFI) is used on all platforms
-/// except iOS (no USB serial access). Port IDs use the `usb:/dev/bus/usb/...`
-/// format — identical to the flasher, making auto-handoff a trivial ID match.
+/// On **Android**: uses [RawUsbSerialService] (custom Kotlin plugin with
+/// STALL recovery for ESP32-S3 USB Serial/JTAG compatibility).
+///
+/// On **Linux/macOS/Windows**: uses [FlserialSerialService] (native FFI
+/// via termios/Win32).
+///
+/// On **iOS**: USB serial is not supported.
 library;
 
 import 'dart:async';
@@ -16,19 +20,31 @@ import '../models/device_info.dart';
 import 'transport_service.dart';
 export 'transport_service.dart';
 
-// flserial (native FFI via termios/Win32) — single backend for all platforms
+// flserial (native FFI via termios/Win32) — desktop platforms
 import 'serial_service_flserial.dart' as fls;
+
+// flutter_serial_communication (usb-serial-for-android) — Android
+import 'serial_service_fsc.dart' as fsc;
+
+// Raw USB (custom Kotlin plugin) — Android bypass for STALL issues
+import 'serial_service_raw_usb.dart' as raw;
 
 /// The platform-dispatched [SerialService] that providers interact with.
 ///
-/// Uses [fls.FlserialSerialService] on all platforms except iOS (no USB serial
-/// access). Port IDs are always `usb:/dev/bus/usb/...` — matching the flasher.
+/// Uses [raw.RawUsbSerialService] on Android (custom Kotlin plugin with
+/// STALL recovery for ESP32-S3 USB Serial/JTAG compatibility).
+/// Uses [fls.FlserialSerialService] on Linux/macOS/Windows (native FFI).
+/// Returns [_UnsupportedSerialService] on iOS.
+///
+/// Port IDs are always `usb:/dev/bus/usb/...` — matching the flasher.
 class SerialService implements TransportService {
   late final TransportService _impl;
 
   SerialService() {
     if (defaultTargetPlatform == TargetPlatform.iOS) {
       _impl = _UnsupportedSerialService();
+    } else if (defaultTargetPlatform == TargetPlatform.android) {
+      _impl = raw.RawUsbSerialService();
     } else {
       _impl = fls.FlserialSerialService();
     }
@@ -79,6 +95,8 @@ class SerialService implements TransportService {
   /// List available serial ports. Returns an empty stream on unsupported platforms.
   Stream<DeviceInfo> listPorts() {
     final impl = _impl;
+    if (impl is raw.RawUsbSerialService) return impl.listPorts();
+    if (impl is fsc.FlutterSerialCommunicationService) return impl.listPorts();
     if (impl is fls.FlserialSerialService) return impl.listPorts();
     return const Stream.empty();
   }

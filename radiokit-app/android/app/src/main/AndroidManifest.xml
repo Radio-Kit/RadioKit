@@ -24,6 +24,11 @@
         android:name="android.hardware.bluetooth_le"
         android:required="true" />
 
+    <!-- USB Host for serial communication (ESP32, flasher, etc.) -->
+    <uses-feature
+        android:name="android.hardware.usb.host"
+        android:required="false" />
+
     <application
         android:label="RadioKit"
         android:name="${applicationName}"

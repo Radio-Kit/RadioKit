@@ -1,0 +1,132 @@
+---
+title: Transports
+description: Configure BLE, Serial, WiFi, and Cloud transports
+---
+
+RadioKit supports multiple transport layers that can run simultaneously. The library broadcasts widget state changes across all active transports automatically.
+
+## BLE Transport
+
+Bluetooth Low Energy via NimBLE-Arduino (ESP32).
+
+```cpp
+RadioKit.startBLE("MyDevice");
+```
+
+**Configuration:**
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Service UUID | `0000FFE0-0000-1000-8000-00805F9B34FB` | BLE service identifier |
+| Characteristic UUID | `0000FFE1-0000-1000-8000-00805F9B34FB` | BLE characteristic identifier |
+| MTU | Auto-negotiated | Maximum transmission unit |
+
+**Requirements:**
+
+- NimBLE-Arduino library (^2.1.0)
+- ESP32 or nRF52 board
+
+## Serial Transport
+
+USB/UART serial communication.
+
+```cpp
+RadioKit.startSerial(Serial);
+```
+
+**Configuration:**
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Baud Rate | 1000000 | Recommended for best performance |
+| Data Bits | 8 | Standard serial configuration |
+| Stop Bits | 1 | Standard serial configuration |
+| Parity | None | Standard serial configuration |
+
+**Supported Interfaces:**
+
+- USB CDC (native USB)
+- FTDI FT232R
+- CP2102/CP2104
+- CH340/CH341
+- Hardware UART
+
+## WiFi Transport
+
+WebSocket server on port 5555.
+
+```cpp
+RadioKit.startWiFi();
+```
+
+**Configuration:**
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Port | 5555 | WebSocket server port |
+| Mode | STA | Station mode (connect to existing network) |
+| SSID | Configured via `config.sta_ssid` | WiFi network name |
+| Password | Configured via `config.sta_password` | WiFi network password |
+
+**Build Flag Required:**
+
+```ini
+build_flags = -D RADIOKIT_ENABLE_WIFI
+```
+
+## Cloud Transport
+
+WebSocket client connecting to a relay server.
+
+```cpp
+RadioKit.config.cloud_url = "wss://relay.example.com:443";
+RadioKit.config.cloud_account = "<public-key-hex>";
+RadioKit.startCloud();
+```
+
+**Configuration:**
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| cloud_url | "" | Relay server WebSocket URL |
+| cloud_account | "" | Ed25519 public key hex for authentication |
+
+**Build Flag Required:**
+
+```ini
+build_flags = -D RADIOKIT_ENABLE_WIFI
+```
+
+## Multiple Transports
+
+You can activate multiple transports simultaneously:
+
+```cpp
+void setup() {
+  RadioKit.begin();
+  RadioKit.startBLE("MyDevice");
+  RadioKit.startSerial(Serial);
+  RadioKit.startWiFi();
+  RadioKit.startCloud();
+}
+```
+
+The library will automatically broadcast widget state changes to all active transports.
+
+## Transport Status
+
+Check transport status in your loop:
+
+```cpp
+void loop() {
+  RadioKit.update();
+  
+  if (RadioKit.isConnected()) {
+    // At least one transport is connected
+  }
+  
+  if (RadioKit.getRssi() != 0) {
+    // BLE signal strength available
+  }
+}
+```

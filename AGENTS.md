@@ -9,7 +9,7 @@
 - **Rule**: Documentation MUST reflect the **current** state of the library only.
 - **Rule**: Do not use "transitionary" boxes or alerts (e.g., "Now updated to...") in the reference files. We don't need backward compatibility.
 - **Rule**: Avoid "meta-talk" or conversational comments in examples and documentation. Keep comments concise and focused on the code's function.
-- **Action**: If you add/remove/update a function, update its corresponding `.md` file in the `docs/` folder. If you change a parameter type, update the signature in the documentation.
+- **Action**: If you add/remove/update a function, update its corresponding `.mdx` file in the `website/src/content/docs/` folder. If you change a parameter type, update the signature in the documentation.
 - **Goal**: Ensure that the library remains "Plug-and-Play" for human users at all times.
 
 ## 2. Using DeepWiki MCP and Github MCP for Research
@@ -611,7 +611,7 @@ The `_AdminAccessButton` (shown in the info bottom sheet when user mode is activ
 - **Rule**: Do not use emoji characters (e.g. ✅, ❌, 🚀, 🔄, ⏳) in any documentation files.
 - **Rationale**: Emojis render inconsistently across terminals, editors, and CI output. Use plain-text markers instead (e.g., `[X]` for complete, `[~]` for in progress, `[ ]` for pending, `[-]` for blocked/failed).
 - **Action**: If you find emoji characters in a doc file, replace them with the corresponding plain-text marker.
-- **Note**: This rule applies to ALL markdown files in the project, including `docs/`, `llm-docs/`, `llm-docs/plans/`, and any other documentation.
+- **Note**: This rule applies to ALL markdown files in the project, including `website/src/content/docs/`, `llm-docs/`, `llm-docs/plans/`, and any other documentation.
 
 ## 20. Cloud Relay Ed25519 Auth
 
@@ -687,8 +687,14 @@ class CloudIdentityService {
 | GET | `/api/cloud/devices` | Cached connection state + device list |
 | POST | `/api/cloud/join` | Join a device through the relay |
 | POST | `/api/cloud/disconnect` | Disconnect from relay |
+| GET | `/api/cloud/account` | Get current Ed25519 identity (public key) |
+| POST | `/api/cloud/account` | Generate new Ed25519 identity (resets account) |
+| GET | `/api/cloud/accounts` | List all stored cloud accounts |
+| POST | `/api/cloud/accounts` | Create a named account with relay URL |
+| PUT | `/api/cloud/accounts/<id>` | Update account name or relay URL |
+| DELETE | `/api/cloud/accounts/<id>` | Delete a cloud account |
 
-See `llm-docs/API.md` for full request/response schemas.
+See `llm-docs/API.md` section 15 (Cloud Relay) and section 16 (Cloud Account Management) for full request/response schemas.
 
 ### 20.6 ESP32 firmware setup
 

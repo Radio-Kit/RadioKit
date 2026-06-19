@@ -1,0 +1,82 @@
+---
+title: Quick Start
+description: Build your first RadioKit project in 5 minutes
+---
+
+## Your First RadioKit Project
+
+This guide will help you create a simple RadioKit project with a button, slider, and LED.
+
+### Step 1: Create a New Sketch
+
+Create a new Arduino sketch and include the RadioKit library:
+
+```cpp
+#include <RadioKitLib.h>
+```
+
+### Step 2: Declare Widgets
+
+Declare your widgets globally. They self-register on construction:
+
+```cpp
+RK_PushButton fire({.x=20, .y=50, .height=15, .icon="flame", .label="Fire"});
+RK_ToggleButton power({.x=20, .y=80, .height=15, .icon="power", .label="Power"});
+RK_Slider throttle({.x=100, .y=60, .height=12, .width=80, .label="Throttle"});
+RK_LED status({.x=20, .y=20, .height=15, .label="Status"});
+```
+
+### Step 3: Configure and Start
+
+In `setup()`, configure your device and start a transport:
+
+```cpp
+void setup() {
+  Serial.begin(115200);
+  
+  RadioKit.config.name = "MyRobot";
+  RadioKit.config.description = "Robot Controller v2.0";
+  RadioKit.config.theme = RK_DEFAULT;
+  
+  RadioKit.begin();
+  RadioKit.startBLE("MyRobot");  // or startSerial(Serial)
+}
+```
+
+### Step 4: Main Loop
+
+In `loop()`, call `update()` and read widget values:
+
+```cpp
+void loop() {
+  RadioKit.update();
+  
+  // Read inputs
+  if (fire.rk.state) {
+    triggerFire();
+  }
+  
+  if (power.rk.state) {
+    enableSystems();
+  }
+  
+  int8_t speed = throttle.rk.value;  // -100 to +100
+  
+  // Update outputs
+  status.rk.color = power.rk.state ? 0x00FF00 : 0xFF0000;
+}
+```
+
+### Step 5: Upload and Connect
+
+1. Upload the sketch to your ESP32
+2. Open the RadioKit Flutter app
+3. Scan for BLE devices
+4. Connect to "MyRobot"
+5. Your UI will appear automatically!
+
+## What's Next?
+
+- [Widgets Reference](/arduino/widgets) — Learn about all available widgets
+- [Transports](/arduino/transports) — Explore BLE, Serial, WiFi, and Cloud
+- [UI Layout](/arduino/ui-layout) — Position and style your widgets

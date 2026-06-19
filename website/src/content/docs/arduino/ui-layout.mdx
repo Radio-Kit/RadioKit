@@ -1,0 +1,212 @@
+---
+title: UI Layout
+description: Coordinate system and widget positioning
+---
+
+RadioKit uses a virtual coordinate system which is independent of the actual screen size of the device. The default canvas size is 200x100 (landscape) or 100x200 (portrait).
+
+---
+
+## 1. Coordinate System
+
+```
+ (0,100) ┌──────────────────────────┐ (200,100)
+         │                          │
+         │  Coord system (0-200)    │
+         │                          │
+   (0,0) └──────────────────────────┘ (200,0)
+```
+
+- **Origin**: `(0,0)` is the **bottom-left** corner.
+- **Anchor**: `x`, `y` coordinates refer to the **center** of the widget.
+- **Canvas Range**: `0`-`200` on both axes. Values outside this range are clamped.
+- **Rotation**: `0`-`360` degrees. Positive is **clockwise**.
+
+---
+
+## 2. Layout Model
+
+RadioKit uses an explicit **Height & Width** model. Each widget defines its physical dimensions in the virtual 200x200 canvas.
+
+### Size Calculation
+
+```
+finalHeight = height
+finalWidth  = (width != 0) ? width : (height x defaultAspect)
+```
+
+- **`height`** — Primary size control (vertical span, 0-200). Default is `10`.
+- **`width`** — Horizontal span (0-200).
+  - If `0` (default), the widget uses its internal **Default Aspect Ratio**.
+  - If non-zero, it overrides the aspect ratio.
+  - **Fixed Aspect Widgets**: Some widgets (Buttons, Knobs, Joysticks) enforce a fixed aspect ratio (e.g. 1.0). For these, the `width` parameter is ignored.
+
+### Example
+
+```cpp
+RK_Slider slider({
+    .x = 100, .y = 50,
+    .height = 15,    // 15 units tall
+    .width  = 120,   // 120 units wide (override)
+    .rotation = 0,
+    .label = "Throttle"
+});
+```
+
+Result: A wide, tall slider.
+
+---
+
+## 3. Widget Positioning
+
+All widgets share these common parameters in their `Props` struct:
+
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `x`, `y` | `uint8` | Center position (0-200) | 100, 100 |
+| `height` | `uint8` | Physical height (0-200) | 10 |
+| `width` | `uint8` | Physical width (0-200) | 0 (Auto) |
+| `rotation` | `int16` | Rotation in degrees (clockwise) | 0 |
+| `label` | `const char*` | Text label above widget | `nullptr` |
+| `icon` | `const char*` | Icon name from skin | `nullptr` |
+
+### Coordinate Examples
+
+```cpp
+// Top-left corner
+RK_Button btn1({ .x = 20, .y = 180, .height = 10, .width = 0, .rotation = 0, .label = "TL" });
+
+// Center
+RK_Button btn2({ .x = 100, .y = 100, .height = 10, .width = 0, .rotation = 0, .label = "Center" });
+
+// Bottom-right
+RK_Button btn3({ .x = 180, .y = 20, .height = 10, .width = 0, .rotation = 0, .label = "BR" });
+```
+
+---
+
+## 4. Orientation & Canvas Size
+
+Layout settings are managed through `RadioKit.config` in `setup()`.
+
+### Configuration
+
+```cpp
+void setup() {
+  RadioKit.config.name = "MyRobot";
+  RadioKit.config.description = "Robot Controller";
+  RadioKit.config.theme = RK_DEFAULT;
+  RadioKit.config.orientation = RK_LANDSCAPE;  // or RK_PORTRAIT
+  RadioKit.config.width = 200;   // 0 = auto (default)
+  RadioKit.config.height = 200;  // 0 = auto (default)
+
+  RadioKit.begin();
+  RadioKit.startBLE("MyRobot");
+}
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `orientation` | `RK_LANDSCAPE` | `RK_LANDSCAPE` or `RK_PORTRAIT` (affects default aspect) |
+| `width` | `0` (auto) | Canvas width in virtual units (0-200) |
+| `height` | `0` (auto) | Canvas height in virtual units (0-200) |
+
+**Note:** Setting `width` and `height` to `0` enables auto-sizing based on widget positions.
+
+---
+
+## 5. Visual Styling
+
+### Themes
+
+Set via `RadioKit.config.theme`:
+
+| Theme | Description |
+|-------|-------------|
+| `RK_DEFAULT` | Light blue, modern (default) |
+| `RK_DARK` | Dark mode |
+| `RK_RETRO` | CRT green phosphor |
+| `RK_NEON` | Cyberpunk neon |
+| `RK_MINIMAL` | Flat, minimal |
+| `"custom-url"` | Custom skin from GitHub |
+
+---
+
+## 6. Icons
+
+Icons are referenced by string name. Standard names ensure cross-theme compatibility:
+
+| Category | Icons |
+|----------|-------|
+| **Power** | `"power"`, `"power-off"`, `"battery"` |
+| **Connectivity** | `"wifi"`, `"bluetooth"`, `"usb"`, `"antenna"` |
+| **Actions** | `"play"`, `"pause"`, `"stop"`, `"record"` |
+| **Sensors** | `"temperature"`, `"pressure"`, `"gyro"` |
+| **Navigation** | `"arrow-up"`, `"arrow-down"`, `"home"` |
+| **Generic** | `"settings"`, `"menu"`, `"info"`, `"warning"` |
+
+**Example:**
+
+```cpp
+RK_Button btn({
+    .x = 50, .y = 50,
+    .height = 15,
+    .width = 0,
+    .rotation = 0,
+    .icon = "wifi",
+    .label = "WiFi"
+});
+```
+
+---
+
+## 7. Runtime Mutators
+
+Widgets can be modified at runtime via their `props` interface:
+
+```cpp
+void loop() {
+  RadioKit.update();
+
+  // Change label dynamically
+  status.props.label = "ALERT!";
+  RadioKit.pushMetaUpdate(status.widgetId);
+
+  // Change position
+  slider.props.x = newX;
+  slider.props.y = newY;
+
+  // Update value
+  slider.props.value = 50;
+  RadioKit.pushUpdate(slider.widgetId);
+}
+```
+
+### Available Mutators
+
+| Method | Description |
+|--------|-------------|
+| `widget.props.label` | Update label text |
+| `widget.props.icon` | Update icon name |
+| `widget.props.x/y` | Update position |
+| `widget.props.height` | Update physical height |
+| `widget.props.width` | Update physical width |
+| `widget.props.rotation` | Update rotation |
+| `widget.props.value` | Update current value |
+
+---
+
+## 8. Best Practices
+
+1. **Use consistent spacing** — Maintain 10-20 unit gaps between widgets.
+2. **Group related controls** — Place related widgets near each other.
+3. **Respect safe zones** — Keep critical controls away from edges (10-20 unit margin).
+4. **Use appropriate height** — Buttons: 15-20, Sliders: 10-12.
+5. **Leverage width override** — Make sliders wide (e.g. `width=80`), knobs square (`width=0`).
+6. **Test on different screens** — Virtual coordinates ensure consistency.
+
+## See Also
+
+- [Widgets Reference](/arduino/widgets) — Complete widget API
+- [Protocol Specification](/arduino/protocol) — Binary packet format
+- [Getting Started](/arduino/setup) — Installation and first sketch
