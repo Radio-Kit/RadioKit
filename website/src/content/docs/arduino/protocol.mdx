@@ -5,7 +5,7 @@ description: Binary packet format for RadioKit communication
 
 RadioKit uses a compact binary protocol which is transport-agnostic (works for BLE, Serial, WiFi, and Cloud). The protocol is designed for low-latency, reliable control with minimal overhead.
 
-RadioKit runs **four parallel protocols** on the same physical transport, demuxed by start byte:
+RadioKit runs **five parallel protocols** on the same physical transport, demuxed by start byte:
 
 | Start Byte | Protocol | Purpose |
 |------------|----------|---------|
@@ -344,6 +344,17 @@ Over-the-air firmware updates using ESP32's `Update` library.
 | `0x81` | `OTA_ACK` | `[STATUS(1)]` | Operation result |
 | `0x82` | `OTA_PROGRESS` | `[RECEIVED(4 LE)][TOTAL(4 LE)]` | Progress notification |
 
+### OTA Error Codes
+
+| Value | Name | Description |
+|-------|------|-------------|
+| `0x00` | `OK` | Success |
+| `0x01` | `NO_SPACE` | Not enough flash space for firmware |
+| `0x02` | `FLASH` | Flash write error |
+| `0x03` | `SEQ` | Offset mismatch (chunk out of order) |
+| `0x04` | `INVALID_STATE` | OTA not started or already finished |
+| `0x05` | `NOT_SUPPORTED` | OTA not available on this platform |
+
 ### OTA Erase Modes
 
 | Value | Description |
@@ -352,6 +363,8 @@ Over-the-air firmware updates using ESP32's `Update` library.
 | `0x01` | Erase NVS only |
 | `0x02` | Erase FS only |
 | `0x03` | Erase both NVS and FS |
+
+The erase flag is written to NVS (which survives OTA updates since it's a separate flash partition). On the next boot, `begin()` reads the flag and performs the requested erase before continuing.
 
 ---
 

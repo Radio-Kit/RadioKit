@@ -20,11 +20,16 @@ RadioKit.startBLE("MyDevice");
 | Service UUID | `0000FFE0-0000-1000-8000-00805F9B34FB` | BLE service identifier |
 | Characteristic UUID | `0000FFE1-0000-1000-8000-00805F9B34FB` | BLE characteristic identifier |
 | MTU | Auto-negotiated | Maximum transmission unit |
+| Advertising name | `RK_<device_name>` | Auto-prefixed with `RK_` for app filtering |
 
 **Requirements:**
 
-- NimBLE-Arduino library (^2.1.0)
-- ESP32 or nRF52 board
+- NimBLE-Arduino library (^1.4.1)
+- ESP32 board (ESP32, ESP32-S3, ESP32-C3)
+
+**NVS Control:**
+
+BLE can be enabled/disabled via NVS. On first boot, BLE is enabled by default (`rk_ble_on=1`). The app can toggle this via the Settings protocol.
 
 ## Serial Transport
 
@@ -51,9 +56,11 @@ RadioKit.startSerial(Serial);
 - CH340/CH341
 - Hardware UART
 
+**Auth Bypass:** Physical serial access implies full device-level authentication. No password prompt is required.
+
 ## WiFi Transport
 
-WebSocket server on port 5555.
+WebSocket server on port 5555. Supports both AP and STA modes.
 
 ```cpp
 RadioKit.startWiFi();
@@ -64,9 +71,9 @@ RadioKit.startWiFi();
 | Setting | Default | Description |
 |---------|---------|-------------|
 | Port | 5555 | WebSocket server port |
-| Mode | STA | Station mode (connect to existing network) |
-| SSID | Configured via `config.sta_ssid` | WiFi network name |
-| Password | Configured via `config.sta_password` | WiFi network password |
+| AP SSID | `RK_<device_name>` | Open network (no password) |
+| STA SSID | Configured via `config.sta_ssid` or NVS | WiFi network name |
+| STA Password | Configured via `config.sta_password` or NVS | WiFi network password |
 
 **Build Flag Required:**
 
@@ -74,14 +81,27 @@ RadioKit.startWiFi();
 build_flags = -D RADIOKIT_ENABLE_WIFI
 ```
 
+**AP vs STA Mode:**
+
+- If `sta_ssid` is empty (default), the device starts in **AP mode** — creates an open WiFi network named `RK_<device_name>` that the phone connects to directly.
+- If `sta_ssid` is configured (via `config.sta_ssid` or NVS), the device starts in **STA mode** — connects to the configured WiFi network. The phone must be on the same network.
+
+**NVS Persistence:**
+
+WiFi credentials are stored in NVS and survive power cycles. The app can update them via the `SET_WIFI` settings command (which triggers an automatic reboot to apply).
+
+**NVS Control:**
+
+WiFi can be enabled/disabled via NVS (`rk_wifi_on`). On first boot, WiFi is enabled by default.
+
 ## Cloud Transport
 
-WebSocket client connecting to a relay server.
+WebSocket client connecting to a relay server. Requires WiFi to be active first.
 
 ```cpp
 RadioKit.config.cloud_url = "wss://relay.example.com:443";
 RadioKit.config.cloud_account = "<public-key-hex>";
-RadioKit.startCloud();
+RadioKit.startCloud();  // Must call startWiFi() first
 ```
 
 **Configuration:**
@@ -97,6 +117,18 @@ RadioKit.startCloud();
 build_flags = -D RADIOKIT_ENABLE_WIFI
 ```
 
+**Authentication:**
+
+Cloud relay uses Ed25519 challenge-response authentication. The `cloud_account` is the hex-encoded Ed25519 public key. The device signs a nonce from the relay server to prove identity.
+
+**NVS Persistence:**
+
+Cloud URL and account are stored in NVS. The app can update them via the `SET_CLOUD_INFO` settings command.
+
+**NVS Control:**
+
+Cloud can be enabled/disabled via NVS (`rk_cloud_on`). On first boot, Cloud is disabled by default. Cloud requires WiFi to be active — if WiFi is disabled, Cloud is suppressed even if `rk_cloud_on=1`.
+
 ## Multiple Transports
 
 You can activate multiple transports simultaneously:
@@ -107,7 +139,7 @@ void setup() {
   RadioKit.startBLE("MyDevice");
   RadioKit.startSerial(Serial);
   RadioKit.startWiFi();
-  RadioKit.startCloud();
+  RadioKit.startCloud();  // Requires startWiFi() first
 }
 ```
 
@@ -130,3 +162,15 @@ void loop() {
   }
 }
 ```
+
+## Transport Enable/Disable via NVS
+
+On first boot, the library writes default enable flags to NVS:
+
+| NVS Key | Default | Description |
+|---------|---------|-------------|
+| `rk_ble_on` | `1` | BLE transport enabled |
+| `rk_wifi_on` | `1` | WiFi transport enabled |
+| `rk_cloud_on` | `0` | Cloud transport disabled |
+
+The app can toggle these via the Settings protocol. Changes take effect on the next `startBLE()` / `startWiFi()` / `startCloud()` call (after reboot).

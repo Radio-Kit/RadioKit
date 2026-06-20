@@ -117,11 +117,25 @@ void main() {
       );
     });
 
-    test('settings and debug paths map correctly', () {
+    test('app settings return null, device NVS maps to /system', () {
+      // /api/settings (app-level) excluded: toggling followRemoteAccess via
+      // API would navigate away from /control, disconnecting active BLE.
       expect(
         RemoteAccessService.testOnlyFollowRoute('/api/settings'),
+        isNull,
+      );
+      // Device-level NVS operations should still navigate to /system.
+      expect(
+        RemoteAccessService.testOnlyFollowRoute('/api/settings/nvs'),
         '/system',
       );
+      expect(
+        RemoteAccessService.testOnlyFollowRoute('/api/settings/nvs/authenticate'),
+        '/system',
+      );
+    });
+
+    test('console and log paths map to /system', () {
       expect(
         RemoteAccessService.testOnlyFollowRoute('/api/console'),
         '/system',

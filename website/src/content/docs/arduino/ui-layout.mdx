@@ -10,11 +10,11 @@ RadioKit uses a virtual coordinate system which is independent of the actual scr
 ## 1. Coordinate System
 
 ```
- (0,100) ┌──────────────────────────┐ (200,100)
-         │                          │
-         │  Coord system (0-200)    │
-         │                          │
-   (0,0) └──────────────────────────┘ (200,0)
+ (0,100) +--------------------------+ (200,100)
+         |                          |
+         |  Coord system (0-200)    |
+         |                          |
+   (0,0) +--------------------------+ (200,0)
 ```
 
 - **Origin**: `(0,0)` is the **bottom-left** corner.
@@ -40,6 +40,20 @@ finalWidth  = (width != 0) ? width : (height x defaultAspect)
   - If `0` (default), the widget uses its internal **Default Aspect Ratio**.
   - If non-zero, it overrides the aspect ratio.
   - **Fixed Aspect Widgets**: Some widgets (Buttons, Knobs, Joysticks) enforce a fixed aspect ratio (e.g. 1.0). For these, the `width` parameter is ignored.
+
+### Default Aspect Ratios
+
+| Widget | Aspect Ratio | Notes |
+|--------|-------------|-------|
+| PushButton / ToggleButton | 1.0 | Square |
+| SlideSwitch | 2.5 | Wider than tall |
+| Slider | 5.0 | Wide horizontal |
+| GasPedal | 5.0 | Same as Slider |
+| Knob / SteeringWheel | 1.0 | Square |
+| Joystick | 1.0 | Square |
+| LED | 1.0 | Square |
+| Text | 4.0 | Wide text area |
+| MultipleButton / Select | 1.0 | Square |
 
 ### Example
 
@@ -128,6 +142,9 @@ Set via `RadioKit.config.theme`:
 | `RK_RETRO` | CRT green phosphor |
 | `RK_NEON` | Cyberpunk neon |
 | `RK_MINIMAL` | Flat, minimal |
+| `RK_FUTURISTIC` | Futuristic |
+| `RK_MILITARY` | Military style |
+| `RK_CYBERPUNK` | Cyberpunk aesthetic |
 | `"custom-url"` | Custom skin from GitHub |
 
 ---
@@ -162,22 +179,22 @@ RK_Button btn({
 
 ## 7. Runtime Mutators
 
-Widgets can be modified at runtime via their `props` interface:
+Widgets can be modified at runtime via their `rk` interface:
 
 ```cpp
 void loop() {
   RadioKit.update();
 
   // Change label dynamically
-  status.props.label = "ALERT!";
+  status.rk.label = "ALERT!";
   RadioKit.pushMetaUpdate(status.widgetId);
 
   // Change position
-  slider.props.x = newX;
-  slider.props.y = newY;
+  slider.rk.x = newX;
+  slider.rk.y = newY;
 
   // Update value
-  slider.props.value = 50;
+  slider.rk.value = 50;
   RadioKit.pushUpdate(slider.widgetId);
 }
 ```
@@ -186,13 +203,13 @@ void loop() {
 
 | Method | Description |
 |--------|-------------|
-| `widget.props.label` | Update label text |
-| `widget.props.icon` | Update icon name |
-| `widget.props.x/y` | Update position |
-| `widget.props.height` | Update physical height |
-| `widget.props.width` | Update physical width |
-| `widget.props.rotation` | Update rotation |
-| `widget.props.value` | Update current value |
+| `widget.rk.label` | Update label text |
+| `widget.rk.icon` | Update icon name |
+| `widget.rk.x/y` | Update position |
+| `widget.rk.height` | Update physical height |
+| `widget.rk.width` | Update physical width |
+| `widget.rk.rotation` | Update rotation |
+| `widget.rk.value` | Update current value (input widgets) |
 
 ---
 
@@ -204,6 +221,7 @@ void loop() {
 4. **Use appropriate height** — Buttons: 15-20, Sliders: 10-12.
 5. **Leverage width override** — Make sliders wide (e.g. `width=80`), knobs square (`width=0`).
 6. **Test on different screens** — Virtual coordinates ensure consistency.
+7. **Max 16 widgets** — Plan your layout to fit within `RADIOKIT_MAX_WIDGETS`.
 
 ## See Also
 

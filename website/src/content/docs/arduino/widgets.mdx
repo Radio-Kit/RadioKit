@@ -167,10 +167,10 @@ struct RK_SlideSwitchFields {
     uint8_t     height, width;
     int16_t     rotation;
     const char* icon, *onText, *offText, *label;
+    uint8_t     variant;       ///< 0=Slide Switch, 1=Rocker Switch
     bool        labelHidden;
     bool        active;
     bool        state;
-    uint8_t     variant;       ///< 0=Slide Switch, 1=Rocker Switch
 };
 ```
 
@@ -212,7 +212,6 @@ struct RK_SliderFields {
     uint8_t     height, width;
     int16_t     rotation;
     const char* label;
-    bool        labelHidden;
     bool        active;
     int8_t      value;         ///< -100 to +100
     uint8_t     centering;     ///< Spring mode
@@ -250,7 +249,7 @@ void loop() {
 
 ---
 
-## Knob & SteeringWheel
+## Knob & Steering Wheel
 
 Rotary analog input control (-100 to +100).
 
@@ -262,7 +261,6 @@ struct RK_KnobFields {
     uint8_t     height, width;
     int16_t     rotation;
     const char* icon, *label;
-    bool        labelHidden;
     bool        active;
     int8_t      value;          ///< -100 to +100
     int16_t     startAngle;     ///< Default -135
@@ -319,7 +317,6 @@ struct RK_JoystickFields {
     uint8_t     height, width;
     int16_t     rotation;
     const char* icon, *label;
-    bool        labelHidden;
     bool        enabled;
     bool        active;
     int8_t      xvalue, yvalue;    ///< -100 to +100 each
@@ -363,7 +360,6 @@ struct RK_LedFields {
     uint8_t     height, width;
     int16_t     rotation;
     const char* label;
-    bool        labelHidden;
     uint32_t    color;        ///< RGB hex (e.g. 0xFF0000)
     bool        state;        ///< ON/OFF
     uint8_t     shape;        ///< 0=circle, 1=square, 2=diamond, 3=star
@@ -413,7 +409,6 @@ struct RK_TextFields {
     uint8_t     x, y;
     uint8_t     height, width;
     const char* label;
-    bool        labelHidden;
     const char* content;    ///< Pointer to text content
 };
 ```
@@ -470,14 +465,14 @@ struct RK_TelemetryFields {
 |--------|------|
 | Set value | `telemetry.rk.content = "25.5";` |
 | Set icon | `telemetry.rk.icon = "thermometer";` |
-| Set unit | `telemetry.rk.unit = "°C";` |
+| Set unit | `telemetry.rk.unit = "C";` |
 
 **Example:**
 
 ```cpp
 RK_Telemetry temp("Temperature");
 temp.rk.icon    = "thermometer";
-temp.rk.unit    = "°C";
+temp.rk.unit    = "C";
 temp.rk.content = "25.5";
 ```
 
@@ -530,6 +525,7 @@ temp.rk.content = "25.5";
 3. **Configure before `begin()`** — `config` fields are read-only after `begin()`.
 4. **Use consistent buffer lifetimes** — Text content via `rk.content` must point to persistent storage (`static` variables or string literals). Stack-local buffers will dangle.
 5. **Keep `loop()` fast** — Defer heavy work to timers or state machines.
+6. **Max 16 widgets** — Plan your UI to fit within `RADIOKIT_MAX_WIDGETS`.
 
 ## See Also
 

@@ -177,7 +177,11 @@ class RemoteAccessService {
     if (path.startsWith('/api/fs/')) return '/dev-tools/esp32-fs';
     if (path.startsWith('/api/designs')) return '/designs';
     if (path.startsWith('/api/transport/')) return '/debug';
-    if (path.startsWith('/api/settings')) return '/system';
+    // /api/settings (app-level) excluded: toggling followRemoteAccess via API
+    // would navigate away from /control, disconnecting the active BLE device.
+    // Device-level /api/settings/nvs paths still navigate to /system.
+    if (path.startsWith('/api/settings/nvs')) return '/system';
+    if (path == '/api/settings') return null;
     if (path.startsWith('/api/console')) return '/system';
     if (path.startsWith('/api/log')) return '/system';
     if (path.startsWith('/api/models')) return '/models';

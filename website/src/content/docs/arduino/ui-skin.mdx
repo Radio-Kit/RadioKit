@@ -3,13 +3,13 @@ title: Controller UI Skins
 description: Skin pack system and custom theme creation for RadioKit
 ---
 
-RadioKit v3.0 introduces **Absolute Height & Width Sizing** for all widgets, while maintaining a high-fidelity native vector engine for all skin packs.
+RadioKit uses **Absolute Height & Width Sizing** for all widgets, while maintaining a high-fidelity native vector engine for all skin packs.
 
 ---
 
 ## 1. Dimensional Scaling
 
-Starting with v3.0, the layout engine uses absolute height and width units (0-200) to provide deterministic control over the dashboard layout:
+The layout engine uses absolute height and width units (0-200) to provide deterministic control over the dashboard layout:
 
 - **Variable Scaling**: Slider and Text widgets allow independent `width` and `height` values.
 - **Auto-Aspect**: Setting `width` to `0` enables the auto-aspect mode, where the widget calculates its own width based on its internal content (e.g., labels or number of items).
@@ -19,9 +19,9 @@ Starting with v3.0, the layout engine uses absolute height and width units (0-20
 
 ## 2. Pure Native Architecture
 
-RadioKit skins now exclusively use Skia/Impeller-based rendering. Widgets are composed of high-quality SVG layers that are tinted and transformed in real-time.
+RadioKit skins exclusively use Skia/Impeller-based rendering. Widgets are composed of high-quality SVG layers that are tinted and transformed in real-time.
 
-### Key Features in v3.0:
+### Key Features:
 
 - **No HTML/CSS**: Pure native rendering for maximum performance.
 - **Decentralized Config**: Each widget is a self-contained folder in the skin pack.
@@ -35,25 +35,25 @@ A Skin Pack is a ZIP archive (identifiable by the `.rkskin` extension). To add s
 
 ```text
 (skin-pack-name)/
-├── manifest.json        # Global tokens and metadata
-├── global/              # Shared assets (backgrounds, overlays)
-├── button_push/         # Folder for RK_PushButton
-├── button_toggle/       # Folder for RK_ToggleButton
-├── slide_switch/        # Folder for RK_SlideSwitch
-├── slider/              # Folder for RK_Slider
-├── knob/                # Folder for RK_Knob
-├── joystick/            # Folder for RK_Joystick
-├── led/                 # Folder for RK_LED
-├── display/             # Folder for RK_Text (display)
-│   ├── bg.svg
-│   ├── active.svg       # Shown when pressed
-│   └── config.json      # Mapping and local animations
-├── multiple_button/     # Folder for RK_MultipleButton
-├── multiple_select/     # Folder for RK_MultipleSelect
-└── joystick/            # Folder for RK_Joystick
-    ├── base.svg
-    ├── stick.svg
-    └── config.json      # Physics parameters (damping, stiffness)
++-- manifest.json        # Global tokens and metadata
++-- global/              # Shared assets (backgrounds, overlays)
++-- button_push/         # Folder for RK_PushButton
++-- button_toggle/       # Folder for RK_ToggleButton
++-- slide_switch/        # Folder for RK_SlideSwitch
++-- slider/              # Folder for RK_Slider
++-- knob/                # Folder for RK_Knob
++-- joystick/            # Folder for RK_Joystick
++-- led/                 # Folder for RK_LED
++-- display/             # Folder for RK_Text (display)
+|   +-- bg.svg
+|   +-- active.svg       # Shown when pressed
+|   +-- config.json      # Mapping and local animations
++-- multiple_button/     # Folder for RK_MultipleButton
++-- multiple_select/     # Folder for RK_MultipleSelect
++-- joystick/            # Folder for RK_Joystick
+    +-- base.svg
+    +-- stick.svg
+    +-- config.json      # Physics parameters (damping, stiffness)
 ```
 
 ---
@@ -90,7 +90,7 @@ Each widget folder contains a `config.json` that defines its specific visual map
 
 ### High-Fidelity Physics
 
-RadioKit v3.0 uses a **Spring Simulation** for interactive elements like Joysticks, Sliders, and Knobs.
+RadioKit uses a **Spring Simulation** for interactive elements like Joysticks, Sliders, and Knobs.
 
 ```json
 {
@@ -130,6 +130,9 @@ The RadioKit dashboard supports **instant theme switching**. When a user selects
 | **Retro** | CRT green phosphor aesthetic |
 | **Neon** | Cyberpunk neon glow effects |
 | **Minimal** | Flat, minimal, no shadows |
+| **Futuristic** | Futuristic style |
+| **Military** | Military style |
+| **Cyberpunk** | Cyberpunk aesthetic |
 
 ---
 

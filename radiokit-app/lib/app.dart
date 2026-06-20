@@ -101,7 +101,6 @@ class _RadioKitAppState extends State<RadioKitApp> {
       accountProvider: _accountProvider,
       flasherProvider: _flasherProvider,
     );
-
     _connectionNotifier = ConnectionNotifier(_multiDeviceProvider);
     _router = createRouter(_connectionNotifier);
   }
@@ -227,6 +226,9 @@ class _FollowModeWrapperState extends State<_FollowModeWrapper> {
     final route = ra.consumeFollowTarget();
     if (route == null) return;
     if (_currentLocation == route) return;
+    // Don't navigate away from the control screen — it would tear down
+    // the active BLE/device connection and disconnect the device.
+    if (_currentLocation.startsWith('/control') && !route.startsWith('/control')) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       try {

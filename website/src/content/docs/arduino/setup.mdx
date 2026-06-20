@@ -70,7 +70,7 @@ void loop() {
 
 - **Widgets are declared globally** — They self-register on construction via minimal constructors taking `(x, y, height, width=0, rotation=0)`.
 - **Post-construction configuration** — Optional fields (label, icon, onText, offText, centering, etc.) are set via `widget.rk.field = value` after construction, typically in `initRadioKit()`.
-- **`RadioKit.begin()` commits configuration** — Must be called before `startBLE()` or `startSerial()`.
+- **`RadioKit.begin()` commits configuration** — Must be called before `startBLE()` or `startSerial()`. Also initializes NVS, mounts the filesystem, and loads saved config.
 - **`RadioKit.update()` must be called every loop** — Processes incoming packets and manages state. Also detects changes to `rk` fields and pushes updates to the app automatically.
 - **All state access through `rk`** — No getters, no setters, no methods. Read and write widget state via `widget.rk.fieldName` directly.
 - **Auto-sync** — Assigning to an `rk` field (e.g., `led.rk.color = 0xFF0000`) is detected on the next `RadioKit.update()` and pushed to the app.
@@ -81,7 +81,7 @@ void loop() {
 
 ### `begin()`
 
-Commits and synchronizes configuration. Must be called in `setup()` before starting any transport.
+Commits and synchronizes configuration. Must be called in `setup()` before starting any transport. Also initializes NVS, mounts the filesystem, and loads saved configuration.
 
 ```cpp
 void begin();
@@ -89,14 +89,14 @@ void begin();
 
 ### `config` (Object)
 
-Global settings object. Configure **before** calling `begin()` — fields are read-only after.
+Global settings object. Configure **before** calling `begin()` — fields are read-only after (use `setConfig()` for runtime changes).
 
 #### User Configurable
 
 | Field | Type | Description | Default |
 |-------|------|-------------|---------|
 | `name` | `const char*` | Device/model name. Sent to app on connection. | `"RadioKit Device"` |
-| `password` | `const char*` | Optional connection password (empty = none). | `""` |
+| `password` | `const char*` | Optional device password (empty = none). | `""` |
 | `description` | `const char*` | Short overview of device function. | `""` |
 | `version` | `const char*` | User-defined firmware version (e.g. `"1.0.4"`). | `"1.0.0"` |
 | `type` | `const char*` | Device category (e.g. `"truck"`, `"robot"`). | `""` |
@@ -104,10 +104,12 @@ Global settings object. Configure **before** calling `begin()` — fields are re
 | `orientation` | `uint8_t` | `RK_LANDSCAPE` (default) or `RK_PORTRAIT`. | `RK_LANDSCAPE` |
 | `width` | `uint8_t` | Canvas width in virtual units (0-200, 0 = auto). | `0` |
 | `height` | `uint8_t` | Canvas height in virtual units (0-200, 0 = auto). | `0` |
+| `transport` | `uint8_t` | Transport type (`RK_TRANSPORT_BLE` or `RK_TRANSPORT_SERIAL`). | `RK_TRANSPORT_BLE` |
+| `baudrate` | `uint32_t` | Serial baud rate. | `1000000` |
 | `sta_ssid` | `const char*` | STA WiFi SSID (empty = AP-only). | `""` |
 | `sta_password` | `const char*` | STA WiFi password. | `""` |
 | `cloud_url` | `const char*` | Cloud relay URL (e.g. `"wss://relay.example.com"`). | `""` |
-| `cloud_account` | `const char*` | Account identifier for cloud relay. | `""` |
+| `cloud_account` | `const char*` | Ed25519 public key hex for cloud relay auth. | `""` |
 | `device_icon` | `const char*` | Icon name for this device (from icon registry). | `""` |
 
 #### Read-Only (Set by Library)
@@ -115,7 +117,7 @@ Global settings object. Configure **before** calling `begin()` — fields are re
 | Field | Type | Description |
 |-------|------|-------------|
 | `architecture` | `uint8_t` | Detected hardware platform (`RK_ARCH_ESP32`, etc.). |
-| `libversion` | `const char*` | Current RadioKit library version string. |
+| `libversion` | `const char*` | Current RadioKit library version string (`"2.0.0"`). |
 
 ### `startBLE(const char* deviceName = nullptr)`
 
@@ -125,10 +127,11 @@ Initialises BLE (NimBLE) and starts advertising.
 void startBLE(const char* deviceName = nullptr);
 ```
 
-- **`deviceName`** — Overrides `config.name` for BLE advertising. If `nullptr`, uses `config.name`. The advertised name is automatically prefixed with `RK_` for app filtering.
+- **`deviceName`** — Overrides `config.name` for BLE advertising if provided. If `nullptr`, uses NVS-stored name or `config.name`. The advertised name is automatically prefixed with `RK_` for app filtering.
 - Uses NimBLE on ESP32.
 - Service UUID: `0000FFE0-0000-1000-8000-00805F9B34FB`
 - Characteristic UUID: `0000FFE1-0000-1000-8000-00805F9B34FB`
+- Respects NVS `rk_ble_on` flag — returns silently if disabled.
 
 ### `startSerial(Stream& stream)`
 
@@ -141,6 +144,7 @@ void startSerial(Stream& stream);
 - **`stream`** — Reference to a `Stream` object (e.g., `Serial`, `Serial1`, `SerialUSB`).
 - The sketch **must** call `stream.begin(baud)` before this.
 - Baud rate is unrestricted; 1000000 recommended.
+- Serial bypass: physical access implies full device-level authentication.
 
 ### `startWiFi()`
 
@@ -151,8 +155,9 @@ void startWiFi();
 ```
 
 - Requires `#define RADIOKIT_ENABLE_WIFI` in build flags.
-- In AP mode, creates network `RK_<device_name>`.
+- In AP mode, creates network `RK_<device_name>` (open, no password).
 - In STA mode, connects to the configured network using NVS-stored credentials.
+- Respects NVS `rk_wifi_on` flag — returns silently if disabled.
 
 ### `startCloud()`
 
@@ -161,6 +166,10 @@ Starts the cloud relay client (optional). Requires `startWiFi()` to have been ca
 ```cpp
 void startCloud();
 ```
+
+- Connects to the configured relay server via WSS:443.
+- Uses Ed25519 challenge-response authentication with `cloud_account`.
+- Respects NVS `rk_cloud_on` flag — returns silently if disabled.
 
 ### `update()`
 
@@ -172,6 +181,8 @@ void update();
 
 - **Must be called every loop iteration** — Do not block with `delay()`.
 - Detects changes to `widget.rk.*` fields via shadow comparison and pushes VAR_UPDATE to the app.
+- Flushes buffered print data (0xEE packets) to all transports.
+- Resets auth state when all transports disconnect.
 - Typical call time: < 1ms when idle.
 
 ### `pushUpdate(uint8_t widgetId)`
@@ -193,13 +204,59 @@ Enqueues a reliable `META_UPDATE` for widget metadata (label, icon, etc.).
 void pushMetaUpdate(uint8_t widgetId);
 ```
 
+### `setConfig(...)`
+
+Update device name, description, and/or passwords at runtime. Writes to NVS, updates BLE advertisement name if changed, and re-broadcasts device info. Pass `nullptr` for fields you don't want to change.
+
+```cpp
+void setConfig(const char* name, const char* description,
+               const char* devicePassword = nullptr,
+               const char* userPassword = nullptr);
+```
+
+- **`devicePassword`** — Device password (full access). Empty string clears it.
+- **`userPassword`** — User password (widgets-only). Ignored if devicePassword is empty.
+- Requires NVS to be available.
+
+### `authenticate(const char* password)`
+
+Authenticate with a password. The device checks against both stored device and user passwords and returns the granted level.
+
+```cpp
+uint8_t authenticate(const char* password);
+```
+
+**Returns:**
+- `RK_PWD_AUTH_DEVICE` (0x00) — Device-level (full) access
+- `RK_PWD_AUTH_USER` (0x01) — User-level (widgets-only) access
+- `RK_PWD_AUTH_DENIED` (0x02) — Password did not match
+
+**Behavior:**
+- If already device-authenticated, returns device (no downgrade).
+- If already user-authenticated, tries device password for upgrade.
+- If no device password is set, returns device (pre-authenticated).
+- Tries device password first, then user password.
+
+### `isAuthenticated()` / `hasFullAccess()`
+
+```cpp
+bool isAuthenticated() const;  // Any level of auth succeeded (or no passwords set)
+bool hasFullAccess() const;    // Device-level (full) access granted
+```
+
 ### `isConnected()` / `getRssi()`
 
 Status queries.
 
 ```cpp
-bool isConnected() const;  // Returns true if transport is connected
-int8_t getRssi();          // Returns RSSI in dBm (127 if N/A)
+bool isConnected() const;  // Returns true if any transport is connected
+int8_t getRssi();          // Returns RSSI in dBm (0 if N/A)
+```
+
+### `widgetCount()`
+
+```cpp
+uint8_t widgetCount() const;  // Returns number of registered widgets (max 16)
 ```
 
 ### Print API
@@ -211,6 +268,25 @@ RadioKit.print("Hello");
 RadioKit.println("World");
 RadioKit.printf("Value: %d", val);
 RadioKit.printFlush();  // Force send buffered data
+```
+
+**Supported overloads for `print()` / `println()`:**
+- `const char*`, `String`, `int`, `unsigned int`, `long`, `unsigned long`, `double`, `char`
+- `println()` (no args) — sends just `\r\n`
+
+### Filesystem API
+
+```cpp
+bool beginFs();       // Mount LittleFS. Returns true on success.
+bool isFsReady();     // True once FS is mounted and ready.
+bool formatFs();      // Format the FS partition. Returns true on success.
+void sendFsFrame(const uint8_t* buf, uint16_t len);  // Send raw FS frame
+```
+
+### Settings Frame API
+
+```cpp
+void sendSettingsFrame(const uint8_t* buf, uint16_t len);  // Send raw Settings frame
 ```
 
 ---
@@ -244,11 +320,12 @@ slider.rk.centering = RK_SPRING_NONE;
 | Slider | `RK_Slider` | `RK_SliderFields` | Input | Linear -100..+100 |
 | GasPedal | `RK_GasPedal` | `RK_SliderFields` | Input | Spring-loaded slider variant |
 | Knob | `RK_Knob` | `RK_KnobFields` | Input | Rotary -100..+100 |
-| SteeringWheel | `RK_SteeringWheel` | `RK_KnobFields` | Input | Knob variant, springs to center |
+| Steering Wheel | `RK_Knob` (variant=1) | `RK_KnobFields` | Input | Knob variant, springs to center |
 | Joystick | `RK_Joystick` | `RK_JoystickFields` | Input | 2-axis (-100..+100 each) |
 | LED | `RK_LED` | `RK_LedFields` | Output | Colour indicator |
 | Text | `RK_Text` | `RK_TextFields` | Output | Read-only text display |
 | Serial | `RK_Serial` | `RK_TextFields` | Output | Serial Monitor in app |
+| SerialMonitor | `RK_SerialMonitor` | `RK_TextFields` | Output | Alias for RK_Serial |
 | Telemetry | `RK_Telemetry` | `RK_TelemetryFields` | Output | Display-only telemetry value |
 
 ### Common Fields (via `rk`)
@@ -288,10 +365,10 @@ Passed as `rk.centering` field:
 |----------|-------|-----------|
 | `RK_SPRING_NONE` | 0 | No spring return (stays where released) |
 | `RK_SPRING_CENTER` | 1 | Springs to 0 (centre) on release |
-| `RK_SPRING_TOP` | 2 | Springs to -100 on release (Vertical) |
-| `RK_SPRING_BOTTOM` | 3 | Springs to +100 on release (Vertical) |
-| `RK_SPRING_LEFT` | 4 | Springs to -100 on release (Horizontal) |
-| `RK_SPRING_RIGHT` | 5 | Springs to +100 on release (Horizontal) |
+| `RK_SPRING_MIN` | 2 | Springs to -100 on release (Horizontal) |
+| `RK_SPRING_MAX` | 3 | Springs to +100 on release (Horizontal) |
+| `RK_SPRING_TOP` | 4 | Springs to -100 on release (Vertical) |
+| `RK_SPRING_BOTTOM` | 5 | Springs to +100 on release (Vertical) |
 
 ### LED Colours
 
@@ -303,6 +380,35 @@ Passed as `rk.centering` field:
 | `RK_BLUE` | `0x0000FF` | (0, 0, 255) |
 | `RK_YELLOW` | `0xFFFF00` | (255, 255, 0) |
 
+### Widget Styles
+
+| Constant | Value | Usage |
+|----------|-------|-------|
+| `RK_PRIMARY` | 0 | Primary style |
+| `RK_DIM` | 1 | Dim/secondary |
+| `RK_SUCCESS` | 2 | Green/success |
+| `RK_WARNING` | 3 | Yellow/warning |
+| `RK_DANGER` | 4 | Red/danger |
+
+### Widget Limits
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `RADIOKIT_MAX_WIDGETS` | 16 | Maximum number of widgets |
+| `RADIOKIT_MAX_LABEL` | 32 | Max chars for label, onText, offText |
+| `RADIOKIT_MAX_ICON` | 24 | Max chars for icon name |
+| `RADIOKIT_MAX_NAME` | 32 | Max chars for device name |
+| `RADIOKIT_MAX_DESC` | 128 | Max chars for device description |
+| `RADIOKIT_MAX_PWD` | 32 | Max chars for device password |
+| `RADIOKIT_MAX_USER_PWD` | 32 | Max chars for user password |
+| `RADIOKIT_TEXT_LEN` | 32 | Max chars for Text widget content |
+| `RADIOKIT_MAX_ITEMS` | 8 | Max items in MultipleButton/Select |
+| `RADIOKIT_MAX_SSID` | 32 | Max chars for WiFi SSID |
+| `RADIOKIT_MAX_WIFI_PWD` | 64 | Max chars for WiFi password |
+| `RADIOKIT_MAX_CLOUD_URL` | 128 | Max chars for cloud relay URL |
+| `RADIOKIT_MAX_CLOUD_ACCOUNT` | 64 | Max chars for cloud account |
+| `RADIOKIT_MAX_DEVICE_ICON` | 32 | Max chars for device icon name |
+
 ---
 
 ## 5. Bulk Filesystem (LittleFS)
@@ -311,7 +417,7 @@ The library can expose a LittleFS partition to the companion app for browsing, r
 
 ### `beginFs()`
 
-Mount the LittleFS partition. Returns `true` on success.
+Mount the LittleFS partition. Returns `true` on success. Idempotent — subsequent calls are no-ops once mounted.
 
 ```cpp
 bool beginFs();
@@ -327,7 +433,7 @@ bool isFsReady();
 
 ### `formatFs()`
 
-Format the FS partition. Destroys all data.
+Format the FS partition. Destroys all data. Returns `true` on success.
 
 ```cpp
 bool formatFs();
@@ -335,10 +441,10 @@ bool formatFs();
 
 ### `sendFsFrame()`
 
-Send a raw FS frame back to the app.
+Send a raw FS frame back to the app. Used by external code to inject their own FS traffic.
 
 ```cpp
-void sendFsFrame(const uint8_t* data, size_t len);
+void sendFsFrame(const uint8_t* buf, uint16_t len);
 ```
 
 ### Example
@@ -368,10 +474,12 @@ void setup() {
 
 1. **Always call `update()`** — Never block in `loop()` with `delay()` or long computations.
 2. **Declare widgets globally** — They self-register on construction.
-3. **Configure before `begin()`** — `config` fields are read-only after `begin()`.
+3. **Configure before `begin()`** — `config` fields are read-only after `begin()`. Use `setConfig()` for runtime changes.
 4. **Use `rk` fields for all widget access** — No need for getter/setter methods.
 5. **Keep `loop()` fast** — Defer heavy work to timers or state machines.
 6. **Check `isConnected()`** — Before sending critical updates.
+7. **Use `setConfig()` for runtime changes** — Name, description, passwords can be changed at runtime via NVS.
+8. **Max 16 widgets** — `RADIOKIT_MAX_WIDGETS` is 16. Plan your UI accordingly.
 
 ## See Also
 

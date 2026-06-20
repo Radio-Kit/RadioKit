@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  site: 'https://rambros3d.github.io',
+  site: 'https://radiokit.app',
   vite: {
     plugins: [tailwindcss()],
     resolve: {
@@ -42,6 +42,7 @@ export default defineConfig({
               { label: 'Installation', link: '/app/installation' },
               { label: 'Quick Start', link: '/app/quick-start' },
               { label: 'Features', link: '/app/features' },
+              { label: 'Designer Manual', link: '/app/designer' },
             ],
           },
           {
