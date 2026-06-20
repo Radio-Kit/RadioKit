@@ -102,17 +102,18 @@ class _PairBottomSheetState extends State<PairBottomSheet>
       await multiDevice.connectDevice(device: device, transport: bleProvider.bleService);
       if (!mounted) return;
 
-      final connected = multiDevice.isDeviceConnected(device.id) || multiDevice.isDeviceConnected(url);
+      final connected = multiDevice.isDeviceConnected(device.id);
         if (connected) {
+        final dp = multiDevice.getDevice(device.id);
         await history.saveDevice(
           device,
           'ble',
-          configName: deviceProvider.configName,
-          description: deviceProvider.description,
+          configName: dp?.configName,
+          description: dp?.description,
         );
         if (mounted) {
           Navigator.of(context).maybePop();
-          context.go('/control');
+          context.go('/control/${device.id}');
         }
         return;
       }
@@ -148,17 +149,18 @@ class _PairBottomSheetState extends State<PairBottomSheet>
       await multiDevice.connectDevice(device: device, transport: serialProvider.serialService, baudRate: baudRate);
       if (!mounted) return;
 
-      final connected = multiDevice.isDeviceConnected(device.id) || multiDevice.isDeviceConnected(url);
+      final connected = multiDevice.isDeviceConnected(device.id);
         if (connected) {
+        final dp = multiDevice.getDevice(device.id);
         await history.saveDevice(
           device,
           'serial',
-          configName: deviceProvider.configName,
-          description: deviceProvider.description,
+          configName: dp?.configName,
+          description: dp?.description,
         );
         if (mounted) {
           Navigator.of(context).maybePop();
-          context.go('/control');
+          context.go('/control/${device.id}');
         }
         return;
       }
@@ -194,17 +196,18 @@ class _PairBottomSheetState extends State<PairBottomSheet>
       await multiDevice.connectDevice(device: device, transport: wsService);
       if (!mounted) return;
 
-      final connected = multiDevice.isDeviceConnected(device.id) || multiDevice.isDeviceConnected(url);
+      final connected = multiDevice.isDeviceConnected(device.id);
         if (connected) {
+        final dp = multiDevice.getDevice(device.id);
         await history.saveDevice(
           device,
           'wifi',
-          configName: deviceProvider.configName,
-          description: deviceProvider.description,
+          configName: dp?.configName,
+          description: dp?.description,
         );
         if (mounted) {
           Navigator.of(context).maybePop();
-          context.go('/control');
+          context.go('/control/${device.id}');
         }
         return;
       }
@@ -230,35 +233,40 @@ class _PairBottomSheetState extends State<PairBottomSheet>
     setState(() => _connectingIds.add(url));
 
     try {
-      final deviceProvider = context.read<DeviceProvider>();
+      final multiDevice = context.read<MultiDeviceProvider>();
       final history = context.read<HistoryProvider>();
 
-      deviceProvider.setTransport(ws);
-      // Transport is already connected — mark the device as connected
-      await deviceProvider.connectToDevice(DeviceInfo(
+      final cloudDevice = DeviceInfo(
         id: url,
         name: displayName,
         rssi: 0,
         hasFs: false,
-        currentTransport: TransportType.wifi,
+        currentTransport: TransportType.cloud,
         transportAddress: url,
-      ));
+      );
+      await multiDevice.connectDevice(device: cloudDevice, transport: ws);
       if (!mounted) return;
 
-      final connected = multiDevice.isDeviceConnected(device.id) || multiDevice.isDeviceConnected(url);
+      final connected = multiDevice.isDeviceConnected(url);
         if (connected) {
-        await history.saveDevice(
-          DeviceInfo(id: url, name: displayName, rssi: 0, hasFs: false,
-          currentTransport: TransportType.wifi,
+        final dp = multiDevice.getDevice(url);
+        final savedDevice = DeviceInfo(
+          id: url,
+          name: displayName,
+          rssi: 0,
+          hasFs: dp?.hasFs ?? false,
+          currentTransport: TransportType.cloud,
           transportAddress: url,
-        ),
-          'wifi',
-          configName: deviceProvider.configName,
-          description: deviceProvider.description,
+        );
+        await history.saveDevice(
+          savedDevice,
+          'cloud',
+          configName: dp?.configName,
+          description: dp?.description,
         );
         if (mounted) {
           Navigator.of(context).maybePop();
-          context.go('/control');
+          context.go('/control/${Uri.encodeComponent(url)}');
         }
         return;
       }

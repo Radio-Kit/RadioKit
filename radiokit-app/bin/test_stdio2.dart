@@ -4,7 +4,7 @@ import 'dart:io';
 
 void main() async {
   final process = await Process.start('python3', ['bin/stdio_sleep_test.py'],
-    workingDirectory: '/home/sun/Apps/RadioKit/radiokit-app',
+    workingDirectory: Directory.current.path,
     runInShell: true,
   );
 

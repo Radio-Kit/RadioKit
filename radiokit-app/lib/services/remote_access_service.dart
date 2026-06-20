@@ -29,10 +29,14 @@ import 'cloud_identity.dart';
 import '../providers/cloud_identity_provider.dart';
 import '../providers/account_provider.dart';
 import '../providers/flasher_provider.dart';
+import '../providers/multi_device_provider.dart';
+import 'ble_transport.dart';
+import 'demo_transport.dart';
 import '../models/account.dart';
 
 class RemoteAccessService {
-  final DeviceProvider _deviceProvider;
+  final DeviceProvider Function() _getActiveDevice;
+  DeviceProvider get _deviceProvider => _getActiveDevice();
   final BleProvider _bleProvider;
   final SerialProvider _serialProvider;
   final HistoryProvider _historyProvider;
@@ -42,9 +46,11 @@ class RemoteAccessService {
   final CloudIdentityProvider _cloudIdentityProvider;
   final AccountProvider _accountProvider;
   final FlasherProvider _flasherProvider;
+  final MultiDeviceProvider Function()? _getMultiDevice;
   final void Function(ApiLogEntry) _onLog;
   final void Function(String route)? _onFollowEvent;
   final String Function() _currentRouteGetter;
+  final Future<dynamic> Function(String demoId)? _connectDemo;
 
   HttpServer? _server;
   bool _isRunning = false;
@@ -57,7 +63,7 @@ class RemoteAccessService {
   String get localIp => _cachedLocalIp;
 
   RemoteAccessService({
-    required DeviceProvider deviceProvider,
+    required DeviceProvider Function() getActiveDevice,
     required BleProvider bleProvider,
     required SerialProvider serialProvider,
     required HistoryProvider historyProvider,
@@ -67,10 +73,12 @@ class RemoteAccessService {
     required CloudIdentityProvider cloudIdentityProvider,
     required AccountProvider accountProvider,
     required FlasherProvider flasherProvider,
+    MultiDeviceProvider Function()? getMultiDevice,
     required void Function(ApiLogEntry) onLog,
     void Function(String route)? onFollowEvent,
     String Function() currentRouteGetter = _defaultRouteGetter,
-  })  : _deviceProvider = deviceProvider,
+    Future<void> Function(String demoId)? connectDemo,
+  })  :        _getActiveDevice = getActiveDevice,
         _bleProvider = bleProvider,
         _serialProvider = serialProvider,
         _historyProvider = historyProvider,
@@ -80,9 +88,11 @@ class RemoteAccessService {
         _cloudIdentityProvider = cloudIdentityProvider,
         _accountProvider = accountProvider,
         _flasherProvider = flasherProvider,
+        _getMultiDevice = getMultiDevice,
         _onLog = onLog,
         _onFollowEvent = onFollowEvent,
-        _currentRouteGetter = currentRouteGetter;
+        _currentRouteGetter = currentRouteGetter,
+        _connectDemo = connectDemo;
 
   static String _defaultRouteGetter() => '';
 
@@ -138,6 +148,22 @@ class RemoteAccessService {
   }
 
   static String? _followRoute(String path) {
+    if (path.startsWith('/api/devices/connect')) return '/control';
+    if (path.endsWith('/console') && path.startsWith('/api/devices/')) return '/system';
+    if (path.endsWith('/fs/format') && path.startsWith('/api/devices/')) return '/dev-tools/esp32-fs';
+    if (path.endsWith('/ota/progress') && path.startsWith('/api/devices/')) return '/control';
+    if (path.endsWith('/ota/upload') && path.startsWith('/api/devices/')) return '/control';
+    if (path.endsWith('/fs/rename') && path.startsWith('/api/devices/')) return '/dev-tools/esp32-fs';
+    if (path.endsWith('/fs/probe') && path.startsWith('/api/devices/')) return '/dev-tools/esp32-fs';
+    if (path.endsWith('/transport/ping') && path.startsWith('/api/devices/')) return '/control';
+    if (path.endsWith('/transport/wifi_info') && path.startsWith('/api/devices/')) return '/control';
+    if (path.startsWith('/api/devices/') && path.endsWith('/transport/get_conf')) return '/control';
+    if (path.startsWith('/api/devices/') && path.endsWith('/transport/get_vars')) return '/control';
+    if (path.startsWith('/api/devices/') && path.endsWith('/transport/get_meta')) return '/control';
+    if (path.startsWith('/api/devices/') && path.endsWith('/transport/get_tele')) return '/control';
+    if (path.startsWith('/api/devices/') && path.contains('/settings/')) return '/system';
+    if (path.startsWith('/api/devices/disconnect')) return '/models';
+    if (path == '/api/devices') return '/models';
     if (path.startsWith('/api/pair/')) return '/models';
     if (path.startsWith('/api/connection/connect')) return '/control';
     if (path.startsWith('/api/connection/disconnect')) return '/models';
@@ -145,6 +171,7 @@ class RemoteAccessService {
     if (path.startsWith('/api/connection/demo')) return '/control';
     if (path == '/api/widgets' || path.startsWith('/api/widgets/')) return '/control';
     if (path.startsWith('/api/ota/')) return '/control';
+    if (path.startsWith('/api/fs/')) return '/dev-tools/esp32-fs';
     if (path.startsWith('/api/designs')) return '/designs';
     if (path.startsWith('/api/transport/')) return '/debug';
     if (path.startsWith('/api/settings')) return '/system';
@@ -230,6 +257,41 @@ class RemoteAccessService {
     router.post('/api/flasher/clear-firmware', _handleFlasherClearFirmware);
     router.post('/api/flasher/erase-all', _handleFlasherEraseAll);
     router.post('/api/flasher/flash', _handleFlasherFlash);
+
+    // ── Multi-device API ────────────────────────────────────────────────
+    router.get('/api/devices', _handleDevices);
+    router.post('/api/devices/connect', _handleDeviceConnect);
+    router.post('/api/devices/disconnect', _handleDeviceDisconnect);
+    router.get('/api/devices/<id>', _handleDeviceInfo);
+    router.get('/api/devices/<id>/widgets', _handleDeviceWidgets);
+    router.put('/api/devices/<id>/widgets/<wid>', _handleDeviceWidgetSet);
+    router.get('/api/devices/<id>/console', _handleDeviceConsole);
+    router.get('/api/devices/<id>/fs/list', _handleDeviceFsList);
+    router.get('/api/devices/<id>/fs/info', _handleDeviceFsInfo);
+    router.get('/api/devices/<id>/fs/read', _handleDeviceFsRead);
+    router.post('/api/devices/<id>/fs/write', _handleDeviceFsWrite);
+    router.post('/api/devices/<id>/fs/upload', _handleDeviceFsUpload);
+    router.post('/api/devices/<id>/fs/mkdir', _handleDeviceFsMkdir);
+    router.post('/api/devices/<id>/fs/delete', _handleDeviceFsDelete);
+    router.post('/api/devices/<id>/transport/send', _handleDeviceTransportSend);
+    router.delete('/api/devices/<id>/console', _handleDeviceConsoleClear);
+    router.post('/api/devices/<id>/fs/format', _handleDeviceFsFormat);
+    router.get('/api/devices/<id>/ota/progress', _handleDeviceOtaProgress);
+    router.post('/api/devices/<id>/ota/upload', _handleDeviceOtaUpload);
+    router.post('/api/devices/<id>/fs/rename', _handleDeviceFsRename);
+    router.post('/api/devices/<id>/fs/probe', _handleDeviceFsProbe);
+    router.post('/api/devices/<id>/transport/ping', _handleDeviceTransportPing);
+    router.post('/api/devices/<id>/transport/wifi_info', _handleDeviceTransportWifiInfo);
+    router.post('/api/devices/<id>/transport/<cmd>', _handleDeviceTransportQuick);
+    router.get('/api/devices/<id>/settings/nvs', _handleDeviceNvsGet);
+    router.post('/api/devices/<id>/settings/nvs', _handleDeviceNvsSet);
+    router.post('/api/devices/<id>/settings/nvs/authenticate', _handleDeviceNvsAuthenticate);
+    router.post('/api/devices/<id>/settings/nvs/factory-reset', _handleDeviceNvsFactoryReset);
+    router.post('/api/devices/<id>/settings/nvs/reboot', _handleDeviceNvsReboot);
+    router.get('/api/devices/<id>/settings/nvs/raw/<key>', _handleDeviceNvsRawRead);
+    router.post('/api/devices/<id>/settings/nvs/raw/<key>', _handleDeviceNvsRawWrite);
+    router.get('/api/devices/<id>/settings/nvs/cloud-info', _handleDeviceNvsCloudInfo);
+    router.get('/api/devices/<id>/widgets/<wid>', _handleDeviceWidgetInfo);
 
     // ── Cloud relay API ────────────────────────────────────────────────
     router.post('/api/cloud/connect', _handleCloudConnect);
@@ -361,8 +423,12 @@ class RemoteAccessService {
     }
   }
 
-  Map<String, dynamic> _widgetToJson(WidgetConfig w) {
-    final state = _deviceProvider.widgetState;
+  /// Serialize a [WidgetConfig] + optional state to JSON.
+  /// When [dp] is provided, reads state from that provider (multi-device).
+  /// When null, reads from the default [DeviceProvider] (single-device).
+  Map<String, dynamic> _widgetToJson(WidgetConfig w, {DeviceProvider? dp}) {
+    final provider = dp ?? _deviceProvider;
+    final state = provider.widgetState;
     final inputs = state?.inputValues[w.widgetId];
     final outputs = state?.outputValues[w.widgetId];
 
@@ -387,19 +453,25 @@ class RemoteAccessService {
       }
     }
 
-    return {
+    final Map<String, dynamic> json = {
       'widgetId': w.widgetId,
       'type': _widgetTypeName(w.typeId),
       'name': w.label.isNotEmpty ? w.label : 'widget_${w.widgetId}',
       'label': w.label,
-      'x': w.x,
-      'y': w.y,
-      'rotation': w.rotationDegrees,
-      'variant': _variantName(w.typeId, w.variant),
       'hasOutput': w.hasOutput,
       'hasInput': w.hasInput,
       'state': stateJson,
     };
+
+    // Include geometry only for single-device endpoints (backwards compat)
+    if (dp == null) {
+      json['x'] = w.x;
+      json['y'] = w.y;
+      json['rotation'] = w.rotationDegrees;
+      json['variant'] = _variantName(w.typeId, w.variant);
+    }
+
+    return json;
   }
 
   final List<ApiLogEntry> _logEntries = [];
@@ -407,6 +479,9 @@ class RemoteAccessService {
   /// Current OTA upload progress — set by [_handleOtaUpload] during upload,
   /// read by [_handleOtaProgress]. Reset on upload completion/error.
   (int, int, String)? _otaProgress;
+
+  /// Per-device OTA progress keyed by device ID.
+  final Map<String, (int, int, String)?> _deviceOtaProgress = {};
 
   // ── Cloud relay state ───────────────────────────────────────────────────
 
@@ -1466,18 +1541,27 @@ class RemoteAccessService {
     }
 
     try {
-      await _deviceProvider.loadDemo(demoId);
+      // connectDemo creates a new DeviceProvider in MultiDeviceProvider
+      // and sets focus so it becomes the active device for API calls.
+      if (_connectDemo != null) {
+        await _connectDemo!(demoId);
+      } else {
+        // Fallback for test environments without MultiDeviceProvider.
+        await _deviceProvider.loadDemo(demoId);
+      }
     } catch (e) {
       return _error('demo_load_failed', e.toString(), status: 500);
     }
 
-    if (!_deviceProvider.isConnected) {
+    // After connectDemo, the demo device is focused — resolve via _deviceProvider.
+    final dp = _deviceProvider;
+    if (!dp.isConnected) {
       return _error('demo_load_failed',
-          _deviceProvider.errorMessage ?? 'Failed to load demo',
+          dp.errorMessage ?? 'Failed to load demo',
           status: 500);
     }
 
-    final count = _deviceProvider.widgets.length;
+    final count = dp.widgets.length;
     return _json({
       'ok': true,
       'message': 'Demo $demoId loaded with $count widgets',
@@ -1882,6 +1966,1038 @@ class RemoteAccessService {
     return _json({'ok': true, 'message': 'Flashing started'});
   }
 
+  // ── Multi-device Handlers ──────────────────────────────────────────────────
+
+  /// Resolve a [MultiDeviceProvider] instance, or null if unavailable.
+  MultiDeviceProvider? _getMulti() => _getMultiDevice?.call();
+
+  /// Helper to create a transport for a given type.
+  /// Each call returns an independent transport instance.
+  TransportService _createTransport(String type) {
+    switch (type) {
+      case 'ble':
+        // BleTransport wraps the shared BleService singleton.
+        // universal_ble on Android supports multiple concurrent connections;
+        // BleService routes notifications per-device via _activeTransports.
+        return BleTransport(_bleProvider.bleService);
+      case 'serial':
+        // SerialService is per-port; return the shared instance since
+        // serial connections are inherently single-port.
+        return _serialProvider.serialService;
+      case 'wifi':
+        return WebSocketService();
+      default:
+        return BleTransport(_bleProvider.bleService);
+    }
+  }
+
+  /// Handle GET /api/devices — list all devices in the multi-device collection.
+  Future<Response> _handleDevices(Request request) async {
+    final multi = _getMulti();
+    if (multi == null) {
+      return _error('not_supported', 'Multi-device not available', status: 501);
+    }
+
+    final devices = <Map<String, dynamic>>[];
+    for (final (key, dp) in multi.deviceEntries) {
+      final device = dp.connectedDevice;
+      devices.add({
+        'id': key,
+        'name': dp.configName ?? device?.displayName ?? 'Unknown',
+        'connected': dp.isConnected,
+        'hasFs': device?.hasFs ?? false,
+        'hasOta': dp.hasOta,
+        'hasPassword': dp.hasPassword,
+        'rssi': dp.rssi,
+        'latencyMs': dp.latencyMs,
+        'transport': _transportTypeLabel(device?.currentTransport),
+      });
+    }
+    return _json({
+      'devices': devices,
+      'count': devices.length,
+      'focusedDeviceId': multi.focusedDeviceId,
+    });
+  }
+
+  String _transportTypeLabel(TransportType? t) {
+    switch (t) {
+      case TransportType.ble:    return 'ble';
+      case TransportType.wifi:   return 'wifi';
+      case TransportType.cloud:  return 'cloud';
+      case TransportType.serial: return 'serial';
+      case TransportType.demo:   return 'demo';
+      case null:                 return 'unknown';
+    }
+  }
+
+  /// Handle POST /api/devices/connect — connect a new device (any transport).
+  /// Body: { "id": "...", "type": "ble|serial|wifi|cloud|demo", "baudRate": 115200 }
+  Future<Response> _handleDeviceConnect(Request request) async {
+    final multi = _getMulti();
+    if (multi == null) {
+      return _error('not_supported', 'Multi-device not available', status: 501);
+    }
+
+    final body = await _parseBody(request);
+    final id = body['id'] as String?;
+    final type = body['type'] as String?;
+    if (id == null || type == null) {
+      return _error('invalid_params', 'id and type are required');
+    }
+
+    final baudRate = (body['baudRate'] as num?)?.toInt() ?? 115200;
+
+    // If device is already connected, return it directly
+    final existing = multi.getDevice(id);
+    if (existing != null && existing.isConnected) {
+      return _json({
+        'ok': true,
+        'message': 'Already connected',
+        'device': {
+          'id': id,
+          'name': existing.configName ?? existing.connectedDevice?.displayName ?? 'Unknown',
+          'connected': true,
+        },
+      });
+    }
+
+    // Resolve device info and create transport
+    DeviceInfo? target;
+    TransportService? transport;
+
+    switch (type) {
+      case 'ble':
+        target = _bleProvider.devices.where((d) => d.id == id).firstOrNull;
+        if (target == null) {
+          return _error('not_found', 'BLE device $id not found. Run a scan first via POST /api/pair/scan.');
+        }
+        transport = _createTransport('ble');
+      case 'serial':
+        target = _serialProvider.ports.where((p) => p.id == id).firstOrNull;
+        if (target == null) {
+          return _error('not_found', 'Serial device $id not found. Run a scan first via POST /api/pair/scan.');
+        }
+        transport = _createTransport('serial');
+      case 'wifi':
+        if (!id.startsWith('ws://') && !id.startsWith('wss://')) {
+          return _error('invalid_url', 'WiFi ID must be a WebSocket URL (ws:// or wss://)');
+        }
+        target = DeviceInfo(
+          id: id,
+          name: Uri.tryParse(id)?.host ?? id,
+          rssi: 0,
+          hasFs: false,
+          currentTransport: TransportType.wifi,
+          transportAddress: id,
+        );
+        transport = _createTransport('wifi');
+      case 'cloud':
+        if (_cloudWs == null || !_cloudWs!.isConnected) {
+          return _error('not_connected', 'Cloud relay not connected. Use POST /api/cloud/connect first.', status: 503);
+        }
+        final deviceName = body['deviceName'] as String? ?? id;
+        final scheme = _cloudPort == 443 ? 'wss' : 'ws';
+        final url = '$scheme://$_cloudHost:$_cloudPort/$deviceName';
+        target = DeviceInfo(
+          id: url,
+          name: deviceName,
+          rssi: 0,
+          hasFs: false,
+          currentTransport: TransportType.cloud,
+          transportAddress: url,
+        );
+        transport = _cloudWs!;
+      case 'demo':
+        final dp = await multi.connectDemo(id);
+        multi.setFocusedDevice('DEMO_$id');
+        return _json({
+          'ok': true,
+          'message': 'Demo $id loaded',
+          'device': {
+            'id': dp.connectedDevice?.id ?? id,
+            'name': dp.configName ?? id,
+            'connected': dp.isConnected,
+          },
+        });
+      default:
+        return _error('invalid_type', "type must be 'ble', 'serial', 'wifi', 'cloud', or 'demo'");
+    }
+
+    if (target == null || transport == null) {
+      return _error('internal_error', 'Failed to resolve transport', status: 500);
+    }
+
+    try {
+      final dp = await multi.connectDevice(
+        device: target!,
+        transport: transport!,
+        baudRate: baudRate,
+      );
+
+      // Set cloud transport so switchTransport can re-use the
+      // authenticated relay connection later.
+      if (type == 'cloud' && dp.isConnected) {
+        dp.setCloudTransport(_cloudWs!);
+      }
+
+      // Set focus so subsequent /api/widgets calls target this device
+      multi.setFocusedDevice(target.id);
+
+      return _json({
+        'ok': true,
+        'message': 'Connected to ${target.displayName}',
+        'device': {
+          'id': target.id,
+          'name': dp.configName ?? target.displayName,
+          'connected': dp.isConnected,
+          'transport': _transportTypeLabel(target.currentTransport),
+        },
+      });
+    } catch (e) {
+      // Clean up transport on failure to prevent orphaned BLE connections
+      try { await transport!.disconnect(); } catch (_) {}
+      return _error('connection_failed', e.toString(), status: 500);
+    }
+  }
+
+  /// Handle POST /api/devices/disconnect — disconnect a specific device.
+  /// Body: { "id": "..." }
+  Future<Response> _handleDeviceDisconnect(Request request) async {
+    final multi = _getMulti();
+    if (multi == null) {
+      return _error('not_supported', 'Multi-device not available', status: 501);
+    }
+
+    final body = await _parseBody(request);
+    final id = body['id'] as String?;
+    if (id == null) {
+      return _error('invalid_params', 'id is required');
+    }
+
+    final dp = multi.getDevice(id);
+    if (dp == null) {
+      return _error('not_found', 'Device $id not found in collection', status: 404);
+    }
+
+    final name = dp.configName ?? dp.connectedDevice?.displayName ?? id;
+    _deviceOtaProgress.remove(id);
+    await multi.disconnectDevice(id);
+    return _json({'ok': true, 'message': 'Disconnected $name'});
+  }
+
+  /// Handle GET /api/devices/<id> — get info for a specific device.
+  Future<Response> _handleDeviceInfo(Request request, String id) async {
+    final multi = _getMulti();
+    if (multi == null) {
+      return _error('not_supported', 'Multi-device not available', status: 501);
+    }
+
+    final dp = multi.getDevice(id);
+    if (dp == null) {
+      return _error('not_found', 'Device $id not found', status: 404);
+    }
+
+    final device = dp.connectedDevice;
+    final orientation = dp.orientation == kOrientationLandscape
+        ? 'landscape' : 'portrait';
+
+    return _json({
+      'id': device?.id ?? id,
+      'name': dp.configName ?? device?.displayName ?? 'Unknown',
+      'description': dp.description,
+      'connected': dp.isConnected,
+      'hasFs': device?.hasFs ?? false,
+      'hasOta': dp.hasOta,
+      'hasPassword': dp.hasPassword,
+      'rssi': dp.rssi,
+      'latencyMs': dp.latencyMs,
+      'transport': _transportTypeLabel(device?.currentTransport),
+      'configJson': dp.deviceConfigJson,
+      'orientation': orientation,
+      'isFocused': multi.focusedDeviceId == id,
+    });
+  }
+
+  /// Handle GET /api/devices/<id>/widgets — get widgets for a specific device.
+  Future<Response> _handleDeviceWidgets(Request request, String id) async {
+    final multi = _getMulti();
+    if (multi == null) {
+      return _error('not_supported', 'Multi-device not available', status: 501);
+    }
+
+    final dp = multi.getDevice(id);
+    if (dp == null) {
+      return _error('not_found', 'Device $id not found', status: 404);
+    }
+    if (!dp.isConnected) {
+      return _error('not_connected', 'Device $id is not connected', status: 503);
+    }
+
+    final widgets = dp.widgets;
+    final result = widgets.map((w) => _widgetToJson(w, dp: dp)).toList();
+    return _json({
+      'device': id,
+      'widgets': result,
+    });
+  }
+
+  /// Handle PUT /api/devices/<id>/widgets/<wid> — set widget value on a specific device.
+  Future<Response> _handleDeviceWidgetSet(Request request, String id, String wid) async {
+    final multi = _getMulti();
+    if (multi == null) {
+      return _error('not_supported', 'Multi-device not available', status: 501);
+    }
+
+    final dp = multi.getDevice(id);
+    if (dp == null) {
+      return _error('not_found', 'Device $id not found', status: 404);
+    }
+    if (!dp.isConnected) {
+      return _error('not_connected', 'Device $id is not connected', status: 503);
+    }
+
+    final widgetId = int.tryParse(wid);
+    if (widgetId == null) {
+      return _error('invalid_id', 'Widget ID must be an integer');
+    }
+
+    final widget = dp.widgets.where((w) => w.widgetId == widgetId).firstOrNull;
+    if (widget == null) {
+      return _error('not_found', 'Widget $wid not found on device $id', status: 404);
+    }
+    if (!widget.hasInput) {
+      return _error('not_input', 'Widget $wid is an output-only widget');
+    }
+
+    final body = await _parseBody(request);
+    final values = body['values'] as List<dynamic>?;
+    if (values == null || values.isEmpty) {
+      return _error('invalid_values', 'values array is required');
+    }
+
+    final intValues = values.map((v) => (v as num).toInt()).toList();
+    if (widget.typeId == kWidgetJoystick && intValues.length != 2) {
+      return _error('invalid_values', 'Joystick expects exactly 2 values [x, y]');
+    }
+
+    try {
+      await dp.setInputValue(widgetId, intValues);
+      return _json({
+        'ok': true,
+        'device': id,
+        'message': 'Widget $widgetId set to $intValues',
+      });
+    } catch (e) {
+      return _error('set_failed', e.toString(), status: 500);
+    }
+  }
+
+  // ── Per-device Console / FS / Transport Handlers ─────────────────────────
+
+  /// Resolve a device from the multi-device collection by ID.
+  /// Returns (deviceProvider, null) on success or (dummy, errorResponse) on failure.
+  /// The caller always returns immediately after err != null, so the dummy is never used.
+  (DeviceProvider, Response?) _resolveDevice(String id) {
+    final multi = _getMulti();
+    if (multi == null) {
+      return (_idleProvider, _error('not_supported', 'Multi-device not available', status: 501));
+    }
+    final dp = multi.getDevice(id);
+    if (dp == null) {
+      return (_idleProvider, _error('not_found', 'Device $id not found', status: 404));
+    }
+    return (dp, null);
+  }
+
+  /// Shared idle DeviceProvider used only as a non-null filler on error paths.
+  final DeviceProvider _idleProvider = DeviceProvider(transport: DemoTransport());
+
+  /// Handle GET /api/devices/<id>/console — per-device console log.
+  Future<Response> _handleDeviceConsole(Request request, String id) async {
+    final (dp, err) = _resolveDevice(id);
+    if (err != null) return err;
+    final entries = (dp.consoleProvider?.entries ?? []).map((e) => {
+      'timestamp': e.timestamp.toIso8601String(),
+      'level': e.level.name,
+      'message': e.message,
+    }).toList();
+    return _json({'device': id, 'entries': entries});
+  }
+
+  /// Helper: resolve a device and check it has FS support.
+  (DeviceProvider, Response?) _resolveDeviceFs(String id) {
+    final (dp, err) = _resolveDevice(id);
+    if (err != null) return (dp, err);
+    if (!dp.isConnected) {
+      return (dp, _error('not_connected', 'Device $id is not connected', status: 503));
+    }
+    final device = dp.connectedDevice;
+    if (device == null || !device.hasFs) {
+      return (dp, _error('not_supported', 'Device $id has no filesystem', status: 400));
+    }
+    return (dp, null);
+  }
+
+  DeviceFsService _deviceFsService(DeviceProvider dp) => createDeviceFsService(dp);
+
+  /// Handle GET /api/devices/<id>/fs/list — per-device FS directory listing.
+  Future<Response> _handleDeviceFsList(Request request, String id) async {
+    final (dp, err) = _resolveDeviceFs(id);
+    if (err != null) return err;
+    final path = request.url.queryParameters['path'] ?? '/';
+    try {
+      final entries = await _deviceFsService(dp).listDir(path);
+      return _json({
+        'device': id,
+        'path': path,
+        'entries': entries.map((e) => {
+          'name': e.name,
+          'type': e.isDirectory ? 'directory' : 'file',
+          'size': e.size,
+        }).toList(),
+      });
+    } catch (e) {
+      return _error('fs_error', e.toString(), status: 500);
+    }
+  }
+
+  /// Handle GET /api/devices/<id>/fs/info — per-device FS info.
+  Future<Response> _handleDeviceFsInfo(Request request, String id) async {
+    final (dp, err) = _resolveDeviceFs(id);
+    if (err != null) return err;
+    try {
+      final info = await _deviceFsService(dp).getInfo();
+      if (info == null) {
+        return _error('fs_error', 'Failed to get FS info', status: 500);
+      }
+      return _json({
+        'device': id,
+        'totalBytes': info.totalBytes,
+        'usedBytes': info.usedBytes,
+        'freeBytes': info.freeBytes,
+        'blockSize': info.blockSize,
+      });
+    } catch (e) {
+      return _error('fs_error', e.toString(), status: 500);
+    }
+  }
+
+  /// Handle GET /api/devices/<id>/fs/read — per-device FS file read.
+  Future<Response> _handleDeviceFsRead(Request request, String id) async {
+    final (dp, err) = _resolveDeviceFs(id);
+    if (err != null) return err;
+    final path = request.url.queryParameters['path'];
+    if (path == null || path.isEmpty) {
+      return _error('invalid_params', 'path query parameter is required');
+    }
+    dp.setFsBusy(true);
+    try {
+      final data = await _deviceFsService(dp).readFile(path);
+      if (data == null) {
+        return _error('not_found', 'File not found: $path', status: 404);
+      }
+      return _json({
+        'device': id,
+        'path': path,
+        'size': data.length,
+        'encoding': 'base64',
+        'data': base64Encode(data),
+      });
+    } catch (e) {
+      return _error('fs_error', e.toString(), status: 500);
+    } finally {
+      dp.setFsBusy(false);
+    }
+  }
+
+  /// Handle POST /api/devices/<id>/fs/write — per-device FS file write.
+  Future<Response> _handleDeviceFsWrite(Request request, String id) async {
+    final (dp, err) = _resolveDeviceFs(id);
+    if (err != null) return err;
+    final body = await _parseBody(request);
+    final path = body['path'] as String?;
+    final dataB64 = body['data'] as String?;
+    if (path == null || dataB64 == null) {
+      return _error('invalid_params', 'path and data are required');
+    }
+    dp.setFsBusy(true);
+    try {
+      final data = base64Decode(dataB64);
+      final result = await _deviceFsService(dp).writeFile(path, data);
+      if (!result.success) {
+        return _error('fs_error', '${result.errorName}: ${result.message}', status: 500);
+      }
+      return _json({'ok': true, 'device': id, 'path': path, 'bytesWritten': data.length});
+    } catch (e) {
+      return _error('fs_error', e.toString(), status: 500);
+    } finally {
+      dp.setFsBusy(false);
+    }
+  }
+
+  /// Handle POST /api/devices/<id>/fs/upload — per-device FS file upload.
+  Future<Response> _handleDeviceFsUpload(Request request, String id) async {
+    final (dp, err) = _resolveDeviceFs(id);
+    if (err != null) return err;
+    final body = await _parseBody(request);
+    final path = body['path'] as String?;
+    final dataB64 = body['data'] as String?;
+    if (path == null || dataB64 == null) {
+      return _error('invalid_params', 'path and data are required');
+    }
+    dp.setFsBusy(true);
+    try {
+      final data = base64Decode(dataB64);
+      final result = await _deviceFsService(dp).writeFileUpload(path, data);
+      if (!result.success) {
+        return _error('fs_error', '${result.errorName}: ${result.message}', status: 500);
+      }
+      return _json({'ok': true, 'device': id, 'path': path, 'bytesWritten': data.length});
+    } catch (e) {
+      return _error('fs_error', e.toString(), status: 500);
+    } finally {
+      dp.setFsBusy(false);
+    }
+  }
+
+  /// Handle POST /api/devices/<id>/fs/mkdir — per-device FS mkdir.
+  Future<Response> _handleDeviceFsMkdir(Request request, String id) async {
+    final (dp, err) = _resolveDeviceFs(id);
+    if (err != null) return err;
+    final body = await _parseBody(request);
+    final path = body['path'] as String?;
+    if (path == null) {
+      return _error('invalid_params', 'path is required');
+    }
+    try {
+      final result = await _deviceFsService(dp).mkdir(path);
+      if (!result.success) {
+        return _error('fs_error', '${result.errorName}: ${result.message}', status: 500);
+      }
+      return _json({'ok': true, 'device': id, 'path': path});
+    } catch (e) {
+      return _error('fs_error', e.toString(), status: 500);
+    }
+  }
+
+  /// Handle POST /api/devices/<id>/fs/delete — per-device FS delete.
+  Future<Response> _handleDeviceFsDelete(Request request, String id) async {
+    final (dp, err) = _resolveDeviceFs(id);
+    if (err != null) return err;
+    final body = await _parseBody(request);
+    final path = body['path'] as String?;
+    if (path == null) {
+      return _error('invalid_params', 'path is required');
+    }
+    try {
+      final result = await _deviceFsService(dp).delete(path);
+      if (!result.success) {
+        return _error('fs_error', '${result.errorName}: ${result.message}', status: 500);
+      }
+      return _json({'ok': true, 'device': id, 'path': path});
+    } catch (e) {
+      return _error('fs_error', e.toString(), status: 500);
+    }
+  }
+
+  /// Handle DELETE /api/devices/<id>/console — clear per-device console log.
+  Future<Response> _handleDeviceConsoleClear(Request request, String id) async {
+    final (dp, err) = _resolveDevice(id);
+    if (err != null) return err;
+    dp.consoleProvider?.clear();
+    return _json({'ok': true, 'device': id, 'message': 'Console cleared'});
+  }
+
+  /// Handle POST /api/devices/<id>/fs/format — format per-device filesystem.
+  Future<Response> _handleDeviceFsFormat(Request request, String id) async {
+    final (dp, err) = _resolveDeviceFs(id);
+    if (err != null) return err;
+    dp.setFsBusy(true);
+    try {
+      final result = await _deviceFsService(dp).format();
+      if (!result.success) {
+        return _error('fs_error', '${result.errorName}: ${result.message}', status: 500);
+      }
+      return _json({'ok': true, 'device': id, 'message': 'Filesystem formatted'});
+    } catch (e) {
+      return _error('fs_error', e.toString(), status: 500);
+    } finally {
+      dp.setFsBusy(false);
+    }
+  }
+
+  /// Handle GET /api/devices/<id>/ota/progress — per-device OTA upload progress.
+  Future<Response> _handleDeviceOtaProgress(Request request, String id) async {
+    final (dp, err) = _resolveDevice(id);
+    if (err != null) return err;
+    final progress = _deviceOtaProgress[id];
+    if (progress == null) {
+      return _json({
+        'device': id,
+        'active': false,
+        'received': 0,
+        'total': 0,
+        'status': 'idle',
+      });
+    }
+    final r = progress.$1;
+    final t = progress.$2;
+    final s = progress.$3;
+    return _json({
+      'device': id,
+      'active': true,
+      'received': r,
+      'total': t,
+      'status': s,
+      'percentage': t > 0 ? ((r / t) * 100).round() : 0,
+    });
+  }
+
+  /// Handle POST /api/devices/<id>/transport/send — per-device raw packet send.
+  Future<Response> _handleDeviceTransportSend(Request request, String id) async {
+    final (dp, err) = _resolveDevice(id);
+    if (err != null) return err;
+    if (!dp.isConnected) {
+      return _error('not_connected', 'Device $id is not connected', status: 503);
+    }
+    final body = await _parseBody(request);
+    final cmd = body['cmd'] as int?;
+    if (cmd == null) {
+      return _error('invalid_params', 'cmd is required');
+    }
+    final payloadHex = body['payload'] as String? ?? '';
+    List<int> payload = [];
+    if (payloadHex.isNotEmpty) {
+      final hex = payloadHex.replaceAll(RegExp(r'\s+'), '');
+      if (hex.length.isOdd) {
+        return _error('invalid_hex', 'Payload must be an even-length hex string');
+      }
+      try {
+        for (int i = 0; i < hex.length; i += 2) {
+          payload.add(int.parse(hex.substring(i, i + 2), radix: 16));
+        }
+      } catch (_) {
+        return _error('invalid_hex', 'Invalid hex string');
+      }
+    }
+    try {
+      final pkt = ProtocolService.buildPacket(cmd, payload);
+      await dp.currentTransport.writePacket(pkt);
+      return _json({'ok': true, 'device': id, 'message': 'Packet sent'});
+    } catch (e) {
+      return _error('send_failed', e.toString(), status: 500);
+    }
+  }
+
+
+  // -- Per-device OTA Upload ---------------------------------------------------
+
+  /// Handle POST /api/devices/<id>/ota/upload -- per-device OTA firmware upload.
+  /// Body: { "data": "<base64>", "eraseAll": false }
+  Future<Response> _handleDeviceOtaUpload(Request request, String id) async {
+    final (dp, err) = _resolveDevice(id);
+    if (err != null) return err;
+    if (!dp.isConnected) {
+      return _error('not_connected', 'Device $id is not connected', status: 503);
+    }
+    if (!dp.hasOta) {
+      return _error('ota_not_supported',
+          'Device $id does not support OTA', status: 400);
+    }
+
+    final body = await _parseBody(request);
+    final dataB64 = body['data'] as String?;
+    if (dataB64 == null || dataB64.isEmpty) {
+      return _error('invalid_params',
+          'data (base64-encoded firmware) is required');
+    }
+
+    final eraseAll = body['eraseAll'] as bool? ?? false;
+
+    List<int> firmware;
+    try {
+      firmware = base64Decode(dataB64);
+    } catch (e) {
+      return _error('invalid_encoding',
+          'Failed to decode base64 data: $e', status: 400);
+    }
+
+    _deviceOtaProgress.remove(id);
+    _deviceOtaProgress[id] = (0, firmware.length, 'starting');
+
+    try {
+      await dp.uploadFirmware(
+        firmware,
+        eraseAll: eraseAll,
+        onProgress: (received, total) {
+          _deviceOtaProgress[id] = (received, total, 'uploading');
+        },
+      );
+
+      _deviceOtaProgress[id] = (firmware.length, firmware.length, 'rebooting');
+
+      return _json({
+        'ok': true,
+        'device': id,
+        'size': firmware.length,
+        'eraseAll': eraseAll,
+        'message': 'Firmware uploaded successfully -- device rebooting',
+      });
+    } catch (e) {
+      _deviceOtaProgress.remove(id);
+      return _error('ota_failed', e.toString(), status: 500);
+    }
+  }
+
+  // -- Per-device FS Rename -----------------------------------------------------
+
+  /// Handle POST /api/devices/<id>/fs/rename -- per-device FS file rename.
+  /// Body: { "oldPath": "...", "newPath": "..." }
+  Future<Response> _handleDeviceFsRename(Request request, String id) async {
+    final (dp, err) = _resolveDeviceFs(id);
+    if (err != null) return err;
+    final body = await _parseBody(request);
+    final oldPath = body['oldPath'] as String?;
+    final newPath = body['newPath'] as String?;
+    if (oldPath == null || newPath == null) {
+      return _error('invalid_params', 'oldPath and newPath are required');
+    }
+    try {
+      final result = await _deviceFsService(dp).rename(oldPath, newPath);
+      if (!result.success) {
+        return _error('fs_error',
+            '${result.errorName}: ${result.message}', status: 500);
+      }
+      return _json({'ok': true, 'device': id, 'oldPath': oldPath, 'newPath': newPath});
+    } catch (e) {
+      return _error('fs_error', e.toString(), status: 500);
+    }
+  }
+
+  // -- Per-device FS Probe ------------------------------------------------------
+
+  /// Handle POST /api/devices/<id>/fs/probe -- probe FS availability on a device.
+  Future<Response> _handleDeviceFsProbe(Request request, String id) async {
+    final (dp, err) = _resolveDevice(id);
+    if (err != null) return err;
+    if (!dp.isConnected) {
+      return _error('not_connected', 'Device $id is not connected', status: 503);
+    }
+    final device = dp.connectedDevice;
+    if (device == null) {
+      return _error('not_connected', 'No device info for $id', status: 503);
+    }
+    try {
+      await dp.currentTransport.writePacket(FsProtocolService.buildInfo());
+      await Future.delayed(const Duration(milliseconds: 2000));
+    } catch (e) {
+      return _error('fs_probe_failed', e.toString(), status: 500);
+    }
+    final hasFs = device.hasFs;
+    return _json({
+      'ok': true,
+      'device': id,
+      'hasFs': hasFs,
+    });
+  }
+
+  // -- Per-device Transport Ping ------------------------------------------------
+
+  /// Handle POST /api/devices/<id>/transport/ping -- connection check (transport-driven).
+  Future<Response> _handleDeviceTransportPing(Request request, String id) async {
+    final (dp, err) = _resolveDevice(id);
+    if (err != null) return err;
+    if (!dp.isConnected) {
+      return _error('not_connected', 'Device $id is not connected', status: 503);
+    }
+    return _json({'ok': true, 'device': id});
+  }
+
+  // -- Per-device Transport WiFi Info -------------------------------------------
+
+  /// Handle POST /api/devices/<id>/transport/wifi_info -- get WiFi info from device.
+  Future<Response> _handleDeviceTransportWifiInfo(Request request, String id) async {
+    final (dp, err) = _resolveDevice(id);
+    if (err != null) return err;
+    if (!dp.isConnected) {
+      return _error('not_connected', 'Device $id is not connected', status: 503);
+    }
+    try {
+      final wifiInfo = await dp.sendGetWifiInfo();
+      if (wifiInfo == null) {
+        return _error('wifi_info_timeout', 'Failed to get WiFi info from $id (no response)', status: 500);
+      }
+      return _json({
+        'ok': true,
+        'device': id,
+        'ip': wifiInfo.ip,
+        'mode': wifiInfo.mode == 0 ? 'sta' : 'ap',
+        'ssid': wifiInfo.ssid,
+        'rssi': wifiInfo.rssi,
+      });
+    } catch (e) {
+      return _error('wifi_info_error', e.toString(), status: 500);
+    }
+  }
+
+  // -- Per-device Transport Quick Commands --------------------------------------
+
+  /// Handle POST /api/devices/<id>/transport/<cmd> -- quick transport commands.
+  /// Supported: get_conf, get_vars, get_meta, get_tele
+  Future<Response> _handleDeviceTransportQuick(Request request, String id, String cmd) async {
+    final (dp, err) = _resolveDevice(id);
+    if (err != null) return err;
+    if (!dp.isConnected) {
+      return _error('not_connected', 'Device $id is not connected', status: 503);
+    }
+    try {
+      switch (cmd) {
+        case 'ping':
+          break; // connection health is transport-driven
+        case 'get_conf':
+          await dp.currentTransport.writePacket(ProtocolService.buildGetConf());
+        case 'get_vars':
+          await dp.currentTransport.writePacket(ProtocolService.buildGetVars());
+        case 'get_meta':
+          await dp.currentTransport.writePacket(ProtocolService.buildGetMeta());
+        case 'get_tele':
+          await dp.currentTransport.writePacket(SettingsProtocolService.buildGetTelemetry(0));
+        default:
+          return _error('unknown_cmd', 'Unknown command: $cmd');
+      }
+      return _json({'ok': true, 'device': id});
+    } catch (e) {
+      return _error('send_failed', e.toString(), status: 500);
+    }
+  }
+
+
+  // -- Per-device Settings / NVS Handlers ---------------------------------------
+
+  /// Handle GET /api/devices/<id>/settings/nvs -- per-device NVS config.
+  Future<Response> _handleDeviceNvsGet(Request request, String id) async {
+    final (dp, err) = _resolveDevice(id);
+    if (err != null) return err;
+    if (!dp.isConnected) {
+      return _error('not_connected', 'Device $id is not connected', status: 503);
+    }
+    return _json({
+      'device': id,
+      'name': dp.configName ?? '',
+      'description': dp.description ?? '',
+      'hasPassword': dp.hasPassword,
+      'hasAdminPassword': dp.hasAdminPassword,
+      'isAuthenticated': dp.isAuthenticated,
+      'isAdminMode': dp.isAdminMode,
+      'isUserMode': dp.isUserMode,
+    });
+  }
+
+  /// Handle POST /api/devices/<id>/settings/nvs -- write config to device NVS.
+  /// Accepts optional: name, description, password, adminPassword, icon.
+  Future<Response> _handleDeviceNvsSet(Request request, String id) async {
+    final (dp, err) = _resolveDevice(id);
+    if (err != null) return err;
+    if (!dp.isConnected) {
+      return _error('not_connected', 'Device $id is not connected', status: 503);
+    }
+    final body = await _parseBody(request);
+    final name = body['name'] as String?;
+    final description = body['description'] as String?;
+    final password = body['password'] as String?;
+    final adminPassword = body['adminPassword'] as String?;
+    final icon = body['icon'] as String?;
+
+    if (name == null && description == null && password == null && adminPassword == null && icon == null) {
+      return _error('invalid_params', 'At least one of: name, description, password, adminPassword, icon');
+    }
+    if (name != null && (name.length < 1 || name.length > kMaxConfigName)) {
+      return _error('invalid_name', 'Name must be 1-$kMaxConfigName characters');
+    }
+    if (description != null && description.length > kMaxConfigDesc) {
+      return _error('invalid_description', 'Description must be at most $kMaxConfigDesc characters');
+    }
+    if (password != null && password.length > kMaxConfigPwd) {
+      return _error('invalid_password', 'Password must be at most $kMaxConfigPwd characters');
+    }
+    if (adminPassword != null && adminPassword.length > kMaxConfigPwd) {
+      return _error('invalid_admin_password', 'Admin password must be at most $kMaxConfigPwd characters');
+    }
+    if (icon != null && icon.length > kMaxDeviceIcon) {
+      return _error('invalid_icon', 'Icon must be at most $kMaxDeviceIcon characters');
+    }
+
+    try {
+      final ok = await dp.sendSetConf(
+        name: name,
+        description: description,
+        password: password,
+        adminPassword: adminPassword,
+        icon: icon,
+      );
+      if (ok) {
+        return _json({'ok': true, 'device': id, 'message': 'Config saved to NVS'});
+      }
+      return _error('nvs_error', 'Failed to write config to NVS', status: 500);
+    } catch (e) {
+      return _error('nvs_error', e.toString(), status: 500);
+    }
+  }
+
+  /// Handle POST /api/devices/<id>/settings/nvs/authenticate -- authenticate with device password.
+  Future<Response> _handleDeviceNvsAuthenticate(Request request, String id) async {
+    final (dp, err) = _resolveDevice(id);
+    if (err != null) return err;
+    if (!dp.isConnected) {
+      return _error('not_connected', 'Device $id is not connected', status: 503);
+    }
+    final body = await _parseBody(request);
+    final password = body['password'] as String?;
+    if (password == null || password.isEmpty) {
+      return _error('invalid_params', 'password is required');
+    }
+    try {
+      final ok = await dp.authenticate(password);
+      if (ok) {
+        return _json({'ok': true, 'device': id, 'message': 'Authenticated successfully'});
+      }
+      return _error('auth_failed', 'Password mismatch or timeout', status: 401);
+    } catch (e) {
+      return _error('auth_error', e.toString(), status: 500);
+    }
+  }
+
+  /// Handle POST /api/devices/<id>/settings/nvs/factory-reset -- erase NVS and reboot.
+  Future<Response> _handleDeviceNvsFactoryReset(Request request, String id) async {
+    final (dp, err) = _resolveDevice(id);
+    if (err != null) return err;
+    if (!dp.isConnected) {
+      return _error('not_connected', 'Device $id is not connected', status: 503);
+    }
+    final body = await _parseBody(request);
+    final confirm = body['confirm'] as bool? ?? false;
+    if (!confirm) {
+      return _error('confirmation_required',
+          'Set confirm: true to proceed with factory reset. This will erase all config and reboot the device.',
+          status: 400);
+    }
+    try {
+      final ok = await dp.sendFactoryReset();
+      if (ok) {
+        return _json({'ok': true, 'device': id, 'message': 'Factory reset sent -- device will reboot'});
+      }
+      return _error('nvs_error', 'Failed to send factory reset', status: 500);
+    } catch (e) {
+      return _error('nvs_error', e.toString(), status: 500);
+    }
+  }
+
+  /// Handle POST /api/devices/<id>/settings/nvs/reboot -- reboot device (NVS preserved).
+  Future<Response> _handleDeviceNvsReboot(Request request, String id) async {
+    final (dp, err) = _resolveDevice(id);
+    if (err != null) return err;
+    if (!dp.isConnected) {
+      return _error('not_connected', 'Device $id is not connected', status: 503);
+    }
+    try {
+      final ok = await dp.sendReboot();
+      if (ok) {
+        return _json({'ok': true, 'device': id, 'message': 'Reboot sent -- device will reboot (NVS preserved)'});
+      }
+      return _error('nvs_error', 'Failed to send reboot', status: 500);
+    } catch (e) {
+      return _error('nvs_error', e.toString(), status: 500);
+    }
+  }
+
+  /// Handle GET /api/devices/<id>/settings/nvs/raw/<key> -- read raw NVS key.
+  Future<Response> _handleDeviceNvsRawRead(Request request, String id, String key) async {
+    final (dp, err) = _resolveDevice(id);
+    if (err != null) return err;
+    if (!dp.isConnected) {
+      return _error('not_connected', 'Device $id is not connected', status: 503);
+    }
+    try {
+      final result = await dp.readNvsRawKey(key);
+      if (result.status == kSettingsNvsRawOk) {
+        if (result.rawString != null) {
+          return _json({'ok': true, 'device': id, 'key': key, 'value': result.rawString});
+        }
+        if (result.value != null) {
+          return _json({'ok': true, 'device': id, 'key': key, 'value': result.value});
+        }
+      }
+      return _json({'ok': true, 'device': id, 'key': key, 'value': null});
+    } catch (e) {
+      return _error('nvs_error', e.toString(), status: 500);
+    }
+  }
+
+  /// Handle POST /api/devices/<id>/settings/nvs/raw/<key> -- write raw NVS key.
+  Future<Response> _handleDeviceNvsRawWrite(Request request, String id, String key) async {
+    final (dp, err) = _resolveDevice(id);
+    if (err != null) return err;
+    if (!dp.isConnected) {
+      return _error('not_connected', 'Device $id is not connected', status: 503);
+    }
+    final body = await _parseBody(request);
+    final value = body['value'] as int?;
+    if (value == null || value < 0 || value > 255) {
+      return _error('invalid_params', 'value must be an integer 0-255');
+    }
+    try {
+      final status = await dp.writeNvsRawKey(key, value);
+      if (status == kSettingsNvsRawOk) {
+        return _json({'ok': true, 'device': id, 'key': key, 'value': value});
+      }
+      return _error('nvs_error', 'Failed to write NVS key', status: 500);
+    } catch (e) {
+      return _error('nvs_error', e.toString(), status: 500);
+    }
+  }
+
+  /// Handle GET /api/devices/<id>/settings/nvs/cloud-info -- read cloud relay info from device.
+  Future<Response> _handleDeviceNvsCloudInfo(Request request, String id) async {
+    final (dp, err) = _resolveDevice(id);
+    if (err != null) return err;
+    if (!dp.isConnected) {
+      return _error('not_connected', 'Device $id is not connected', status: 503);
+    }
+    try {
+      final cloudInfo = await dp.sendGetCloudInfo();
+      if (cloudInfo != null) {
+        return _json({
+          'ok': true,
+          'device': id,
+          'url': cloudInfo.url,
+          'account': cloudInfo.account,
+        });
+      }
+      return _json({'ok': true, 'device': id, 'url': null, 'account': null});
+    } catch (e) {
+      return _error('cloud_info_error', e.toString(), status: 500);
+    }
+  }
+
+  /// Handle GET /api/devices/<id>/widgets/<wid> -- get a single widget from a device.
+  Future<Response> _handleDeviceWidgetInfo(Request request, String id, String wid) async {
+    final (dp, err) = _resolveDevice(id);
+    if (err != null) return err;
+    if (!dp.isConnected) {
+      return _error('not_connected', 'Device $id is not connected', status: 503);
+    }
+    final widgetId = int.tryParse(wid);
+    if (widgetId == null) {
+      return _error('invalid_id', 'Widget ID must be an integer');
+    }
+    final widget = dp.widgets.where((w) => w.widgetId == widgetId).firstOrNull;
+    if (widget == null) {
+      return _error('not_found', 'Widget $wid not found on device $id', status: 404);
+    }
+    return _json({'device': id, 'widget': _widgetToJson(widget, dp: dp)});
+  }
+
   // ── Cloud Relay Handlers ────────────────────────────────────────────────────
 
   /// Handle POST /api/cloud/connect — connect to relay, authenticate, list devices.
@@ -2204,7 +3320,10 @@ class RemoteAccessService {
           status: 400);
     }
 
+    final deviceId = _deviceProvider.connectedDevice?.id ?? 'unknown';
     _otaProgress = (0, firmware.length, 'starting');
+    _deviceOtaProgress.remove(deviceId);
+    _deviceOtaProgress[deviceId] = (0, firmware.length, 'starting');
 
     try {
       await _deviceProvider.uploadFirmware(
@@ -2212,10 +3331,12 @@ class RemoteAccessService {
         eraseAll: eraseAll,
         onProgress: (received, total) {
           _otaProgress = (received, total, 'uploading');
+          _deviceOtaProgress[deviceId] = (received, total, 'uploading');
         },
       );
 
       _otaProgress = (firmware.length, firmware.length, 'rebooting');
+      _deviceOtaProgress[deviceId] = (firmware.length, firmware.length, 'rebooting');
 
       return _json({
         'ok': true,
@@ -2225,6 +3346,7 @@ class RemoteAccessService {
       });
     } catch (e) {
       _otaProgress = null;
+      _deviceOtaProgress.remove(deviceId);
       return _error('ota_failed', e.toString(), status: 500);
     }
   }

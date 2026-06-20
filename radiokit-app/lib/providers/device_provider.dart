@@ -230,6 +230,7 @@ class DeviceProvider extends ChangeNotifier {
   bool                  get isConnected      =>
       _connectionState == DeviceConnectionState.connected;
   TransportService      get currentTransport => _transport;
+  ConsoleProvider?      get consoleProvider => _console;
   int?                  get rssi             => _rssi;
   int?                  get latencyMs        => _latencyMs;
 

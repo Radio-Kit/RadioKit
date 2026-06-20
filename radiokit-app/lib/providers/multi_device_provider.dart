@@ -7,6 +7,7 @@ import 'console_provider.dart';
 import 'theme_preset_provider.dart';
 import 'history_provider.dart';
 import '../services/transport_service.dart';
+import '../services/debug_transport.dart';
 
 /// Manages a collection of [DeviceProvider] instances for simultaneous
 /// connections to multiple RadioKit devices.
@@ -39,6 +40,12 @@ class MultiDeviceProvider extends ChangeNotifier {
 
   /// Read-only view of all connected device IDs.
   List<String> get deviceIds => List.unmodifiable(_devices.keys);
+
+  /// Entries as (mapKey, DeviceProvider) pairs. The mapKey is the original
+  /// device ID passed to connectDevice, which may differ from
+  /// dp.connectedDevice?.id after connection.
+  List<(String, DeviceProvider)> get deviceEntries =>
+      List.unmodifiable(_devices.entries.map((e) => (e.key, e.value)));
 
   /// Read-only view of all connected DeviceProviders.
   List<DeviceProvider> get devices => List.unmodifiable(_devices.values);

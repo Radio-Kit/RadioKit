@@ -772,7 +772,7 @@ Future<bool> _showAuthDialog(
         builder: (context, setDialogState) {
           // Watch the per-device provider for auth state changes
           // dp is the per-device DeviceProvider passed to the dialog
-          if (authDp.isAuthenticated && !_autoPopHandled) {
+          if (dp.isAuthenticated && !_autoPopHandled) {
             _autoPopHandled = true;
             Future.microtask(() {
               if (context.mounted) Navigator.of(ctx).pop(true);
@@ -905,6 +905,8 @@ Future<bool> _showAuthDialog(
             ],
           );
         },
+      );
+    },
       );
     },
   );

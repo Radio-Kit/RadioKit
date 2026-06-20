@@ -18,14 +18,20 @@ import 'designs_provider.dart';
 import 'cloud_identity_provider.dart';
 import 'account_provider.dart';
 import 'flasher_provider.dart';
+import '../services/demo_transport.dart';
 
 class RemoteAccessProvider extends ChangeNotifier {
   final SettingsProvider _settingsProvider;
   final MultiDeviceProvider _multiDeviceProvider;
   /// Backward-compatible getter: returns the primary (focused or first connected) DeviceProvider.
-  /// Used by RemoteAccessService which still expects a single DeviceProvider.
-  if (_activeDevice == null) return;
-  DeviceProvider? get _activeDevice => _activeDevice.primaryDevice;
+  DeviceProvider? get _activeDevice => _multiDeviceProvider.primaryDevice;
+
+  /// Disconnected fallback DeviceProvider. Ensures _deviceProvider getter
+  /// never throws when no real device is connected. Handlers guard with
+  /// isConnected checks and return 503 for this idle provider.
+  late final DeviceProvider _idleDeviceProvider = DeviceProvider(
+    transport: DemoTransport(),
+  );
   final BleProvider _bleProvider;
   final SerialProvider _serialProvider;
   final HistoryProvider _historyProvider;
@@ -95,7 +101,7 @@ class RemoteAccessProvider extends ChangeNotifier {
     if (_isRunning) return null;
 
     _service = RemoteAccessService(
-      deviceProvider: _activeDevice,
+      getActiveDevice: () => _multiDeviceProvider.primaryDevice ?? (_multiDeviceProvider.devices.isNotEmpty ? _multiDeviceProvider.devices.first : _idleDeviceProvider),
       bleProvider: _bleProvider,
       serialProvider: _serialProvider,
       historyProvider: _historyProvider,
@@ -105,9 +111,14 @@ class RemoteAccessProvider extends ChangeNotifier {
       cloudIdentityProvider: _cloudIdentityProvider,
       accountProvider: _accountProvider,
       flasherProvider: _flasherProvider,
+      getMultiDevice: () => _multiDeviceProvider,
       onLog: _addLogEntry,
       onFollowEvent: _onFollowEvent,
       currentRouteGetter: () => _currentRoute,
+      connectDemo: (demoId) async {
+        await _multiDeviceProvider.connectDemo(demoId);
+        _multiDeviceProvider.setFocusedDevice('DEMO_$demoId');
+      },
     );
 
     final error = await _service!.start();
@@ -192,6 +203,7 @@ class RemoteAccessProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _idleDeviceProvider.dispose();
     followNavigationTarget.dispose();
     glowColor.dispose();
     stop();

@@ -537,36 +537,110 @@ The `.github/workflows/release.yml` has a `flatpak` job that runs after the Andr
 - **Rule**: Only work on the current request, it's okay if it breaks backward compatibility. We can break the API whenever needed.
 - **Rule**: We don't need to support old versions of the library. We can drop support for old versions whenever needed.
 
-## 17. PlatformIO (Arduino Build)
+## 17. Build Tools & Processes
 
-PlatformIO is installed globally via `uv tool install platformio` (v6.1.19). It is available as the `pio` command from anywhere.
+### 17.1 PlatformIO (Arduino Build)
 
-### 17.1 Build commands
-
-Each example has its own `platformio.ini` in its directory. Build from that directory:
+PlatformIO must be installed inside a **`uv` venv** — do NOT install it globally.
 
 ```bash
+# First-time setup (from project root)
+uv venv .venv
+source .venv/bin/activate
+uv pip install platformio
+```
+
+**Build commands** — each example has its own `platformio.ini`. Build from the example directory:
+
+```bash
+# Activate venv first
+source .venv/bin/activate
+
+# Then build from the example directory
+cd rk-arduino/examples/BasicSwitch
 pio run                      # builds the example (default env)
 pio run -t upload            # flash to board
 ```
 
-### 17.2 Available examples
-
-Each directory under `rk-arduino/examples/` has a self-contained `platformio.ini`:
-- `SerialTest` — Serial transport demo
+**Available examples** (`rk-arduino/examples/`):
 - `BasicSwitch` — BLE basic switch
-- `JoystickMotor` — BLE joystick motor
-- `SliderServo` — servo slider (adds ESP32Servo)
 - `BLE_RC_Truck` — BLE RC truck
 - `Filesystem_LED` — bulk-FS demo with LittleFS
+- `FsCommandTest` — FS command test
+- `JoystickMotor` — BLE joystick motor
+- `SliderServo` — servo slider (adds ESP32Servo)
+- `WiFiCloudSwitch` — WiFi cloud switch
 
-### 17.3 Reinstallation
-
-If `pio` is ever missing or broken:
+**Reinstallation** — if `pio` is missing or broken after venv reset:
 
 ```bash
-uv tool install platformio
+uv venv .venv && source .venv/bin/activate && uv pip install platformio
 ```
+
+**CI**: `.github/workflows/pioarduino-ci.yml` builds all examples via a matrix. Uses `pip install platformio` in CI (no venv needed there).
+
+### 17.2 Flutter App
+
+**Prerequisites**: Flutter 3.44.2+, Dart 3.12.2+
+
+```bash
+cd radiokit-app
+
+# Get dependencies (also fetches flutter-widgets path dep)
+flutter pub get
+
+# Run analyzer (CI enforces --fatal-warnings)
+flutter analyze --fatal-warnings
+
+# Run tests
+flutter test
+
+# Build debug APK
+flutter build apk --debug
+
+# Build release APK
+flutter build apk --release
+
+# Build for web
+flutter build web
+
+# Build for Linux desktop
+flutter build linux
+```
+
+**Monorepo note**: `radiokit-widgets` (`flutter-widgets/`) is a path dependency. Run `flutter pub get` in `radiokit-app/` — it resolves `flutter-widgets` automatically.
+
+**Dependency override**: `flserial` uses a git override (`rambros3d/flserial` fork). Do not remove from `pubspec.yaml` dependency_overrides.
+
+**CI**: `.github/workflows/flutter-ci.yml` runs `flutter analyze` and `flutter test` on every push.
+
+### 17.3 Rust Relay (radiokit-relay)
+
+**Prerequisites**: Rust 1.95.0+ (rustc/cargo)
+
+```bash
+cd radiokit-relay
+
+# Build
+cargo build
+
+# Build release
+cargo build --release
+
+# Run tests
+cargo test
+
+# Run locally
+cargo run
+
+# Build Docker image
+docker build -t radiokit-relay .
+
+# Run in Docker
+./run.sh
+```
+
+**CI**: Docker build is triggered by the relay CI workflow.
 
 ## 18. Models Tab Auth Dialog Flow
 

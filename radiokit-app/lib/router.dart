@@ -111,6 +111,11 @@ GoRouter createRouter(ConnectionNotifier connectionNotifier) {
           return ControlScreen(deviceId: deviceId);
         },
       ),
+      // Bare /control route (no deviceId) — used by follow-mode API
+      GoRoute(
+        path: '/control',
+        builder: (context, state) => const ControlScreen(),
+      ),
 
       GoRoute(
         path: '/designer',

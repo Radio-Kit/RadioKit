@@ -94,7 +94,8 @@ class _ControlScreenState extends State<ControlScreen> {
   /// Resolve the DeviceProvider for this screen from MultiDeviceProvider.
   DeviceProvider? _resolveDeviceProvider() {
     final multiDevice = context.read<MultiDeviceProvider>();
-    return multiDevice.getDevice(widget.deviceId);
+    if (widget.deviceId == null) return multiDevice.primaryDevice;
+    return multiDevice.getDevice(widget.deviceId!);
   }
 
   Future<void> _disconnect() async {

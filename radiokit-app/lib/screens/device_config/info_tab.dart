@@ -10,11 +10,13 @@ import '../../theme/app_theme.dart';
 
 class InfoTabContent extends StatefulWidget {
   final DeviceInfo device;
+  final DeviceProvider? deviceProvider;
   final Map<String, dynamic>? bleInfo;
   final bool loadingBleInfo;
 
   const InfoTabContent({
     required this.device,
+    this.deviceProvider,
     required this.bleInfo,
     required this.loadingBleInfo,
   });

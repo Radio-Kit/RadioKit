@@ -11,8 +11,9 @@ import '../../theme/app_theme.dart';
 
 class FirmwareTabContent extends StatefulWidget {
   final DeviceInfo device;
+  final DeviceProvider? deviceProvider;
 
-  const FirmwareTabContent({required this.device});
+  const FirmwareTabContent({required this.device, this.deviceProvider});
 
   @override
   State<FirmwareTabContent> createState() => _FirmwareTabContentState();

@@ -4,7 +4,7 @@ The RadioKit Flutter app exposes a REST API on the local network for test automa
 
 > **Security**: This API is intended for LAN use only. There is no authentication or encryption. Do not expose the port to the public internet.
 
-> **Multi-Device Mode**: The app supports simultaneous connections to multiple RadioKit devices. When multiple devices are connected, device-specific endpoints (widgets, filesystem, transport, NVS, OTA) operate on the **active** device — the one currently focused in the app's UI. Use `GET /api/connection` to inspect which device is active. Only one device can be controlled at a time through the API.
+> **Multi-Device Mode**: The app supports simultaneous connections to multiple RadioKit devices. Every device-specific endpoint (widgets, filesystem, transport, NVS, OTA, console) has a **per-device** variant under `/api/devices/<id>/...` that targets a specific device regardless of focus. The legacy single-device endpoints under `/api/widgets`, `/api/fs/`, etc. operate on the **active** device — the one currently focused in the app's UI. Use `GET /api/devices` to list all connected devices with their IDs, or `GET /api/connection` to check the legacy active device.
 
 ---
 
@@ -2131,7 +2131,387 @@ Delete a cloud account.
 
 ---
 
-## 17. Error Reference
+## 17. Multi-Device API
+
+Every device-specific endpoint (widgets, FS, transport, NVS, OTA, console) has a per-device variant that targets a specific device by its map key ID. The map key is the original BLE address / serial port path / WebSocket URL used when connecting — it does **not** change after connection.
+
+Use `GET /api/devices` to discover connected device IDs.
+
+### `GET /api/devices`
+
+List all devices in the multi-device collection with their connection state.
+
+**Response `200`:**
+
+```json
+{
+  "devices": [
+    {
+      "id": "B4:3A:45:AE:BA:25",
+      "name": "Basic_Switch",
+      "connected": true,
+      "hasFs": true,
+      "hasOta": true,
+      "hasPassword": false,
+      "rssi": -48,
+      "latencyMs": 40,
+      "transport": "ble"
+    },
+    {
+      "id": "ws://192.168.1.42:81",
+      "name": "WiFi_Cloud_Switch",
+      "connected": true,
+      "hasFs": true,
+      "hasOta": true,
+      "hasPassword": false,
+      "rssi": 0,
+      "latencyMs": 12,
+      "transport": "wifi"
+    }
+  ],
+  "count": 2,
+  "focusedDeviceId": "B4:3A:45:AE:BA:25"
+}
+```
+
+### `POST /api/devices/connect`
+
+Connect a new device (any transport). Creates a new `DeviceProvider` with its own transport and adds it to the collection.
+
+**Request:**
+
+```json
+{
+  "id": "B4:3A:45:AE:BA:25",
+  "type": "ble",
+  "baudRate": 115200
+}
+```
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `id` | string | yes | — | Device ID from scan results, WebSocket URL, or demo ID |
+| `type` | string | yes | — | `"ble"`, `"serial"`, `"wifi"`, `"cloud"`, or `"demo"` |
+| `baudRate` | int | no | `115200` | Serial baud rate |
+| `deviceName` | string | no | — | Cloud device name (cloud type only) |
+
+**Response `200`:**
+
+```json
+{
+  "ok": true,
+  "message": "Connected to Basic_Switch",
+  "device": {
+    "id": "B4:3A:45:AE:BA:25",
+    "name": "Basic_Switch",
+    "connected": true,
+    "transport": "ble"
+  }
+}
+```
+
+### `POST /api/devices/disconnect`
+
+Disconnect a specific device. Cleans up its transport and removes it from the collection.
+
+**Request:**
+
+```json
+{"id": "B4:3A:45:AE:BA:25"}
+```
+
+**Response `200`:**
+
+```json
+{"ok": true, "message": "Disconnected Basic_Switch"}
+```
+
+### `GET /api/devices/<id>`
+
+Get detailed info for a specific device.
+
+**Response `200`:**
+
+```json
+{
+  "id": "B4:3A:45:AE:BA:25",
+  "name": "Basic_Switch",
+  "description": "",
+  "connected": true,
+  "hasFs": true,
+  "hasOta": true,
+  "hasPassword": false,
+  "rssi": -48,
+  "latencyMs": 40,
+  "transport": "ble",
+  "configJson": {...},
+  "orientation": "portrait",
+  "isFocused": true
+}
+```
+
+---
+
+### Per-Device Widgets
+
+#### `GET /api/devices/<id>/widgets`
+
+List all widgets on a specific device with runtime state.
+
+**Response `200`:**
+
+```json
+{
+  "device": "B4:3A:45:AE:BA:25",
+  "widgets": [
+    {
+      "widgetId": 0,
+      "type": "slideSwitch",
+      "name": "widget_0",
+      "label": "",
+      "hasOutput": false,
+      "hasInput": true,
+      "state": {"value": 0}
+    }
+  ]
+}
+```
+
+#### `GET /api/devices/<id>/widgets/<wid>`
+
+Get a single widget from a specific device.
+
+**Response `200`:**
+
+```json
+{
+  "device": "B4:3A:45:AE:BA:25",
+  "widget": {
+    "widgetId": 0,
+    "type": "slideSwitch",
+    "name": "widget_0",
+    "label": "",
+    "hasOutput": false,
+    "hasInput": true,
+    "state": {"value": 0}
+  }
+}
+```
+
+#### `PUT /api/devices/<id>/widgets/<wid>`
+
+Set a widget value on a specific device. Same request/response format as `PUT /api/widgets/<wid>`.
+
+**Request:**
+
+```json
+{"values": [1]}
+```
+
+**Response `200`:**
+
+```json
+{"ok": true, "device": "B4:3A:45:AE:BA:25", "message": "Widget 0 set to [1]"}
+```
+
+---
+
+### Per-Device Console
+
+#### `GET /api/devices/<id>/console`
+
+Get console log entries for a specific device.
+
+**Response `200`:**
+
+```json
+{
+  "device": "B4:3A:45:AE:BA:25",
+  "entries": [
+    {"timestamp": "2026-06-20T12:00:00.000Z", "level": "info", "message": "Connected"}
+  ]
+}
+```
+
+#### `DELETE /api/devices/<id>/console`
+
+Clear the console log for a specific device.
+
+**Response `200`:**
+
+```json
+{"ok": true, "device": "B4:3A:45:AE:BA:25", "message": "Console cleared"}
+```
+
+---
+
+### Per-Device Filesystem
+
+All per-device FS endpoints follow the same request/response format as their single-device counterparts, with an additional `"device"` field in the response.
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/devices/<id>/fs/list?path=/` | List directory |
+| `GET /api/devices/<id>/fs/info` | FS usage info |
+| `GET /api/devices/<id>/fs/read?path=/file` | Read file (base64) |
+| `POST /api/devices/<id>/fs/write` | Write file |
+| `POST /api/devices/<id>/fs/upload` | Upload file (chunked) |
+| `POST /api/devices/<id>/fs/mkdir` | Create directory |
+| `POST /api/devices/<id>/fs/delete` | Delete file/directory |
+| `POST /api/devices/<id>/fs/rename` | Rename file |
+| `POST /api/devices/<id>/fs/format` | Format filesystem (destructive) |
+| `POST /api/devices/<id>/fs/probe` | Probe FS availability |
+
+**Example — `POST /api/devices/<id>/fs/write`:**
+
+```json
+{"path": "/config.json", "data": "eyJ0aGVtZSI6ICJkYXJrIn0="}
+```
+
+**Response:**
+
+```json
+{"ok": true, "device": "B4:3A:45:AE:BA:25", "path": "/config.json", "bytesWritten": 256}
+```
+
+**Example — `POST /api/devices/<id>/fs/rename`:**
+
+```json
+{"oldPath": "/old.txt", "newPath": "/new.txt"}
+```
+
+**Response:**
+
+```json
+{"ok": true, "device": "B4:3A:45:AE:BA:25", "oldPath": "/old.txt", "newPath": "/new.txt"}
+```
+
+---
+
+### Per-Device OTA
+
+#### `POST /api/devices/<id>/ota/upload`
+
+Upload firmware to a specific device. Same request format as `POST /api/ota/upload`.
+
+**Request:**
+
+```json
+{"data": "<base64>", "eraseAll": false}
+```
+
+**Response:**
+
+```json
+{"ok": true, "device": "B4:3A:45:AE:BA:25", "size": 1048576, "eraseAll": false, "message": "Firmware uploaded successfully -- device rebooting"}
+```
+
+#### `GET /api/devices/<id>/ota/progress`
+
+Get OTA progress for a specific device.
+
+**Response `200` (idle):**
+
+```json
+{"device": "B4:3A:45:AE:BA:25", "active": false, "received": 0, "total": 0, "status": "idle"}
+```
+
+**Response `200` (uploading):**
+
+```json
+{"device": "B4:3A:45:AE:BA:25", "active": true, "received": 524288, "total": 1048576, "status": "uploading", "percentage": 50}
+```
+
+---
+
+### Per-Device Transport
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/devices/<id>/transport/send` | Send raw protocol packet |
+| `POST /api/devices/<id>/transport/ping` | Connection check |
+| `POST /api/devices/<id>/transport/wifi_info` | WiFi info |
+| `POST /api/devices/<id>/transport/get_conf` | Request config |
+| `POST /api/devices/<id>/transport/get_vars` | Request variable states |
+| `POST /api/devices/<id>/transport/get_meta` | Request metadata |
+| `POST /api/devices/<id>/transport/get_tele` | Request telemetry |
+
+**Example — `POST /api/devices/<id>/transport/wifi_info`:**
+
+```json
+{"ok": true, "device": "B4:3A:45:AE:BA:25", "ip": "192.168.1.42", "mode": "sta", "ssid": "MyNetwork", "rssi": -65}
+```
+
+**Example — `POST /api/devices/<id>/transport/get_conf`:**
+
+```json
+{"ok": true, "device": "B4:3A:45:AE:BA:25"}
+```
+
+---
+
+### Per-Device Settings / NVS
+
+All per-device NVS endpoints follow the same request/response format as their single-device counterparts under `GET /api/settings/nvs*`, with an additional `"device"` field in the response.
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/devices/<id>/settings/nvs` | NVS config (name, desc, auth state) |
+| `POST /api/devices/<id>/settings/nvs` | Write config (name, desc, passwords, icon) |
+| `POST /api/devices/<id>/settings/nvs/authenticate` | Authenticate with device password |
+| `POST /api/devices/<id>/settings/nvs/factory-reset` | Erase NVS + reboot (requires `confirm: true`) |
+| `POST /api/devices/<id>/settings/nvs/reboot` | Reboot device (NVS preserved) |
+| `GET /api/devices/<id>/settings/nvs/raw/<key>` | Read raw NVS key |
+| `POST /api/devices/<id>/settings/nvs/raw/<key>` | Write raw NVS key (0-255) |
+| `GET /api/devices/<id>/settings/nvs/cloud-info` | Cloud relay info |
+
+**Example — `GET /api/devices/<id>/settings/nvs`:**
+
+```json
+{
+  "device": "B4:3A:45:AE:BA:25",
+  "name": "Basic_Switch",
+  "description": "",
+  "hasPassword": false,
+  "hasAdminPassword": false,
+  "isAuthenticated": false,
+  "isAdminMode": false,
+  "isUserMode": false
+}
+```
+
+**Example — `POST /api/devices/<id>/settings/nvs`:**
+
+```json
+{"name": "Updated Name", "description": "New description"}
+```
+
+**Response:**
+
+```json
+{"ok": true, "device": "B4:3A:45:AE:BA:25", "message": "Config saved to NVS"}
+```
+
+**Example — `GET /api/devices/<id>/settings/nvs/cloud-info`:**
+
+```json
+{"ok": true, "device": "B4:3A:45:AE:BA:25", "url": "wss://relay.radiokit.app:443", "account": "4b6afa..."}
+```
+
+---
+
+### Error Handling
+
+All per-device endpoints return standard error responses. The `not_found` error is returned when the device ID does not match any device in the collection.
+
+```json
+{"error": "not_found", "message": "Device FAKE_ID not found"}
+```
+
+---
+
+## 18. Error Reference
+
 
 | `error` | Meaning |
 |---------|---------|

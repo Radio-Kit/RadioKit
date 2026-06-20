@@ -102,7 +102,7 @@ class _RadioKitAppState extends State<RadioKitApp> {
       flasherProvider: _flasherProvider,
     );
 
-    _connectionNotifier = ConnectionNotifier(_deviceProvider);
+    _connectionNotifier = ConnectionNotifier(_multiDeviceProvider);
     _router = createRouter(_connectionNotifier);
   }
 

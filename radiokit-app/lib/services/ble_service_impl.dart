@@ -36,6 +36,133 @@ class BleService implements TransportService {
 
   bool _bleOperational = true;
 
+  // ── Multi-device transport registry ────────────────────────────────────────
+  // Maps BLE deviceId -> BleTransport for routing notifications to the
+  // correct per-device handler when multiple BLE devices are connected.
+  // This is a forward declaration; the actual type is in ble_transport.dart.
+  final Map<String, dynamic> _activeTransports = {};
+
+  /// Register a per-device transport for callback routing.
+  void registerTransport(String deviceId, dynamic transport) {
+    _activeTransports[deviceId] = transport;
+    _log('Registered transport for $deviceId (${_activeTransports.length} active)');
+  }
+
+  /// Unregister a per-device transport.
+  void unregisterTransport(String deviceId) {
+    _activeTransports.remove(deviceId);
+    _log('Unregistered transport for $deviceId (${_activeTransports.length} active)');
+  }
+
+  /// Connect to a device and associate it with a [BleTransport].
+  /// Delegates characteristic setup to the transport instance.
+  Future<void> connectToDevice(String deviceId, {required dynamic transport}) async {
+    _log('Connecting to $deviceId (multi-device)...');
+    await UniversalBle.connect(deviceId);
+
+    // Request large MTU
+    int mtu = 23;
+    try {
+      _log('Requesting MTU of 512...');
+      final negotiated = await UniversalBle.requestMtu(deviceId, 512);
+      mtu = (negotiated - 3).clamp(23, 600);
+      _log('Using effective MTU: $mtu');
+    } catch (e) {
+      _log('MTU request failed, using default 23: $e');
+    }
+
+    // Discover services
+    _log('Discovering services for $deviceId...');
+    final services = await UniversalBle.discoverServices(deviceId);
+    for (var s in services) {
+      _log('Found Service: ${s.uuid}');
+      for (var c in s.characteristics) {
+        _log('  -> Characteristic: ${c.uuid}');
+      }
+    }
+
+    final serviceUuid = kRadioKitServiceUuid.toLowerCase();
+    final widgetCharUuid = kRadioKitCharWidgetUuid.toLowerCase();
+    final fsCharUuid = kRadioKitCharFsUuid.toLowerCase();
+    final otaCharUuid = kRadioKitCharOtaUuid.toLowerCase();
+    final settingsCharUuid = kRadioKitCharSettingsUuid.toLowerCase();
+    final printCharUuid = kRadioKitCharPrintUuid.toLowerCase();
+
+    String? actualServiceId;
+    String? charWidgetId, charFsId, charOtaId, charSettingsId, charPrintId;
+
+    for (var s in services) {
+      if (s.uuid.toLowerCase().contains(serviceUuid)) {
+        actualServiceId = s.uuid;
+        for (var c in s.characteristics) {
+          final cuuid = c.uuid.toLowerCase();
+          if (cuuid.contains(widgetCharUuid) || widgetCharUuid.contains(cuuid)) charWidgetId = c.uuid;
+          if (cuuid.contains(fsCharUuid) || fsCharUuid.contains(cuuid)) charFsId = c.uuid;
+          if (cuuid.contains(otaCharUuid) || otaCharUuid.contains(cuuid)) charOtaId = c.uuid;
+          if (cuuid.contains(settingsCharUuid) || settingsCharUuid.contains(cuuid)) charSettingsId = c.uuid;
+          if (cuuid.contains(printCharUuid) || printCharUuid.contains(cuuid)) charPrintId = c.uuid;
+        }
+      }
+    }
+
+    if (actualServiceId == null) {
+      _log('ERROR - RadioKit service not found for $deviceId');
+      return;
+    }
+
+    _log('Discovered chars for $deviceId: widget=$charWidgetId, fs=$charFsId, ota=$charOtaId, settings=$charSettingsId, print=$charPrintId');
+
+    // Subscribe to all discovered characteristics
+    if (charWidgetId != null) await UniversalBle.subscribeNotifications(deviceId, actualServiceId, charWidgetId);
+    if (charFsId != null) await UniversalBle.subscribeNotifications(deviceId, actualServiceId, charFsId);
+    if (charOtaId != null) await UniversalBle.subscribeNotifications(deviceId, actualServiceId, charOtaId);
+    if (charSettingsId != null) await UniversalBle.subscribeNotifications(deviceId, actualServiceId, charSettingsId);
+    if (charPrintId != null) await UniversalBle.subscribeNotifications(deviceId, actualServiceId, charPrintId);
+
+    // Set characteristics on the transport instance
+    // ignore: avoid_dynamic_calls
+    transport.setCharacteristics(
+      widgetId: charWidgetId,
+      fsId: charFsId,
+      otaId: charOtaId,
+      settingsId: charSettingsId,
+      printId: charPrintId,
+      mtu: mtu,
+    );
+  }
+
+  /// Write a packet to a specific device (multi-device).
+  Future<void> writePacketToDevice(String deviceId, Uint8List data, int mtu, String? charId) async {
+    if (charId == null) throw StateError('No characteristic found for this data');
+    final serviceId = kRadioKitServiceUuid.toLowerCase();
+    final chunkSize = (mtu - 3).clamp(20, mtu - 3);
+
+    if (data.length <= chunkSize) {
+      await UniversalBle.write(deviceId, serviceId, charId, data, withoutResponse: true);
+      return;
+    }
+
+    for (int i = 0; i < data.length; i += chunkSize) {
+      final end = (i + chunkSize).clamp(0, data.length);
+      final chunk = Uint8List.sublistView(data, i, end);
+      await UniversalBle.write(deviceId, serviceId, charId, chunk, withoutResponse: true);
+    }
+  }
+
+  /// Disconnect a specific device (multi-device).
+  Future<void> disconnectDevice(String deviceId) async {
+    await UniversalBle.disconnect(deviceId);
+  }
+
+  /// Read RSSI for a specific device.
+  Future<int?> readRssi(String deviceId) async {
+    try {
+      return await UniversalBle.readRssi(deviceId);
+    } catch (_) {
+      return null;
+    }
+  }
+
   static bool _dbusAvailable() {
     try {
       return File('/var/run/dbus/system_bus_socket').existsSync();
@@ -174,6 +301,14 @@ class BleService implements TransportService {
     };
 
     UniversalBle.onConnectionChange = (String deviceId, bool isConnected, String? error) {
+      // Multi-device: route to registered transport first
+      final transport = _activeTransports[deviceId];
+      if (transport != null) {
+        // ignore: avoid_dynamic_calls
+        transport.onConnectionChanged(isConnected, error);
+        return;
+      }
+      // Legacy single-device path
       if (deviceId == _connectedDeviceId && !isConnected) {
         _handleDisconnect(error ?? 'Connection lost');
       }
@@ -181,6 +316,14 @@ class BleService implements TransportService {
 
     // Per-characteristic notification handler — routes to the correct buffer.
     UniversalBle.onValueChange = (String deviceId, String characteristicId, Uint8List value, int? timestamp) {
+      // Multi-device: route to registered transport first
+      final transport = _activeTransports[deviceId];
+      if (transport != null) {
+        // ignore: avoid_dynamic_calls
+        transport.onValueChanged(characteristicId, value);
+        return;
+      }
+      // Legacy single-device path
       if (deviceId != _connectedDeviceId) return;
 
       final charId = characteristicId.toLowerCase();
