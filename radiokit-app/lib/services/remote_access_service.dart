@@ -49,6 +49,7 @@ class RemoteAccessService {
   final MultiDeviceProvider Function()? _getMultiDevice;
   final void Function(ApiLogEntry) _onLog;
   final void Function(String route)? _onFollowEvent;
+  final Map<String, dynamic> Function()? _viewStateGetter;
   final String Function() _currentRouteGetter;
   final Future<dynamic> Function(String demoId)? _connectDemo;
 
@@ -76,8 +77,9 @@ class RemoteAccessService {
     MultiDeviceProvider Function()? getMultiDevice,
     required void Function(ApiLogEntry) onLog,
     void Function(String route)? onFollowEvent,
-    String Function() currentRouteGetter = _defaultRouteGetter,
-    Future<void> Function(String demoId)? connectDemo,
+  String Function() currentRouteGetter = _defaultRouteGetter,
+  Map<String, dynamic> Function()? viewStateGetter,
+  Future<void> Function(String demoId)? connectDemo,
   })  :        _getActiveDevice = getActiveDevice,
         _bleProvider = bleProvider,
         _serialProvider = serialProvider,
@@ -91,6 +93,7 @@ class RemoteAccessService {
         _getMultiDevice = getMultiDevice,
         _onLog = onLog,
         _onFollowEvent = onFollowEvent,
+      _viewStateGetter = viewStateGetter,
         _currentRouteGetter = currentRouteGetter,
         _connectDemo = connectDemo;
 
@@ -244,6 +247,7 @@ class RemoteAccessService {
     router.delete('/api/designs', _handleDesignsDeleteAll);
     router.delete('/api/designs/<id>', _handleDesignsDeleteOne);
     router.get('/api/session/route', _handleSessionRoute);
+    router.get('/api/session/state', _handleSessionState);
 
     // ── Flasher API ───────────────────────────────────────────────────
     router.get('/api/flasher/ports', _handleFlasherPorts);
@@ -3232,6 +3236,12 @@ class RemoteAccessService {
     return _json({
       'route': _currentRouteGetter(),
     });
+  }
+
+  /// Handle GET /api/session/state -- rich view state for follow-mode verification.
+  Future<Response> _handleSessionState(Request request) async {
+    final state = _viewStateGetter?.call() ?? {'route': _currentRouteGetter()};
+    return _json(state);
   }
 
   // ── Designs ──────────────────────────────────────────────────────────────────

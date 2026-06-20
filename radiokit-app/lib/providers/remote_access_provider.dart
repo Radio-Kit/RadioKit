@@ -66,6 +66,27 @@ class RemoteAccessProvider extends ChangeNotifier {
   List<ApiLogEntry> get logs => List.unmodifiable(_logs);
   String get currentRoute => _currentRoute;
 
+  /// Full view state for the /api/session/state endpoint.
+  Map<String, dynamic> get viewState => {
+        'route': _currentRoute,
+        'screen': _screenFromRoute(_currentRoute),
+        'followMode': _settingsProvider.followRemoteAccess,
+      };
+
+  static String _screenFromRoute(String route) {
+    if (route.startsWith('/control')) return 'control';
+    if (route.startsWith('/models')) return 'models';
+    if (route.startsWith('/system')) return 'system';
+    if (route.startsWith('/designs')) return 'designs';
+    if (route.startsWith('/flasher')) return 'flasher';
+    if (route.startsWith('/designer')) return 'designer';
+    if (route.startsWith('/debug')) return 'debug';
+    if (route.startsWith('/pair')) return 'pair';
+    if (route.startsWith('/dev-tools')) return 'dev-tools';
+    if (route.startsWith('/dev_tools')) return 'dev-tools';
+    return 'unknown';
+  }
+
   /// Called by _FollowModeWrapper whenever the route changes.
   void updateCurrentRoute(String route) {
     _currentRoute = route;
@@ -115,6 +136,7 @@ class RemoteAccessProvider extends ChangeNotifier {
       onLog: _addLogEntry,
       onFollowEvent: _onFollowEvent,
       currentRouteGetter: () => _currentRoute,
+      viewStateGetter: () => viewState,
       connectDemo: (demoId) async {
         await _multiDeviceProvider.connectDemo(demoId);
         _multiDeviceProvider.setFocusedDevice('DEMO_$demoId');
