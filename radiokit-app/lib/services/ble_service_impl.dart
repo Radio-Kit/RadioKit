@@ -146,6 +146,8 @@ class BleService implements TransportService {
       final end = (i + chunkSize).clamp(0, data.length);
       final chunk = Uint8List.sublistView(data, i, end);
       await UniversalBle.write(deviceId, serviceId, charId, chunk, withoutResponse: true);
+      // Small delay to prevent Android Bluetooth controller queue/buffer congestion
+      await Future.delayed(const Duration(milliseconds: 10));
     }
   }
 

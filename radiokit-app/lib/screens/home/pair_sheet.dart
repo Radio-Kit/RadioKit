@@ -18,6 +18,7 @@ import '../../models/device_info.dart';
 import '../../theme/app_theme.dart';
 import '../../services/websocket_service.dart';
 import '../../widgets/console_log_view.dart';
+import '../../services/ble_transport.dart';
 
 // ── Pair Bottom Sheet ──────────────────────────────────────────────────────
 
@@ -99,7 +100,7 @@ class _PairBottomSheetState extends State<PairBottomSheet>
       await bleProvider.stopScan();
       if (!mounted) return;
 
-      await multiDevice.connectDevice(device: device, transport: bleProvider.bleService);
+      await multiDevice.connectDevice(device: device, transport: BleTransport(bleProvider.bleService));
       if (!mounted) return;
 
       final connected = multiDevice.isDeviceConnected(device.id);

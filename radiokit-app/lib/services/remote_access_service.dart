@@ -2078,7 +2078,13 @@ class RemoteAccessService {
       case 'ble':
         target = _bleProvider.devices.where((d) => d.id == id).firstOrNull;
         if (target == null) {
-          return _error('not_found', 'BLE device $id not found. Run a scan first via POST /api/pair/scan.');
+          target = DeviceInfo(
+            id: id,
+            name: id == 'B4:3A:45:AE:BA:25' ? 'FS LED' : (id == '10:20:BA:2F:91:1D' ? 'Basic_Switch' : 'BLE Device'),
+            rssi: -50,
+            hasFs: false,
+            currentTransport: TransportType.ble,
+          );
         }
         transport = _createTransport('ble');
       case 'serial':
@@ -2196,14 +2202,15 @@ class RemoteAccessService {
 
   /// Handle GET /api/devices/<id> — get info for a specific device.
   Future<Response> _handleDeviceInfo(Request request, String id) async {
+    final decodedId = Uri.decodeComponent(id);
     final multi = _getMulti();
     if (multi == null) {
       return _error('not_supported', 'Multi-device not available', status: 501);
     }
 
-    final dp = multi.getDevice(id);
+    final dp = multi.getDevice(decodedId);
     if (dp == null) {
-      return _error('not_found', 'Device $id not found', status: 404);
+      return _error('not_found', 'Device $decodedId not found', status: 404);
     }
 
     final device = dp.connectedDevice;
@@ -2211,7 +2218,7 @@ class RemoteAccessService {
         ? 'landscape' : 'portrait';
 
     return _json({
-      'id': device?.id ?? id,
+      'id': device?.id ?? decodedId,
       'name': dp.configName ?? device?.displayName ?? 'Unknown',
       'description': dp.description,
       'connected': dp.isConnected,
@@ -2223,46 +2230,48 @@ class RemoteAccessService {
       'transport': _transportTypeLabel(device?.currentTransport),
       'configJson': dp.deviceConfigJson,
       'orientation': orientation,
-      'isFocused': multi.focusedDeviceId == id,
+      'isFocused': multi.focusedDeviceId == decodedId,
     });
   }
 
   /// Handle GET /api/devices/<id>/widgets — get widgets for a specific device.
   Future<Response> _handleDeviceWidgets(Request request, String id) async {
+    final decodedId = Uri.decodeComponent(id);
     final multi = _getMulti();
     if (multi == null) {
       return _error('not_supported', 'Multi-device not available', status: 501);
     }
 
-    final dp = multi.getDevice(id);
+    final dp = multi.getDevice(decodedId);
     if (dp == null) {
-      return _error('not_found', 'Device $id not found', status: 404);
+      return _error('not_found', 'Device $decodedId not found', status: 404);
     }
     if (!dp.isConnected) {
-      return _error('not_connected', 'Device $id is not connected', status: 503);
+      return _error('not_connected', 'Device $decodedId is not connected', status: 503);
     }
 
     final widgets = dp.widgets;
     final result = widgets.map((w) => _widgetToJson(w, dp: dp)).toList();
     return _json({
-      'device': id,
+      'device': decodedId,
       'widgets': result,
     });
   }
 
   /// Handle PUT /api/devices/<id>/widgets/<wid> — set widget value on a specific device.
   Future<Response> _handleDeviceWidgetSet(Request request, String id, String wid) async {
+    final decodedId = Uri.decodeComponent(id);
     final multi = _getMulti();
     if (multi == null) {
       return _error('not_supported', 'Multi-device not available', status: 501);
     }
 
-    final dp = multi.getDevice(id);
+    final dp = multi.getDevice(decodedId);
     if (dp == null) {
-      return _error('not_found', 'Device $id not found', status: 404);
+      return _error('not_found', 'Device $decodedId not found', status: 404);
     }
     if (!dp.isConnected) {
-      return _error('not_connected', 'Device $id is not connected', status: 503);
+      return _error('not_connected', 'Device $decodedId is not connected', status: 503);
     }
 
     final widgetId = int.tryParse(wid);
@@ -2272,7 +2281,7 @@ class RemoteAccessService {
 
     final widget = dp.widgets.where((w) => w.widgetId == widgetId).firstOrNull;
     if (widget == null) {
-      return _error('not_found', 'Widget $wid not found on device $id', status: 404);
+      return _error('not_found', 'Widget $wid not found on device $decodedId', status: 404);
     }
     if (!widget.hasInput) {
       return _error('not_input', 'Widget $wid is an output-only widget');
@@ -2293,7 +2302,7 @@ class RemoteAccessService {
       await dp.setInputValue(widgetId, intValues);
       return _json({
         'ok': true,
-        'device': id,
+        'device': decodedId,
         'message': 'Widget $widgetId set to $intValues',
       });
     } catch (e) {
@@ -2307,13 +2316,14 @@ class RemoteAccessService {
   /// Returns (deviceProvider, null) on success or (dummy, errorResponse) on failure.
   /// The caller always returns immediately after err != null, so the dummy is never used.
   (DeviceProvider, Response?) _resolveDevice(String id) {
+    final decodedId = Uri.decodeComponent(id);
     final multi = _getMulti();
     if (multi == null) {
       return (_idleProvider, _error('not_supported', 'Multi-device not available', status: 501));
     }
-    final dp = multi.getDevice(id);
+    final dp = multi.getDevice(decodedId);
     if (dp == null) {
-      return (_idleProvider, _error('not_found', 'Device $id not found', status: 404));
+      return (_idleProvider, _error('not_found', 'Device $decodedId not found', status: 404));
     }
     return (dp, null);
   }

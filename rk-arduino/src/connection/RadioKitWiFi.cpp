@@ -173,12 +173,18 @@ void RadioKitWiFi::_startAp() {
 bool RadioKitWiFi::_connectSta(const char* ssid, const char* password) {
     WiFi.begin(ssid, password);
     unsigned long start = millis();
+    unsigned long lastPrint = 0;
     while (millis() - start < RK_WIFI_STA_TIMEOUT_MS) {
         if (WiFi.status() == WL_CONNECTED) {
             return true;
         }
+        if (millis() - lastPrint > 1000) {
+            lastPrint = millis();
+            Serial.printf("WiFi: status=%d\n", WiFi.status());
+        }
         delay(100);
     }
+    Serial.printf("WiFi: STA connection timeout. Final status=%d\n", WiFi.status());
     return false;
 }
 

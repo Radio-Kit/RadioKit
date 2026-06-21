@@ -30,38 +30,8 @@ class _InfoTabContentState extends State<InfoTabContent> {
   /// null = no switch in progress.
   String? _transportSwitchMessage;
 
-  /// NVS transport enable states (null = not yet loaded).
-  bool _nvsBleOn = true;
-  bool _nvsWifiOn = false;
-  bool _nvsCloudOn = false;
-  bool _nvsLoading = true;
-
   /// Flag to avoid repeatedly scheduling auto-close pop on disconnect.
   bool _sheetAutoClosed = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadNvsStates());
-  }
-
-  Future<void> _loadNvsStates() async {
-    final dp = widget.deviceProvider ?? context.read<DeviceProvider>();
-    if (!dp.isConnected) {
-      if (mounted) setState(() => _nvsLoading = false);
-      return;
-    }
-    final bleResult = await dp.readNvsRawKey('rk_ble_on');
-    final wifiResult = await dp.readNvsRawKey('rk_wifi_on');
-    final cloudResult = await dp.readNvsRawKey('rk_cloud_on');
-    if (!mounted) return;
-    setState(() {
-      _nvsBleOn = (bleResult.value ?? 1) != 0;
-      _nvsWifiOn = (wifiResult.value ?? 0) != 0;
-      _nvsCloudOn = (cloudResult.value ?? 0) != 0;
-      _nvsLoading = false;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -161,67 +131,56 @@ class _InfoTabContentState extends State<InfoTabContent> {
             ] else if (isWifiConnected || isCloudConnected) ...[
               Text(
                 'Latency: ${dp.latencyMs ?? '--'}ms'
-                ' | Signal: ${dp.rssi ?? device.rssi ?? '--'} dBm',
+                ' | Signal: ${dp.rssi ?? device.rssi} dBm',
                 style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.54), fontSize: 11),
               ),
             ],
           ],
           const SizedBox(height: 16),
           // ── Transport Badges ────────────────────────────────
-          // Only show badges for transports enabled via NVS on the ESP32
-          if (_nvsLoading) ...[
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ),
-          ] else ...[
-            Row(
-              children: [
-                // BLE badge — always show if NVS-enabled or currently connected via BLE
-                if (_nvsBleOn || isBleConnected)
-                  TransportBadge(
-                    type: 'BLE',
-                    icon: Icons.bluetooth_rounded,
-                    connected: isConnected && isBleConnected,
-                    available: true,
-                    rssi: (isConnected && isBleConnected) ? (dp.rssi ?? device.rssi) : null,
-                    onTap: isConnected && !isBleConnected
-                        ? () => _onTransportTap(context, dp, device, TransportType.ble)
-                        : null,
-                  ),
-                if (_nvsBleOn || isBleConnected) const SizedBox(width: 8),
-                // WiFi badge — always show if connected via WiFi; otherwise show if NVS-enabled and device has WiFi
-                if ((_nvsWifiOn && (hasWifi || isWifiConnected)) || isWifiConnected)
-                  TransportBadge(
-                    type: 'WiFi',
-                    icon: Icons.wifi_rounded,
-                    connected: isConnected && isWifiConnected,
-                    available: hasWifi || isWifiConnected,
-                    rssi: (isConnected && isWifiConnected) ? (dp.rssi ?? device.rssi) : null,
-                    onTap: hasWifi && isConnected && !isWifiConnected
-                        ? () => _onTransportTap(context, dp, device, TransportType.wifi)
-                        : null,
-                  ),
-                if (((_nvsWifiOn && (hasWifi || isWifiConnected)) || isWifiConnected)) const SizedBox(width: 8),
-                // Cloud badge — always show if connected via Cloud; otherwise show if NVS-enabled and device has Cloud
-                if ((_nvsCloudOn && (hasCloud || isCloudConnected)) || isCloudConnected)
-                  TransportBadge(
-                    type: 'Cloud',
-                    icon: Icons.cloud_rounded,
-                    connected: isConnected && isCloudConnected,
-                    available: hasCloud || isCloudConnected,
-                    rssi: null,
-                    onTap: hasCloud && isConnected && !isCloudConnected
-                        ? () => _onTransportTap(context, dp, device, TransportType.cloud)
-                        : null,
-                  ),
-              ],
-            ),
-          ],
+          // Show badges for transports enabled/supported by the device firmware
+          Row(
+            children: [
+              // BLE badge — show if supported by firmware or currently connected via BLE
+              if (hasBle || isBleConnected)
+                TransportBadge(
+                  type: 'BLE',
+                  icon: Icons.bluetooth_rounded,
+                  connected: isConnected && isBleConnected,
+                  available: hasBle || isBleConnected,
+                  rssi: (isConnected && isBleConnected) ? (dp.rssi ?? device.rssi) : null,
+                  onTap: isConnected && !isBleConnected
+                      ? () => _onTransportTap(context, dp, device, TransportType.ble)
+                      : null,
+                ),
+              if (hasBle || isBleConnected) const SizedBox(width: 8),
+              // WiFi badge — show if supported by firmware or currently connected via WiFi
+              if (hasWifi || isWifiConnected)
+                TransportBadge(
+                  type: 'WiFi',
+                  icon: Icons.wifi_rounded,
+                  connected: isConnected && isWifiConnected,
+                  available: hasWifi || isWifiConnected,
+                  rssi: (isConnected && isWifiConnected) ? (dp.rssi ?? device.rssi) : null,
+                  onTap: hasWifi && isConnected && !isWifiConnected
+                      ? () => _onTransportTap(context, dp, device, TransportType.wifi)
+                      : null,
+                ),
+              if (hasWifi || isWifiConnected) const SizedBox(width: 8),
+              // Cloud badge — show if supported by firmware or currently connected via Cloud
+              if (hasCloud || isCloudConnected)
+                TransportBadge(
+                  type: 'Cloud',
+                  icon: Icons.cloud_rounded,
+                  connected: isConnected && isCloudConnected,
+                  available: hasCloud || isCloudConnected,
+                  rssi: null,
+                  onTap: hasCloud && isConnected && !isCloudConnected
+                      ? () => _onTransportTap(context, dp, device, TransportType.cloud)
+                      : null,
+                ),
+            ],
+          ),
           // ── Transport Switch Progress ────────────────────────
           if (_transportSwitchMessage != null) ...[
             const SizedBox(height: 8),

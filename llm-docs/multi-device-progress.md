@@ -14,7 +14,7 @@ The multi-device feature was added in the latest commit (`feat/multi-device`). T
 |-----------|--------|---------|
 | Android device | Connected | TB373FU (HA26JZ08) via USB |
 | ESP32 #1 | Working | `/dev/ttyACM0`, Filesystem_LED firmware (BLE + FS) |
-| ESP32 #2 | Working | `/dev/ttyACM1`, WiFiCloudSwitch firmware (flashed successfully, BLE: Basic_Switch) |
+| ESP32 #2 | Working | `/dev/ttyACM1`, WiFiCloudSwitch firmware (BLE + WiFi) |
 | PlatformIO | Available | v6.1.19, installed via uv venv |
 | Flutter SDK | Available | v3.44.2 |
 | ADB forwarding | Active | `tcp:7007 → tcp:7007` |
@@ -290,9 +290,9 @@ A new `BleTransport` class (in `ble_transport.dart`) implements `TransportServic
 | notifications | 3 | PASS |
 | getActiveDevice lambda safety | 1 | PASS |
 
-### `test/session_route_test.dart` -- 10 tests, all passing
+### `test/session_route_test.dart` -- 12 tests, all passing
 
-All follow-route path mappings work correctly, including the newly added FS mapping (`/api/fs/ -> /dev-tools/esp32-fs`) and multi-device mappings (`/api/devices/connect -> /control`).
+All follow-route path mappings work correctly, including the newly added FS mapping (`/api/fs/ -> /dev-tools/esp32-fs`) and multi-device mappings (`/api/devices/connect -> /control`). Settings path mapping updated: bare `/api/settings` returns null (no follow navigation), `/api/settings/nvs` still maps to `/system`.
 
 ---
 
@@ -320,9 +320,10 @@ All follow-route path mappings work correctly, including the newly added FS mapp
 ## Build & Validation
 
 ```
-flutter analyze  -> 0 errors, 353 warnings
+flutter analyze  -> 0 errors, 377 warnings
 flutter test test/multi_device_test.dart  -> 20/20 pass
-flutter test test/session_route_test.dart  -> 10/10 pass
+flutter test test/session_route_test.dart  -> 12/12 pass
+flutter test  -> 158/158 pass (full suite)
 ```
 
 
@@ -391,13 +392,133 @@ All single-device device-specific endpoints now have per-device equivalents:
   - console: entries populated
 - **Second BLE connect**: WiFi_Cloud_Switch (10:20:BA:2F:91:1D) scan-results expire before connect can complete. The BLE library clears scan results after the first connection, making simultaneous dual-BLE connect from scan unreliable.
 - **WiFi dual-device**: WiFi_Cloud_Switch reported IP `0.0.0.0` (AP mode), so WiFi WebSocket connect was not possible from the phone.
-- **Simultaneous connections**: Not yet achieved. The BLE scan timing and WiFi AP mode prevent both devices from being online at the same time through the test harness.
+- **Simultaneous connections**: Not yet achieved. The BLE scan timing and WiFi AP mode prevent both devices from being online at the same time through the test harness.### BLE Scan API Returns Empty Results
+
+**Status: Known issue**
+
+When triggered via `POST /api/pair/scan` + `GET /api/pair/devices`, the API sometimes returns 0 devices even though the tablet's native BLE scan page finds devices.
+
+**Root cause:** The BLE scan is initiated from the HTTP server handler (shelf isolate), which runs asynchronously. On Android, the `universal_ble` library requires the app to be in the foreground for reliable BLE discovery. The API call starts the scan but the scan results may not populate before the next `GET /api/pair/devices` query. Additionally, the `BleProvider` scan loop runs in 4-second windows with 4-second pauses, so timing between scan and query is critical.
+
+**Workaround:** Use the tablet's native pair sheet UI to discover and connect devices. The API's BLE scan is unreliable for automated testing on Android.
+
+**Expected behavior on other platforms:** On Linux desktop, the BLE scan via API works reliably because there are no foreground/background restrictions.
 
 ### Remaining Items
+
 - **Dual-device BLE**: The `universal_ble` library on Android clears scan results after connect. A workaround would be to cache scan results before connecting, or use a dedicated scan-then-connect queue.
 - **WiFi connect**: The device needs to be in STA mode (not AP) with a valid IP for WiFi WebSocket connect to work.
+- **BLE scan via API on Android**: Returns empty results due to foreground/background restrictions. Use tablet UI for BLE discovery on Android.
 
 ### Code Quality
 - 0 compile errors
 - 20/20 unit tests pass
 - Code review passed
+
+
+## Session 4: Session State Endpoint + Follow Mode Disconnect Fix + Hardware Test
+
+### New Endpoint: GET /api/session/state
+
+Exposes the current app view state for follow-mode verification and route debugging.
+
+**Response:**
+```json
+{
+  "route": "/control/10:20:BA:2F:91:1D",
+  "screen": "control",
+  "followMode": true
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `route` | Current GoRouter location (e.g., `/control/10:20:BA:2F:91:1D`, `/models`, `/system`) |
+| `screen` | Human-readable screen name derived from route via `_screenFromRoute()` |
+| `followMode` | Whether `SettingsProvider.followRemoteAccess` is enabled |
+
+**Implementation:**
+- `remote_access_provider.dart`: `viewState` getter returns `{route, screen, followMode}`, `_screenFromRoute()` maps all routes
+- `remote_access_service.dart`: `viewStateGetter` constructor param, `GET /api/session/state` route, `_handleSessionState` handler
+
+**Route-to-screen mapping:**
+```
+/control  -> control    /models   -> models
+/system   -> system     /designs  -> designs
+/flasher  -> flasher    /designer -> designer
+/debug    -> debug      /pair     -> pair
+/dev-tools -> dev-tools
+```
+
+### Bug Fix: Follow Mode Disconnect via API
+
+**Problem:** Enabling follow mode via `PUT /api/settings` with `{"followRemoteAccess": true}` triggered `_followRoute('/api/settings')` which returned `/system`. This navigated the app away from `/control`, disrupting the active BLE device connection.
+
+**Root cause:** The `_followRoute` mapping had `if (path.startsWith('/api/settings')) return '/system'`, which matched the app-level settings endpoint. When the log middleware fired `_onFollowEvent('/system')`, the `FollowModeWrapper` navigated to `/system`, tearing down the control screen.
+
+**Fix:** Removed bare `/api/settings` from `_followRoute`:
+```dart
+// Before:
+if (path.startsWith('/api/settings')) return '/system';
+
+// After:
+// /api/settings (app-level) excluded: toggling followRemoteAccess via API
+// would navigate away from /control, disconnecting the active BLE device.
+if (path.startsWith('/api/settings/nvs')) return '/system';
+if (path == '/api/settings') return null;
+```
+
+- Bare `/api/settings` (GET/PUT app settings) returns null -- no follow navigation
+- `/api/settings/nvs` paths (device NVS operations) still map to `/system`
+
+### Hardware Test Results (Session 4)
+
+**Hardware setup:**
+- ESP32 #1: `/dev/ttyACM0`, Filesystem_LED firmware (BLE name: FS LED), erased + re-flashed
+- ESP32 #2: `/dev/ttyACM1`, WiFiCloudSwitch firmware (BLE name: WiFi_Cloud_Switch), erased + re-flashed
+- Both boards verified alive via serial output (BLE init + FS mounted on #1, Cloud messages on #2)
+
+**Follow mode disconnect fix -- VERIFIED:**
+1. Connected to WIDGETS_DEMO (10 widgets) via API
+2. Session state showed `{route: "/control", screen: "control", followMode: false}`
+3. Enabled follow mode via `PUT /api/settings` -- device remained connected, stayed on `/control`
+4. Session state confirmed `{followMode: true, route: "/control"}`
+5. Toggled follow mode OFF/ON/OFF rapidly -- device remained connected throughout
+6. Disabled follow mode -- still connected
+
+**Multi-device BLE test -- PARTIAL:**
+1. BLE scan on tablet found 2 WiFi_Cloud_Switch devices (both ESP32s visible)
+2. Connected to first device via tablet UI -- session state showed correct route with device MAC
+3. Follow mode got disabled during user interaction with tablet (STOP button)
+4. Re-enabled follow mode -- confirmed no disconnect (fix working)
+5. BLE device disconnected during multi-device testing (likely BLE range/user interaction, not the follow mode bug)
+
+**Key finding:** The follow mode disconnect bug is FIXED. Enabling/disabling follow mode via API no longer navigates away from `/control` or disrupts active BLE connections.
+
+### Test Results
+
+```
+flutter test  -> 158/158 pass (full suite including session_route_test.dart)
+flutter analyze  -> 0 errors, 377 warnings
+```
+
+Updated `session_route_test.dart`:
+- Split settings test into two: "app settings return null, device NVS maps to /system"
+- Added test for `/api/settings/nvs/authenticate` returning `/system`
+
+### Commit
+
+```
+c97b0e69 - fix: prevent follow mode disconnect when toggling via API
+  - Remove /api/settings from _followRoute mapping
+  - Bare /api/settings returns null, /api/settings/nvs still maps to /system
+  - Add GET /api/session/state endpoint
+  - 158 tests pass, 0 compile errors
+```
+
+### Remaining Items
+
+- **Multi-device BLE simultaneous connect**: The `universal_ble` library clears scan results after first connect. Need to cache scan results or use a connect queue.
+- **BLE scan via API returns 0 devices**: The API's `POST /api/pair/scan` sometimes returns empty results while the tablet's native BLE scanner finds devices. This is a scan timing issue.
+- **USB CDC serial output on ttyACM1**: WiFiCloudSwitch firmware uses `ARDUINO_USB_CDC_ON_BOOT=1` but serial output is not captured reliably via Python's pyserial after flash. Device is confirmed alive via Cloud messages.
+- **Overlay tracking**: `ViewOverlayTracker` scaffold exists but is not hooked to NavigatorObserver (MaterialApp.router doesn't support navigatorObservers parameter). Future work: wrap showDialog/showModalBottomSheet calls.

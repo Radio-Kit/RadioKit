@@ -133,34 +133,38 @@ class _ControlScreenState extends State<ControlScreen> {
       deviceProvider = multiDevice.primaryDevice;
     }
 
-    // Device not found - show error
+    // Device gone (disconnected / removed from collection) — go back silently
     if (deviceProvider == null) {
-      return Scaffold(
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          title: const Text('Device Not Found'),
-        ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline_rounded,
-                  size: 64, color: context.tokens.error),
-              const SizedBox(height: 20),
-              Text('Device not connected',
-                  style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 12),
-              Text('This device is no longer connected.',
-                  style: Theme.of(context).textTheme.bodyMedium),
-              const SizedBox(height: 32),
-              FilledButton(
-                onPressed: () => context.go('/models'),
-                child: const Text('GO BACK'),
-              ),
-            ],
-          ),
-        ),
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.go('/models');
+      });
+      return const SizedBox.shrink();
+    }
+
+    // Resolve current device mapKey for dropdown value matching
+    String? currentKey;
+    if (widget.deviceId != null) {
+      currentKey = widget.deviceId;
+      // If it's a UID, find the mapKey
+      if (!multiDevice.deviceIds.contains(currentKey)) {
+        for (final entry in multiDevice.deviceEntries) {
+          if (entry.$2.connectedDevice?.id == currentKey) {
+            currentKey = entry.$1;
+            break;
+          }
+        }
+      }
+    } else {
+      // Fallback to primary / first connected
+      final primary = multiDevice.primaryDevice;
+      if (primary != null) {
+        for (final entry in multiDevice.deviceEntries) {
+          if (entry.$2 == primary) {
+            currentKey = entry.$1;
+            break;
+          }
+        }
+      }
     }
 
     // Update system UI mode
@@ -173,7 +177,37 @@ class _ControlScreenState extends State<ControlScreen> {
     return ListenableBuilder(
       listenable: deviceProvider,
       builder: (context, _) {
-        final device = deviceProvider!.connectedDevice;
+        final isDisconnected = deviceProvider!.connectionState == DeviceConnectionState.disconnected ||
+            deviceProvider.connectionState == DeviceConnectionState.error;
+
+        if (isDisconnected) {
+          final otherConnectedEntries = multiDevice.deviceEntries.where((e) {
+            return e.$1 != currentKey && e.$2.isConnected;
+          }).toList();
+
+          if (otherConnectedEntries.isNotEmpty) {
+            final nextDevKey = otherConnectedEntries.first.$1;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                context.go('/control/$nextDevKey');
+              }
+            });
+          } else {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                context.go('/models');
+              }
+            });
+          }
+          return Scaffold(
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            body: const Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        final device = deviceProvider.connectedDevice;
         final isConnected = deviceProvider.isConnected;
 
         return PopScope(
@@ -251,15 +285,86 @@ class _ControlScreenState extends State<ControlScreen> {
                   ),
                 ),
               ),
-              title: Text(
-                device?.displayName ?? 'RadioKit Device',
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
+              title: () {
+                final displayName = device?.displayName ?? 'RadioKit Device';
+                if (multiDevice.deviceCount <= 1) {
+                  return Text(
+                    displayName,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  );
+                }
+
+                final entries = multiDevice.deviceEntries;
+                final currentIndex = entries.indexWhere((e) => e.$1 == currentKey);
+                if (currentIndex == -1) {
+                  return Text(
+                    displayName,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  );
+                }
+
+                final prevIndex = (currentIndex - 1 + entries.length) % entries.length;
+                final nextIndex = (currentIndex + 1) % entries.length;
+
+                void navigateTo(int index) {
+                  final targetKey = entries[index].$1;
+                  context.go('/control/$targetKey');
+                }
+
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.chevron_left_rounded),
+                      onPressed: () => navigateTo(prevIndex),
+                      tooltip: 'Previous Device',
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onHorizontalDragEnd: (details) {
+                        if (details.primaryVelocity == null) return;
+                        if (details.primaryVelocity! > 0) {
+                          // Swipe right -> Previous device
+                          navigateTo(prevIndex);
+                        } else if (details.primaryVelocity! < 0) {
+                          // Swipe left -> Next device
+                          navigateTo(nextIndex);
+                        }
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        child: Text(
+                          displayName,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.chevron_right_rounded),
+                      onPressed: () => navigateTo(nextIndex),
+                      tooltip: 'Next Device',
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ],
+                );
+              }(),
               actions: [
                 if (kDebugMode)
                   IconButton(

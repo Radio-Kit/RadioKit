@@ -52,7 +52,7 @@ class MultiDeviceProvider extends ChangeNotifier {
 
   /// The currently focused DeviceProvider (control screen), or null.
   DeviceProvider? get focusedDevice =>
-      _focusedDeviceId != null ? _devices[_focusedDeviceId] : null;
+      _focusedDeviceId != null ? getDevice(_focusedDeviceId!) : null;
 
   /// The currently focused device ID, or null.
   String? get focusedDeviceId => _focusedDeviceId;
@@ -67,11 +67,20 @@ class MultiDeviceProvider extends ChangeNotifier {
   bool get anyConnected => _devices.values.any((dp) => dp.isConnected);
 
   /// Get the DeviceProvider for a specific device.
-  DeviceProvider? getDevice(String deviceId) => _devices[deviceId];
+  DeviceProvider? getDevice(String deviceId) {
+    final direct = _devices[deviceId];
+    if (direct != null) return direct;
+    for (final dp in _devices.values) {
+      if (dp.connectedDevice?.id == deviceId) {
+        return dp;
+      }
+    }
+    return null;
+  }
 
   /// Whether a specific device is connected.
   bool isDeviceConnected(String deviceId) {
-    final dp = _devices[deviceId];
+    final dp = getDevice(deviceId);
     return dp != null && dp.isConnected;
   }
 
@@ -108,8 +117,49 @@ class MultiDeviceProvider extends ChangeNotifier {
   }) async {
     final deviceId = device.id;
 
-    // Return existing provider if device is already connected
-    final existing = _devices[deviceId];
+    // Return existing provider if device is already connected/connecting
+    DeviceProvider? existing;
+    for (final entry in _devices.entries) {
+      final key = entry.key;
+      final dp = entry.value;
+      final conn = dp.connectedDevice;
+
+      // Match by map key or post-handshake UID
+      if (key == deviceId || conn?.id == deviceId) {
+        existing = dp;
+        break;
+      }
+
+      // Match by BLE address
+      if (device.bleAddress != null && device.bleAddress!.isNotEmpty) {
+        if (conn?.bleAddress == device.bleAddress ||
+            conn?.transportAddress == device.bleAddress ||
+            key == device.bleAddress) {
+          existing = dp;
+          break;
+        }
+      }
+      // Match by WiFi address
+      if (device.wifiAddress != null && device.wifiAddress!.isNotEmpty) {
+        if (conn?.wifiAddress == device.wifiAddress ||
+            conn?.transportAddress == device.wifiAddress ||
+            key == device.wifiAddress) {
+          existing = dp;
+          break;
+        }
+      }
+      // Match by transportAddress
+      if (device.transportAddress != null && device.transportAddress!.isNotEmpty) {
+        if (conn?.transportAddress == device.transportAddress ||
+            conn?.bleAddress == device.transportAddress ||
+            conn?.wifiAddress == device.transportAddress ||
+            key == device.transportAddress) {
+          existing = dp;
+          break;
+        }
+      }
+    }
+
     if (existing != null) {
       return existing;
     }
@@ -126,6 +176,8 @@ class MultiDeviceProvider extends ChangeNotifier {
       historyProvider: _historyProvider,
     );
 
+    deviceProvider.addListener(notifyListeners);
+    deviceProvider.addListener(_onDeviceChange);
     _devices[deviceId] = deviceProvider;
     notifyListeners();
 
@@ -135,6 +187,8 @@ class MultiDeviceProvider extends ChangeNotifier {
     } catch (e) {
       // Connection failed - clean up the provider
       _devices.remove(deviceId);
+      deviceProvider.removeListener(notifyListeners);
+      deviceProvider.removeListener(_onDeviceChange);
       notifyListeners();
       return deviceProvider; // Return the provider so caller can check state
     }
@@ -163,6 +217,8 @@ class MultiDeviceProvider extends ChangeNotifier {
       historyProvider: _historyProvider,
     );
 
+    deviceProvider.addListener(notifyListeners);
+    deviceProvider.addListener(_onDeviceChange);
     _devices[deviceId] = deviceProvider;
     notifyListeners();
 
@@ -172,17 +228,33 @@ class MultiDeviceProvider extends ChangeNotifier {
     return deviceProvider;
   }
 
-  /// Disconnect a specific device by ID. Cleans up its transport and
-  /// removes its DeviceProvider from the collection.
   Future<void> disconnectDevice(String deviceId) async {
-    final dp = _devices.remove(deviceId);
+    String? mapKey;
+    if (_devices.containsKey(deviceId)) {
+      mapKey = deviceId;
+    } else {
+      for (final entry in _devices.entries) {
+        final conn = entry.value.connectedDevice;
+        if (conn?.id == deviceId ||
+            conn?.bleAddress == deviceId ||
+            conn?.wifiAddress == deviceId ||
+            conn?.transportAddress == deviceId) {
+          mapKey = entry.key;
+          break;
+        }
+      }
+    }
+    if (mapKey == null) return;
+    final dp = _devices.remove(mapKey);
     if (dp == null) return;
 
+    dp.removeListener(notifyListeners);
+    dp.removeListener(_onDeviceChange);
     await dp.disconnect();
     dp.dispose();
 
     // Clear focus if the disconnected device was focused
-    if (_focusedDeviceId == deviceId) {
+    if (_focusedDeviceId == mapKey || _focusedDeviceId == deviceId) {
       _focusedDeviceId = null;
     }
 
@@ -202,12 +274,13 @@ class MultiDeviceProvider extends ChangeNotifier {
   void setFocusedDevice(String? deviceId) {
     if (_focusedDeviceId == deviceId) return;
     _focusedDeviceId = deviceId;
+    _pruneDisconnectedDevices();
     notifyListeners();
   }
 
   /// Reconnect a device that was previously connected.
   Future<void> reconnectDevice(String deviceId) async {
-    final dp = _devices[deviceId];
+    final dp = getDevice(deviceId);
     if (dp == null) return;
 
     final device = dp.connectedDevice;
@@ -217,9 +290,54 @@ class MultiDeviceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _onDeviceChange() {
+    // Run in a microtask to avoid modifying during notification/build phase
+    Future.microtask(() {
+      final beforeCount = _devices.length;
+      _pruneDisconnectedDevices();
+      if (_devices.length != beforeCount) {
+        notifyListeners();
+      }
+    });
+  }
+
+  void _pruneDisconnectedDevices() {
+    final toPrune = <String>[];
+    for (final entry in _devices.entries) {
+      final key = entry.key;
+      final dp = entry.value;
+      final state = dp.connectionState;
+
+      final isDisconnected = state == DeviceConnectionState.disconnected ||
+                             state == DeviceConnectionState.error;
+
+      final isFocused = _focusedDeviceId != null &&
+          (key == _focusedDeviceId || dp.connectedDevice?.id == _focusedDeviceId);
+
+      if (isDisconnected && !isFocused) {
+        toPrune.add(key);
+      }
+    }
+
+    for (final key in toPrune) {
+      final dp = _devices.remove(key);
+      if (dp != null) {
+        dp.removeListener(notifyListeners);
+        dp.removeListener(_onDeviceChange);
+        dp.disconnect().then((_) {
+          dp.dispose();
+        }).catchError((_) {
+          dp.dispose();
+        });
+      }
+    }
+  }
+
   @override
   void dispose() {
     for (final dp in _devices.values) {
+      dp.removeListener(notifyListeners);
+      dp.removeListener(_onDeviceChange);
       dp.dispose();
     }
     _devices.clear();

@@ -678,6 +678,20 @@ Android devices connected over TCP/IP may disconnect after idle time. Reconnect 
 adb kill-server && adb connect <IP>:5555
 ```
 
+### BLE Scan via API Returns Empty Results
+
+**Status: KNOWN ISSUE**
+
+When triggered via `POST /api/pair/scan` + `GET /api/pair/devices`, the API sometimes returns 0 devices even though the tablet's native BLE scan page finds devices.
+
+**Root cause:** The BLE scan is initiated from the HTTP server handler (shelf isolate), which runs asynchronously. On Android, the `universal_ble` library requires the app to be in the foreground for reliable BLE discovery. The API call starts the scan but the scan results may not populate before the next `GET /api/pair/devices` query. Additionally, the `BleProvider` scan loop runs in 4-second windows with 4-second pauses, so timing between scan and query is critical.
+
+**Workaround:** Use the tablet's native pair sheet UI to discover and connect devices. The API's BLE scan is unreliable for automated testing on Android.
+
+**Affected tests:** TC-1 (BLE scan), TC-2 (multi-device connect via scan).
+
+**Expected behavior on other platforms:** On Linux desktop, the BLE scan via API works reliably because there are no foreground/background restrictions.
+
 ### FOLLOW_REMOTE Mode — Test Usage
 
 **Always enable Follow Mode when starting an automated test, and disable it when the test is complete.**
@@ -724,7 +738,7 @@ curl -s -X PUT http://$APP_IP:7007/api/settings \
 | `/api/ota/` | `/control` |
 | `/api/designs` | `/designs` |
 | `/api/transport/` | `/debug` |
-| `/api/settings` | `/system` |
+| `/api/settings` | (excluded — see follow mode disconnect fix) |
 | `/api/console` | `/system` |
 | `/api/log` | `/system` |
 | `/api/models` | `/models` |

@@ -15,6 +15,7 @@ references/
 .worktree/
 ref/
 tmp/
+scratch/
 *.iml
 *.ipr
 *.iws

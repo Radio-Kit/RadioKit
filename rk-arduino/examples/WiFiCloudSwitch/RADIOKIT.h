@@ -71,12 +71,12 @@ static inline void initRadioKit() {
   RadioKit.config.baudrate      = 1000000;
 
   // ── Cloud relay config ─────────────────────────────────
-  RadioKit.config.cloud_url     = "10.0.0.17:9000";  // Local relay server
+  RadioKit.config.cloud_url     = "10.0.0.9:9000";  // Local relay server
   RadioKit.config.cloud_account = "6f5d64f15c8c0c80b3a39d4ed3ccfad30feb406ebaa6b36b70e80061389d3d1d";
 
   // ── STA WiFi compile-time defaults ────────────────────
-  RadioKit.config.sta_ssid      = "Leap";
-  RadioKit.config.sta_password  = "awsedrft";
+  RadioKit.config.sta_ssid      = "Rambros";
+  RadioKit.config.sta_password  = "20252025";
 
   led_1.rk.color = 0x00ff00;
 
@@ -102,9 +102,9 @@ static inline void initRadioKit() {
   }
 
   RadioKit.startSerial(Serial);  // USB CDC serial transport for testing
-  RadioKit.startBLE(RadioKit.config.name);
   RadioKit.startWiFi();
   RadioKit.startCloud();  // Cloud relay requires WiFi + relay server running
+  RadioKit.startBLE(RadioKit.config.name);
 }
 
 #endif // RADIOKIT_UI_H

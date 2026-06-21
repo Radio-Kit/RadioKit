@@ -25,6 +25,7 @@ import '../../services/websocket_service.dart';
 import '../../services/cloud_identity.dart';
 import '../../services/demo_fs_transport.dart';
 import 'pair_sheet.dart';
+import '../../services/ble_transport.dart';
 
 class _DeviceAvailability {
   final bool? wifiAvailable;
@@ -303,9 +304,14 @@ class _ActiveLinkSectionState extends State<_ActiveLinkSection> {
   Widget build(BuildContext context) {
     final multiDevice = context.watch<MultiDeviceProvider>();
     final devices = multiDevice.devices;
+    final activeDevices = devices.where((dp) {
+      final state = dp.connectionState;
+      return state != DeviceConnectionState.disconnected &&
+             state != DeviceConnectionState.error;
+    }).toList();
     final useWide = MediaQuery.of(context).size.width > 600;
 
-    if (devices.isEmpty) {
+    if (activeDevices.isEmpty) {
       // Reset all auth dialog flags when all devices disconnect
       if (_authDialogShown.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -338,6 +344,60 @@ class _ActiveLinkSectionState extends State<_ActiveLinkSection> {
       );
     }
 
+    final cardWidgets = [
+      for (final dp in activeDevices)
+        _ActiveLinkCardWithAuth(
+          deviceProvider: dp,
+          authDialogShown: _authDialogShown,
+        )
+    ];
+
+    Widget body;
+    if (useWide) {
+      final rows = <Widget>[];
+      for (int i = 0; i < cardWidgets.length; i += 2) {
+        final left = cardWidgets[i];
+        final right = (i + 1 < cardWidgets.length) ? cardWidgets[i + 1] : null;
+        rows.add(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: left),
+                const SizedBox(width: 16),
+                if (right != null)
+                  Expanded(child: right)
+                else
+                  const Expanded(child: SizedBox.shrink()),
+              ],
+            ),
+          ),
+        );
+      }
+      body = Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: rows,
+        ),
+      );
+    } else {
+      body = Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final w in cardWidgets)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: w,
+              ),
+          ],
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -345,40 +405,7 @@ class _ActiveLinkSectionState extends State<_ActiveLinkSection> {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: _buildSectionTag(context, 'ACTIVE_LINKS'),
         ),
-        // Show one card per connected device
-        for (final dp in devices)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _ActiveLinkCardWithAuth(
-              deviceProvider: dp,
-              authDialogShown: _authDialogShown,
-            ),
-          ),
-        // Always show + New device button
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: SizedBox(
-            width: double.infinity,
-            child: FilledButton.tonal(
-              style: FilledButton.styleFrom(
-                backgroundColor: context.tokens.primary.withValues(alpha: 0.15),
-                foregroundColor: context.tokens.primary,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                minimumSize: const Size(0, 40),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-              onPressed: () => showPairBottomSheet(context),
-              child: Text('+ New device',
-                  style: GoogleFonts.changa(
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.5,
-                      fontSize: 15,
-                      color: context.tokens.primary)),
-            ),
-          ),
-        ),
+        body,
       ],
     );
   }
@@ -402,9 +429,33 @@ class _ActiveLinkCardWithAuthState extends State<_ActiveLinkCardWithAuth> {
   @override
   void initState() {
     super.initState();
+    widget.deviceProvider.addListener(_handleProviderChange);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _checkAuth();
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant _ActiveLinkCardWithAuth oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.deviceProvider != oldWidget.deviceProvider) {
+      oldWidget.deviceProvider.removeListener(_handleProviderChange);
+      widget.deviceProvider.addListener(_handleProviderChange);
+      _checkAuth();
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.deviceProvider.removeListener(_handleProviderChange);
+    super.dispose();
+  }
+
+  void _handleProviderChange() {
+    if (mounted) {
+      setState(() {});
+      _checkAuth();
+    }
   }
 
   void _checkAuth() {
@@ -452,23 +503,7 @@ class _ActiveLinkCardWithAuthState extends State<_ActiveLinkCardWithAuth> {
     // Don't show card if auth is needed (dialog handles it)
     if (needAuth) return const SizedBox.shrink();
 
-    final useWide = MediaQuery.of(context).size.width > 600;
-    if (useWide) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: _buildActiveLinkCard(context, dp, device)),
-            const Expanded(child: SizedBox.shrink()),
-          ],
-        ),
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: _buildActiveLinkCard(context, dp, device),
-    );
+    return _buildActiveLinkCard(context, dp, device);
   }
 }
 
@@ -1130,10 +1165,6 @@ class _PairedModelsListState extends State<_PairedModelsList> {
     final address = device.bleAddress;
     if (address == null || address.isEmpty) return;
     try {
-      await ble.startScan();
-      await Future.delayed(const Duration(milliseconds: 2500));
-      await ble.stopScan();
-      if (!mounted) return;
       final found = ble.devices.any((d) => d.id == address);
       _updateAvailability(device.uid, current.copyWith(bleAvailable: found));
     } catch (_) {
@@ -1218,9 +1249,39 @@ class _PairedModelsListState extends State<_PairedModelsList> {
     final history = context.watch<HistoryProvider>();
     final multiDevice = context.watch<MultiDeviceProvider>();
     final useWide = MediaQuery.of(context).size.width > 600;
-    final connectedIds = multiDevice.deviceIds.toSet();
     final allDevices = history.pairedDevices;
-    final filteredDevices = allDevices.where((d) => !connectedIds.contains(d.uid)).toList();
+    final filteredDevices = allDevices.where((d) {
+      final isCurrentlyConnected = multiDevice.devices.any((dp) {
+        final state = dp.connectionState;
+        if (state == DeviceConnectionState.disconnected ||
+            state == DeviceConnectionState.error) {
+          return false;
+        }
+        if (dp.connectedDevice?.id == d.uid) return true;
+
+        final mapKey = multiDevice.deviceEntries
+            .firstWhere((e) => e.$2 == dp, orElse: () => ('', dp))
+            .$1;
+        if (mapKey == d.uid) return true;
+
+        if (d.bleAddress != null && d.bleAddress!.isNotEmpty) {
+          if (dp.connectedDevice?.bleAddress == d.bleAddress) return true;
+          if (dp.connectedDevice?.transportAddress == d.bleAddress) return true;
+          if (mapKey == d.bleAddress) return true;
+        }
+        if (d.wifiAddress != null && d.wifiAddress!.isNotEmpty) {
+          if (dp.connectedDevice?.wifiAddress == d.wifiAddress) return true;
+          if (dp.connectedDevice?.transportAddress == d.wifiAddress) return true;
+          if (mapKey == d.wifiAddress) return true;
+        }
+        if (d.serialAddress != null && d.serialAddress!.isNotEmpty) {
+          if (dp.connectedDevice?.transportAddress == d.serialAddress) return true;
+          if (mapKey == d.serialAddress) return true;
+        }
+        return false;
+      });
+      return !isCurrentlyConnected;
+    }).toList();
 
     if (filteredDevices.isEmpty) return const SizedBox.shrink();
 
@@ -1356,12 +1417,12 @@ class _PairedModelsListState extends State<_PairedModelsList> {
     }
 
     if (device.lastUsedTransport == 'wifi') addIf('wifi', 'WiFi', device.wifiAddress, TransportType.wifi, () => WebSocketService());
-    if (device.lastUsedTransport == 'ble') addIf('ble', 'BLE', device.bleAddress, TransportType.ble, () => ble.bleService);
+    if (device.lastUsedTransport == 'ble') addIf('ble', 'BLE', device.bleAddress, TransportType.ble, () => BleTransport(ble.bleService));
     if (device.lastUsedTransport == 'cloud' && cloudIdentity != null) addIf('cloud', 'Cloud', device.cloudAddress, TransportType.cloud, () { final ws = WebSocketService()..account = cloudIdentity!.account..identity = cloudIdentity!; return ws; });
     if (device.lastUsedTransport == 'serial') addIf('serial', 'Serial', device.serialAddress, TransportType.serial, () => serial.serialService);
 
     addIf('wifi', 'WiFi', device.wifiAddress, TransportType.wifi, () => WebSocketService());
-    addIf('ble', 'BLE', device.bleAddress, TransportType.ble, () => ble.bleService);
+    addIf('ble', 'BLE', device.bleAddress, TransportType.ble, () => BleTransport(ble.bleService));
     addIf('serial', 'Serial', device.serialAddress, TransportType.serial, () => serial.serialService);
 
     if (cloudIdentity != null && device.cloudAddress != null && device.cloudAddress!.isNotEmpty) {
@@ -1373,7 +1434,7 @@ class _PairedModelsListState extends State<_PairedModelsList> {
       TransportType fallbackType;
       String? fallbackAddr;
       if (device.type == 'ble') {
-        fallbackService = () => ble.bleService;
+        fallbackService = () => BleTransport(ble.bleService);
         fallbackType = TransportType.ble;
         fallbackAddr = device.bleAddress ?? device.uid;
       } else if (device.type == 'wifi') {
