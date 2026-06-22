@@ -259,7 +259,7 @@ class _KnobPainter extends CustomPainter {
     final pointerRadius = size.width * 0.04;
 
     final trackPaint = Paint()
-      ..color = tokens.effectiveOutline
+      ..color = tokens.effectiveOutline.withValues(alpha: 0.6)
       ..style = PaintingStyle.stroke
       ..strokeWidth = trackStrokeWidth
       ..strokeCap = StrokeCap.round;
@@ -273,7 +273,7 @@ class _KnobPainter extends CustomPainter {
     );
 
     final activePaint = Paint()
-      ..color = tokens.primary.withValues(alpha: 0.5)
+      ..color = tokens.primary.withValues(alpha: 0.7)
       ..style = PaintingStyle.stroke
       ..strokeWidth = trackStrokeWidth
       ..strokeCap = StrokeCap.round;
@@ -295,12 +295,16 @@ class _KnobPainter extends CustomPainter {
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, 1));
     }
 
+    // Knob body — radial gradient for depth
     canvas.drawCircle(center, knobRadius, Paint()
-      ..color = tokens.surface
+      ..shader = RadialGradient(
+        colors: [tokens.surface, tokens.track],
+        stops: const [0.3, 1.0],
+      ).createShader(Rect.fromCircle(center: center, radius: knobRadius))
       ..style = PaintingStyle.fill);
 
     canvas.drawCircle(center, knobRadius, Paint()
-      ..color = tokens.primary.withValues(alpha: 0.2)
+      ..color = tokens.effectiveOutline
       ..style = PaintingStyle.stroke
       ..strokeWidth = knobBorderWidth);
 

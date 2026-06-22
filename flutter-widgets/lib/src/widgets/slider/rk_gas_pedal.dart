@@ -92,7 +92,7 @@ class RKGasPedal extends StatelessWidget {
           ),
           decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(tokens.borderRadius * 1.5),
-          gradient: LinearGradient(colors: [tokens.surface, tokens.base200]),
+          gradient: LinearGradient(colors: [tokens.surface, tokens.track]),
           boxShadow: tokens.depth > 0
               ? [
                   BoxShadow(
@@ -169,7 +169,7 @@ class _PedalGrip extends StatelessWidget {
         borderRadius: BorderRadius.circular(tokens.radiusField),
         gradient: LinearGradient(
           colors: [
-            tokens.base300.withValues(alpha: 0.9),
+            tokens.track,
             tokens.effectiveOutline,
             tokens.onSurface,
           ],

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../models/designer_element.dart';
 import '../models/designer_state.dart';
+import '../theme/rk_theme.dart';
+import '../theme/rk_tokens.dart';
 import 'canvas_element.dart';
 
 /// Interactive design surface for arranging RadioKit widgets.
@@ -22,6 +24,7 @@ class _DesignerCanvasState extends State<DesignerCanvas> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = RKTheme.of(context);
     final state = widget.state;
     final cw = state.canvasWidth;
     final ch = state.canvasHeight;
@@ -48,7 +51,7 @@ class _DesignerCanvasState extends State<DesignerCanvas> {
             GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () => state.selectElement(null),
-              child: Container(color: const Color(0xFF0D0D0D)),
+              child: Container(color: tokens.base300),
             ),
             // ── Canvas content (scaled to fit available editor area) ──
             Positioned(
@@ -87,11 +90,11 @@ class _DesignerCanvasState extends State<DesignerCanvas> {
                           width: canvasPixelW,
                           height: canvasPixelH,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1A1A1A),
+                            color: tokens.surface,
                             border: Border.all(
                               color: candidates.isNotEmpty
                                   ? Colors.cyanAccent
-                                  : const Color(0xFF333333),
+                                  : tokens.effectiveOutline,
                               width: 1,
                             ),
                             borderRadius: BorderRadius.circular(4),
@@ -119,6 +122,7 @@ class _DesignerCanvasState extends State<DesignerCanvas> {
                                           cw: cw,
                                           ch: ch,
                                           style: state.gridStyle,
+                                          tokens: tokens,
                                         ),
                                       ),
                                     ),
@@ -609,6 +613,7 @@ class _DragHandleState extends State<_DragHandle> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = RKTheme.of(context);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onPanStart: _onPanStart,
@@ -623,13 +628,13 @@ class _DragHandleState extends State<_DragHandle> {
           width: _size,
           height: _size,
           decoration: BoxDecoration(
-            color: const Color(0xFF1A1A1A),
+            color: tokens.surface,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFF555555), width: 1),
+            border: Border.all(color: tokens.effectiveOutline, width: 1),
           ),
           child: Icon(
             widget.icon,
-            color: const Color(0xFF00D4FF),
+            color: tokens.primary,
             size: _size * 0.75,
           ),
         ),
@@ -642,10 +647,12 @@ class _GridPainter extends CustomPainter {
   final int cw;
   final int ch;
   final GridStyle style;
+  final RKTokens tokens;
 
   _GridPainter({
     required this.cw,
     required this.ch,
+    required this.tokens,
     this.style = GridStyle.lines,
   });
 
@@ -656,12 +663,14 @@ class _GridPainter extends CustomPainter {
     final stepX = size.width / cw;
     final stepY = size.height / ch;
 
+    final gridColor = tokens.effectiveOutline;
+
     if (style == GridStyle.dots) {
       final finePaint = Paint()
-        ..color = const Color(0xFF252525)
+        ..color = gridColor.withValues(alpha: 0.25)
         ..style = PaintingStyle.fill;
       final coarsePaint = Paint()
-        ..color = const Color(0xFF444444)
+        ..color = gridColor.withValues(alpha: 0.5)
         ..style = PaintingStyle.fill;
 
       for (int i = 0; i <= cw; i += 5) {
@@ -678,7 +687,7 @@ class _GridPainter extends CustomPainter {
     }
 
     final finePaint = Paint()
-      ..color = const Color(0xFF252525)
+      ..color = gridColor.withValues(alpha: 0.2)
       ..strokeWidth = 0.5;
 
     for (int i = 0; i <= cw; i += 5) {
@@ -691,7 +700,7 @@ class _GridPainter extends CustomPainter {
     }
 
     final coarsePaint = Paint()
-      ..color = const Color(0xFF333333)
+      ..color = gridColor.withValues(alpha: 0.4)
       ..strokeWidth = 1;
 
     for (int i = 0; i <= cw; i += 10) {
@@ -708,5 +717,6 @@ class _GridPainter extends CustomPainter {
   bool shouldRepaint(_GridPainter oldDelegate) =>
       oldDelegate.cw != cw ||
       oldDelegate.ch != ch ||
-      oldDelegate.style != style;
+      oldDelegate.style != style ||
+      oldDelegate.tokens != tokens;
 }

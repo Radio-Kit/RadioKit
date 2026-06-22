@@ -285,18 +285,18 @@ class _ToggleButton extends StatelessWidget {
 
     final Color buttonDark = isDark
         ? HSLColor.fromColor(tokens.surface)
-            .withLightness((lightness + 0.03).clamp(0.0, 1.0))
+            .withLightness((lightness + 0.07).clamp(0.0, 1.0))
             .toColor()
         : HSLColor.fromColor(tokens.surface)
-            .withLightness((lightness - 0.03).clamp(0.0, 1.0))
+            .withLightness((lightness - 0.07).clamp(0.0, 1.0))
             .toColor();
 
     final Color buttonDark2 = isDark
         ? HSLColor.fromColor(tokens.surface)
-            .withLightness((lightness - 0.03).clamp(0.0, 1.0))
+            .withLightness((lightness - 0.07).clamp(0.0, 1.0))
             .toColor()
         : HSLColor.fromColor(tokens.surface)
-            .withLightness((lightness + 0.03).clamp(0.0, 1.0))
+            .withLightness((lightness + 0.07).clamp(0.0, 1.0))
             .toColor();
 
     final borderColor = tokens.effectiveOutline;
@@ -398,10 +398,9 @@ class _ToggleButton extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                buttonDark,
-                buttonDark2,
-              ],
+              colors: selected
+                  ? [tokens.primary, tokens.primary.withValues(alpha: 0.85)]
+                  : [buttonDark, buttonDark2],
             ),
             border: Border.all(
               color: selected ? activeAccent : borderColor,

@@ -227,7 +227,14 @@ class RKTokens {
   final bool isDark;
   final bool isDefault;
 
-  Color get effectiveOutline => outlineColor ?? onSurface.withValues(alpha: 0.2);
+  Color get effectiveOutline => outlineColor ?? onSurface.withValues(alpha: 0.35);
+
+  /// A recessed-groove / track color with guaranteed contrast against [surface].
+  /// Blends [base200] toward [onSurface] so dark themes remain legible.
+  Color get track => Color.lerp(base200, onSurface, 0.12)!;
+
+  /// Standardised active-state glow highlight derived from [primary].
+  Color get glow => primary.withValues(alpha: 0.45);
 
   // -- Presets --
 '''

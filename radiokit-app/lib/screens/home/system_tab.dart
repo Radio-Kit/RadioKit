@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
@@ -14,7 +15,49 @@ import '../../widgets/api_log_view.dart';
 import '../donate_screen.dart';
 import 'accounts_sheet.dart';
 
-class SystemTab extends StatelessWidget {
+class SystemTab extends StatefulWidget {
+  const SystemTab({super.key});
+
+  @override
+  State<SystemTab> createState() => _SystemTabState();
+}
+
+class _SystemTabState extends State<SystemTab> {
+  bool _sheetOpened = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _sheetOpened) return;
+      _sheetOpened = true;
+      final sheet = GoRouterState.of(context).uri.queryParameters['sheet'];
+      if (sheet == 'accounts') {
+        AccountsSheet.show(context);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final orientation = MediaQuery.of(context).orientation;
+    final isLandscape = orientation == Orientation.landscape;
+
+    if (isLandscape) {
+      return _buildContent(context, themeProvider);
+    }
+
+    return Scaffold(
+      appBar: RadioKitAppBar(
+        tabIndex: 3,
+        onAccounts: () => AccountsSheet.show(context),
+        accentColor: context.tokens.primary,
+      ),
+      body: _buildContent(context, themeProvider),
+    );
+  }
+
   Widget _buildProVersionCard(BuildContext context) {
     final tokens = context.tokens;
     return Container(
@@ -90,28 +133,6 @@ class SystemTab extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-
-  const SystemTab({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final themeProvider = context.watch<ThemeProvider>();
-    final orientation = MediaQuery.of(context).orientation;
-    final isLandscape = orientation == Orientation.landscape;
-
-    if (isLandscape) {
-      return _buildContent(context, themeProvider);
-    }
-
-    return Scaffold(
-      appBar: RadioKitAppBar(
-        tabIndex: 3,
-        onAccounts: () => AccountsSheet.show(context),
-        accentColor: context.tokens.primary,
-      ),
-      body: _buildContent(context, themeProvider),
     );
   }
 

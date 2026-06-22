@@ -193,7 +193,7 @@ class _RKSlideSwitchState extends State<RKSlideSwitch> with SingleTickerProvider
               width: trackWidth,
               height: trackHeight,
               decoration: BoxDecoration(
-                color: Color.alphaBlend(tokens.onSurface.withValues(alpha: 0.3), tokens.surface),
+                color: tokens.track,
                 borderRadius: BorderRadius.circular(tokens.radiusSelector),
                 border: Border.all(color: tokens.effectiveOutline.withValues(alpha: 0.3), width: 1.0),
                 boxShadow: tokens.depth > 0

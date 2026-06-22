@@ -243,13 +243,13 @@ class _SteeringWheelPainter extends CustomPainter {
     canvas.scale(0.96);
     canvas.translate(-center.dx, -center.dy);
 
-    final rimDark = tokens.base300;
-    final rimMid = Color.lerp(tokens.base300, tokens.surface, 0.3)!;
+    final rimDark = tokens.track;
+    final rimMid = Color.lerp(tokens.track, tokens.surface, 0.5)!;
     final rimLight = tokens.primary;
-    final spokeDark = Color.lerp(tokens.base300, tokens.surface, 0.15)!;
-    final spoke = tokens.base200;
-    final hubDark = tokens.base300;
-    final hubMid = Color.lerp(tokens.base300, tokens.surface, 0.4)!;
+    final spokeDark = Color.lerp(tokens.track, tokens.surface, 0.25)!;
+    final spoke = tokens.track;
+    final hubDark = tokens.track;
+    final hubMid = Color.lerp(tokens.track, tokens.surface, 0.5)!;
 
     final fillPaint = Paint()..isAntiAlias = true;
     final strokePaint = Paint()
@@ -432,7 +432,7 @@ class _SteeringWheelHub extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             tokens.surface,
-            Color.lerp(tokens.base300, tokens.surface, 0.5)!,
+            Color.lerp(tokens.track, tokens.surface, 0.5)!,
           ],
         ),
         border: Border.all(

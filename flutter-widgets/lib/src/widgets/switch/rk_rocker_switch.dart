@@ -213,7 +213,7 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
       width: actualWidth,
       height: actualHeight,
       decoration: BoxDecoration(
-        color: tokens.base200,
+        color: tokens.track,
         borderRadius:
             BorderRadius.circular((tokens.borderRadius * 1.35).clamp(4, 24)),
         boxShadow: tokens.depth > 0
@@ -225,7 +225,7 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
               ]
             : [],
         border: Border.all(
-          color: tokens.base300,
+          color: Color.lerp(tokens.track, tokens.onSurface, 0.08)!,
           width: outerBorderWidth,
         ),
       ),
@@ -259,7 +259,7 @@ class _RKRockerSwitchState extends State<RKRockerSwitch>
       glowIntensity,
     )!;
     final topDark = Color.lerp(
-      tokens.base300,
+      tokens.track,
       activeColor.withValues(alpha: 0.20),
       glowIntensity,
     )!;

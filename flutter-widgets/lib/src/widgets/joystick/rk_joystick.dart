@@ -296,7 +296,7 @@ class _JoystickPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = size.center(Offset.zero);
     final trackPaint = Paint()
-      ..shader = LinearGradient(colors: [tokens.surface, tokens.base200]).createShader(Rect.fromCircle(center: center, radius: radius))
+      ..shader = LinearGradient(colors: [tokens.surface, tokens.track]).createShader(Rect.fromCircle(center: center, radius: radius))
       ..style = PaintingStyle.fill;
 
     canvas.drawCircle(center, radius, trackPaint);

@@ -71,7 +71,14 @@ class RKTokens {
   final bool isDark;
   final bool isDefault;
 
-  Color get effectiveOutline => outlineColor ?? onSurface.withValues(alpha: 0.2);
+  Color get effectiveOutline => outlineColor ?? onSurface.withValues(alpha: 0.35);
+
+  /// A recessed-groove / track color with guaranteed contrast against [surface].
+  /// Blends [base200] toward [onSurface] so dark themes remain legible.
+  Color get track => Color.lerp(base200, onSurface, 0.12)!;
+
+  /// Standardised active-state glow highlight derived from [primary].
+  Color get glow => primary.withValues(alpha: 0.45);
 
   // -- Presets --
   static const RKTokens abyss = RKTokens(
@@ -168,6 +175,38 @@ class RKTokens {
     depth: 1,
     noise: 0,
     isDark: true,
+    isDefault: true,
+  );
+  static const RKTokens emerald = RKTokens(
+    surface: Color(0xFFFFFFFF),
+    onSurface: Color(0xFF333C4D),
+    base200: Color(0xFFE8E8E8),
+    base300: Color(0xFFD1D1D1),
+    primary: Color(0xFF66CC8A),
+    onPrimary: Color(0xFF223D30),
+    secondary: Color(0xFF377CFB),
+    onSecondary: Color(0xFFFFFFFF),
+    accent: Color(0xFFF68067),
+    onAccent: Color(0xFF000000),
+    neutral: Color(0xFF333C4D),
+    onNeutral: Color(0xFFF9FAFB),
+    info: Color(0xFF00B5FF),
+    onInfo: Color(0xFF000000),
+    success: Color(0xFF00A96E),
+    onSuccess: Color(0xFF000000),
+    warning: Color(0xFFFFBE00),
+    onWarning: Color(0xFF000000),
+    error: Color(0xFFFF5861),
+    onError: Color(0xFF000000),
+    borderRadius: 16.0,
+    radiusSelector: 16.0,
+    radiusField: 8.0,
+    sizeSelector: 4.0,
+    sizeField: 4.0,
+    borderWidth: 1.0,
+    depth: 0,
+    noise: 0,
+    isDark: false,
     isDefault: true,
   );
   static const RKTokens matrix = RKTokens(
@@ -304,6 +343,7 @@ class RKTokens {
     'ABYSS': abyss,
     'BUMBLEBEE': bumblebee,
     'DRAGON': dragon,
+    'EMERALD': emerald,
     'MATRIX': matrix,
     'MINIMAL': minimal,
     'ROSE': rose,

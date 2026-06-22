@@ -150,7 +150,30 @@ class RemoteAccessService {
     };
   }
 
+
+  /// Defines which follow-mode sheets are available on each route.
+  /// Single source of truth for both [_followRoute] and [_handleSessionSheets].
+  static const Map<String, List<String>> _sheetDefinitions = {
+    '/models': ['pair', 'deviceSettings'],
+    '/system': ['accounts'],
+    '/control': <String>[],
+    '/dev-tools/esp32-fs': <String>[],
+    '/designs': <String>[],
+    '/debug': <String>[],
+  };
+
+  /// Appends the sheet query parameter to [route] if [sheetName] is defined
+  /// in [_sheetDefinitions] for that route.
+  static String _applySheet(String route, String sheetName) {
+    final sheets = _sheetDefinitions[route];
+    if (sheets != null && sheets.contains(sheetName)) {
+      return '$route?sheet=$sheetName';
+    }
+    return route;
+  }
+
   static String? _followRoute(String path) {
+
     if (path.startsWith('/api/devices/connect')) return '/control';
     if (path.endsWith('/console') && path.startsWith('/api/devices/')) return '/system';
     if (path.endsWith('/fs/format') && path.startsWith('/api/devices/')) return '/dev-tools/esp32-fs';
@@ -164,10 +187,10 @@ class RemoteAccessService {
     if (path.startsWith('/api/devices/') && path.endsWith('/transport/get_vars')) return '/control';
     if (path.startsWith('/api/devices/') && path.endsWith('/transport/get_meta')) return '/control';
     if (path.startsWith('/api/devices/') && path.endsWith('/transport/get_tele')) return '/control';
-    if (path.startsWith('/api/devices/') && path.contains('/settings/')) return '/system';
+    if (path.startsWith('/api/devices/') && path.contains('/settings/')) return _applySheet('/models', 'deviceSettings');
     if (path.startsWith('/api/devices/disconnect')) return '/models';
     if (path == '/api/devices') return '/models';
-    if (path.startsWith('/api/pair/')) return '/models';
+    if (path.startsWith('/api/pair/')) return _applySheet('/models', 'pair');
     if (path.startsWith('/api/connection/connect')) return '/control';
     if (path.startsWith('/api/connection/disconnect')) return '/models';
     if (path.startsWith('/api/connection/reconnect')) return '/models';
@@ -182,6 +205,8 @@ class RemoteAccessService {
     // Device-level /api/settings/nvs paths still navigate to /system.
     if (path.startsWith('/api/settings/nvs')) return '/system';
     if (path == '/api/settings') return null;
+    if (path.startsWith('/api/cloud/accounts')) return _applySheet('/system', 'accounts');
+    if (path.startsWith('/api/cloud/account')) return _applySheet('/system', 'accounts');
     if (path.startsWith('/api/console')) return '/system';
     if (path.startsWith('/api/log')) return '/system';
     if (path.startsWith('/api/models')) return '/models';
@@ -252,6 +277,7 @@ class RemoteAccessService {
     router.delete('/api/designs/<id>', _handleDesignsDeleteOne);
     router.get('/api/session/route', _handleSessionRoute);
     router.get('/api/session/state', _handleSessionState);
+    router.get('/api/session/sheets', _handleSessionSheets);
 
     // ── Flasher API ───────────────────────────────────────────────────
     router.get('/api/flasher/ports', _handleFlasherPorts);
@@ -3256,6 +3282,13 @@ class RemoteAccessService {
   Future<Response> _handleSessionState(Request request) async {
     final state = _viewStateGetter?.call() ?? {'route': _currentRouteGetter()};
     return _json(state);
+  }
+
+
+  /// Handle GET /api/session/sheets -- available follow-mode sheets per route.
+  /// Returns [_sheetDefinitions] as the single source of truth.
+  Future<Response> _handleSessionSheets(Request request) async {
+    return _json({'sheets': _sheetDefinitions});
   }
 
   // ── Designs ──────────────────────────────────────────────────────────────────

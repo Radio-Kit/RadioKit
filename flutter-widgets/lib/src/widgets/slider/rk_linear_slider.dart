@@ -387,7 +387,7 @@ class _LinearSliderPainter extends CustomPainter {
         );
 
         final fillPaint = Paint()
-          ..color = tokens.base200
+          ..color = tokens.track
           ..style = PaintingStyle.fill;
         canvas.drawRRect(pillRRect, fillPaint);
       }
@@ -433,7 +433,7 @@ class _LinearSliderPainter extends CustomPainter {
         RRect.fromRectAndRadius(trackRect, Radius.circular(_trackRadius));
 
     final trackBgPaint = Paint()
-      ..color = tokens.base200
+      ..color = tokens.track
       ..style = PaintingStyle.fill;
     canvas.drawRRect(trackRRect, trackBgPaint);
 
@@ -447,7 +447,7 @@ class _LinearSliderPainter extends CustomPainter {
     final innerTrackRect = trackRect.deflate(innerDeflate);
     if (innerTrackRect.width > 0 && innerTrackRect.height > 0) {
       final innerPaint = Paint()
-        ..color = tokens.onSurface.withValues(alpha: 0.035);
+        ..color = tokens.onSurface.withValues(alpha: 0.06);
       canvas.drawRRect(
         RRect.fromRectAndRadius(
           innerTrackRect,
@@ -467,7 +467,7 @@ class _LinearSliderPainter extends CustomPainter {
 
     final activeHeight = thickness * 0.48;
     final activeFillPaint = Paint()
-      ..color = tokens.effectiveOutline.withValues(alpha: 0.92)
+      ..color = tokens.primary.withValues(alpha: 0.7)
       ..style = PaintingStyle.fill;
 
     final activeRect = isHorizontal
@@ -593,7 +593,7 @@ class _LinearSliderPainter extends CustomPainter {
       borderPaint,
     );
 
-    final gripColor = tokens.surface.withValues(alpha: 0.58);
+    final gripColor = tokens.onPrimary.withValues(alpha: 0.5);
     final gripLength = thumbWidth * 0.42;
     final gripThickness = math.max(1.2, thickness * 0.18);
     final gripSpacing = gripThickness * 1.8;

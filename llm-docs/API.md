@@ -1546,6 +1546,47 @@ Returns an empty string if no route has been synced yet:
 }
 ```
 
+### `GET /api/session/sheets`
+
+Returns the available follow-mode sheets for each route. Useful for API consumers that want to know which bottom sheets can be auto-opened during follow mode.
+
+**Response `200`:**
+
+```json
+{
+  sheets: {
+    /models: [pair, deviceSettings],
+    /system: [accounts],
+    /control: [],
+    /dev-tools/esp32-fs: [],
+    /designs: [],
+    /debug: []
+  }
+}
+```
+
+| Route | Available Sheets | Description |
+|-------|-----------------|-------------|
+| `/models` | `pair`, `deviceSettings` | PairBottomSheet (device discovery), DeviceSettingsDialog (device config) |
+| `/system` | `accounts` | AccountsSheet (cloud relay accounts) |
+| `/control` | (none) | No auto-openable sheets |
+| `/dev-tools/esp32-fs` | (none) | No auto-openable sheets |
+
+---
+
+## Follow Mode Sheet Query Parameters
+
+When follow mode is enabled, API requests trigger automatic navigation to the mapped screen. Some routes include `?sheet=<name>` query parameters that trigger bottom sheets on the target screen.
+
+| API Path Prefix | Follow Route | Sheet | Description |
+|-----------------|-------------|-------|-------------|
+| `/api/pair/*` | `/models?sheet=pair` | `pair` | Opens PairBottomSheet (device discovery) |
+| `/api/devices/*/settings/*` | `/models?sheet=deviceSettings` | `deviceSettings` | Opens DeviceSettingsDialog (name, passwords, factory reset) |
+| `/api/cloud/account*` | `/system?sheet=accounts` | `accounts` | Opens AccountsSheet (cloud relay accounts) |
+| `/api/settings/nvs` | `/system` | (none) | Navigates to System tab |
+| `/api/connection/connect` | `/control` | (none) | Navigates to Control screen |
+| `/api/fs/*` | `/dev-tools/esp32-fs` | (none) | Navigates to Filesystem Explorer |
+
 ---
 
 ## 14. Flasher (ESP32 Serial Flashing)

@@ -9,10 +9,12 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
+import '../../models/tab_index.dart';
 import '../../widgets/radiokit_app_bar.dart';
 import '../../providers/designs_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/model_card.dart';
+import 'starter_templates_section.dart';
 
 class DesignsTab extends StatelessWidget {
   const DesignsTab({super.key});
@@ -31,7 +33,7 @@ class DesignsTab extends StatelessWidget {
 
     return Scaffold(
       appBar: RadioKitAppBar(
-        tabIndex: 2,
+        tabIndex: TabIndex.designs,
         onOpen: () => openConfigFile(context),
         onCreate: () => context.push('/designer'),
         accentColor: context.tokens.primary,
@@ -41,28 +43,75 @@ class DesignsTab extends StatelessWidget {
   }
 
   Widget _buildContent(BuildContext context, List<SavedDesign> designs) {
-    return designs.isEmpty
-        ? Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+    final screenWidth = MediaQuery.of(context).size.width;
+    const breakpoint = 600;
+    final useWide = screenWidth > breakpoint;
+    final provider = context.read<DesignsProvider>();
+
+    // Build the list of design card widgets
+    final List<Widget> designCards = designs
+        .map((d) => _DesignCard(design: d, provider: provider))
+        .toList();
+
+    // Wrap design cards into rows (2-column on wide, single-column on narrow)
+    final List<Widget> designRows = [];
+    if (useWide) {
+      for (int i = 0; i < designCards.length; i += 2) {
+        designRows.add(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(LucideIcons.palette, size: 64, color: context.tokens.onSurface.withValues(alpha: 0.5).withValues(alpha: 0.5)),
-                SizedBox(height: 16),
-                Text(
-                  'No designs saved',
-                  style: GoogleFonts.inter(
-                    color: context.tokens.onSurface.withValues(alpha: 0.5),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                Expanded(child: designCards[i]),
+                const SizedBox(width: 12),
+                if (i + 1 < designCards.length)
+                  Expanded(child: designCards[i + 1])
+                else
+                  const Expanded(child: SizedBox.shrink()),
               ],
             ),
+          ),
+        );
+      }
+    } else {
+      for (final card in designCards) {
+        designRows.add(Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: card,
+        ));
+      }
+    }
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      children: [
+        if (designs.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 24),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(LucideIcons.palette, size: 64, color: context.tokens.onSurface.withValues(alpha: 0.5)),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No designs saved',
+                    style: GoogleFonts.inter(
+                      color: context.tokens.onSurface.withValues(alpha: 0.5),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           )
-        : _DesignsGrid(
-            designs: designs,
-            provider: context.read<DesignsProvider>(),
-          );
+        else
+          ...designRows,
+        const StarterTemplatesSection(),
+      ],
+    );
   }
 
 }
@@ -123,112 +172,6 @@ Future<void> openConfigFile(BuildContext context) async {
       );
     }
   }
-
-class _PillButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _PillButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            color: context.tokens.onSurface.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: context.tokens.onSurface.withValues(alpha: 0.15),
-              width: 1,
-            ),
-          ),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 14, color: context.tokens.onSurface.withValues(alpha: 0.54)),
-                SizedBox(width: 6),
-                Text(
-                  label,
-                  style: GoogleFonts.changa(
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                    fontSize: 11,
-                    color: context.tokens.onSurface.withValues(alpha: 0.54),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-
-// ── Designs Grid ─────────────────────────────────────────────────────────────
-
-class _DesignsGrid extends StatelessWidget {
-  final List<SavedDesign> designs;
-  final DesignsProvider provider;
-
-  const _DesignsGrid({
-    required this.designs,
-    required this.provider,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    const breakpoint = 600;
-    final useWide = screenWidth > breakpoint;
-
-    if (!useWide) {
-      return ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        children: designs.map((d) => _DesignCard(design: d, provider: provider)).toList(),
-      );
-    }
-
-    // Landscape: 2-column grid using Row + Expanded
-    final rows = <Widget>[];
-    for (int i = 0; i < designs.length; i += 2) {
-      rows.add(
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: _DesignCard(design: designs[i], provider: provider)),
-              SizedBox(width: 12),
-              if (i + 1 < designs.length)
-                Expanded(child: _DesignCard(design: designs[i + 1], provider: provider))
-              else
-                const Expanded(child: SizedBox.shrink()),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      children: rows,
-    );
-  }
-}
 
 class _DesignCard extends StatelessWidget {
   final SavedDesign design;

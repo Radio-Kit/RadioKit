@@ -247,7 +247,7 @@ class _RKButtonState extends State<RKButton> with SingleTickerProviderStateMixin
         size: widget.size * (hasText ? 0.25 : 0.35),
         color: Color.lerp(
           tokens.onSurface.withValues(alpha: 0.4),
-          tokens.onPrimary,
+          tokens.primary,
           t,
         ),
       ),
@@ -258,7 +258,7 @@ class _RKButtonState extends State<RKButton> with SingleTickerProviderStateMixin
           style: TextStyle(
             color: Color.lerp(
               tokens.onSurface.withValues(alpha: 0.4),
-              tokens.onPrimary,
+              tokens.primary,
               t,
             ),
             fontSize: widget.size * 0.08,

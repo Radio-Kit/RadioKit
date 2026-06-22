@@ -23,7 +23,7 @@ import '../../services/transport_service.dart';
 import '../../widgets/model_card.dart';
 import '../../services/websocket_service.dart';
 import '../../services/cloud_identity.dart';
-import '../../services/demo_fs_transport.dart';
+import '../../screens/device_config/device_settings_dialog.dart';
 import 'pair_sheet.dart';
 import '../../services/ble_transport.dart';
 
@@ -63,8 +63,34 @@ class _DeviceAvailability {
   }
 }
 
-class ModelsTab extends StatelessWidget {
+class ModelsTab extends StatefulWidget {
   const ModelsTab({super.key});
+
+  @override
+  State<ModelsTab> createState() => _ModelsTabState();
+}
+
+class _ModelsTabState extends State<ModelsTab> {
+  bool _sheetOpened = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _sheetOpened) return;
+      _sheetOpened = true;
+      final sheet = GoRouterState.of(context).uri.queryParameters['sheet'];
+      if (sheet == 'pair') {
+        showPairBottomSheet(context);
+      } else if (sheet == 'deviceSettings') {
+        final multiDevice = context.read<MultiDeviceProvider>();
+        final dp = multiDevice.focusedDevice;
+        if (dp != null && dp.isConnected) {
+          DeviceSettingsDialog.show(context);
+        }
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
