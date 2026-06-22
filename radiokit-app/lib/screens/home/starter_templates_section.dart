@@ -114,18 +114,14 @@ class _StarterTemplatesSectionState extends State<StarterTemplatesSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // ── Section header ──────────────────────────────────────────────
+        // -- Section header
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
-          child: Text(
-            'STARTER TEMPLATES',
-            style: GoogleFonts.martianMono(
-              color: tokens.onSurface.withValues(alpha: 0.45),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.5,
-            ),
-          ),
+          padding: const EdgeInsets.only(top: 24, bottom: 12),
+          child: Row(children: [
+            Container(width: 8, height: 8, color: tokens.primary),
+            const SizedBox(width: 12),
+            Text('STARTER TEMPLATES', style: GoogleFonts.martianMono(color: tokens.onSurface.withValues(alpha: 0.45), fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1.5)),
+          ]),
         ),
         // ── Template cards ──────────────────────────────────────────────
         _TemplateGrid(
@@ -161,7 +157,6 @@ class _TemplateGrid extends StatelessWidget {
       return ListView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: templates.length,
         itemBuilder: (context, i) => Padding(
           padding: const EdgeInsets.only(bottom: 8),
@@ -207,10 +202,7 @@ class _TemplateGrid extends StatelessWidget {
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(mainAxisSize: MainAxisSize.min, children: rows),
-    );
+    return Column(mainAxisSize: MainAxisSize.min, children: rows);
   }
 }
 

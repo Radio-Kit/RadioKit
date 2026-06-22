@@ -86,6 +86,15 @@ class DesignsTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       children: [
+        // -- Saved Designs header
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Row(children: [
+            Container(width: 8, height: 8, color: context.tokens.primary),
+            const SizedBox(width: 12),
+            Text('SAVED DESIGNS', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: context.tokens.primary, fontWeight: FontWeight.bold)),
+          ]),
+        ),
         if (designs.isEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: 24),
