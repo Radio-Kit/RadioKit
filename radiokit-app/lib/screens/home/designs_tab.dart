@@ -13,8 +13,8 @@ import '../../models/tab_index.dart';
 import '../../widgets/radiokit_app_bar.dart';
 import '../../providers/designs_provider.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/model_card.dart';
 import 'starter_templates_section.dart';
+import 'responsive_grid.dart';
 
 class DesignsTab extends StatelessWidget {
   const DesignsTab({super.key});
@@ -44,8 +44,7 @@ class DesignsTab extends StatelessWidget {
 
   Widget _buildContent(BuildContext context, List<SavedDesign> designs) {
     final screenWidth = MediaQuery.of(context).size.width;
-    const breakpoint = 600;
-    final useWide = screenWidth > breakpoint;
+    final columns = columnCount(screenWidth);
     final provider = context.read<DesignsProvider>();
 
     // Build the list of design card widgets
@@ -53,34 +52,26 @@ class DesignsTab extends StatelessWidget {
         .map((d) => _DesignCard(design: d, provider: provider))
         .toList();
 
-    // Wrap design cards into rows (2-column on wide, single-column on narrow)
+    // Wrap design cards into grid rows
     final List<Widget> designRows = [];
-    if (useWide) {
-      for (int i = 0; i < designCards.length; i += 2) {
-        designRows.add(
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: designCards[i]),
-                const SizedBox(width: 12),
-                if (i + 1 < designCards.length)
-                  Expanded(child: designCards[i + 1])
+    for (int i = 0; i < designCards.length; i += columns) {
+      designRows.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (int j = 0; j < columns; j++) ...[
+                if (j > 0) const SizedBox(width: 12),
+                if (i + j < designCards.length)
+                  Expanded(child: designCards[i + j])
                 else
                   const Expanded(child: SizedBox.shrink()),
               ],
-            ),
+            ],
           ),
-        );
-      }
-    } else {
-      for (final card in designCards) {
-        designRows.add(Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: card,
-        ));
-      }
+        ),
+      );
     }
 
     return ListView(
@@ -124,6 +115,7 @@ class DesignsTab extends StatelessWidget {
   }
 
 }
+
 
 /// Opens a .h or .json config file via the system file picker.
 Future<void> openConfigFile(BuildContext context) async {
@@ -182,31 +174,105 @@ Future<void> openConfigFile(BuildContext context) async {
     }
   }
 
-class _DesignCard extends StatelessWidget {
+class _DesignCard extends StatefulWidget {
   final SavedDesign design;
   final DesignsProvider provider;
 
   const _DesignCard({required this.design, required this.provider});
 
-  Future<void> _openDesign(BuildContext context) async {
-    if (design.filePath != null) {
-      final file = File(design.filePath!);
+  @override
+  State<_DesignCard> createState() => _DesignCardState();
+}
+
+class _DesignCardState extends State<_DesignCard> {
+  DesignerState? _previewState;
+  String? _description;
+  bool _loaded = false;
+  bool _disposed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreview();
+  }
+
+  Future<void> _loadPreview() async {
+    try {
+      String? jsonStr = widget.design.jsonContent;
+
+      // For file-mode entries, read the file to get JSON content
+      if (jsonStr == null && widget.design.filePath != null) {
+        final file = File(widget.design.filePath!);
+        if (file.existsSync()) {
+          final content = await file.readAsString();
+          // Extract JSON from .h files if needed
+          if (widget.design.filePath!.endsWith('.h')) {
+            final match = DesignerState.configPattern.firstMatch(content);
+            if (match != null && match.group(1) != null) {
+              jsonStr = match.group(1)!.trim();
+            }
+          } else {
+            jsonStr = content;
+          }
+        }
+      }
+
+      if (jsonStr != null && !_disposed) {
+        final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+        final state = DesignerState();
+        state.loadFromJson(json);
+        if (!state.isPlayMode) state.togglePlayMode();
+
+        // Extract description from config
+        final desc = json['config']?['description'] as String?;
+
+        if (!_disposed) {
+          setState(() {
+            _previewState = state;
+            _description = desc;
+            _loaded = true;
+          });
+        } else {
+          state.dispose();
+        }
+        return;
+      }
+    } catch (e) {
+      debugPrint('Failed to load design preview: $e');
+    }
+    if (!_disposed) {
+      setState(() => _loaded = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _previewState?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _openDesign() async {
+    final context = this.context;
+    if (widget.design.filePath != null) {
+      final file = File(widget.design.filePath!);
       if (!file.existsSync()) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('File not found: ${design.filePath}')),
+            SnackBar(content: Text('File not found: ${widget.design.filePath}')),
           );
-          await provider.deleteDesign(design.id);
+          await widget.provider.deleteDesign(widget.design.id);
         }
         return;
       }
     }
     if (context.mounted) {
-      context.push('/designer?id=${design.id}');
+      context.push('/designer?id=${widget.design.id}');
     }
   }
 
-  Future<void> _deleteDesign(BuildContext context) async {
+  Future<void> _deleteDesign() async {
+    final context = this.context;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -214,7 +280,7 @@ class _DesignCard extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         icon: Icon(Icons.warning_rounded, color: context.tokens.error, size: 32),
         title: Text('Delete Design?', style: TextStyle(color: context.tokens.onSurface)),
-        content: Text('Remove "${design.name}" permanently?',
+        content: Text('Remove "${widget.design.name}" permanently?',
             style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.54), fontSize: 13)),
         actions: [
           TextButton(
@@ -233,48 +299,131 @@ class _DesignCard extends StatelessWidget {
       ),
     );
     if (confirmed == true && context.mounted) {
-      await provider.deleteDesign(design.id);
+      await widget.provider.deleteDesign(widget.design.id);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final design = widget.design;
     final formattedDate = DateFormat('MMM d, yyyy').format(
       DateTime.fromMillisecondsSinceEpoch(design.timestamp),
     );
 
-    return ModelCard(
-      leading: ModelCard.standardLeading(
-        context: context,
-        icon: LucideIcons.palette,
-      ),
-      title: ModelCard.standardTitle(design.name),
-      subtitle: ModelCard.standardSubtitle(context, formattedDate.toUpperCase()),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (design.appVersion != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: context.tokens.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                'v${design.appVersion}',
-                style: GoogleFonts.martianMono(
-                  color: context.tokens.primary.withValues(alpha: 0.8),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                ),
+    return GestureDetector(
+      onTap: _openDesign,
+      onLongPress: _deleteDesign,
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        color: tokens.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(tokens.borderRadius.clamp(4, 16)),
+          side: BorderSide(color: tokens.effectiveOutline.withValues(alpha: 0.5), width: 0.5),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // -- Thumbnail preview
+            AspectRatio(
+              aspectRatio: 16 / 10,
+              child: _loaded && _previewState != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(tokens.borderRadius.clamp(4, 16)),
+                      ),
+                      child: Container(
+                        color: tokens.base300,
+                        child: RKTheme(
+                          tokens: RKTokens.presetsByName[_previewState!.activeSkin] ?? tokens,
+                          child: AbsorbPointer(
+                            child: DesignerCanvas(state: _previewState!),
+                          ),
+                        ),
+                      ),
+                    )
+                  : Container(
+                      decoration: BoxDecoration(
+                        color: tokens.base300,
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(tokens.borderRadius.clamp(4, 16)),
+                        ),
+                      ),
+                      child: Center(
+                        child: _loaded
+                            ? Icon(LucideIcons.palette, size: 32, color: tokens.onSurface.withValues(alpha: 0.2))
+                            : SizedBox(
+                                width: 20, height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: tokens.onSurface.withValues(alpha: 0.3)),
+                              ),
+                      ),
+                    ),
+            ),
+            // -- Name + metadata
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    design.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.exo2(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: tokens.onSurface,
+                    ),
+                  ),
+                  if (_description != null && _description!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      _description!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: tokens.onSurface.withValues(alpha: 0.54),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        formattedDate.toUpperCase(),
+                        style: GoogleFonts.martianMono(
+                          fontSize: 9,
+                          color: tokens.onSurface.withValues(alpha: 0.38),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (design.appVersion != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: tokens.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            'v${design.appVersion}',
+                            style: GoogleFonts.martianMono(
+                              color: tokens.primary.withValues(alpha: 0.8),
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
               ),
             ),
-          SizedBox(width: 8),
-          Icon(Icons.chevron_right_rounded, color: context.tokens.onSurface.withValues(alpha: 0.24), size: 20),
-        ],
+          ],
+        ),
       ),
-      onTap: () => _openDesign(context),
-      onLongPress: () => _deleteDesign(context),
     );
   }
 }

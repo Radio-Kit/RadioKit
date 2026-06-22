@@ -8,7 +8,8 @@ import 'package:provider/provider.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 import '../../models/starter_template.dart';
 import '../../providers/designs_provider.dart';
-import '../../widgets/model_card.dart';
+import 'responsive_grid.dart';
+
 
 
 /// Section that loads bundled starter-template JSON files and displays them
@@ -150,52 +151,29 @@ class _TemplateGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    const breakpoint = 600;
-    final useWide = screenWidth > breakpoint;
+    final columns = columnCount(screenWidth);
 
-    if (!useWide) {
-      return ListView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: templates.length,
-        itemBuilder: (context, i) => Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: _TemplateCard(
-            template: templates[i],
-            previewState: previewStates[templates[i].assetPath],
-            onTap: () => onTap(templates[i]),
-          ),
-        ),
-      );
-    }
-
-    // Wide: 2-column grid
     final rows = <Widget>[];
-    for (int i = 0; i < templates.length; i += 2) {
+    for (int i = 0; i < templates.length; i += columns) {
       rows.add(
         Padding(
-          padding: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.only(bottom: 12),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: _TemplateCard(
-                  template: templates[i],
-                  previewState: previewStates[templates[i].assetPath],
-                  onTap: () => onTap(templates[i]),
-                ),
-              ),
-              const SizedBox(width: 12),
-              if (i + 1 < templates.length)
-                Expanded(
-                  child: _TemplateCard(
-                    template: templates[i + 1],
-                    previewState: previewStates[templates[i + 1].assetPath],
-                    onTap: () => onTap(templates[i + 1]),
-                  ),
-                )
-              else
-                const Expanded(child: SizedBox.shrink()),
+              for (int j = 0; j < columns; j++) ...[
+                if (j > 0) const SizedBox(width: 12),
+                if (i + j < templates.length)
+                  Expanded(
+                    child: _TemplateCard(
+                      template: templates[i + j],
+                      previewState: previewStates[templates[i + j].assetPath],
+                      onTap: () => onTap(templates[i + j]),
+                    ),
+                  )
+                else
+                  const Expanded(child: SizedBox.shrink()),
+              ],
             ],
           ),
         ),
@@ -228,69 +206,100 @@ class _TemplateCard extends StatelessWidget {
     final typeLabel =
         template.type.isNotEmpty ? template.type : null;
 
-    return ModelCard(
-      leading: _buildPreview(context, tokens),
-      title: ModelCard.standardTitle(template.name),
-      subtitle: ModelCard.standardSubtitle(
-        context,
-        [typeLabel, transportLabel].where((s) => s != null).join(' \u2022 '),
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: tokens.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              '${template.widgetCount} w',
-              style: GoogleFonts.martianMono(
-                color: tokens.primary.withValues(alpha: 0.8),
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Icon(Icons.chevron_right_rounded,
-              color: tokens.onSurface.withValues(alpha: 0.24), size: 20),
-        ],
-      ),
+    return GestureDetector(
       onTap: onTap,
-    );
-  }
-
-  Widget _buildPreview(BuildContext context, RKTokens tokens) {
-    if (previewState == null) {
-      return ModelCard.standardLeading(
-        context: context,
-        icon: LucideIcons.layoutTemplate,
-      );
-    }
-
-    final previewTokens =
-        RKTokens.presetsByName[previewState!.activeSkin] ?? RKTokens.dragon;
-
-    return RepaintBoundary(
-      child: SizedBox(
-        width: 56,
-        height: 40,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(6),
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: tokens.effectiveOutline, width: 0.5),
-              borderRadius: BorderRadius.circular(6),
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        color: tokens.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(tokens.borderRadius.clamp(4, 16)),
+          side: BorderSide(color: tokens.effectiveOutline.withValues(alpha: 0.5), width: 0.5),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // -- Thumbnail preview (rendered directly from JSON)
+            AspectRatio(
+              aspectRatio: 16 / 10,
+              child: previewState != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(tokens.borderRadius.clamp(4, 16)),
+                      ),
+                      child: Container(
+                        color: tokens.base300,
+                        child: RKTheme(
+                          tokens: RKTokens.presetsByName[previewState!.activeSkin] ?? tokens,
+                          child: AbsorbPointer(
+                            child: DesignerCanvas(state: previewState!),
+                          ),
+                        ),
+                      ),
+                    )
+                  : Container(
+                      decoration: BoxDecoration(
+                        color: tokens.base300,
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(tokens.borderRadius.clamp(4, 16)),
+                        ),
+                      ),
+                      child: Center(
+                        child: Icon(LucideIcons.layoutTemplate, size: 32, color: tokens.onSurface.withValues(alpha: 0.2)),
+                      ),
+                    ),
             ),
-            child: RKTheme(
-              tokens: previewTokens,
-              child: AbsorbPointer(
-                child: DesignerCanvas(state: previewState!),
+            // -- Name + metadata
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    template.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.exo2(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: tokens.onSurface,
+                    ),
+                  ),
+                  if (typeLabel != null || transportLabel != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      [typeLabel, transportLabel].where((s) => s != null).join(' \u2022 '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: tokens.onSurface.withValues(alpha: 0.54),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 4),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: tokens.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Text(
+                        '${template.widgetCount} w',
+                        style: GoogleFonts.martianMono(
+                          color: tokens.primary.withValues(alpha: 0.8),
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
