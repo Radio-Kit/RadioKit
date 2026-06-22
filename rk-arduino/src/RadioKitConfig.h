@@ -43,17 +43,7 @@
 #define RK_ARCH_DETECTED RK_ARCH_UNKNOWN
 #endif
 
-// ─────────────────────────────────────────────
-//  UI Skins
-// ─────────────────────────────────────────────
-#define RK_DEBUG "debug"
-#define RK_DEFAULT "default"
-#define RK_FUTURISTIC "futuristic"
-#define RK_RETRO "retro"
-#define RK_MILITARY "military"
-#define RK_CYBERPUNK "cyberpunk"
-#define RK_NEON "neon"
-#define RK_MINIMAL "minimal"
+
 
 // ─────────────────────────────────────────────
 //  Transport types

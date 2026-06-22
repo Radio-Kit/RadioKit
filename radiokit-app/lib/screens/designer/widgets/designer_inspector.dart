@@ -720,7 +720,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
               tokens,
               'Skin',
               widget.state.activeSkin,
-              RKTokens.presetsByName.keys.toList(),
+              ['default', ...RKTokens.presetsByName.keys.toList()],
               (v) {
                 widget.state.setSkin(v);
               },

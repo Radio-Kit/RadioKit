@@ -8,7 +8,7 @@
     "description": "Dual-axis RC vehicle controller",
     "type": "RC",
     "transport": "BLE",
-    "theme": "RK_DEFAULT",
+    "theme": "default",
     "password": ""
   },
   "canvas": {

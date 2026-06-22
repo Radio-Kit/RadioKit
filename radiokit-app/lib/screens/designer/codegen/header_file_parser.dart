@@ -72,7 +72,7 @@ class HeaderAppConfig {
     this.description = '',
     this.type = 'Locomotive',
     this.transport = 'BLE',
-    this.theme = 'RK_DEFAULT',
+    this.theme = 'dragon',
     this.password = '',
   });
 
@@ -81,7 +81,7 @@ class HeaderAppConfig {
         description: json['description'] as String? ?? '',
         type: json['type'] as String? ?? 'Locomotive',
         transport: json['transport'] as String? ?? 'BLE',
-        theme: json['theme'] as String? ?? 'RK_DEFAULT',
+        theme: json['theme'] as String? ?? 'dragon',
         password: json['password'] as String? ?? '',
       );
 

@@ -4,10 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:provider/provider.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 import '../../models/starter_template.dart';
-import '../../providers/designs_provider.dart';
 import 'responsive_grid.dart';
 
 
@@ -84,19 +82,17 @@ class _StarterTemplatesSectionState extends State<StarterTemplatesSection> {
     super.dispose();
   }
 
-  Future<void> _openTemplate(BuildContext context, StarterTemplate template) async {
-    final provider = context.read<DesignsProvider>();
-    final id = template.id;
-
-    // Save as a new design entry so the designer can load it by ID.
-    await provider.saveDesign(
-      id,
-      template.name,
-      template.jsonContent,
-    );
+  void _openTemplate(BuildContext context, StarterTemplate template) {
+    // Generate a random 3-digit suffix for the design name.
+    final suffix = (100 + (DateTime.now().microsecondsSinceEpoch % 900));
+    final name = '${template.name}-$suffix';
 
     if (context.mounted) {
-      context.push('/designer?id=$id');
+      // Pass template JSON via extra — designer saves only on explicit Save.
+      context.push('/designer', extra: {
+        'templateJson': template.jsonContent,
+        'templateName': name,
+      });
     }
   }
 

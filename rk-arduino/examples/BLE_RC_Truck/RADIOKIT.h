@@ -6,7 +6,7 @@
     "description": "Advanced RC Truck Controller",
     "type": "Vehicle",
     "transport": "BLE",
-    "theme": "RK_CYBERPUNK",
+    "theme": "dragon",
     "password": ""
   },
   "canvas": {
@@ -96,7 +96,7 @@ RK_Text             truckStatus(50, 10, 10);
 static inline void initRadioKit() {
   RadioKit.config.name        = "RC Truck";
   RadioKit.config.description = "Advanced RC Truck Controller";
-  RadioKit.config.theme       = RK_CYBERPUNK;
+  RadioKit.config.theme       = "dragon";
   RadioKit.config.orientation = RK_LANDSCAPE;
 
   // Post-construction widget configuration

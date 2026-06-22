@@ -8,14 +8,11 @@
     "description": "",
     "type": "Locomotive",
     "transport": "BLE",
-    "theme": "RK_DEFAULT",
+    "theme": "default",
     "password": ""
   },
   "canvas": {
-    "size": [
-      100,
-      200
-    ],
+    "size": [100, 200],
     "grid": "none",
     "skin": "dragon"
   },
@@ -54,25 +51,14 @@
         "text": "slider_1",
         "show": false
       },
-      "position": [
-        75,
-        105,
-        0
-      ],
-      "size": [
-        26,
-        104
-      ],
+      "position": [75, 105, 0],
+      "size": [26, 104],
       "haptic": true,
       "properties": {
         "min": 0,
         "max": 100,
         "divisions": null,
-        "autoCenter": [
-          null,
-          "smooth",
-          300
-        ]
+        "autoCenter": [null, "smooth", 300]
       }
     },
     {
@@ -82,15 +68,8 @@
         "text": "multi_select_1",
         "show": false
       },
-      "position": [
-        28,
-        105,
-        0
-      ],
-      "size": [
-        29,
-        null
-      ],
+      "position": [28, 105, 0],
+      "size": [29, null],
       "haptic": true,
       "variant": "multiSelect",
       "properties": {
@@ -142,15 +121,8 @@
         "text": "slide_switch_1",
         "show": false
       },
-      "position": [
-        75,
-        170,
-        0
-      ],
-      "size": [
-        null,
-        20
-      ],
+      "position": [75, 170, 0],
+      "size": [null, 20],
       "haptic": true,
       "variant": "slideSwitch",
       "properties": {

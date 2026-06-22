@@ -36,7 +36,7 @@ struct RK_Config {
     const char* description = "";
     const char* version     = "1.0.0";
     const char* type        = "";
-    const char* theme       = RK_DEFAULT;
+    const char* theme       = "dragon";
     uint8_t     orientation = RK_LANDSCAPE;
     uint8_t     width       = 0;  ///< Canvas width  (0 = auto)
     uint8_t     height      = 0;  ///< Canvas height (0 = auto)

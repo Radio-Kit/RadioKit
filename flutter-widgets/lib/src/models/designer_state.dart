@@ -538,7 +538,7 @@ class DesignerState extends ChangeNotifier {
     _modelDescription = (decoded['config']?['description'] as String?) ?? '';
     _modelType = (decoded['config']?['type'] as String?) ?? 'Locomotive';
     _connectionType = ((decoded['config']?['transport'] as String?) ?? 'BLE').toLowerCase();
-    _activeSkin = _arduinoToTheme((decoded['config']?['theme'] as String?) ?? 'RK_DEFAULT');
+    _activeSkin = _normaliseSkin((decoded['config']?['theme'] as String?) ?? 'dragon');
     _connectionPassword = (decoded['config']?['password'] as String?) ?? '';
 
     // canvas section: read 'size' (array [w, h] or legacy string "W x H")
@@ -686,19 +686,11 @@ class DesignerState extends ChangeNotifier {
     return '${label}_$counter';
   }
 
-  /// Build the serialisable map for saveToHeaderFile.
-  String _themeToArduino(String skin) {
-    if (skin == 'dragon') return 'RK_DEFAULT';
-    if (RKTokens.presets.containsKey(skin.toUpperCase())) {
-      return 'RK_${skin.toUpperCase()}';
-    }
-    return 'RK_DEFAULT';
-  }
-
-  String _arduinoToTheme(String theme) {
-    if (theme == 'RK_DEFAULT') return 'dragon';
-    final name = theme.replaceFirst('RK_', '').toLowerCase();
-    if (RKTokens.presets.containsKey(name.toUpperCase())) return name;
+  /// Validates and normalises a skin/theme name to a lowercase preset key
+  /// or 'default'. Used for both serialisation and deserialisation.
+  String _normaliseSkin(String name) {
+    if (name == 'default') return 'default';
+    if (RKTokens.presetsByName.containsKey(name)) return name;
     return 'dragon';
   }
 
@@ -713,7 +705,7 @@ class DesignerState extends ChangeNotifier {
           'description': _modelDescription,
           'type': _modelType,
           'transport': _connectionType.toUpperCase(),
-          'theme': _themeToArduino(_activeSkin),
+          'theme': _normaliseSkin(_activeSkin),
           'password': _connectionPassword,
         },
         'canvas': {

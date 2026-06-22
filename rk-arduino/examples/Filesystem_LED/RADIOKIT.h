@@ -10,7 +10,7 @@
     "description": "Bulk filesystem + BLE LED switch",
     "type": "IOT",
     "transport": "BLE",
-    "theme": "RK_DEFAULT",
+    "theme": "dragon",
     "password": "1234"
   },
   "canvas": {
@@ -64,7 +64,7 @@ static inline void initRadioKit() {
   RadioKit.config.name        = "FS LED";
   RadioKit.config.description = "Bulk filesystem + BLE LED switch";
   RadioKit.config.type        = "IOT";
-  RadioKit.config.theme       = RK_DEFAULT;
+  RadioKit.config.theme       = "dragon";
   RadioKit.config.password    = "1234";
 
   slide_switch_1.rk.labelHidden = true;

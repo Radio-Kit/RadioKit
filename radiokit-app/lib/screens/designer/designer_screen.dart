@@ -22,7 +22,9 @@ import 'codegen/json_arduino_generator.dart';
 
 class DesignerScreen extends StatefulWidget {
   final String? designId;
-  const DesignerScreen({super.key, this.designId});
+  final String? templateJson;
+  final String? templateName;
+  const DesignerScreen({super.key, this.designId, this.templateJson, this.templateName});
 
   @override
   State<DesignerScreen> createState() => _DesignerScreenState();
@@ -55,11 +57,20 @@ class _DesignerScreenState extends State<DesignerScreen> {
 
   void _loadInitialDesign() {
     _isInitializing = true;
-    if (widget.designId != null) {
+
+    // Template from starter section — loaded via route extra, not provider.
+    if (widget.templateJson != null) {
+      try {
+        final json = jsonDecode(widget.templateJson!);
+        _state.loadFromJson(json);
+      } catch (e) {
+        debugPrint('Failed to load template: $e');
+      }
+      _currentDesignId ??= DateTime.now().millisecondsSinceEpoch.toString();
+    } else if (widget.designId != null) {
       final provider = context.read<DesignsProvider>();
-      final designs = provider.designs;
-      final existing =
-          designs.where((d) => d.id == widget.designId).firstOrNull;
+      final existing = provider.designs
+          .where((d) => d.id == widget.designId).firstOrNull;
       if (existing != null) {
         if (existing.filePath != null) {
           try {
@@ -90,6 +101,12 @@ class _DesignerScreenState extends State<DesignerScreen> {
     } else {
       _state.setModelName('Project-${math.Random().nextInt(10000)}');
     }
+
+    // Apply template name if provided.
+    if (widget.templateName != null && widget.templateName!.isNotEmpty) {
+      _state.setModelName(widget.templateName!);
+    }
+
     _isInitializing = false;
     _hasUnsavedChanges = false;
     _lastMutationCount = _state.mutationCount;
@@ -210,10 +227,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      RKTheme(
-                        tokens: RKTokens.presetsByName[_state.activeSkin] ?? RKTokens.dragon,
-                        child: DesignerCanvas(state: _state),
-                      ),
+                      _buildCanvasWithSkin(),
                       if (!_state.isPlayMode)
                         Positioned(
                           left: 16,
@@ -564,6 +578,19 @@ class _DesignerScreenState extends State<DesignerScreen> {
         );
       },
     );
+  }
+
+  // ── Canvas with skin theming ──────────────────────────────────────────────
+
+  Widget _buildCanvasWithSkin() {
+    final skinTokens = _state.activeSkin == 'default'
+        ? null
+        : RKTokens.presetsByName[_state.activeSkin];
+    Widget canvas = DesignerCanvas(state: _state);
+    if (skinTokens != null) {
+      canvas = RKTheme(tokens: skinTokens, child: canvas);
+    }
+    return canvas;
   }
 
   // ── Back navigation ───────────────────────────────────────────────────────

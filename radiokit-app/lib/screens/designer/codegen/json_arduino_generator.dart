@@ -122,7 +122,7 @@ class JsonArduinoGenerator {
     final name = config['name'] as String? ?? '';
     final description = config['description'] as String? ?? '';
     final type = config['type'] as String? ?? '';
-    final theme = config['theme'] as String? ?? 'RK_DEFAULT';
+    final theme = config['theme'] as String? ?? 'dragon';
     final password = config['password'] as String? ?? '';
     final baudrate = config['baudrate'] as int? ?? 1000000;
 
@@ -136,7 +136,7 @@ class JsonArduinoGenerator {
       buf.writeln('${indent}RadioKit.config.type        = "${_escapeC(type)}";');
     }
     // theme
-    buf.writeln('${indent}RadioKit.config.theme       = $theme;');
+    buf.writeln('${indent}RadioKit.config.theme       = "${_escapeC(theme)}";');
     if (password.isNotEmpty) {
       buf.writeln('${indent}RadioKit.config.password    = "${_escapeC(password)}";');
     }

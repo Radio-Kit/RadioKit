@@ -275,50 +275,30 @@ class _SystemTabState extends State<SystemTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: tokens.primary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(Icons.gamepad_rounded, color: tokens.primary, size: 28),
+            _buildSettingRow(context,
+              Icons.fullscreen_rounded,
+              'USE_FULLSCREEN',
+              'Immersive mode for controller',
+              Consumer<SettingsProvider>(
+                builder: (context, settings, _) => Switch(
+                  value: settings.useFullscreen,
+                  onChanged: (v) => settings.setUseFullscreen(v),
+                  activeThumbColor: tokens.primary,
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'USE_FULLSCREEN',
-                        style: GoogleFonts.changa(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 14,
-                          letterSpacing: 1.5,
-                          color: tokens.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                    Text(
-                      'Immersive mode for controller',
-                      style: TextStyle(
-                        color: tokens.onSurface.withValues(alpha: 0.6),
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildSettingRow(context,
+              Icons.palette_outlined,
+              'OVERRIDE_THEME',
+              'Use app theme for control UI',
+              Consumer<SettingsProvider>(
+                builder: (context, settings, _) => Switch(
+                  value: settings.overrideTheme,
+                  onChanged: (v) => settings.setOverrideTheme(v),
+                  activeThumbColor: tokens.primary,
                 ),
-                Consumer<SettingsProvider>(
-                  builder: (context, settings, _) => Switch(
-                    value: settings.useFullscreen,
-                    onChanged: (v) => settings.setUseFullscreen(v),
-                    activeThumbColor: tokens.primary,
-                  ),
-                ),
-              ],
+              ),
             ),
           ],
         ),

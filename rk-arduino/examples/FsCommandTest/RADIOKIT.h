@@ -5,7 +5,7 @@
     "name": "FS Command Test",
     "description": "Test REPLACE and CRC32 commands",
     "transport": "SERIAL",
-    "theme": "RK_DEFAULT"
+    "theme": "dragon"
   },
   "widgets": []
 }

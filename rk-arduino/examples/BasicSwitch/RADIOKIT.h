@@ -10,7 +10,7 @@
     "description": "",
     "type": "IOT",
     "transport": "BLE",
-    "theme": "RK_DEFAULT",
+    "theme": "dragon",
     "password": ""
   },
   "canvas": {
@@ -159,7 +159,7 @@ RK_LED led_1(115, 29, 28);                   // led: pos=(115,29) size=?x28 labe
 static inline void initRadioKit() {
   RadioKit.config.name        = "Basic_Switch";
   RadioKit.config.type        = "IOT";
-  RadioKit.config.theme       = RK_DEFAULT;
+  RadioKit.config.theme       = "dragon";
   RadioKit.config.baudrate    = 1000000;
 
   button_1.rk.onText  = "ON";

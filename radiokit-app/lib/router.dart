@@ -121,7 +121,12 @@ GoRouter createRouter(ConnectionNotifier connectionNotifier) {
         path: '/designer',
         builder: (context, state) {
           final id = state.uri.queryParameters['id'];
-          return DesignerScreen(designId: id);
+          final extra = state.extra as Map<String, dynamic>?;
+          return DesignerScreen(
+            designId: id,
+            templateJson: extra?['templateJson'] as String?,
+            templateName: extra?['templateName'] as String?,
+          );
         },
       ),
        GoRoute(

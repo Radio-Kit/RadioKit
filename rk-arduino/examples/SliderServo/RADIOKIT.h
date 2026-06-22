@@ -6,7 +6,7 @@
     "description": "SliderServo — servo control via slider",
     "type": "Locomotive",
     "transport": "BLE",
-    "theme": "RK_DEFAULT",
+    "theme": "dragon",
     "password": ""
   },
   "canvas": {
@@ -63,7 +63,7 @@ RK_Text  angleText(139, 28, 16, 67);      // text: pos=(139,28) size=67x16 label
 static inline void initRadioKit() {
   RadioKit.config.name        = "ServoControl";
   RadioKit.config.description = "SliderServo — servo control via slider";
-  RadioKit.config.theme       = RK_DEFAULT;
+  RadioKit.config.theme       = "dragon";
   RadioKit.config.baudrate    = 1000000;
 
   // Post-construction widget configuration

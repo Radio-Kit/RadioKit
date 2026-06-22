@@ -271,6 +271,53 @@ class _DesignCardState extends State<_DesignCard> {
     }
   }
 
+  Future<void> _renameDesign() async {
+    final context = this.context;
+    final tokens = context.tokens;
+    final controller = TextEditingController(text: widget.design.name);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: tokens.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Text('Rename Design', style: TextStyle(color: tokens.onSurface)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: TextStyle(color: tokens.onSurface),
+          decoration: InputDecoration(
+            hintText: 'Design name',
+            hintStyle: TextStyle(color: tokens.onSurface.withValues(alpha: 0.4)),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: tokens.effectiveOutline)),
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: tokens.primary)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text('CANCEL', style: TextStyle(color: tokens.onSurface.withValues(alpha: 0.54))),
+          ),
+          FilledButton.tonal(
+            onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(controller.text.trim()),
+            child: const Text('SAVE'),
+          ),
+        ],
+      ),
+    );
+    if (newName != null && newName.isNotEmpty && newName != widget.design.name && context.mounted) {
+      final provider = context.read<DesignsProvider>();
+      await provider.saveDesign(
+        widget.design.id,
+        newName,
+        widget.design.jsonContent,
+        filePath: widget.design.filePath,
+        appVersion: widget.design.appVersion,
+      );
+    }
+  }
+
   Future<void> _deleteDesign() async {
     final context = this.context;
     final confirmed = await showDialog<bool>(
@@ -313,7 +360,6 @@ class _DesignCardState extends State<_DesignCard> {
 
     return GestureDetector(
       onTap: _openDesign,
-      onLongPress: _deleteDesign,
       child: Card(
         clipBehavior: Clip.antiAlias,
         color: tokens.surface,
@@ -400,22 +446,54 @@ class _DesignCardState extends State<_DesignCard> {
                         ),
                       ),
                       const Spacer(),
-                      if (design.appVersion != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: tokens.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: Text(
-                            'v${design.appVersion}',
-                            style: GoogleFonts.martianMono(
-                              color: tokens.primary.withValues(alpha: 0.8),
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
+                      PopupMenuButton<String>(
+                        padding: EdgeInsets.zero,
+                        splashRadius: 16,
+                        iconSize: 16,
+                        icon: Icon(
+                          LucideIcons.ellipsisVertical,
+                          size: 16,
+                          color: tokens.onSurface.withValues(alpha: 0.38),
+                        ),
+                        color: tokens.surface,
+                        onSelected: (value) {
+                          if (value == 'open') _openDesign();
+                          if (value == 'rename') _renameDesign();
+                          if (value == 'delete') _deleteDesign();
+                        },
+                        itemBuilder: (ctx) => [
+                          PopupMenuItem(
+                            value: 'open',
+                            child: Row(
+                              children: [
+                                Icon(LucideIcons.folderOpen, size: 14, color: tokens.onSurface.withValues(alpha: 0.7)),
+                                const SizedBox(width: 10),
+                                Text('Open', style: TextStyle(fontSize: 13, color: tokens.onSurface)),
+                              ],
                             ),
                           ),
-                        ),
+                          PopupMenuItem(
+                            value: 'rename',
+                            child: Row(
+                              children: [
+                                Icon(LucideIcons.pencil, size: 14, color: tokens.onSurface.withValues(alpha: 0.7)),
+                                const SizedBox(width: 10),
+                                Text('Rename', style: TextStyle(fontSize: 13, color: tokens.onSurface)),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(LucideIcons.trash2, size: 14, color: tokens.error),
+                                const SizedBox(width: 10),
+                                Text('Delete', style: TextStyle(fontSize: 13, color: tokens.error)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ],

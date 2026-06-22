@@ -501,9 +501,11 @@ class _ControlScreenState extends State<ControlScreen> {
 
   Widget _buildCanvas(DeviceProvider deviceProvider) {
     final debugProvider = context.watch<DebugProvider>();
+    final settings = context.watch<SettingsProvider>();
     return DeviceDesignerBridge(
       deviceProvider: deviceProvider,
       debugMode: debugProvider.debugMode,
+      overrideTheme: settings.overrideTheme,
     );
   }
 }

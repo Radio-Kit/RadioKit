@@ -8,7 +8,7 @@
     "description": "Sensor monitoring dashboard",
     "type": "IOT",
     "transport": "WiFi",
-    "theme": "RK_DEFAULT",
+    "theme": "default",
     "password": ""
   },
   "canvas": {

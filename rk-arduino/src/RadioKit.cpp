@@ -1154,7 +1154,7 @@ void RadioKitClass::_handleMetaUpdate(const uint8_t* payload, uint16_t len) {
 uint16_t RadioKitClass::_buildConfPayload(uint8_t* buf, uint16_t bufSize) {
     uint16_t out = 0;
 
-    const char* themeStr = config.theme ? config.theme : RK_DEFAULT;
+    const char* themeStr = config.theme ? config.theme : "dragon";
     uint8_t themeLen = (uint8_t)strnlen(themeStr, 64);
 
     // Minimal CONF_DATA: orientation + widget count + theme + per-widget layout

@@ -6,7 +6,7 @@
     "description": "JoystickMotor — dual motor control with joystick",
     "type": "Robot",
     "transport": "BLE",
-    "theme": "RK_DEFAULT",
+    "theme": "dragon",
     "password": ""
   },
   "canvas": {
@@ -65,7 +65,7 @@ RK_Text speedText(100, 20, 10);
 static inline void initRadioKit() {
   RadioKit.config.name        = "RobotDrive";
   RadioKit.config.description = "JoystickMotor — dual motor control";
-  RadioKit.config.theme       = RK_DEFAULT;
+  RadioKit.config.theme       = "dragon";
 
   drive.rk.label = "Drive";
   eStop.rk.onText = "STOP";

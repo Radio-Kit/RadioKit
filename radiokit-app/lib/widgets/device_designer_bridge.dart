@@ -7,11 +7,13 @@ import '../providers/device_provider.dart';
 class DeviceDesignerBridge extends StatefulWidget {
   final DeviceProvider deviceProvider;
   final bool debugMode;
+  final bool overrideTheme;
 
   const DeviceDesignerBridge({
     super.key,
     required this.deviceProvider,
     this.debugMode = false,
+    this.overrideTheme = false,
   });
 
   @override
@@ -197,6 +199,13 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
 
   @override
   Widget build(BuildContext context) {
-    return DesignerCanvas(state: _designerState);
+    final skin = _designerState.activeSkin;
+    final useDeviceSkin = !widget.overrideTheme && skin != 'default';
+    final skinTokens = useDeviceSkin ? RKTokens.presetsByName[skin] : null;
+    Widget canvas = DesignerCanvas(state: _designerState);
+    if (skinTokens != null) {
+      canvas = RKTheme(tokens: skinTokens, child: canvas);
+    }
+    return canvas;
   }
 }

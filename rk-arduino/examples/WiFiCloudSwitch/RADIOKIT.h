@@ -10,7 +10,7 @@
     "description": "Auth test: device_pass / user_pass",
     "type": "IOT",
     "transport": "BLE",
-    "theme": "RK_DEFAULT",
+    "theme": "dragon",
     "password": "device_pass"
   },
   "canvas": {
@@ -67,7 +67,7 @@ RK_LED led_1(115, 29, 28);                    // led: pos=(115,29) size=?x28
 static inline void initRadioKit() {
   RadioKit.config.name          = "WiFi_Cloud_Switch";
   RadioKit.config.type          = "IOT";
-  RadioKit.config.theme         = RK_DEFAULT;
+  RadioKit.config.theme         = "dragon";
   RadioKit.config.baudrate      = 1000000;
 
   // ── Cloud relay config ─────────────────────────────────

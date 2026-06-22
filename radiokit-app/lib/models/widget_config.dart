@@ -388,13 +388,12 @@ Map<String, dynamic> widgetConfigsToDesignerJson({
       'description': description,
       'type': 'Locomotive',
       'transport': 'BLE',
-      'theme': theme.isNotEmpty ? theme : 'RK_DEFAULT',
+      'theme': theme.isNotEmpty ? theme : 'dragon',
       'password': '',
-    },
-    'canvas': <String, dynamic>{
+    },      'canvas': <String, dynamic>{
       'size': [canvasW, canvasH],
       'grid': 'none',
-      'skin': 'dragon',
+      'skin': theme.isNotEmpty ? theme : 'dragon',
     },
     'widgets': widgets
         .map((w) => w.toDesignerJsonMap(canvasW, canvasH))

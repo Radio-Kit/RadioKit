@@ -9,16 +9,19 @@ class SettingsProvider with ChangeNotifier {
   static const _defaultUseFullscreen = false;
   static const _defaultEnableRemoteAccess = false;
   static const _defaultFollowRemoteAccess = false;
+  static const _defaultOverrideTheme = false;
 
   bool _showDemo = _defaultShowDemo;
   bool _useFullscreen = _defaultUseFullscreen;
   bool _enableRemoteAccess = _defaultEnableRemoteAccess;
   bool _followRemoteAccess = _defaultFollowRemoteAccess;
+  bool _overrideTheme = _defaultOverrideTheme;
 
   bool get showDemo => _showDemo;
   bool get useFullscreen => _useFullscreen;
   bool get enableRemoteAccess => _enableRemoteAccess;
   bool get followRemoteAccess => _followRemoteAccess;
+  bool get overrideTheme => _overrideTheme;
 
   SettingsProvider() {
     _loadSettings();
@@ -56,6 +59,14 @@ class SettingsProvider with ChangeNotifier {
     }
   }
 
+  Future<void> setOverrideTheme(bool value) async {
+    if (_overrideTheme != value) {
+      _overrideTheme = value;
+      notifyListeners();
+      await _persist();
+    }
+  }
+
   Future<void> _loadSettings() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -66,6 +77,7 @@ class SettingsProvider with ChangeNotifier {
         _useFullscreen = decoded['useFullscreen'] ?? _defaultUseFullscreen;
         _enableRemoteAccess = decoded['enableRemoteAccess'] ?? _defaultEnableRemoteAccess;
         _followRemoteAccess = decoded['followRemoteAccess'] ?? _defaultFollowRemoteAccess;
+        _overrideTheme = decoded['overrideTheme'] ?? _defaultOverrideTheme;
       }
       notifyListeners();
     } catch (e) {
@@ -81,6 +93,7 @@ class SettingsProvider with ChangeNotifier {
         'useFullscreen': _useFullscreen,
         'enableRemoteAccess': _enableRemoteAccess,
         'followRemoteAccess': _followRemoteAccess,
+        'overrideTheme': _overrideTheme,
       });
       await prefs.setString(_storageKey, data);
     } catch (e) {
