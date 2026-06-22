@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../providers/device_provider.dart';
 import '../../providers/multi_device_provider.dart';
 import '../../providers/history_provider.dart';
 import '../../providers/ble_provider.dart';
@@ -280,6 +279,29 @@ class _PairBottomSheetState extends State<PairBottomSheet>
     }
   }
 
+  /// Build a map of transport addresses to their [TransportType] for all
+  /// currently connected devices.
+  Map<String, TransportType> _connectedTransportMap() {
+    final multiDevice = context.read<MultiDeviceProvider>();
+    final map = <String, TransportType>{};
+    for (final dp in multiDevice.devices) {
+      final conn = dp.connectedDevice;
+      if (conn == null) continue;
+      final type = conn.currentTransport;
+      map[conn.id] = type;
+      if (conn.transportAddress != null) map[conn.transportAddress!] = type;
+      if (conn.bleAddress != null) map[conn.bleAddress!] = type;
+      if (conn.wifiAddress != null) map[conn.wifiAddress!] = type;
+      // Also index by bare device name (before " @ host:port") so the
+      // cloud tab can match relay-returned device names.
+      final bareName = conn.name.split(' @ ').first;
+      if (bareName.isNotEmpty && bareName != conn.name) {
+        map[bareName] = type;
+      }
+    }
+    return map;
+  }
+
   void _showError(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -293,6 +315,9 @@ class _PairBottomSheetState extends State<PairBottomSheet>
 
   @override
   Widget build(BuildContext context) {
+    // Rebuild on connection state changes so the IN USE badges stay current.
+    context.watch<MultiDeviceProvider>();
+
     return Transform.translate(
       offset: const Offset(0, -18),
       child: Column(
@@ -359,12 +384,14 @@ class _PairBottomSheetState extends State<PairBottomSheet>
                   onDismissError: _dismissError,
                   selectedBaud: _selectedBaud,
                   onBaudChanged: (v) => setState(() => _selectedBaud = v),
+                  connectedTransportMap: _connectedTransportMap(),
                 ),
                 _PairBleTab(
                   onConnect: _connectBle,
                   connectingIds: _connectingIds,
                   failedIds: _failedIds,
                   onDismissError: _dismissError,
+                  connectedTransportMap: _connectedTransportMap(),
                 ),
                 Consumer<MdnsProvider>(
                   builder: (context, mdns, _) => _PairWiFiTab(
@@ -375,10 +402,12 @@ class _PairBottomSheetState extends State<PairBottomSheet>
                     discoveredDevices: mdns.devices,
                     isScanning: mdns.isScanning,
                     isMdnsSupported: mdns.isSupported,
+                    connectedTransportMap: _connectedTransportMap(),
                   ),
                 ),
                 _PairCloudTab(
                   onFinalize: _finalizeCloudConnection,
+                  connectedTransportMap: _connectedTransportMap(),
                 ),
               ],
             ),
@@ -401,12 +430,14 @@ class _PairBleTab extends StatelessWidget {
   final Set<String> connectingIds;
   final Map<String, String> failedIds;
   final ValueChanged<String> onDismissError;
+  final Map<String, TransportType> connectedTransportMap;
 
   const _PairBleTab({
     required this.onConnect,
     required this.connectingIds,
     required this.failedIds,
     required this.onDismissError,
+    required this.connectedTransportMap,
   });
 
   @override
@@ -478,6 +509,7 @@ class _PairBleTab extends StatelessWidget {
                   (device) => _PairDeviceCard(
                     device: device,
                     isConnecting: connectingIds.contains(device.id),
+                    connectedTransport: connectedTransportMap[device.id],
                     errorMessage: failedIds[device.id],
                     trailing: _PairSignalBars(rssi: device.rssi),
                     onTap: () => onConnect(device),
@@ -502,6 +534,7 @@ class _PairUsbTab extends StatelessWidget {
   final ValueChanged<String> onDismissError;
   final String selectedBaud;
   final ValueChanged<String> onBaudChanged;
+  final Map<String, TransportType> connectedTransportMap;
 
   const _PairUsbTab({
     required this.onConnect,
@@ -510,6 +543,7 @@ class _PairUsbTab extends StatelessWidget {
     required this.onDismissError,
     required this.selectedBaud,
     required this.onBaudChanged,
+    required this.connectedTransportMap,
   });
 
   @override
@@ -538,8 +572,8 @@ class _PairUsbTab extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('SCANNING',
-                          style: TextStyle(
+                      Text(serial.isScanning ? 'SCANNING' : 'IDLE',
+                          style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 11,
                               letterSpacing: 1.0)),
@@ -556,7 +590,7 @@ class _PairUsbTab extends StatelessWidget {
               ),
               SizedBox(height: 12),
               LinearProgressIndicator(
-                value: null,
+                value: serial.isScanning ? null : 1.0,
                 backgroundColor: context.tokens.onSurface.withValues(alpha: 0.05),
                 valueColor: AlwaysStoppedAnimation(context.tokens.primary),
                 minHeight: 1,
@@ -576,6 +610,7 @@ class _PairUsbTab extends StatelessWidget {
                   (port) => _PairSerialDeviceCard(
                     device: port,
                     isConnecting: connectingIds.contains(port.id),
+                    connectedTransport: connectedTransportMap[port.id],
                     errorMessage: failedIds[port.id],
                     selectedBaud: selectedBaud,
                     onBaudChanged: onBaudChanged,
@@ -604,6 +639,7 @@ class _PairWiFiTab extends StatelessWidget {
   final List<DeviceInfo> discoveredDevices;
   final bool isScanning;
   final bool isMdnsSupported;
+  final Map<String, TransportType> connectedTransportMap;
 
   const _PairWiFiTab({
     required this.onConnect,
@@ -613,6 +649,7 @@ class _PairWiFiTab extends StatelessWidget {
     required this.discoveredDevices,
     required this.isScanning,
     required this.isMdnsSupported,
+    required this.connectedTransportMap,
   });
 
   @override
@@ -678,6 +715,7 @@ class _PairWiFiTab extends StatelessWidget {
               (device) => _PairDeviceCard(
                 device: device,
                 isConnecting: connectingIds.contains(device.id),
+                connectedTransport: connectedTransportMap[device.id],
                 errorMessage: failedIds[device.id],
                 onTap: () => onConnect(device),
                 onRetry: () => onConnect(device),
@@ -874,6 +912,7 @@ class _PairWiFiManualEntryState extends State<_PairWiFiManualEntry> {
 class _PairDeviceCard extends StatelessWidget {
   final DeviceInfo device;
   final bool isConnecting;
+  final TransportType? connectedTransport;
   final String? errorMessage;
   final Widget? trailing;
   final VoidCallback onTap;
@@ -883,6 +922,7 @@ class _PairDeviceCard extends StatelessWidget {
   const _PairDeviceCard({
     required this.device,
     required this.isConnecting,
+    this.connectedTransport,
     this.errorMessage,
     this.trailing,
     required this.onTap,
@@ -893,13 +933,16 @@ class _PairDeviceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasError = errorMessage != null && !isConnecting;
+    final inUse = connectedTransport != null && !isConnecting && !hasError;
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       color: hasError
           ? context.tokens.error.withValues(alpha: 0.08)
-          : context.tokens.onSurface.withValues(alpha: 0.05),
+          : inUse
+              ? context.tokens.success.withValues(alpha: 0.06)
+              : context.tokens.onSurface.withValues(alpha: 0.05),
       child: InkWell(
-        onTap: isConnecting
+        onTap: isConnecting || inUse
             ? null
             : hasError
                 ? onRetry
@@ -929,7 +972,9 @@ class _PairDeviceCard extends StatelessWidget {
                   height: 8,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: context.tokens.success,
+                    color: inUse
+                        ? context.tokens.success
+                        : context.tokens.onSurface.withValues(alpha: 0.24),
                   ),
                 ),
               SizedBox(width: 14),
@@ -944,7 +989,11 @@ class _PairDeviceCard extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                           letterSpacing: 0.5,
-                          color: hasError ? context.tokens.error : context.tokens.onSurface),
+                          color: hasError
+                              ? context.tokens.error
+                              : inUse
+                                  ? context.tokens.success
+                                  : context.tokens.onSurface),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -954,13 +1003,17 @@ class _PairDeviceCard extends StatelessWidget {
                           ? 'Connecting...'
                           : hasError
                               ? errorMessage!
-                              : 'READY TO PAIR',
+                              : inUse
+                                  ? 'CONNECTED'
+                                  : 'READY TO PAIR',
                       style: TextStyle(
                         color: hasError
                             ? context.tokens.error
                             : isConnecting
                                 ? context.tokens.primary
-                                : context.tokens.onSurface.withValues(alpha: 0.38),
+                                : inUse
+                                    ? context.tokens.success
+                                    : context.tokens.onSurface.withValues(alpha: 0.38),
                         fontSize: 9,
                       ),
                       maxLines: 2,
@@ -972,6 +1025,8 @@ class _PairDeviceCard extends StatelessWidget {
               // Trailing
               if (isConnecting)
                 const SizedBox.shrink()
+              else if (inUse)
+                _InUseBadge(transport: connectedTransport!)
               else if (hasError)
                 Row(
                   mainAxisSize: MainAxisSize.min,
@@ -1036,6 +1091,46 @@ class _PairSignalBars extends StatelessWidget {
   }
 }
 
+// ── In-Use Badge (shared by BLE + USB + WiFi cards) ──────────────────────────
+
+class _InUseBadge extends StatelessWidget {
+  final TransportType transport;
+  const _InUseBadge({required this.transport});
+
+  IconData get _icon => switch (transport) {
+    TransportType.ble => Icons.bluetooth_rounded,
+    TransportType.serial => Icons.usb_rounded,
+    TransportType.wifi => Icons.wifi_rounded,
+    TransportType.cloud => Icons.cloud_rounded,
+    TransportType.demo => Icons.wifi_tethering_rounded,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: context.tokens.success.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_icon, size: 10, color: context.tokens.success),
+          const SizedBox(width: 4),
+          Text('IN USE',
+              style: TextStyle(
+                color: context.tokens.success,
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              )),
+        ],
+      ),
+    );
+  }
+}
+
 // ── Pair Cloud Tab ────────────────────────────────────────────────────────────
 
 enum _CloudStep { idle, connectingRelay, deviceList, joiningDevice }
@@ -1043,8 +1138,9 @@ enum _CloudStep { idle, connectingRelay, deviceList, joiningDevice }
 class _PairCloudTab extends StatefulWidget {
   final Future<void> Function(WebSocketService ws, String host, int port,
       String deviceName, String account) onFinalize;
+  final Map<String, TransportType> connectedTransportMap;
 
-  const _PairCloudTab({required this.onFinalize});
+  const _PairCloudTab({required this.onFinalize, required this.connectedTransportMap});
 
   @override
   State<_PairCloudTab> createState() => _PairCloudTabState();
@@ -1539,6 +1635,7 @@ class _PairCloudTabState extends State<_PairCloudTab> {
                     transportAddress: name,
                   ),
                   isConnecting: _step == _CloudStep.joiningDevice,
+                  connectedTransport: widget.connectedTransportMap[name],
                   onTap: () => _joinDevice(name),
                   onRetry: () => _joinDevice(name),
                 )),
@@ -1575,6 +1672,7 @@ class _PairCloudTabState extends State<_PairCloudTab> {
 class _PairSerialDeviceCard extends StatelessWidget {
   final DeviceInfo device;
   final bool isConnecting;
+  final TransportType? connectedTransport;
   final String? errorMessage;
   final String selectedBaud;
   final ValueChanged<String> onBaudChanged;
@@ -1585,6 +1683,7 @@ class _PairSerialDeviceCard extends StatelessWidget {
   const _PairSerialDeviceCard({
     required this.device,
     required this.isConnecting,
+    this.connectedTransport,
     this.errorMessage,
     required this.selectedBaud,
     required this.onBaudChanged,
@@ -1605,11 +1704,14 @@ class _PairSerialDeviceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasError = errorMessage != null && !isConnecting;
+    final inUse = connectedTransport != null && !isConnecting && !hasError;
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       color: hasError
           ? context.tokens.error.withValues(alpha: 0.08)
-          : context.tokens.onSurface.withValues(alpha: 0.05),
+          : inUse
+              ? context.tokens.success.withValues(alpha: 0.06)
+              : context.tokens.onSurface.withValues(alpha: 0.05),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
@@ -1634,7 +1736,9 @@ class _PairSerialDeviceCard extends StatelessWidget {
                 height: 8,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: context.tokens.success,
+                  color: inUse
+                      ? context.tokens.success
+                      : context.tokens.onSurface.withValues(alpha: 0.24),
                 ),
               ),
             SizedBox(width: 14),
@@ -1648,7 +1752,11 @@ class _PairSerialDeviceCard extends StatelessWidget {
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
-                        color: hasError ? context.tokens.error : context.tokens.onSurface),
+                        color: hasError
+                            ? context.tokens.error
+                            : inUse
+                                ? context.tokens.success
+                                : context.tokens.onSurface),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1667,13 +1775,17 @@ class _PairSerialDeviceCard extends StatelessWidget {
                         ? 'Connecting...'
                         : hasError
                             ? errorMessage!
-                            : 'READY TO PAIR',
+                            : inUse
+                                ? 'CONNECTED'
+                                : 'READY TO PAIR',
                     style: TextStyle(
                       color: hasError
                           ? context.tokens.error
                           : isConnecting
                               ? context.tokens.primary
-                              : context.tokens.onSurface.withValues(alpha: 0.38),
+                              : inUse
+                                  ? context.tokens.success
+                                  : context.tokens.onSurface.withValues(alpha: 0.38),
                       fontSize: 9,
                     ),
                   ),
@@ -1681,57 +1793,61 @@ class _PairSerialDeviceCard extends StatelessWidget {
               ),
             ),
             SizedBox(width: 8),
-            // Baud rate selector
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(
-                color: context.tokens.onSurface.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: PopupMenuButton<String>(
-                onSelected: onBaudChanged,
-                initialValue: selectedBaud,
-                offset: const Offset(0, 30),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(selectedBaud,
-                        style: GoogleFonts.martianMono(
-                            color: context.tokens.onSurface.withValues(alpha: 0.54),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500)),
-                    Icon(Icons.arrow_drop_down_rounded,
-                        size: 16, color: context.tokens.onSurface.withValues(alpha: 0.38)),
-                  ],
+            if (inUse)
+              _InUseBadge(transport: connectedTransport!)
+            else ...[
+              // Baud rate selector
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(
+                  color: context.tokens.onSurface.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(4),
                 ),
-                itemBuilder: (ctx) => _baudRates
-                    .map((rate) => PopupMenuItem(
-                          value: rate,
-                          child: Text(rate,
-                              style: GoogleFonts.martianMono(
-                                  fontSize: 12, color: context.tokens.onSurface)),
-                        ))
-                    .toList(),
-              ),
-            ),
-            SizedBox(width: 8),
-            // Connect button
-            SizedBox(
-              height: 32,
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: context.tokens.primary,
-                  foregroundColor: context.tokens.onPrimary,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4)),
+                child: PopupMenuButton<String>(
+                  onSelected: onBaudChanged,
+                  initialValue: selectedBaud,
+                  offset: const Offset(0, 30),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(selectedBaud,
+                          style: GoogleFonts.martianMono(
+                              color: context.tokens.onSurface.withValues(alpha: 0.54),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500)),
+                      Icon(Icons.arrow_drop_down_rounded,
+                          size: 16, color: context.tokens.onSurface.withValues(alpha: 0.38)),
+                    ],
+                  ),
+                  itemBuilder: (ctx) => _baudRates
+                      .map((rate) => PopupMenuItem(
+                            value: rate,
+                            child: Text(rate,
+                                style: GoogleFonts.martianMono(
+                                    fontSize: 12, color: context.tokens.onSurface)),
+                          ))
+                      .toList(),
                 ),
-                onPressed: hasError ? onRetry : onConnect,
-                child: Text(hasError ? 'RETRY' : 'CONNECT',
-                    style: GoogleFonts.changa(
-                        fontWeight: FontWeight.w700, fontSize: 11, height: 1)),
               ),
-            ),
+              SizedBox(width: 8),
+              // Connect button
+              SizedBox(
+                height: 32,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: context.tokens.primary,
+                    foregroundColor: context.tokens.onPrimary,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4)),
+                  ),
+                  onPressed: hasError ? onRetry : onConnect,
+                  child: Text(hasError ? 'RETRY' : 'CONNECT',
+                      style: GoogleFonts.changa(
+                          fontWeight: FontWeight.w700, fontSize: 11, height: 1)),
+                ),
+              ),
+            ],
           ],
         ),
       ),

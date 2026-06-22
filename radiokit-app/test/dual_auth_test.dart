@@ -95,7 +95,6 @@ void main() {
   group('RemoteAccessService — NVS handlers', () {
     test('_handleNvsGet returns auth state fields', () async {
       // Build a test router with a mock NVS GET handler
-      String? currentRoute;
       final router = Router();
       router.get('/api/settings/nvs', (request) async {
         return Response.ok(

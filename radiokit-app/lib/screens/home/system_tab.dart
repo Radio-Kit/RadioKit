@@ -9,6 +9,7 @@ import '../../providers/designs_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/theme_preset_provider.dart';
 import '../../providers/remote_access_provider.dart';
+import '../../models/tab_index.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/radiokit_app_bar.dart';
 import '../../widgets/api_log_view.dart';
@@ -50,7 +51,7 @@ class _SystemTabState extends State<SystemTab> {
 
     return Scaffold(
       appBar: RadioKitAppBar(
-        tabIndex: 3,
+        tabIndex: TabIndex.system,
         onAccounts: () => AccountsSheet.show(context),
         accentColor: context.tokens.primary,
       ),

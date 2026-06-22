@@ -1578,7 +1578,7 @@ class RemoteAccessService {
       // connectDemo creates a new DeviceProvider in MultiDeviceProvider
       // and sets focus so it becomes the active device for API calls.
       if (_connectDemo != null) {
-        await _connectDemo!(demoId);
+        await _connectDemo(demoId);
       } else {
         // Fallback for test environments without MultiDeviceProvider.
         await _deviceProvider.loadDemo(demoId);
@@ -2164,14 +2164,10 @@ class RemoteAccessService {
         return _error('invalid_type', "type must be 'ble', 'serial', 'wifi', 'cloud', or 'demo'");
     }
 
-    if (target == null || transport == null) {
-      return _error('internal_error', 'Failed to resolve transport', status: 500);
-    }
-
     try {
       final dp = await multi.connectDevice(
-        device: target!,
-        transport: transport!,
+        device: target,
+        transport: transport,
         baudRate: baudRate,
       );
 
@@ -2196,7 +2192,7 @@ class RemoteAccessService {
       });
     } catch (e) {
       // Clean up transport on failure to prevent orphaned BLE connections
-      try { await transport!.disconnect(); } catch (_) {}
+      try { await transport.disconnect(); } catch (_) {}
       return _error('connection_failed', e.toString(), status: 500);
     }
   }

@@ -131,7 +131,11 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
 
         dynamic normalized;
         if (config.typeId == kWidgetSlider || config.typeId == kWidgetKnob) {
-          normalized = (inValues[0] + 100) / 200.0;
+          // Map protocol [-100..100] → widget [min..max]
+          final protocolT = (inValues[0] + 100) / 200.0; // 0..1
+          final wMin = (el.properties['min'] as num?)?.toDouble() ?? 0;
+          final wMax = (el.properties['max'] as num?)?.toDouble() ?? 100;
+          normalized = wMin + protocolT * (wMax - wMin);
         } else if (config.typeId == kWidgetJoystick) {
           final rawX = inValues.isNotEmpty ? inValues[0] : 0;
           final rawY = inValues.length > 1 ? inValues[1] : 0;
@@ -161,9 +165,13 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
     List<int> payload = [0];
 
     if (config.typeId == kWidgetSlider || config.typeId == kWidgetKnob) {
+      // Map widget [min..max] → protocol [-100..100]
       final doubleVal = value as double;
-      int intVal =
-          ((doubleVal * 200) - 100).round().clamp(-100, 100);
+      final wMin = (el.properties['min'] as num?)?.toDouble() ?? 0;
+      final wMax = (el.properties['max'] as num?)?.toDouble() ?? 100;
+      final wRange = wMax - wMin;
+      final t = wRange > 0 ? ((doubleVal - wMin) / wRange).clamp(0.0, 1.0) : 0.5;
+      int intVal = (-100 + (t * 200)).round().clamp(-100, 100);
       final detents = variantDetents(config.variant);
       if (detents > 1) {
         final step = 200.0 / (detents - 1);

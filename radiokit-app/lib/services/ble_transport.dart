@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
-import 'package:universal_ble/universal_ble.dart' hide BleService;
+
 import '../models/protocol.dart';
 import 'protocol_service.dart';
 import 'settings_protocol_service.dart';

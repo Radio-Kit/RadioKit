@@ -17,7 +17,6 @@ class FlasherProvider extends ChangeNotifier {
   EspTransport? _transport;
   ConnectionService? _connectionService;
   ChipDetectionService? _chipDetector;
-  InfoService? _infoService;
   FlashService? _flashService;
 
   // ── Logging ─────────────────────────────────────────────────
@@ -28,6 +27,7 @@ class FlasherProvider extends ChangeNotifier {
   // ── Port scanning ────────────────────────────────────────────
   List<PortInfo> _availablePorts = [];
   bool _isScanning = false;
+  Timer? _autoScanTimer;
 
   // ── Connection ───────────────────────────────────────────────
   bool _isConnected = false;
@@ -80,6 +80,7 @@ class FlasherProvider extends ChangeNotifier {
 
   /// Scan for available serial ports using flserial's [FlSerial.availablePorts].
   Future<void> scanPorts() async {
+    if (_isScanning) return;
     _isScanning = true;
     _errorMessage = null;
     notifyListeners();
@@ -104,6 +105,21 @@ class FlasherProvider extends ChangeNotifier {
       _isScanning = false;
       notifyListeners();
     }
+  }
+
+  /// Start periodic auto-scan that refreshes available ports every second.
+  void startAutoScan() {
+    if (_autoScanTimer != null || _isConnected) return;
+    scanPorts();
+    _autoScanTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!_isConnected) scanPorts();
+    });
+  }
+
+  /// Stop the periodic auto-scan.
+  void stopAutoScan() {
+    _autoScanTimer?.cancel();
+    _autoScanTimer = null;
   }
 
   // ── Connection ─────────────────────────────────────────────────
@@ -331,7 +347,6 @@ class FlasherProvider extends ChangeNotifier {
     _transport = null;
     _connectionService = null;
     _chipDetector = null;
-    _infoService = null;
     _flashService = null;
     _isConnected = false;
     _portName = null;
@@ -624,6 +639,7 @@ class FlasherProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _autoScanTimer?.cancel();
     _adapter?.dispose();
     super.dispose();
   }

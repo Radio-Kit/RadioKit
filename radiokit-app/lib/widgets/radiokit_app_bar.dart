@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'logo_icon.dart';
 import '../../theme/app_theme.dart';
+import '../../models/tab_index.dart';
 
 class RadioKitAppBar extends AppBar {
   RadioKitAppBar({
@@ -13,11 +14,12 @@ class RadioKitAppBar extends AppBar {
     super.centerTitle,
     String? title,
     List<Widget>? actions,
-    int? tabIndex,
+    TabIndex? tabIndex,
     VoidCallback? onConnect,
     VoidCallback? onOpen,
     VoidCallback? onCreate,
     VoidCallback? onAccounts,
+    VoidCallback? onScan,
     required Color accentColor,
   }) : super(
           toolbarHeight: 40,
@@ -54,21 +56,22 @@ class RadioKitAppBar extends AppBar {
             ],
           ),
           actions: actions ?? _buildActionsForTab(
-            tabIndex, onConnect, onOpen, onCreate, onAccounts,
+            tabIndex, onConnect, onOpen, onCreate, onAccounts, onScan,
             accentColor: accentColor,
           ),
         );
 
   static List<Widget> _buildActionsForTab(
-    int? tabIndex,
+    TabIndex? tabIndex,
     VoidCallback? onConnect,
     VoidCallback? onOpen,
     VoidCallback? onCreate,
-    VoidCallback? onAccounts, {
+    VoidCallback? onAccounts,
+    VoidCallback? onScan, {
     required Color accentColor,
   }) {
     switch (tabIndex) {
-      case 0: // Models
+      case TabIndex.models:
         return [
           if (onConnect != null)
             FilledButton.tonal(
@@ -91,7 +94,7 @@ class RadioKitAppBar extends AppBar {
             ),
           const SizedBox(width: 8),
         ];
-      case 1: // Projects
+      case TabIndex.designs:
         return [
           if (onOpen != null)
             _AppBarPillButton(
@@ -106,7 +109,37 @@ class RadioKitAppBar extends AppBar {
             ),
           const SizedBox(width: 8),
         ];
-      case 2: // System
+      case TabIndex.flasher:
+        return [
+          if (onScan != null)
+            FilledButton.tonal(
+              style: FilledButton.styleFrom(
+                backgroundColor: accentColor.withValues(alpha: 0.15),
+                foregroundColor: accentColor,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                minimumSize: const Size(0, 34),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              onPressed: onScan,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.search_rounded, size: 16, color: accentColor),
+                  const SizedBox(width: 6),
+                  Text('Scan',
+                      style: GoogleFonts.changa(
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                          fontSize: 15,
+                          color: accentColor)),
+                ],
+              ),
+            ),
+          const SizedBox(width: 8),
+        ];
+      case TabIndex.system:
         return [
           if (onAccounts != null)
             FilledButton.tonal(

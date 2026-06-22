@@ -36,7 +36,6 @@ class RawUsbSerialService implements TransportService {
   // ── State ─────────────────────────────────────────────────────
   bool _connected = false;
   bool _disposed = false;
-  String? _currentPort;
   Timer? _readPollTimer;
   Timer? _sessionTimer;
   final List<int> _receiveBuffer = [];
@@ -85,7 +84,6 @@ class RawUsbSerialService implements TransportService {
     await disconnect();
 
     _log('Connecting to $deviceId at $baudRate baud...');
-    _currentPort = deviceId;
 
     // Request USB permission if not already granted
     try {
@@ -136,7 +134,6 @@ class RawUsbSerialService implements TransportService {
     }
 
     _receiveBuffer.clear();
-    _currentPort = null;
   }
 
   // ── Write ─────────────────────────────────────────────────────
@@ -153,7 +150,6 @@ class RawUsbSerialService implements TransportService {
       });
 
       if (result != null) {
-        final bytes = result['bytes'] as int? ?? 0;
         final method = result['method'] as String? ?? 'unknown';
         if (method != 'bulk') {
           _log('TX ${data.length} bytes via $method (stall recovery)');

@@ -23,6 +23,7 @@ import '../../services/transport_service.dart';
 import '../../widgets/model_card.dart';
 import '../../services/websocket_service.dart';
 import '../../services/cloud_identity.dart';
+import '../../models/tab_index.dart';
 import '../../screens/device_config/device_settings_dialog.dart';
 import 'pair_sheet.dart';
 import '../../services/ble_transport.dart';
@@ -103,7 +104,7 @@ class _ModelsTabState extends State<ModelsTab> {
 
     return Scaffold(
       appBar: RadioKitAppBar(
-        tabIndex: 0,
+        tabIndex: TabIndex.models,
         onConnect: () => showPairBottomSheet(context),
         accentColor: context.tokens.primary,
       ),
@@ -1109,7 +1110,7 @@ class _PairedModelsListState extends State<_PairedModelsList> {
   bool _isTabActive() {
     try {
       final shell = StatefulNavigationShell.of(context);
-      return shell.currentIndex == 0;
+      return shell.currentIndex == TabIndex.models.index;
     } catch (_) {
       return false;
     }
@@ -1680,17 +1681,17 @@ class _InteractiveDemoSection extends StatelessWidget {
     final demos = [
       _DemoTile(icon: Icons.widgets_rounded, title: 'WIDGETS_DEMO', subtitle: 'Explore all available widget types', onTap: () async {
         final multiDevice = context.read<MultiDeviceProvider>();
-        final dp = await multiDevice.connectDemo('WIDGETS_DEMO');
+        await multiDevice.connectDemo('WIDGETS_DEMO');
         if (context.mounted) context.go('/control/DEMO_WIDGETS_DEMO');
       }),
       _DemoTile(icon: Icons.sports_esports_rounded, title: 'RC_CONTROLLER', subtitle: 'Simulated remote control interface', onTap: () async {
         final multiDevice = context.read<MultiDeviceProvider>();
-        final dp = await multiDevice.connectDemo('RC_CONTROLLER');
+        await multiDevice.connectDemo('RC_CONTROLLER');
         if (context.mounted) context.go('/control/DEMO_RC_CONTROLLER');
       }),
       _DemoTile(icon: Icons.dashboard_rounded, title: 'IOT_DASHBOARD', subtitle: 'IoT monitoring and control panel', onTap: () async {
         final multiDevice = context.read<MultiDeviceProvider>();
-        final dp = await multiDevice.connectDemo('IOT_DASHBOARD');
+        await multiDevice.connectDemo('IOT_DASHBOARD');
         if (context.mounted) context.go('/control/DEMO_IOT_DASHBOARD');
       }),
     ];
@@ -1738,10 +1739,6 @@ class _InteractiveDemoSection extends StatelessWidget {
   }
 }
 
-void _navigateToSystemTab(BuildContext context) {
-  final shell = StatefulNavigationShell.of(context);
-  shell.goBranch(2, initialLocation: true);
-}
 
 PopupMenuItem<String> _menuItem(String label) {
   return PopupMenuItem<String>(value: label, height: 32, child: Text(label, style: const TextStyle(fontSize: 11, fontFamily: 'monospace', fontWeight: FontWeight.w600)));

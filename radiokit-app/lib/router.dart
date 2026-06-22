@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'providers/device_provider.dart';
+
 import 'providers/multi_device_provider.dart';
 import 'screens/home/models_tab.dart';
 import 'screens/home/system_tab.dart';

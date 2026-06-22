@@ -47,7 +47,6 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
   bool _transportChanged = false;
   String _deviceIcon = '';
   bool _hasDevicePassword = false;
-  bool _iconChanged = false;
 
   // STA WiFi config
   late TextEditingController _staSsidCtrl;
@@ -101,7 +100,7 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
 
     // Load STA WiFi and Cloud config
     final staSsidResult = await dp.readNvsRawKey('rk_sta_ssid');
-    final staPwdResult = await dp.readNvsRawKey('rk_sta_pwd');
+    await dp.readNvsRawKey('rk_sta_pwd');
     final cloudUrlResult = await dp.readNvsRawKey('rk_cloud_url');
     final cloudAccountResult = await dp.readNvsRawKey('rk_cloud_account');
 
@@ -1200,8 +1199,7 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
     VoidCallback? onTogglePwd,
     bool isAdmin = false,
   }) {
-    final borderColor =
-        isAdmin ? context.tokens.primary.withValues(alpha: 0.3) : context.tokens.onSurface.withValues(alpha: 0.12);
+    final          borderColor = isAdmin ? context.tokens.primary.withValues(alpha: 0.3) : context.tokens.onSurface.withValues(alpha: 0.12);
     final focusBorderColor = isAdmin
         ? context.tokens.primary.withValues(alpha: 0.7)
         : context.tokens.primary.withValues(alpha: 0.5);
@@ -1218,7 +1216,7 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
         Row(children: [
           Text(label,
               style: TextStyle(
-                  color: labelColor ?? context.tokens.onSurface,
+                  color: labelColor,
                   fontSize: 10,
                   fontWeight: FontWeight.bold)),
           if (labelIcon != null) ...[const SizedBox(width: 6), labelIcon],

@@ -61,24 +61,25 @@ class SerialProvider extends ChangeNotifier {
     
     await _scanSubscription?.cancel();
 
+    // Accumulate ports in a local list so stale entries (unplugged devices)
+    // are dropped when the stream completes with only the current set.
+    final List<DeviceInfo> batch = [];
+
     _scanSubscription = _serialService.listPorts().listen(
       (port) {
-        final idx = _ports.indexWhere((p) => p.id == port.id);
-        if (idx >= 0) {
-          _ports[idx] = port;
-        } else {
-          _ports.add(port);
-        }
-        notifyListeners();
+        batch.add(port);
         if (!completer.isCompleted) completer.complete(port);
       },
       onError: (error) {
         _errorMessage = 'Serial scan error: $error';
         _isScanning = false;
+        _ports = [];
         notifyListeners();
         if (!completer.isCompleted) completer.complete(null);
       },
       onDone: () {
+        _ports = List.unmodifiable(batch);
+        notifyListeners();
         if (!completer.isCompleted) completer.complete(null);
       },
     );

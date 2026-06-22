@@ -106,15 +106,21 @@ class BleProvider extends ChangeNotifier {
   Future<void> _scanForDuration(Duration duration) async {
     await _scanSubscription?.cancel();
 
+    // Accumulate devices in a local batch so stale entries (out-of-range
+    // devices) are dropped when the scan window closes.
+    final List<DeviceInfo> batch = [];
+
     _scanSubscription = _bleService.startScan().listen(
       (device) {
         debugPrint('BLE_PROVIDER: Discovery event for ${device.name} (${device.id})');
-        final idx = _devices.indexWhere((d) => d.id == device.id);
+        final idx = batch.indexWhere((d) => d.id == device.id);
         if (idx >= 0) {
-          _devices[idx] = device;
+          batch[idx] = device;
         } else {
-          _devices.add(device);
+          batch.add(device);
         }
+        // Expose devices incrementally so the UI updates live during scan.
+        _devices = List.unmodifiable(batch);
         notifyListeners();
       },
       onError: (error) {
@@ -136,6 +142,11 @@ class BleProvider extends ChangeNotifier {
     await _scanSubscription?.cancel();
     _scanSubscription = null;
     await _bleService.stopScan();
+
+    // Replace _devices with only the batch from this scan window.
+    // Devices that went out of range during the scan are dropped.
+    _devices = List.unmodifiable(batch);
+    notifyListeners();
   }
 
   Future<void> stopScan() async {

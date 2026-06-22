@@ -264,7 +264,7 @@ class _ControlScreenState extends State<ControlScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(Icons.signal_cellular_alt_rounded,
-                                    size: 14, color: _getRssiColor(deviceProvider!.rssi ?? -127)),
+                                    size: 14, color: _getRssiColor(deviceProvider.rssi ?? -127)),
                                 const SizedBox(width: 4),
                                 Text('${deviceProvider.rssi ?? "--"} dBm',
                                     style: TextStyle(fontSize: 10, color: context.tokens.onSurface.withValues(alpha: 0.7), fontWeight: FontWeight.bold)),
@@ -382,7 +382,7 @@ class _ControlScreenState extends State<ControlScreen> {
                 const SizedBox(width: 8),
               ],
             ),
-            body: _buildBody(deviceProvider!),
+            body: _buildBody(deviceProvider),
           ),
         );
       },

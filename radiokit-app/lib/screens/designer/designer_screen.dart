@@ -17,8 +17,6 @@ import 'utils/file_download.dart';
 import 'widgets/designer_widget_dialog.dart';
 import 'widgets/designer_inspector.dart';
 
-import '../../theme/app_theme.dart';
-
 import '../../providers/designs_provider.dart';
 import 'codegen/json_arduino_generator.dart';
 

@@ -3,11 +3,35 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../theme/app_theme.dart';
+import '../../models/tab_index.dart';
 import '../../widgets/radiokit_app_bar.dart';
 import '../../providers/flasher_provider.dart';
 
-class FlasherTab extends StatelessWidget {
+class FlasherTab extends StatefulWidget {
   const FlasherTab({super.key});
+
+  @override
+  State<FlasherTab> createState() => _FlasherTabState();
+}
+
+class _FlasherTabState extends State<FlasherTab> {
+  FlasherProvider? _flasher;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _flasher = context.read<FlasherProvider>();
+      _flasher!.startAutoScan();
+    });
+  }
+
+  @override
+  void dispose() {
+    _flasher?.stopAutoScan();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -20,8 +44,9 @@ class FlasherTab extends StatelessWidget {
 
     return Scaffold(
       appBar: RadioKitAppBar(
-        tabIndex: 1,
+        tabIndex: TabIndex.flasher,
         accentColor: context.tokens.primary,
+        onScan: () => context.read<FlasherProvider>().scanPorts(),
       ),
       body: _buildContent(context),
     );
@@ -220,54 +245,58 @@ class _DisconnectedState extends StatelessWidget {
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1)),
-        ]),
-        Row(children: [
-          Expanded(
-            child: FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: context.tokens.primary,
-                foregroundColor: context.tokens.onPrimary,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6)),
-              ),
-              onPressed: isScanning
-                  ? null
-                  : () => flasher.scanPorts(),
-              icon: isScanning
-                  ? SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: context.tokens.onPrimary))
-                  : const Icon(Icons.search_rounded, size: 20),
-              label: Text(
-                  isScanning ? 'SCANNING...' : 'SCAN PORTS',
-                  style: GoogleFonts.changa(
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1,
-                      fontSize: 12)),
-            ),
-          ),
-          if (ports.isNotEmpty) ...[const SizedBox(width: 8)],
-          if (ports.isNotEmpty)
+          const Spacer(),
+          if (isScanning) ...[
+            SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: context.tokens.primary.withValues(alpha: 0.7))),
+            const SizedBox(width: 6),
+            Text('SCANNING',
+                style: TextStyle(
+                    color: context.tokens.onSurface.withValues(alpha: 0.38),
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1)),
+          ],
+          if (!isScanning && ports.isNotEmpty)
             IconButton(
               tooltip: 'View all ports',
               icon: Icon(Icons.visibility_outlined,
                   size: 22, color: context.tokens.onSurface.withValues(alpha: 0.54)),
               onPressed: () => _showAllPortsDialog(context, flasher),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
             ),
         ]),
+        if (ports.isEmpty && !isScanning) ...[
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: context.tokens.onSurface.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                  color: context.tokens.onSurface.withValues(alpha: 0.08)),
+            ),
+            child: Text('No ports detected. Plug in a device.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    color: context.tokens.onSurface.withValues(alpha: 0.38),
+                    fontSize: 11)),
+          ),
+        ],
         // Show only preferred ports in the main list; fall back to all
         // if none match (e.g. no port descriptions available).
-        if (ports.isNotEmpty) ...[if (ports.any((p) => p.isPreferred)) ...[
-          const SizedBox(height: 8),
-          _PortList(ports: ports.where((p) => p.isPreferred).toList(), flasher: flasher),
-        ] else ...[
-          const SizedBox(height: 8),
-          _PortList(ports: ports, flasher: flasher),
-        ]],
+        if (ports.isNotEmpty) ...[const SizedBox(height: 8),
+          if (ports.any((p) => p.isPreferred))
+            _PortList(ports: ports.where((p) => p.isPreferred).toList(), flasher: flasher)
+          else
+            _PortList(ports: ports, flasher: flasher),
+        ],
         // Manual boot mode fallback (shown when sync fails)
         if (flasher.errorMessage != null &&
             flasher.errorMessage!.contains('Sync')) ...[

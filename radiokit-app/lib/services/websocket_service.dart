@@ -8,8 +8,6 @@ import 'transport_service.dart';
 import 'settings_protocol_service.dart';
 import 'cloud_identity.dart';
 
-/// Auth state for challenge-response with the relay.
-enum _AuthState { unauth, challenged, authenticated }
 
 /// WebSocket transport service for both local WiFi (`ws://`) and cloud relay
 /// (`wss://`) connections.
@@ -87,8 +85,7 @@ class WebSocketService implements TransportService {
   /// Callback fired when auth fails.
   void Function(String error)? onAuthFailed;
 
-  /// Internal auth state machine.
-  _AuthState _authState = _AuthState.unauth;
+
 
   /// Pending device name to join after relay auth completes.
   String? _pendingJoinDevice;
@@ -113,7 +110,6 @@ class WebSocketService implements TransportService {
       return;
     }
 
-    _authState = _AuthState.unauth;
     _pendingJoinDevice = null;
 
     try {
@@ -253,7 +249,6 @@ class WebSocketService implements TransportService {
           await _handleAuthChallenge(msg);
           break;
         case 'auth_ok':
-          _authState = _AuthState.authenticated;
           _log('Relay auth succeeded');
           // Extract device list from auth_ok (relay now sends it inline)
           final devices = (msg['devices'] as List<dynamic>? ?? [])
@@ -276,7 +271,6 @@ class WebSocketService implements TransportService {
         case 'auth_failed':
           final error = msg['error'] as String? ?? 'unknown error';
           _log('Relay auth failed: $error', level: 'error');
-          _authState = _AuthState.unauth;
           _pendingJoinDevice = null;
           onAuthFailed?.call(error);
           break;
@@ -327,7 +321,6 @@ class WebSocketService implements TransportService {
       return;
     }
 
-    _authState = _AuthState.challenged;
     final nonceB64 = msg['nonce'] as String?;
     if (nonceB64 == null || nonceB64.isEmpty) {
       _log('Auth challenge missing nonce', level: 'error');
@@ -347,7 +340,6 @@ class WebSocketService implements TransportService {
       _log('Auth response sent');
     } catch (e) {
       _log('Failed to sign auth challenge: $e', level: 'error');
-      _authState = _AuthState.unauth;
       onAuthFailed?.call('Signing failed: $e');
     }
   }
@@ -483,7 +475,6 @@ class WebSocketService implements TransportService {
   @override
   Future<void> disconnect() async {
     _connected = false;
-    _authState = _AuthState.unauth;
     _pendingJoinDevice = null;
     await _subscription?.cancel();
     _subscription = null;
@@ -498,7 +489,6 @@ class WebSocketService implements TransportService {
 
   void _handleDisconnect(String reason) {
     _connected = false;
-    _authState = _AuthState.unauth;
     _pendingJoinDevice = null;
     _widgetBuffer.clear();
     _fsBuffer.clear();

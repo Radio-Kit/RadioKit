@@ -38,6 +38,7 @@ compile_commands.json
 build_log.txt
 .clangd
 *.bin
+.venv/
 
 # Flutter
 .dart_tool/

@@ -77,23 +77,20 @@ class DeviceProvider extends ChangeNotifier {
 
   Timer?                   _telemetryTimer;
   Timer?                   _confTimeoutTimer;
-  DateTime?                _lastRxAt;
-  DateTime?                _lastTxAt;
-  final DebugLogSink?            _debugSink;  Completer<void>? _confCompleter;
+  final DebugLogSink?            _debugSink;
+  Completer<void>? _confCompleter;
   Completer<int>? _setConfCompleter;
   Completer<Map<String, int>>? _bleInfoCompleter;
   int _deviceFeatures = 0;
   Completer<int>? _featuresCompleter;
   Map<String, dynamic>? _chipInfo;
   Completer<void>? _chipInfoCompleter;
-  Completer<int>? _otaCompleter;
   Completer<({int status, int? value, List<int>? rawBytes})>? _nvsRawReadCompleter;
   Completer<int>? _nvsRawWriteCompleter;
   Completer<int>? _authCompleter;  // For CMD_PWD_AUTH response
   Timer? _authTimeoutTimer;
   static const Duration _authTimeout = Duration(seconds: 30);
   DateTime? _connectedAt;
-  DateTime? _authenticatedAt;
   DateTime? get authTimeoutAt =>
       _connectedAt != null ? _connectedAt!.add(_authTimeout) : null;
   Duration get remainingAuthTime {
@@ -286,7 +283,6 @@ class DeviceProvider extends ChangeNotifier {
   void _startAuthTimeout() {
     _authTimeoutTimer?.cancel();
     _connectedAt = DateTime.now();
-    _authenticatedAt = null;
     _authTimeoutTimer = Timer(_authTimeout, () {
       if (_authLevel == AuthLevel.none && _transport.isConnected) {
         _log('Auth timeout — disconnecting (not authenticated within 30s)',
@@ -463,13 +459,11 @@ class DeviceProvider extends ChangeNotifier {
         final status = await completer.future.timeout(const Duration(seconds: 5));
         if (status == kSettingsPwdDevice) {
           _authLevel = AuthLevel.device;
-          _authenticatedAt = DateTime.now();
           _cancelAuthTimeout();
           notifyListeners();
           return true;
         } else if (status == kSettingsPwdUser) {
           _authLevel = AuthLevel.user;
-          _authenticatedAt = DateTime.now();
           _cancelAuthTimeout();
           notifyListeners();
           return true;
@@ -1193,7 +1187,6 @@ class DeviceProvider extends ChangeNotifier {
   Future<void> _writePacket(Uint8List pkt) async {
     if (!_transport.isConnected) return;
     try {
-      _lastTxAt = DateTime.now();
       await _transport.writePacket(pkt);
     } catch (e) {
       debugPrint('RadioKit: _writePacket error: $e');
@@ -1202,7 +1195,6 @@ class DeviceProvider extends ChangeNotifier {
   }
 
   void _handlePacket(ParsedPacket packet) {
-    _lastRxAt = DateTime.now(); // Activity detected
     final hex = packet.payload.take(32).map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ');
     debugPrint('RadioKit _handlePacket: cmd=0x${packet.cmd.toRadixString(16).padLeft(2, '0')} payloadLen=${packet.payload.length} hex=$hex');
     switch (packet.cmd) {
@@ -1301,7 +1293,6 @@ class DeviceProvider extends ChangeNotifier {
   /// Incoming Settings packet dispatcher. Settings sub-commands carry
   /// telemetry, BLE info, features, chip info, auth, config, and device info.
   void _handleSettingsPacket(ParsedSettingsPacket packet) {
-    _lastRxAt = DateTime.now();
     switch (packet.subCmd) {
       case kSettingsRespTelemetryData:
         _handleSettingsTelemetryData(packet.payload);
@@ -1350,8 +1341,6 @@ class DeviceProvider extends ChangeNotifier {
     }
   }
 
-  /// Cache for device info from settings protocol.
-  String? _deviceInfoProtocolVersion;
   Completer<void>? _deviceInfoCompleter;
 
   void _handleSettingsTelemetryData(Uint8List payload) {
@@ -1568,9 +1557,7 @@ class DeviceProvider extends ChangeNotifier {
       return null;
     }
     try {
-      final result = await completer.future.timeout(const Duration(seconds: 3));
-      _cloudInfo = result;
-      return result;
+      return await completer.future.timeout(const Duration(seconds: 3));
     } on TimeoutException catch (_) {
       _cloudInfoCompleter = null;
       return null;
@@ -1592,7 +1579,6 @@ class DeviceProvider extends ChangeNotifier {
     }
     _log('Cloud info: URL="${parsed.url}" account="${parsed.account.length > 16 ? parsed.account.substring(0, 16) + '...' : parsed.account}"',
         level: ConsoleLogLevel.success);
-    _cloudInfo = parsed;
     notifyListeners();
     final completer = _cloudInfoCompleter;
     if (completer != null && !completer.isCompleted) {
@@ -1618,7 +1604,6 @@ class DeviceProvider extends ChangeNotifier {
     }
     _log('Device info: v${parsed.version} "${parsed.name}" "${parsed.description}" uid="${parsed.uid}"',
         level: ConsoleLogLevel.success);
-    _deviceInfoProtocolVersion = parsed.version.toString();
     _configName = parsed.name.isNotEmpty ? parsed.name : _configName;
     _description = parsed.description.isNotEmpty ? parsed.description : _description;
 
@@ -1972,9 +1957,6 @@ class DeviceProvider extends ChangeNotifier {
     _log(text, level: ConsoleLogLevel.print);
   }
 
-  /// Cached cloud info from the device.
-  ({String url, String account})? _cloudInfo;
-
   /// Completer for GET_CLOUD_INFO response.
   Completer<({String url, String account})>? _cloudInfoCompleter;
 
@@ -1995,9 +1977,6 @@ class DeviceProvider extends ChangeNotifier {
     }
   }
 
-  /// Cached WiFi info from the device.
-  ({String ip, int mode, String ssid, int rssi})? _wifiInfo;
-
   /// Completer for GET_WIFI_INFO response.
   Completer<({String ip, int mode, String ssid, int rssi})>? _wifiInfoCompleter;
 
@@ -2014,9 +1993,7 @@ class DeviceProvider extends ChangeNotifier {
       return null;
     }
     try {
-      final result = await completer.future.timeout(const Duration(seconds: 3));
-      _wifiInfo = result;
-      return result;
+      return await completer.future.timeout(const Duration(seconds: 3));
     } on TimeoutException catch (_) {
       _wifiInfoCompleter = null;
       return null;
@@ -2035,7 +2012,6 @@ class DeviceProvider extends ChangeNotifier {
     _log('WiFi info: IP=${parsed.ip} mode=${parsed.mode == kWifiModeSta ? "STA" : "AP"} '
         'SSID="${parsed.ssid}" RSSI=${parsed.rssi}',
         level: ConsoleLogLevel.success);
-    _wifiInfo = parsed;
     notifyListeners();
     final completer = _wifiInfoCompleter;
     if (completer != null && !completer.isCompleted) {
@@ -2079,8 +2055,6 @@ class DeviceProvider extends ChangeNotifier {
   /// sub-cmd matches one, or logs it as unsolicited.
   /// Supports pipelined requests via FIFO queue per sub-cmd.
   void _handleFsPacket(ParsedFsPacket packet) {
-    _lastRxAt = DateTime.now(); // FS traffic also counts as activity
-    
     // Try exact match first, then match with ACK-mask (responses set bit 7)
     Completer<ParsedFsPacket>? pending;
     final queue = _pendingFs[packet.subCmd];
@@ -2165,7 +2139,6 @@ class DeviceProvider extends ChangeNotifier {
 
   /// Handle an incoming OTA frame from the device.
   void _handleOtaPacket(ParsedOtaPacket packet) {
-    _lastRxAt = DateTime.now();
     final completer = _otaOperationCompleter;
     if (packet.subCmd == kOtaRespAck) {
       final err = OtaProtocolService.parseAck(packet.payload) ?? kOtaErrInvalidState;
@@ -2265,7 +2238,6 @@ class DeviceProvider extends ChangeNotifier {
     }
 
     // 3. Send OTA_CHUNK in sequence, waiting for each ACK
-    final stopwatch = Stopwatch()..start();
     for (int offset = 0; offset < firmware.length; offset += chunkSize) {
       if (_otaCancelled) {
         _otaCancelled = false;
@@ -2314,8 +2286,6 @@ class DeviceProvider extends ChangeNotifier {
         throw Exception('OTA_CHUNK failed at offset $offset: ${otaErrorName(chunkResult)}');
       }
 
-      // Report progress with speed
-      final elapsed = stopwatch.elapsedMilliseconds;
       onProgress(offset + chunk.length, firmware.length);
     }
 
@@ -2466,7 +2436,6 @@ class DeviceProvider extends ChangeNotifier {
     _authLevel   = AuthLevel.none;
     _authCompleter   = null;
     _connectedAt     = null;
-    _authenticatedAt = null;
     _errorMessage    = reason;
     notifyListeners();
   }
@@ -2616,7 +2585,6 @@ class DeviceProvider extends ChangeNotifier {
     _authLevel    = AuthLevel.none;
     _cancelAuthTimeout();
     _connectedAt      = null;
-    _authenticatedAt  = null;
     _otaCancelled     = false;
     _errorMessage     = null;
     _cloudTransport   = null;

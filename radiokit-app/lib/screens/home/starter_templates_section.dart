@@ -36,11 +36,8 @@ class _StarterTemplatesSectionState extends State<StarterTemplatesSection> {
   Future<void> _loadTemplates() async {
     try {
       // Discover template assets from the asset manifest.
-      final manifestContent =
-          await rootBundle.loadString('AssetManifest.json');
-      final Map<String, dynamic> manifest =
-          jsonDecode(manifestContent) as Map<String, dynamic>;
-      final templatePaths = manifest.keys
+      final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+      final templatePaths = manifest.listAssets()
           .where((k) =>
               k.contains('starter-templates/') && k.endsWith('.json'))
           .toList()

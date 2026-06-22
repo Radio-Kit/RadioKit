@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
+import 'package:radiokit/models/tab_index.dart';
 import 'package:radiokit/widgets/radiokit_app_bar.dart';
 
 void main() {
@@ -10,7 +11,7 @@ void main() {
     /// confirm the test environment is correct.
     Future<void> pumpAppBar({
       required WidgetTester tester,
-      required int tabIndex,
+      required TabIndex tabIndex,
       VoidCallback? onConnect,
       VoidCallback? onOpen,
       VoidCallback? onCreate,
@@ -57,7 +58,7 @@ void main() {
       bool tapped = false;
       await pumpAppBar(
         tester: tester,
-        tabIndex: 0,
+        tabIndex: TabIndex.models,
         onConnect: () => tapped = true,
       );
 
@@ -73,7 +74,7 @@ void main() {
       bool tapped = false;
       await pumpAppBar(
         tester: tester,
-        tabIndex: 1,
+        tabIndex: TabIndex.designs,
         onOpen: () => tapped = true,
       );
 
@@ -88,7 +89,7 @@ void main() {
       bool tapped = false;
       await pumpAppBar(
         tester: tester,
-        tabIndex: 1,
+        tabIndex: TabIndex.designs,
         onCreate: () => tapped = true,
       );
 
@@ -104,7 +105,7 @@ void main() {
       bool createTapped = false;
       await pumpAppBar(
         tester: tester,
-        tabIndex: 1,
+        tabIndex: TabIndex.designs,
         onOpen: () => openTapped = true,
         onCreate: () => createTapped = true,
       );
@@ -124,7 +125,7 @@ void main() {
       bool tapped = false;
       await pumpAppBar(
         tester: tester,
-        tabIndex: 0,
+        tabIndex: TabIndex.models,
         onConnect: () => tapped = true,
         orientation: Orientation.portrait,
       );
@@ -141,7 +142,7 @@ void main() {
       bool createTapped = false;
       await pumpAppBar(
         tester: tester,
-        tabIndex: 1,
+        tabIndex: TabIndex.designs,
         onOpen: () => openTapped = true,
         onCreate: () => createTapped = true,
         orientation: Orientation.portrait,
@@ -159,21 +160,21 @@ void main() {
     // -----------------------------------------------------------------------
 
     testWidgets('Connect button is absent when onConnect is null', (tester) async {
-      await pumpAppBar(tester: tester, tabIndex: 0);
+      await pumpAppBar(tester: tester, tabIndex: TabIndex.models);
 
       expect(find.text('+ Connect'), findsNothing,
           reason: 'Button should not render when callback is null');
     });
 
     testWidgets('Open button is absent when onOpen is null', (tester) async {
-      await pumpAppBar(tester: tester, tabIndex: 1);
+      await pumpAppBar(tester: tester, tabIndex: TabIndex.designs);
 
       expect(find.text('Open'), findsNothing,
           reason: 'Open button should not render when callback is null');
     });
 
     testWidgets('Create button is absent when onCreate is null', (tester) async {
-      await pumpAppBar(tester: tester, tabIndex: 1);
+      await pumpAppBar(tester: tester, tabIndex: TabIndex.designs);
 
       expect(find.text('Create'), findsNothing,
           reason: 'Create button should not render when callback is null');
@@ -186,7 +187,7 @@ void main() {
     testWidgets('Connect button fits within AppBar bounds', (tester) async {
       await pumpAppBar(
         tester: tester,
-        tabIndex: 0,
+        tabIndex: TabIndex.models,
         onConnect: () {},
       );
 
@@ -203,7 +204,7 @@ void main() {
     testWidgets('Open button fits within AppBar bounds', (tester) async {
       await pumpAppBar(
         tester: tester,
-        tabIndex: 1,
+        tabIndex: TabIndex.designs,
         onOpen: () {},
       );
 

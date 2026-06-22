@@ -268,8 +268,6 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final isLargeFile =
         _originalBytes != null && _originalBytes!.length > 500 * 1024;
     final lang = _languageForFile(widget.fileName);

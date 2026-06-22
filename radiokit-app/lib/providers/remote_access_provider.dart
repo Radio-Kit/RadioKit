@@ -23,9 +23,6 @@ import '../services/demo_transport.dart';
 class RemoteAccessProvider extends ChangeNotifier {
   final SettingsProvider _settingsProvider;
   final MultiDeviceProvider _multiDeviceProvider;
-  /// Backward-compatible getter: returns the primary (focused or first connected) DeviceProvider.
-  DeviceProvider? get _activeDevice => _multiDeviceProvider.primaryDevice;
-
   /// Disconnected fallback DeviceProvider. Ensures _deviceProvider getter
   /// never throws when no real device is connected. Handlers guard with
   /// isConnected checks and return 503 for this idle provider.

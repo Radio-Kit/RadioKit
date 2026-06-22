@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../models/tab_index.dart';
 import '../theme/app_theme.dart';
 import '../widgets/radiokit_app_bar.dart';
 import 'home/designs_tab.dart';
@@ -97,7 +98,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildLandscape(BuildContext context) {
     return Scaffold(        appBar: RadioKitAppBar(
-        tabIndex: widget.navigationShell.currentIndex,
+        tabIndex: TabIndex.values[widget.navigationShell.currentIndex.clamp(0, TabIndex.values.length - 1)],
         onConnect: () => showPairBottomSheet(context),
         onOpen: () => openConfigFile(context),
         onCreate: () => context.push('/designer'),
