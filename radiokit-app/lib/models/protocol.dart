@@ -381,13 +381,14 @@ const int kStyleWarning = 4;
 const int kStyleDanger  = 5;
 
 // ── String bitmask bits ───────────────────────────────────────────────────
-const int kStrMaskLabel   = 0x01;
-const int kStrMaskIcon    = 0x02;
-const int kStrMaskOnText  = 0x04;
-const int kStrMaskOffText = 0x08;
-const int kStrMaskContent = 0x10;
-const int kStrMaskExtra   = 0x20;
-const int kStrMaskLabelHidden = 0x40;
+// Label is always present — no mask bit needed (bit 0 reserved).
+const int kStrMaskLabelHidden  = 0x02;  ///< Label visibility flag (hidden when set)
+const int kStrMaskWidgetHidden = 0x04;  ///< Widget visibility flag (hidden when set)
+const int kStrMaskIcon         = 0x08;  ///< Icon string present
+const int kStrMaskOnText       = 0x10;  ///< OnText string present
+const int kStrMaskOffText      = 0x20;  ///< OffText string present
+const int kStrMaskContent      = 0x40;  ///< Content string present
+const int kStrMaskExtra        = 0x80;  ///< Widget-specific binary config
 
 // Widget type name for display
 String widgetTypeName(int typeId) {

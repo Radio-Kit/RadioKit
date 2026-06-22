@@ -492,6 +492,7 @@ class RemoteAccessService {
       'type': _widgetTypeName(w.typeId),
       'name': w.label.isNotEmpty ? w.label : 'widget_${w.widgetId}',
       'label': w.label,
+      'hidden': w.hidden,
       'hasOutput': w.hasOutput,
       'hasInput': w.hasInput,
       'state': stateJson,

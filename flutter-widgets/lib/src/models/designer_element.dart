@@ -33,6 +33,7 @@ class DesignerElement {
   String label;
   bool labelHidden;
   int rotation;
+  bool hidden;
 
   /// The aspect ratio (width/height) that this widget type enforces, or `null`
   /// if the widget has free-form sizing. When non-null the inspector shows
@@ -75,6 +76,7 @@ class DesignerElement {
     this.label = '',
     this.labelHidden = true,
     this.rotation = 0,
+    this.hidden = false,
   }) : properties = _mergeDefaults(type, properties);
 
   /// Seeds [properties] from [_defaultProperties(type)] and merges any
@@ -327,6 +329,7 @@ class DesignerElement {
     String? label,
     bool? labelHidden,
     int? rotation,
+    bool? hidden,
   }) {
     return DesignerElement(
       id: id ?? this.id,
@@ -339,6 +342,7 @@ class DesignerElement {
       label: label ?? this.label,
       labelHidden: labelHidden ?? this.labelHidden,
       rotation: rotation ?? this.rotation,
+      hidden: hidden ?? this.hidden,
     );
   }
 
@@ -478,6 +482,7 @@ class DesignerElement {
               ? [null, height]
               : [width, null],
       'haptic': (properties['haptic'] as bool?) ?? true,
+      if (hidden) 'hidden': true,
       if (variant != null) 'variant': variant,
       'properties': baseProps,
     };
@@ -631,6 +636,9 @@ class DesignerElement {
       labelVal = json['name'] as String;
     }
 
+    // Parse hidden flag.
+    final hiddenVal = (json['hidden'] as bool?) ?? false;
+
     // ── Parse position (new: {x,y,rotation}; old: flat) ──────────────────────
     final rawPosition = json['position'];
     late final int resolvedX;
@@ -743,6 +751,7 @@ class DesignerElement {
       label: labelVal,
       labelHidden: labelHiddenVal,
       rotation: resolvedRotation,
+      hidden: hiddenVal,
     );
   }
 }

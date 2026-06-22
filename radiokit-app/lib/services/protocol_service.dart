@@ -330,7 +330,8 @@ class ProtocolService {
   //   [ROT_LO(1)] [ROT_HI(1)] [STYLE(1)] [VARIANT(1)]
   // Then string section:
   //   [STR_MASK(1)] then for each set bit → [LEN(1)][STR(LEN)]
-  //   bit order: LABEL(0), ICON(1), ONTEXT(2), OFFTEXT(3), CONTENT(4)
+  //   bit order: LABEL (always first, no bit), LABEL_HIDDEN(1), WIDGET_HIDDEN(2),
+  //   ICON(3), ONTEXT(4), OFFTEXT(5), CONTENT(6), EXTRA(7)
 
   static ParsedConf? parseConfData(List<int> payload) {
     if (payload.length < 6) {
@@ -447,7 +448,8 @@ class ProtocolService {
         return s;
       }
 
-      if ((strMask & kStrMaskLabel)   != 0) label   = readStr();
+      // Label is always the first string (no mask bit).
+      label = readStr();
       if ((strMask & kStrMaskIcon)    != 0) icon    = readStr();
       if ((strMask & kStrMaskOnText)  != 0) onText  = readStr();
       if ((strMask & kStrMaskOffText) != 0) offText = readStr();
@@ -469,6 +471,7 @@ class ProtocolService {
       }
 
       final labelHidden = (strMask & kStrMaskLabelHidden) != 0;
+      final widgetHidden = (strMask & kStrMaskWidgetHidden) != 0;
 
       widgets.add(WidgetConfig(
         typeId:      typeId,
@@ -489,6 +492,7 @@ class ProtocolService {
         minAngle:    minAngle,
         maxAngle:    maxAngle,
         labelHidden: labelHidden,
+        hidden: widgetHidden,
       ));
 
       debugPrint('  widget[$i]: ${widgets.last}');
@@ -616,7 +620,8 @@ class ProtocolService {
       return s;
     }
 
-    if ((strMask & kStrMaskLabel) != 0) label = readNext();
+    // Label is always the first string (no mask bit).
+    label = readNext();
     if ((strMask & kStrMaskIcon) != 0) icon = readNext();
     if ((strMask & kStrMaskOnText) != 0) onText = readNext();
     if ((strMask & kStrMaskOffText) != 0) offText = readNext();
@@ -640,6 +645,7 @@ class ProtocolService {
     }
 
     final labelHidden = (strMask & kStrMaskLabelHidden) != 0;
+    final widgetHidden = (strMask & kStrMaskWidgetHidden) != 0;
 
     final updated = w.copyWith(
       label: label,
@@ -651,6 +657,7 @@ class ProtocolService {
       minAngle: minAngle,
       maxAngle: maxAngle,
       labelHidden: labelHidden,
+      hidden: widgetHidden,
     );
     return (updated, current);
   }

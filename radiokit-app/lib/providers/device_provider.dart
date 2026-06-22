@@ -934,7 +934,7 @@ class DeviceProvider extends ChangeNotifier {
 
     // ── strMask ───────────────────────────────────────────────────
     int strMask = 0;
-    if (labelText.isNotEmpty) strMask |= kStrMaskLabel;
+    // Label is always present (no mask bit needed).
     if (icon.isNotEmpty) strMask |= kStrMaskIcon;
     if (onText.isNotEmpty) strMask |= kStrMaskOnText;
     if (offText.isNotEmpty) strMask |= kStrMaskOffText;

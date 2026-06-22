@@ -240,6 +240,18 @@ class DesignerState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void toggleElementHidden(String id) {
+    final index = _elements.indexWhere((e) => e.id == id);
+    if (index == -1) return;
+    _pushUndo();
+    _elements = [
+      for (int i = 0; i < _elements.length; i++)
+        if (i == index) _elements[i].copyWith(hidden: !_elements[i].hidden)
+        else _elements[i],
+    ];
+    notifyListeners();
+  }
+
   void updateElementRotation(String id, int rotation) {
     final index = _elements.indexWhere((e) => e.id == id);
     if (index == -1) return;

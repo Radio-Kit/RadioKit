@@ -99,6 +99,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                   ] else ...[
                     InspectorFieldBuilders.buildSection(tokens, 'VALUES', [
                       _buildLabelField(tokens, el),
+                      _buildHiddenToggle(tokens, el),
                     ]),
                     InspectorFieldBuilders.buildSection(
                         tokens, 'BEHAVIOR', _buildBehaviorFields(tokens, el)),
@@ -281,6 +282,69 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                 size: 14,
                 color:
                     el.labelHidden ? tokens.onSurface.withValues(alpha: 0.38) : tokens.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHiddenToggle(RKTokens tokens, DesignerElement el) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              'Hidden',
+              style: TextStyle(
+                color: tokens.onSurface.withValues(alpha: 0.5),
+                fontSize: 11,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ),
+          SizedBox(width: 8),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => widget.state.toggleElementHidden(el.id),
+              child: Container(
+                height: 28,
+                decoration: BoxDecoration(
+                  color: el.hidden
+                      ? tokens.primary.withValues(alpha: 0.15)
+                      : tokens.base200,
+                  border: Border.all(
+                    color: el.hidden ? tokens.primary : tokens.effectiveOutline,
+                  ),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      el.hidden ? LucideIcons.eyeOff : LucideIcons.eye,
+                      size: 14,
+                      color: el.hidden
+                          ? tokens.primary
+                          : tokens.onSurface.withValues(alpha: 0.38),
+                    ),
+                    SizedBox(width: 6),
+                    Text(
+                      el.hidden ? 'HIDDEN' : 'VISIBLE',
+                      style: TextStyle(
+                        color: el.hidden
+                            ? tokens.primary
+                            : tokens.onSurface.withValues(alpha: 0.5),
+                        fontSize: 10,
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

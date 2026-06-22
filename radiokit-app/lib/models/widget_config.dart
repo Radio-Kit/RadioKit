@@ -45,7 +45,7 @@ class WidgetConfig {
   /// String presence bitmask (uint8, v3). See kStrMask* constants.
   final int strMask;
 
-  /// Human-readable label (present if kStrMaskLabel bit is set).
+  /// Human-readable label (always present as first string in wire format).
   final String label;
 
   /// Icon identifier string (present if kStrMaskIcon bit is set).
@@ -73,6 +73,9 @@ class WidgetConfig {
 
   /// Whether the label should be hidden in the UI (set via kStrMaskLabelHidden bit).
   final bool labelHidden;
+
+  /// Whether the widget is hidden in the UI (set via kStrMaskWidgetHidden bit).
+  final bool hidden;
 
   /// The float multiplier for width (scalewidth).
   double get widthF => width / 10.0;
@@ -106,6 +109,7 @@ class WidgetConfig {
     this.minAngle = -135,
     this.maxAngle = 135,
     this.labelHidden = false,
+    this.hidden = false,
   });
 
   WidgetConfig copyWith({
@@ -127,6 +131,7 @@ class WidgetConfig {
     double? minAngle,
     double? maxAngle,
     bool? labelHidden,
+    bool? hidden,
   }) {
     return WidgetConfig(
       typeId:   typeId   ?? this.typeId,
@@ -147,6 +152,7 @@ class WidgetConfig {
       minAngle: minAngle ?? this.minAngle,
       maxAngle: maxAngle ?? this.maxAngle,
       labelHidden: labelHidden ?? this.labelHidden,
+      hidden: hidden ?? this.hidden,
     );
   }
 
@@ -223,6 +229,7 @@ class WidgetConfig {
     if (propVariant != null) {
       result['properties']['variant'] = propVariant;
     }
+    if (hidden) result['hidden'] = true;
 
     return result;
   }

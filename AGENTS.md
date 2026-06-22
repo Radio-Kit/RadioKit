@@ -92,7 +92,7 @@ For display in the code viewer, the `label` object is compacted to a string `"sh
 
 The `variant` field is emitted at the **top level** only for widget types that derive from a base type. It is stripped from `properties` to prevent duplicates:
 
-- **Promoted to top-level** (stripped from properties): `gasPedal`, `steeringWheel`, `multiButton`, `multiSelect`, `rockerSwitch`.
+- **Promoted to top-level** (stripped from properties): `gasPedal`, `steeringWheel`, `multiButton`, `multiSelect`, `rockerSwitch`, `slideSwitch`.
 - **Stays in properties** (no top-level variant): `push`/`toggle` (button mode), and any other type-specific variants.
 
 Example output:
@@ -113,6 +113,7 @@ The `toJson()` method strips these keys from the base properties map before emit
 - `label`, `labelHidden` — promoted to top-level `label` object
 - `haptic` — promoted to top-level
 - `variant` — conditionally promoted (see 3.5)
+- `hidden` — promoted to top-level (see section 21)
 
 ## 4. State Management Patterns
 
@@ -217,7 +218,7 @@ Four skins are available: `DRAGON`, `NEON`, `MINIMAL`, `CUSTOM`.
 - Styled identically to `InspectorPanel`: `width: 320`, `Color(0xFF181818)` background, left `BorderSide(color: Color(0xFF222222))`.
 - Header uses `LucideIcons.palette` + "TOKENS" title + close button (same padding/typography as config panel).
 - Content is inline (no card sub-container). Uses section headers (skin name, "NUMBERS") styled in `tokens.primary` color (12px monospace, letter-spacing: 1).
-- Color rows show a 36×36 swatch + label + hex value. Editable rows have underlined hex, chevron hint, and tap-to-edit via `showColorPickerDialog`.
+- Color rows show a 36x36 swatch + label + hex value. Editable rows have underlined hex, chevron hint, and tap-to-edit via `showColorPickerDialog`.
 - Slider rows show label + value + `Slider` widget with `activeColor: _customTokens.primary`.
 
 ### 8.5 Color Picker
@@ -259,7 +260,7 @@ if (newColor != current) {
 ### 8.6 Color Row Widget
 
 The `_colorRow` method renders each token color as a row with:
-- 36×36 swatch with rounded corners (6px), subtle glow shadow, and border (white24 for editable, #444444 for read-only).
+- 36x36 swatch with rounded corners (6px), subtle glow shadow, and border (white24 for editable, #444444 for read-only).
 - Editable swatches show a `touch_app` icon overlay.
 - Hex value displayed as `#RRGGBB` in 12px bold monospace.
 - Editable rows have underlined hex and a `chevron_right` icon.
@@ -388,7 +389,7 @@ flatpak/
 - **Monorepo path dep**: `radiokit_widgets` (`path: ../flutter-widgets`) is handled via `--extra-pubspecs flutter-widgets` — the code is already in the git checkout, only its transitive hosted/git deps need pinning
 - **`libserialport`**: no separate Flatpak module needed — `flutter_libserialport` bundles and self-builds the C library from `third_party/libserialport/`
 - **CMakeLists.txt**: must be tracked in git (add `!**/CMakeLists.txt` to `.gitignore` to override `*.txt` pattern)
-- **Icon**: must be ≤512x512px (Flathub limit)
+- **Icon**: must be <=512x512px (Flathub limit)
 - **Bundle layout**: `flutter build linux --release` produces `bundle/radiokit` + `bundle/lib/*.so` + `bundle/data/`. The binary uses rpath `$ORIGIN/lib`. Install everything under `/app/share/radiokit/` and symlink into `/app/bin/`.
 - **Build options**: `append-path: /usr/lib/sdk/llvm18/bin:/run/build/radiokit/flutter/bin` with `CC: clang` and `CXX: clang++` env vars
 
@@ -450,19 +451,19 @@ The `.github/workflows/release.yml` has a `flatpak` job that runs after the Andr
 ### 12.2 Route mapping (`_followRoute`)
 
 - **Location**: `radiokit-app/lib/services/remote_access_service.dart` — `static String? _followRoute(String path)`.
-- **Mapping**: API request path prefixes → follow-mode route targets (uses `startsWith` internally):
+- **Mapping**: API request path prefixes -> follow-mode route targets (uses `startsWith` internally):
   ```
-  path.startsWith('/api/pair/')        → /pair
-  path.startsWith('/api/connection/connect') → /control
-  path.startsWith('/api/connection/disconnect') → /models
-  path == '/api/widgets' || startsWith('/api/widgets/') → /control
-  path.startsWith('/api/fs/')          → /dev-tools/esp32-fs
-  path.startsWith('/api/designs')      → /designs
-  path.startsWith('/api/transport/')   → /debug
-  path.startsWith('/api/settings')     → /system
-  path.startsWith('/api/console')     → /system
-  path.startsWith('/api/log')         → /system
-  path.startsWith('/api/models')      → /models
+  path.startsWith('/api/pair/')        -> /pair
+  path.startsWith('/api/connection/connect') -> /control
+  path.startsWith('/api/connection/disconnect') -> /models
+  path == '/api/widgets' || startsWith('/api/widgets/') -> /control
+  path.startsWith('/api/fs/')          -> /dev-tools/esp32-fs
+  path.startsWith('/api/designs')      -> /designs
+  path.startsWith('/api/transport/')   -> /debug
+  path.startsWith('/api/settings')     -> /system
+  path.startsWith('/api/console')     -> /system
+  path.startsWith('/api/log')         -> /system
+  path.startsWith('/api/models')      -> /models
   ```
 - **Testing**: Use `RemoteAccessService.testOnlyFollowRoute(path)` (annotated `@visibleForTesting`) for unit tests.
 - **Path matching nuance**: For routes registered as both bare (`/api/widgets`) and parameterized (`/api/widgets/<id>`), the `startsWith` check MUST handle both: `path == '/api/widgets' || path.startsWith('/api/widgets/')`.
@@ -475,7 +476,7 @@ The `.github/workflows/release.yml` has a `flatpak` job that runs after the Andr
 
 ### 12.4 FS screen interference defer
 
-- **Problem**: When follow mode navigates to `/dev-tools/esp32-fs` during an ongoing FS operation (e.g., an HTTP API write), the screen's `initState` → `_initialRefresh` → `_refresh()` starts its own `listDir()` and `getInfo()` calls that collide with the ongoing transfer.
+- **Problem**: When follow mode navigates to `/dev-tools/esp32-fs` during an ongoing FS operation (e.g., an HTTP API write), the screen's `initState` -> `_initialRefresh` -> `_refresh()` starts its own `listDir()` and `getInfo()` calls that collide with the ongoing transfer.
 - **Fix**: `FilesystemExplorerScreen._initialRefresh()` checks `DeviceProvider.isFsBusy` and defers with a 600ms retry if the transport is busy. The `_initTriggered` flag is NOT set during retries, so the chain keeps trying until the FS is idle.
 - **Getter**: `DeviceProvider.isFsBusy` exposes the private `_fsBusy` flag (set by `_ProviderAdapter` around every `sendFs` call).
 
@@ -483,7 +484,7 @@ The `.github/workflows/release.yml` has a `flatpak` job that runs after the Andr
 
 ### 13.1 Re-entrant send packet queue
 
-- **Problem**: `RadioKitBLE::sendPacket()` has a `_sending` re-entrancy guard to prevent interleaving data from different BLE streams. During file transfers, an incoming BLE write (from the phone) could arrive during a `delay()` call in `sendPacket()` (used for retry backoff and inter-chunk pacing). The incoming write triggers `_onWrite()` → `handleWrite()` → `sendPacket()`, which sees `_sending = true` and **drops** the outgoing ACK. The phone times out waiting for the ACK, stalling transfers at ~156KB.
+- **Problem**: `RadioKitBLE::sendPacket()` has a `_sending` re-entrancy guard to prevent interleaving data from different BLE streams. During file transfers, an incoming BLE write (from the phone) could arrive during a `delay()` call in `sendPacket()` (used for retry backoff and inter-chunk pacing). The incoming write triggers `_onWrite()` -> `handleWrite()` -> `sendPacket()`, which sees `_sending = true` and **drops** the outgoing ACK. The phone times out waiting for the ACK, stalling transfers at ~156KB.
 - **Fix**: Instead of dropping the re-entrant call, queue the outgoing frame in `_pendingBuf[16388]` (FS header + max payload) and set `_pendingLen`. After the current send completes (`_sending = false`), drain the pending buffer via recursion: `sendPacket(_pendingBuf, qLen)`.
 - **Buffer size**: `kPendingBufSize = 16388` — large enough for any FS frame (4-byte header + 16384-byte max payload).
 - **Memory impact**: ~16KB static allocation on the singleton `RadioKitBLE` instance (~3% of ESP32-S3 512KB RAM).
@@ -680,9 +681,9 @@ The `_AdminAccessButton` (shown in the info bottom sheet when user mode is activ
 - `DeviceProvider.authenticate()` — Connection auth (falls back to admin auth on mismatch)
 - `DeviceProvider.authenticateAdmin()` — Admin-only auth with admin flag byte
 
-## 19. Documentation — No Emojis
+## 19. Documentation -- No Emojis
 
-- **Rule**: Do not use emoji characters (e.g. ✅, ❌, 🚀, 🔄, ⏳) in any documentation files.
+- **Rule**: Do not use emoji characters (e.g. checkmarks, rockets, spinning arrows, hourglasses) in any documentation files.
 - **Rationale**: Emojis render inconsistently across terminals, editors, and CI output. Use plain-text markers instead (e.g., `[X]` for complete, `[~]` for in progress, `[ ]` for pending, `[-]` for blocked/failed).
 - **Action**: If you find emoji characters in a doc file, replace them with the corresponding plain-text marker.
 - **Note**: This rule applies to ALL markdown files in the project, including `website/src/content/docs/`, `llm-docs/`, `llm-docs/plans/`, and any other documentation.
@@ -693,38 +694,38 @@ The cloud relay system uses Ed25519 challenge-response authentication between th
 
 ### 20.1 Key components
 
-- **`radiokit-app/lib/services/websocket_service.dart`** — WebSocket transport that manages the Ed25519 auth state machine (`unauth` → `challenged` → `authenticated`). Sends `auth_request` on connect, signs the challenge nonce, handles `auth_ok`/`auth_failed`.
+- **`radiokit-app/lib/services/websocket_service.dart`** — WebSocket transport that manages the Ed25519 auth state machine (`unauth` -> `challenged` -> `authenticated`). Sends `auth_request` on connect, signs the challenge nonce, handles `auth_ok`/`auth_failed`.
 - **`radiokit-app/lib/services/cloud_identity.dart`** — `CloudIdentityService` class wrapping Ed25519 keypair generation (`cryptography` package), secure storage via `flutter_secure_storage`, and nonce signing.
 - **`radiokit-app/lib/providers/cloud_identity_provider.dart`** — ChangeNotifier wrapper that initializes identity on first launch (generates keypair, persists to secure storage).
 - **`radiokit-relay/src/relay.rs`** — `verify_auth()` function validates Ed25519 signatures against the hex-encoded public key (account).
-- **`radiokit-relay/src/main.rs`** — Auth state machine: `auth_request` → `auth_challenge` → `auth_response` → `auth_ok`/`auth_failed`.
+- **`radiokit-relay/src/main.rs`** — Auth state machine: `auth_request` -> `auth_challenge` -> `auth_response` -> `auth_ok`/`auth_failed`.
 - **`radiokit-relay/src/session.rs`** — `list_devices` and `join` are gated behind `authenticated = true`.
 
 ### 20.2 Auth flow
 
 ```
 App (WebSocketService)        Relay                     Device
- │                            │                          │
- ├── auth_request ───────────→│                          │
- │   { type, account }       │                          │
- │                            │                          │
- │←──── auth_challenge ───────┤                          │
- │   { type, nonce_b64 }     │                          │
- │                            │                          │
- ├── auth_response ──────────→│                          │
- │   { type, signature_b64 } │                          │
- │   (sign(nonce, Ed25519)   │                          │
- │                            │                          │
- │←──── auth_ok ──────────────┤                          │
- │   { type }                │                          │
- │                            │                          │
- ├── list_devices ───────────→│                          │
- │←──── [device_names] ──────┤                          │
- │                            │                          │
- ├── join Device ────────────→│─────── forward ─────────→│
- │                            │                          │
- │   (widget frames rout     │                          │
- │    through relay)         │                          │
+ |                            |                          |
+ |-- auth_request ----------->|                          |
+ |   { type, account }       |                          |
+ |                            |                          |
+ |<---- auth_challenge -------|                          |
+ |   { type, nonce_b64 }     |                          |
+ |                            |                          |
+ |-- auth_response ---------->|                          |
+ |   { type, signature_b64 } |                          |
+ |   (sign(nonce, Ed25519)   |                          |
+ |                            |                          |
+ |<---- auth_ok --------------|                          |
+ |   { type }                |                          |
+ |                            |                          |
+ |-- list_devices ----------->|                          |
+ |<---- [device_names] -------|                          |
+ |                            |                          |
+ |-- join Device ------------>|------- forward --------->|
+ |                            |                          |
+ |   (widget frames rout     |                          |
+ |    through relay)         |                          |
 ```
 
 ### 20.3 WebSocketService auth state machine
@@ -793,4 +794,64 @@ curl -X POST http://127.0.0.1:7007/api/cloud/connect \
 curl -X POST http://127.0.0.1:7007/api/cloud/join \
   -H 'Content-Type: application/json' \
   -d '{"device":"WiFi_Cloud_Switch"}'
+```
+
+## 21. Binary Protocol String Mask Layout
+
+The CONF_DATA widget descriptor uses a string mask byte to indicate which optional strings follow the always-present label. Agents working on transport, serialization, or codegen MUST follow this layout.
+
+### 21.1 Bit allocation (current)
+
+```
+Bit 0 (0x01) -- (reserved, label always present)
+Bit 1 (0x02) -- RK_STR_LABEL_HIDDEN  -- Label hidden when set
+Bit 2 (0x04) -- RK_STR_WIDGET_HIDDEN -- Widget hidden when set
+Bit 3 (0x08) -- RK_STR_ICON          -- Icon string present
+Bit 4 (0x10) -- RK_STR_ONTEXT        -- OnText string present
+Bit 5 (0x20) -- RK_STR_OFFTEXT       -- OffText string present
+Bit 6 (0x40) -- RK_STR_CONTENT       -- Content string present
+Bit 7 (0x80) -- RK_STR_EXTRA         -- Widget-specific binary config
+```
+
+### 21.2 Rules
+
+- The label string is **always** serialized as the first string (no mask bit needed).
+- When a bit is set, the corresponding string is serialized immediately after the label.
+- String order in the wire format: `LABEL` (always) -> `ICON`(3) -> `ONTEXT`(4) -> `OFFTEXT`(5) -> `CONTENT`(6) -> `EXTRA`(7).
+- Arduino constants: `RK_STR_*` in `RadioKitConfig.h`.
+- Flutter constants: `kStrMask*` in `protocol.dart`.
+- Both sides must stay in sync — any change requires updating both files.
+
+### 21.3 Wire format per widget
+
+```
+[STR_MASK(1)]
+[LABEL_LEN(1)][LABEL...]                          -- always present
+[ICON_LEN(1)][ICON...]                             -- if bit 3 set
+[ONTEXT_LEN(1)][ONTEXT...]                         -- if bit 4 set
+[OFFTEXT_LEN(1)][OFFTEXT...]                       -- if bit 5 set
+[CONTENT_LEN(1)][CONTENT...]                       -- if bit 6 set
+[EXTRA_LEN(1)][EXTRA_BYTES...]                     -- if bit 7 set
+```
+
+### 21.4 Usage in codegen
+
+Generated Arduino code sets `rk.labelHidden` and `rk.hidden` in the `setup()` block:
+```cpp
+button_1.rk.labelHidden = true;  // bit 1
+slider_1.rk.hidden = true;       // bit 2
+```
+
+### 21.5 Designer JSON
+
+The `hidden` field is promoted to top-level in the JSON config (like `label`, `haptic`):
+```json
+{
+  "type": "button",
+  "name": "button_1",
+  "label": { "text": "button_1", "show": true },
+  "hidden": true,
+  "position": [20, 30, 0],
+  "size": [40, 40]
+}
 ```

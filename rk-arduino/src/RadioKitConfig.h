@@ -109,13 +109,14 @@
 // ─────────────────────────────────────────────
 //  String Bitmask bits (CONF_DATA widget descriptor)
 // ─────────────────────────────────────────────
-#define RK_STR_LABEL (1 << 0)   ///< Label string present
-#define RK_STR_ICON (1 << 1)    ///< Icon string present
-#define RK_STR_ONTEXT (1 << 2)  ///< OnText string present
-#define RK_STR_OFFTEXT (1 << 3) ///< OffText string present
-#define RK_STR_CONTENT (1 << 4) ///< Content (Text widget initial value)
-#define RK_STR_EXTRA   (1 << 5) ///< Widget-specific binary configuration (v3.1+)
-#define RK_STR_LABEL_HIDDEN (1 << 6) ///< Label visibility flag (hidden when set)
+// Label is always present — no mask bit needed (bit 0 reserved).
+#define RK_STR_LABEL_HIDDEN  (1 << 1) ///< Label visibility flag (hidden when set)
+#define RK_STR_WIDGET_HIDDEN (1 << 2) ///< Widget visibility flag (hidden when set)
+#define RK_STR_ICON          (1 << 3) ///< Icon string present
+#define RK_STR_ONTEXT        (1 << 4) ///< OnText string present
+#define RK_STR_OFFTEXT       (1 << 5) ///< OffText string present
+#define RK_STR_CONTENT       (1 << 6) ///< Content (Text widget initial value)
+#define RK_STR_EXTRA         (1 << 7) ///< Widget-specific binary configuration (v3.1+)
 
 // ─────────────────────────────────────────────
 //  Widget limits

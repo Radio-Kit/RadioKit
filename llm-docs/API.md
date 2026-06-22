@@ -1002,6 +1002,7 @@ List all widget configurations and their current runtime state.
 |-------|------|-------------|
 | `type` | string | One of: `button`, `switch`, `slideSwitch`, `slider`, `knob`, `joystick`, `led`, `text`, `multiple` |
 | `variant` | string? | `"push"`, `"toggle"`, `"gasPedal"`, `"steeringWheel"`, `"multiSelect"`, or `null` |
+| `hidden` | bool | Whether the widget is hidden in the UI (runtime-controllable via `rk.hidden`) |
 | `hasOutput` | bool | True for display-only widgets (LED, Text), false for input widgets |
 | `state.value` | int? | Numeric output value (for LED, Slider, Knob, etc.) |
 | `state.values` | int[]? | Multi-value state (Joystick: `[x, y]`, Multiple: bitmask) |

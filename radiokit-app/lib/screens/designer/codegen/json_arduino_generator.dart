@@ -182,6 +182,9 @@ class JsonArduinoGenerator {
 
     final comment = _comment(w, type);
 
+    // Read hidden flag from top-level.
+    final isHidden = (w['hidden'] as bool?) ?? false;
+
     // Common label post-set (for widgets that have labels)
     void writeLabelAndHidden() {
       if (labelText.isNotEmpty) {
@@ -325,6 +328,11 @@ class JsonArduinoGenerator {
       default:
         declBuf.writeln('  // Unsupported widget type: $type');
         break;
+    }
+
+    // Emit rk.hidden for ALL widget types (including sub-method variants).
+    if (isHidden) {
+      setupBuf.writeln('  $name.rk.hidden = true;');
     }
   }
 

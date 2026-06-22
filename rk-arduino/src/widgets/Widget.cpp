@@ -94,10 +94,9 @@ void RadioKit_Widget::_registerSelf() {
 
 uint16_t RadioKit_Widget::serializeStrings(uint8_t* buf) const {
     uint8_t mask = 0;
-    if (_label[0] != '\0') {
-        mask |= RK_STR_LABEL;
-        if (_labelHidden) mask |= RK_STR_LABEL_HIDDEN;
-    }
+    // Bit 0 reserved — label is always present.
+    if (_labelHidden) mask |= RK_STR_LABEL_HIDDEN;
+    if (_hidden)      mask |= RK_STR_WIDGET_HIDDEN;
     if (_icon[0]    != '\0') mask |= RK_STR_ICON;
     if (_onText[0]  != '\0') mask |= RK_STR_ONTEXT;
     if (_offText[0] != '\0') mask |= RK_STR_OFFTEXT;
@@ -115,7 +114,8 @@ uint16_t RadioKit_Widget::serializeStrings(uint8_t* buf) const {
         out += len;
     };
 
-    if (mask & RK_STR_LABEL)   _writeStr(_label,   RADIOKIT_MAX_LABEL);
+    // Label is always serialized (no mask bit).
+    _writeStr(_label, RADIOKIT_MAX_LABEL);
     if (mask & RK_STR_ICON)    _writeStr(_icon,    RADIOKIT_MAX_ICON);
     if (mask & RK_STR_ONTEXT)  _writeStr(_onText,  RADIOKIT_MAX_LABEL);
     if (mask & RK_STR_OFFTEXT) _writeStr(_offText, RADIOKIT_MAX_LABEL);
