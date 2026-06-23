@@ -30,6 +30,7 @@
 #define RK_ARCH_NORDIC 2
 #define RK_ARCH_SAMD 3
 #define RK_ARCH_STM32 4
+#define RK_ARCH_RP2040 5
 
 #if defined(ESP32)
 #define RK_ARCH_DETECTED RK_ARCH_ESP32
@@ -37,13 +38,41 @@
 #define RK_ARCH_DETECTED RK_ARCH_NORDIC
 #elif defined(ARDUINO_ARCH_SAMD)
 #define RK_ARCH_DETECTED RK_ARCH_SAMD
-#elif defined(STM32)
+#elif defined(STM32) || defined(ARDUINO_ARCH_STM32)
 #define RK_ARCH_DETECTED RK_ARCH_STM32
+#elif defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_NANO_RP2040) || defined(ARDUINO_RASPBERRY_PI_PICO)
+#define RK_ARCH_DETECTED RK_ARCH_RP2040
 #else
 #define RK_ARCH_DETECTED RK_ARCH_UNKNOWN
 #endif
 
+// ─────────────────────────────────────────────
+//  Platform capabilities (auto-detected from architecture)
+// ─────────────────────────────────────────────
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
+  #define RK_HAS_BLE  1
+  #define RK_HAS_WIFI 1
+  #define RK_HAS_NVS  1
+  #define RK_HAS_OTA  1
+  #define RK_HAS_FS   1
+#elif RK_ARCH_DETECTED == RK_ARCH_NORDIC
+  #define RK_HAS_BLE  1    // Adafruit Bluefruit (deferred)
+  #define RK_HAS_FS   1
+#elif RK_ARCH_DETECTED == RK_ARCH_STM32
+  #define RK_HAS_FS   1
+#elif RK_ARCH_DETECTED == RK_ARCH_RP2040
+  #define RK_HAS_WIFI 1    // Pico W only
+  #define RK_HAS_FS   1
+#else
+  #define RK_HAS_FS   1    // fallback: serial + FS only
+#endif
 
+// ─────────────────────────────────────────────
+//  Filesystem availability
+//  RK_FS_HAS_LITTLEFS is defined in RadioKitFsHandlers.h based on
+//  the RADIOKIT_FEATURE_FS build flag. Examples that need FS must
+//  add -DRADIOKIT_FEATURE_FS to their build_flags in platformio.ini.
+// ─────────────────────────────────────────────
 
 // ─────────────────────────────────────────────
 //  Transport types
@@ -145,7 +174,18 @@
 #define RADIOKIT_MAX_DEVICE_ICON   32  ///< Device icon name max chars
 
 // ─────────────────────────────────────────────
-//  Feature flags
+//  Feature flags (user opt-in)
+//  RK_HAS_*  = platform hardware capability (auto-detected above)
+//  RK_*_ENABLED = user wants this transport/feature (define in sketch/codegen)
+//
+//  The sketch or generated code must #define RK_BLE_ENABLED and/or
+//  RK_WIFI_ENABLED before #include <RadioKitLib.h> when those transports
+//  are wanted. This decouples platform capability from user intent.
+//
+//  If undefined, they default to 0 (disabled). To enable, the sketch
+//  defines them before including <RadioKitLib.h>:
+//    #define RK_BLE_ENABLED 1
+//    #define RK_WIFI_ENABLED 1
 // ─────────────────────────────────────────────
 
 // ─────────────────────────────────────────────

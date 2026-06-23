@@ -17,6 +17,7 @@
 #include <Arduino.h>
 #include <stdint.h>
 #include <string.h>
+#include "RadioKitConfig.h"
 
 // ── Namespace & key names ───────────────────────────────────────────────────
 #define RK_NVS_NAMESPACE    "radiokit_cfg"

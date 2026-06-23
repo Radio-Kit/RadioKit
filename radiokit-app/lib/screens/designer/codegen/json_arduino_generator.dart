@@ -32,7 +32,13 @@ class JsonArduinoGenerator {
     if (enableFs) {
       buf.writeln('#define RADIOKIT_FEATURE_FS');
     }
-    if (enableOta || enableFs) buf.writeln();
+    if (bleEnabled) {
+      buf.writeln('#define RK_BLE_ENABLED 1');
+    }
+    if (wifiEnabled || cloudEnabled) {
+      buf.writeln('#define RK_WIFI_ENABLED 1');
+    }
+    if (enableOta || enableFs || bleEnabled || wifiEnabled || cloudEnabled) buf.writeln();
     buf.writeln('#include <RadioKitLib.h>');
     buf.writeln();
 

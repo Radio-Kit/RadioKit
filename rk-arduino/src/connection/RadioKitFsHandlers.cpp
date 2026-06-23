@@ -139,7 +139,11 @@ void setSender(SenderFn fn) { s_sender = fn; }
 
 bool begin() {
 #if RK_FS_HAS_LITTLEFS
-    s_mounted = LittleFS.begin(true);
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
+    s_mounted = LittleFS.begin(true);  // ESP32: format-on-fail
+#else
+    s_mounted = LittleFS.begin();      // RP2040: no bool arg
+#endif
     return s_mounted;
 #else
     s_mounted = false;
@@ -184,7 +188,7 @@ void handleList(const uint8_t* payload, uint16_t len) {
     char resolved[160];
     resolvePath(path, resolved, sizeof(resolved));
 
-    File root = LittleFS.open(resolved);
+    File root = LittleFS.open(resolved, "r");
     if (!root || !root.isDirectory()) {
         if (root) root.close();
         sendError(RK_FS_RESP_LIST_DATA, RK_FS_ERR_NOT_FOUND);
@@ -360,8 +364,14 @@ void handleInfo() {
 #if RK_FS_HAS_LITTLEFS
     if (!s_mounted) { sendError(RK_FS_RESP_INFO_DATA, RK_FS_ERR_NO_FS); return; }
 
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
     uint32_t total = (uint32_t)LittleFS.totalBytes();
     uint32_t used  = (uint32_t)LittleFS.usedBytes();
+#else
+    // RP2040/STM32 LittleFS: no totalBytes/usedBytes API
+    uint32_t total = 0;
+    uint32_t used  = 0;
+#endif
     uint16_t blockSize = 4096; // Typical LittleFS block size; no direct getter
 
     uint8_t payload[4 + 4 + 2 + 1];

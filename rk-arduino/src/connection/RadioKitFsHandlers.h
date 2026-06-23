@@ -16,7 +16,12 @@
 
 #include <Arduino.h>
 #include <stdint.h>
+#include "RadioKitConfig.h"
 
+// RK_FS_HAS_LITTLEFS: enabled when the user defines RADIOKIT_FEATURE_FS
+// in their build flags (e.g. -DRADIOKIT_FEATURE_FS in platformio.ini).
+// This decouples platform capability from user intent — the user must
+// opt in to FS support even on platforms that have LittleFS.
 #ifdef RADIOKIT_FEATURE_FS
   #include <LittleFS.h>
   #define RK_FS_HAS_LITTLEFS 1

@@ -20,6 +20,8 @@
 #include "RadioKitFS.h"
 #include "RadioKitOTA.h"
 #include "RadioKitSettings.h"
+
+#if RK_BLE_ENABLED
 #include <NimBLEDevice.h>
 
 // Default MTU (will be updated after negotiation)
@@ -568,3 +570,40 @@ void RadioKitBLE::updateAdvertisingName(const char* name) {
     RadioKit.print("BLE: Advertising re-started with new name\n");
     Serial.println("BLE: Advertising re-started with new name");
 }
+
+#else // !RK_BLE_ENABLED — no-op stubs for non-BLE platforms
+
+RadioKitBLE RadioKitBLEInstance;
+
+RadioKitBLE::RadioKitBLE()
+    : _server(nullptr), _charWidget(nullptr), _charFs(nullptr), _charOta(nullptr), _charSettings(nullptr), _charPrint(nullptr)
+    , _packetCallback(nullptr), _fsPacketCallback(nullptr)
+    , _otaPacketCallback(nullptr), _settingsPacketCallback(nullptr), _printPacketCallback(nullptr)
+    , _connected(false), _sending(false), _needRestartAdv(false)
+    , _negotiatedMtu(20), _connHandle(0xFFFF)
+    , _connIntervalMs(0), _pendingLen(0)
+    , _pendingFsSubCmd(0), _pendingFsLen(0), _hasPendingFs(false)
+    , _pendingOtaSubCmd(0), _pendingOtaLen(0), _hasPendingOta(false)
+{}
+
+void RadioKitBLE::begin(const char* /*deviceName*/, RK_PacketCallback /*cb*/) {}
+void RadioKitBLE::setFsCallback(RK_FsPacketCallback /*cb*/) {}
+void RadioKitBLE::setOtaCallback(RK_OtaPacketCallback /*cb*/) {}
+void RadioKitBLE::setSettingsCallback(RK_SettingsPacketCallback /*cb*/) {}
+void RadioKitBLE::setPrintCallback(RK_PrintPacketCallback /*cb*/) {}
+void RadioKitBLE::update() {}
+void RadioKitBLE::sendPacket(const uint8_t* /*buf*/, uint16_t /*len*/) {}
+// isConnected() is defined inline in the header
+int8_t RadioKitBLE::getRssi() { return 0; }
+void RadioKitBLE::updateAdvertisingName(const char* /*name*/) {}
+void RadioKitBLE::_onConnect(NimBLEServer* /*pServer*/, NimBLEConnInfo& /*connInfo*/) {}
+void RadioKitBLE::_onDisconnect() {}
+void RadioKitBLE::_onMTUChange(uint16_t /*MTU*/, NimBLEConnInfo& /*connInfo*/) {}
+void RadioKitBLE::_onWidgetWrite(const uint8_t* /*data*/, size_t /*len*/) {}
+void RadioKitBLE::_onFsWrite(const uint8_t* /*data*/, size_t /*len*/) {}
+void RadioKitBLE::_onOtaWrite(const uint8_t* /*data*/, size_t /*len*/) {}
+void RadioKitBLE::_onSettingsWrite(const uint8_t* /*data*/, size_t /*len*/) {}
+void RadioKitBLE::_processPendingFs() {}
+void RadioKitBLE::_processPendingOta() {}
+
+#endif // RK_BLE_ENABLED

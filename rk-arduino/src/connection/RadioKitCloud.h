@@ -27,7 +27,7 @@
 #include "../RadioKitProtocol.h"
 #include "../RadioKitConfig.h"
 
-#if defined(ESP32) && defined(RADIOKIT_ENABLE_WIFI)
+#if RK_WIFI_ENABLED
 #include <WebSocketsClient.h>
 #endif
 
@@ -74,7 +74,7 @@ private:
     RK_SettingsPacketCallback _settingsCb;
     RK_PrintPacketCallback _printCb;
 
-#if defined(ESP32) && defined(RADIOKIT_ENABLE_WIFI)
+#if RK_WIFI_ENABLED
     WebSocketsClient _ws;
 
     // Send buffer (pre-allocated)

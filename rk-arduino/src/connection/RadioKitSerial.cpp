@@ -21,7 +21,7 @@
 //
 // The keepalive null byte in update() is only needed for MODE=1 (native controller)
 // to prevent the hardware IN endpoint from stalling. TinyUSB handles this properly.
-#if defined(ARDUINO_USB_MODE) && ARDUINO_USB_MODE == 1
+#if defined(ARDUINO_USB_MODE) && ARDUINO_USB_MODE == 1 && RK_ARCH_DETECTED == RK_ARCH_ESP32
 #include "tusb.h"
 #endif
 
@@ -69,6 +69,7 @@ void RadioKitSerialTransport::setPrintCallback(RK_PrintPacketCallback cb) {
 void RadioKitSerialTransport::update() {
     if (!_stream) return;
 
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
     // --- USB IN endpoint keepalive ---
     // The ESP32-S3's native USB Serial/JTAG controller may stall the IN
     // endpoint when no data is pending to send. Android's USB Host API
@@ -81,6 +82,7 @@ void RadioKitSerialTransport::update() {
             _stream->write(static_cast<uint8_t>(0x00));
         }
     }
+#endif
     // --- End keepalive ---
 
     uint8_t        cmd;
@@ -146,7 +148,7 @@ void RadioKitSerialTransport::update() {
 
 void RadioKitSerialTransport::sendPacket(const uint8_t* buf, uint16_t len) {
     if (!_stream) return;
-#if defined(ARDUINO_USB_MODE) && ARDUINO_USB_MODE == 1
+#if defined(ARDUINO_USB_MODE) && ARDUINO_USB_MODE == 1 && RK_ARCH_DETECTED == RK_ARCH_ESP32
     // TinyUSB CDC mode: only write if host has finished enumeration.
     // Writing before the host is ready causes the IN endpoint to STALL,
     // which Android may never recover from even with clearHalt.

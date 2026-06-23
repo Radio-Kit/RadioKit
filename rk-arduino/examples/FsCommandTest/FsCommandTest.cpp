@@ -19,10 +19,13 @@
  */
 
 #include <Arduino.h>
-#include <LittleFS.h>
 #include <string.h>
 
 #include "RADIOKIT.h"
+
+#if RK_FS_HAS_LITTLEFS
+#include <LittleFS.h>
+#endif
 #include <connection/RadioKitFS.h>
 #include <connection/RadioKitFsHandlers.h>
 
@@ -144,6 +147,7 @@ static uint16_t buildCrc32Payload(uint8_t* buf, const char* path) {
 }
 
 // Read a file from LittleFS into [outBuf]. Returns actual bytes read.
+#if RK_FS_HAS_LITTLEFS
 static size_t readFileContent(const char* path, uint8_t* outBuf, size_t outCap) {
     if (!LittleFS.exists(path)) return 0;
     File f = LittleFS.open(path, "r");
@@ -153,9 +157,11 @@ static size_t readFileContent(const char* path, uint8_t* outBuf, size_t outCap) 
     f.close();
     return readBytes;
 }
+#endif
 
 // ── Individual test cases ──────────────────────────────────────────────────
 
+#if RK_FS_HAS_LITTLEFS
 // Test 1: REPLACE with valid CRC32 → file content is replaced
 static void testReplaceValidCrc() {
     TEST("REPLACE with valid CRC32");
@@ -417,6 +423,8 @@ static void testCrc32LargeFile() {
     PASS();
 }
 
+#endif // RK_FS_HAS_LITTLEFS
+
 // ── Setup & Loop ───────────────────────────────────────────────────────────
 
 void setup() {
@@ -429,19 +437,29 @@ void setup() {
     Serial.println("============================================");
     Serial.println();
 
+#if RK_FS_HAS_LITTLEFS
     // Mount LittleFS (format if first boot)
-    if (!LittleFS.begin(true)) {
-        Serial.println("FATAL: Failed to mount LittleFS");
-        return;
-    }
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
+    LittleFS.begin(true);  // format on fail
     Serial.printf("LittleFS: total=%u, used=%u\n",
                   (unsigned)LittleFS.totalBytes(),
                   (unsigned)LittleFS.usedBytes());
+#else
+    // RP2040: begin() has no bool arg; format manually if needed
+    LittleFS.begin();
+    Serial.println("LittleFS: mounted");
+#endif
+#else
+    Serial.println("SKIP: LittleFS not available on this platform");
+    Serial.println("ALL TESTS SKIPPED");
+    return;
+#endif
 
     // Register the capture sender so RKFs::dispatch sends responses to us
     RKFs::setSender(captureSender);
 
     // Run tests
+#if RK_FS_HAS_LITTLEFS
     testReplaceValidCrc();
     testReplaceInvalidCrc();
     testReplaceNonExistent();
@@ -450,6 +468,7 @@ void setup() {
     testCrc32EmptyFile();
     testReplaceAbortsUpload();
     testCrc32LargeFile();
+#endif
 
     // Summary
     Serial.println();

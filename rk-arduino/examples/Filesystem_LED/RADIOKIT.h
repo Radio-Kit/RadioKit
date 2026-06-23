@@ -59,6 +59,7 @@ RADIOKIT_Designer_Config__*/
 #define RADIOKIT_UI_H
 
 #define RADIOKIT_FEATURE_FS
+#define RK_BLE_ENABLED 1
 
 #include <RadioKitLib.h>
 

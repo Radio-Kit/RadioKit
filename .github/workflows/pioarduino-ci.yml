@@ -23,15 +23,52 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        env:
-          - SerialTest
-          - BasicSwitch
-          - JoystickMotor
-          - SliderServo
-          - BLE_RC_Truck
-          - Filesystem_LED
-          - FsCommandTest
-          - WiFiCloudSwitch
+        include:
+          # ESP32 examples
+          - env: SerialTest
+            dir: SerialTest
+            pio_env: SerialTest
+          - env: BasicSwitch
+            dir: BasicSwitch
+            pio_env: basicswitch
+          - env: JoystickMotor
+            dir: JoystickMotor
+            pio_env: joystickmotor
+          - env: SliderServo
+            dir: SliderServo
+            pio_env: sliderservo
+          - env: BLE_RC_Truck
+            dir: BLE_RC_Truck
+            pio_env: ble_rc_truck
+          - env: Filesystem_LED
+            dir: Filesystem_LED
+            pio_env: filesystem_led
+          - env: FsCommandTest
+            dir: FsCommandTest
+            pio_env: fs_command_test
+          - env: WiFiCloudSwitch
+            dir: WiFiCloudSwitch
+            pio_env: wificloudswitch
+          # STM32 (serial-only examples — no LittleFS)
+          - env: FsCommandTest_stm32
+            dir: FsCommandTest
+            pio_env: fs_command_test_stm32
+          - env: BasicSwitch_stm32
+            dir: BasicSwitch
+            pio_env: basicswitch_stm32
+          # RP2040 (serial-only examples)
+          - env: FsCommandTest_rp2040
+            dir: FsCommandTest
+            pio_env: fs_command_test_rp2040
+          - env: BasicSwitch_rp2040
+            dir: BasicSwitch
+            pio_env: basicswitch_rp2040
+          - env: Filesystem_LED_rp2040
+            dir: Filesystem_LED
+            pio_env: filesystem_led_rp2040
+          - env: SerialSimple_rp2040
+            dir: SerialSimple
+            pio_env: serialsimple_rp2040
     steps:
       - uses: actions/checkout@v4
 
@@ -52,5 +89,5 @@ jobs:
             pio-${{ matrix.env }}-
 
       - name: Build ${{ matrix.env }}
-        working-directory: rk-arduino/examples/${{ matrix.env }}
-        run: pio run
+        working-directory: rk-arduino/examples/${{ matrix.dir }}
+        run: pio run -e ${{ matrix.pio_env }}

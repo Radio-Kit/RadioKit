@@ -8,7 +8,7 @@
 #include "RadioKitNVS.h"
 
 // ESP32 NVS headers — only available on ESP32
-#if defined(ESP32)
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
 #include <nvs_flash.h>
 #include <nvs.h>
 #endif
@@ -21,7 +21,7 @@ uint32_t RKNvs::s_handle      = 0;
 bool RKNvs::init() {
     if (s_initialized) return true;
 
-#if defined(ESP32)
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
     // Initialise NVS flash. If the partition is in an inconsistent state
     // (e.g. after esptool erase_flash, or ESP-IDF version change), nvs_flash_init
     // may return ESP_ERR_NVS_NO_FREE_PAGES or ESP_ERR_NVS_NEW_VERSION_FOUND.
@@ -63,7 +63,7 @@ bool RKNvs::init() {
 
 bool RKNvs::readString(const char* key, char* out, size_t maxLen) {
     if (!s_open || !key || !out || maxLen == 0) return false;
-#if defined(ESP32)
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
     nvs_handle_t handle = (nvs_handle_t)s_handle;
     size_t requiredLen = maxLen;
     esp_err_t err = nvs_get_str(handle, key, out, &requiredLen);
@@ -78,7 +78,7 @@ bool RKNvs::readString(const char* key, char* out, size_t maxLen) {
 
 bool RKNvs::writeString(const char* key, const char* val) {
     if (!s_open || !key || !val) return false;
-#if defined(ESP32)
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
     nvs_handle_t handle = (nvs_handle_t)s_handle;
     esp_err_t err = nvs_set_str(handle, key, val);
     return (err == ESP_OK);
@@ -90,7 +90,7 @@ bool RKNvs::writeString(const char* key, const char* val) {
 
 bool RKNvs::commit() {
     if (!s_open) return false;
-#if defined(ESP32)
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
     nvs_handle_t handle = (nvs_handle_t)s_handle;
     esp_err_t err = nvs_commit(handle);
     return (err == ESP_OK);
@@ -101,7 +101,7 @@ bool RKNvs::commit() {
 
 bool RKNvs::eraseKey(const char* key) {
     if (!s_open || !key) return false;
-#if defined(ESP32)
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
     nvs_handle_t handle = (nvs_handle_t)s_handle;
     esp_err_t err = nvs_erase_key(handle, key);
     return (err == ESP_OK);
@@ -113,7 +113,7 @@ bool RKNvs::eraseKey(const char* key) {
 
 bool RKNvs::eraseAll() {
     if (!s_open) return false;
-#if defined(ESP32)
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
     nvs_handle_t handle = (nvs_handle_t)s_handle;
     esp_err_t err = nvs_erase_all(handle);
     if (err == ESP_OK) {
@@ -127,7 +127,7 @@ bool RKNvs::eraseAll() {
 
 bool RKNvs::readU8(const char* key, uint8_t* out) {
     if (!s_open || !key || !out) return false;
-#if defined(ESP32)
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
     nvs_handle_t handle = (nvs_handle_t)s_handle;
     esp_err_t err = nvs_get_u8(handle, key, out);
     if (err == ESP_ERR_NVS_NOT_FOUND) return false;
@@ -141,7 +141,7 @@ bool RKNvs::readU8(const char* key, uint8_t* out) {
 
 bool RKNvs::writeU8(const char* key, uint8_t val) {
     if (!s_open || !key) return false;
-#if defined(ESP32)
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
     nvs_handle_t handle = (nvs_handle_t)s_handle;
     esp_err_t err = nvs_set_u8(handle, key, val);
     return (err == ESP_OK);
@@ -152,7 +152,7 @@ bool RKNvs::writeU8(const char* key, uint8_t val) {
 }
 
 void RKNvs::close() {
-#if defined(ESP32)
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
     if (s_open) {
         nvs_handle_t handle = (nvs_handle_t)s_handle;
         nvs_close(handle);

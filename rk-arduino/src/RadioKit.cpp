@@ -11,12 +11,9 @@
 #include <stdarg.h>
 
 // ── OTA support (ESP32 Update.h + esp_ota_ops) ──────────────────────────────
-#if defined(ESP32)
+#if RK_HAS_OTA
 #include <Update.h>
 #include <esp_ota_ops.h>
-#define RK_HAS_OTA 1
-#else
-#define RK_HAS_OTA 0
 #endif
 
 // ── Debug logging (enabled by default for debugging) ────────────────────
@@ -151,7 +148,9 @@ void RadioKitClass::begin() {
             RadioKit.print("BOOT: Erase complete — rebooting...\n");
             Serial.println("BOOT: Erase complete — rebooting...");
             delay(100);
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
             esp_restart();
+#endif
         }
 
         // Check if NVS already has our config keys
@@ -180,7 +179,11 @@ void RadioKitClass::begin() {
         if (!RKNvs::readString(RK_NVS_KEY_DEVICE_UID, uidBuf, sizeof(uidBuf))) {
             uint8_t uid[8];
             for (int i = 0; i < 8; i++) {
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
                 uid[i] = esp_random() & 0xFF;
+#else
+                uid[i] = (uint8_t)(millis() ^ (i * 37)) & 0xFF;  // simple fallback
+#endif
             }
             char uidHex[17];
             for (int i = 0; i < 8; i++) {
@@ -226,6 +229,7 @@ void RadioKitClass::pushMetaUpdate(uint8_t widgetId) {
 }
 
 void RadioKitClass::startBLE(const char* deviceName) {
+#if RK_BLE_ENABLED
     // Check NVS enable flag
     if (_nvsActive) {
         uint8_t bleOn = 1;
@@ -259,6 +263,10 @@ void RadioKitClass::startBLE(const char* deviceName) {
     _transport->setSettingsCallback(_onSetPktW<RK_SOURCE_BLE>);
     // Print stream callback — 0xEE frames over BLE are sent via _charPrint notify
     // No incoming 0xEE handler needed (unidirectional)
+#else
+    RadioKit.print("BLE: Transport not available on this platform\n");
+    Serial.println("BLE: Transport not available on this platform");
+#endif
 }
 
 void RadioKitClass::startSerial(Stream& stream) {
@@ -286,7 +294,7 @@ void RadioKitClass::startWiFi() {
             return;
         }
     }
-#if defined(ESP32)
+#if RK_WIFI_ENABLED
     const char* baseName = (_nvsActive && _nvsName[0]) ? _nvsName :
                            (config.name ? config.name : "RadioKit");
 
@@ -330,7 +338,7 @@ void RadioKitClass::startCloud() {
         }
     }
 
-#if defined(ESP32)
+#if RK_WIFI_ENABLED
     RadioKitCloudInstance.setCloudUrl(_nvsCloudUrl);
     RadioKitCloudInstance.setAccount(_nvsCloudAccount);
 
@@ -834,6 +842,7 @@ void RadioKitClass::_handleSettingsTelemetry(const uint8_t* payload, uint16_t pa
 
 void RadioKitClass::_handleSettingsBleInfo() {
     if (!_transport) return;
+#if RK_BLE_ENABLED
     uint8_t payload[5];
     uint16_t interval = RadioKitBLEInstance.getConnIntervalMs();
     uint16_t mtu = RadioKitBLEInstance.getNegotiatedMtu();
@@ -846,6 +855,13 @@ void RadioKitClass::_handleSettingsBleInfo() {
     uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
         RK_SETTINGS_RESP_BLE_INFO_DATA, payload, 5);
     _sendSettingsFrame(frameLen);
+#else
+    // BLE not compiled in — send zeroed response
+    uint8_t payload[5] = {0, 0, 0, 0, 0};
+    uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+        RK_SETTINGS_RESP_BLE_INFO_DATA, payload, 5);
+    _sendSettingsFrame(frameLen);
+#endif
 }
 
 void RadioKitClass::_handleSettingsGetFeatures() {
@@ -873,8 +889,8 @@ void RadioKitClass::_handleSettingsGetFeatures() {
             bitmask |= RK_SETTINGS_FEATURE_CLOUD;
         }
     }
-#if defined(ESP32)
-    bitmask |= RK_SETTINGS_FEATURE_BLE;   // BLE transport compiled-in on ESP32
+#if RK_BLE_ENABLED
+    bitmask |= RK_SETTINGS_FEATURE_BLE;   // BLE transport compiled-in
 #endif
     bitmask |= RK_SETTINGS_FEATURE_PRINT_STREAM;  // 0xEE print stream always enabled
     uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
@@ -903,7 +919,7 @@ void RadioKitClass::_handleSettingsGetCloudInfo() {
 }
 
 void RadioKitClass::_handleSettingsGetChipInfo() {
-#if defined(ESP32)
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
     uint8_t payload[64];
     uint16_t offset = 0;
     String modelStr = ESP.getChipModel();
@@ -1016,7 +1032,7 @@ void RadioKitClass::_handleGetMeta() {
 }
 
 void RadioKitClass::_handleGetWifiInfo() {
-#if defined(ESP32) && defined(RADIOKIT_ENABLE_WIFI)
+#if RK_WIFI_ENABLED
     // Build WIFI_INFO_DATA payload:
     // [ip0][ip1][ip2][ip3][mode(1)][ssid_len][ssid...][rssi(1)]
     uint8_t buf[4 + 1 + 1 + RADIOKIT_MAX_SSID + 1];
@@ -1743,7 +1759,7 @@ void RadioKitClass::_handleSettingsFactoryReset() {
     _userAuthenticated = true;
     
     delay(500);
-#if defined(ESP32)
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
     esp_restart();
 #else
     RadioKit.print("FACTORY RESET: Reboot not supported on this platform\n");
@@ -1765,12 +1781,12 @@ void RadioKitClass::_handleSettingsReboot() {
 
     // Flush NVS to flash and wait for write to complete before rebooting.
     // This ensures any pending NVS writes (e.g. transport enable/disable)
-    // are fully persisted to flash before esp_restart().
+    // are fully persisted to flash before reboot.
     if (_nvsActive) {
         RKNvs::commit();
     }
     delay(500);
-#if defined(ESP32)
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
     esp_restart();
 #else
     RadioKit.print("REBOOT: Reboot not supported on this platform\n");
@@ -1846,7 +1862,7 @@ void RadioKitClass::_syncNvsToBuffers() {
 }
 
 void RadioKitClass::_setBleAdvertisingName(const char* name) {
-#if defined(ESP32)
+#if RK_BLE_ENABLED
     // Re-start BLE advertising with the new name.
     // NimBLE allows updating the advertiser's name and re-starting.
     extern RadioKitBLE RadioKitBLEInstance;
@@ -2241,7 +2257,7 @@ void RadioKitClass::_handleSettingsSetWifi(const uint8_t* payload, uint16_t len)
 
     // Auto-reboot to apply new credentials
     delay(500);
-#if defined(ESP32)
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
     esp_restart();
 #endif
 }

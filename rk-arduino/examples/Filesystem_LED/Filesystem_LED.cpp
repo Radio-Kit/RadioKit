@@ -24,14 +24,18 @@ void setup() {
 
     initRadioKit();
 
-    // Mount the bulk-FS partition. Returns false if LittleFS is unavailable
-    // (very rare on ESP32, common on other MCUs).
+#if RK_FS_HAS_LITTLEFS
+    // Mount the bulk-FS partition. Returns false if LittleFS is unavailable.
     if (!RadioKit.beginFs()) {
         Serial.println("FS: LittleFS not available — FS commands will return NO_FS");
     } else {
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
         Serial.printf("FS: mounted, total=%u, used=%u\n",
                       (unsigned)LittleFS.totalBytes(),
                       (unsigned)LittleFS.usedBytes());
+#else
+        Serial.println("FS: mounted");
+#endif
 
         // Seed a demo file the first time the sketch boots.
         if (!LittleFS.exists("/demo/README.txt")) {
@@ -44,6 +48,9 @@ void setup() {
             }
         }
     }
+#else
+    Serial.println("FS: LittleFS not available on this platform");
+#endif
 }
 
 void loop() {

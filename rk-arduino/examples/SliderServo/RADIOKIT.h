@@ -56,6 +56,7 @@ RADIOKIT_Designer_Config__*/
 #ifndef RADIOKIT_UI_H
 #define RADIOKIT_UI_H
 
+#define RK_BLE_ENABLED 1
 #include <RadioKitLib.h>
 
 // ─── Widget Declarations ───

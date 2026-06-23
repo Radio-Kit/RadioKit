@@ -22,7 +22,7 @@
 #include "../RadioKitProtocol.h"
 #include "../RadioKitConfig.h"
 
-#if defined(ESP32) && defined(RADIOKIT_ENABLE_WIFI)
+#if RK_WIFI_ENABLED
 #include <WiFi.h>
 #include <WebSocketsServer.h>
 #include <ESPmDNS.h>
@@ -87,7 +87,7 @@ private:
     // IP string buffer (stable return for getLocalIp())
     mutable char _localIpBuf[16];
 
-#if defined(ESP32) && defined(RADIOKIT_ENABLE_WIFI)
+#if RK_WIFI_ENABLED
     WebSocketsServer* _server;
 
     // Per-client auth state
