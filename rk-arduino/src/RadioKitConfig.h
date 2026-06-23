@@ -162,23 +162,34 @@
 #define RADIOKIT_MAX_DEVICE_ICON   32  ///< Device icon name max chars
 
 // ─────────────────────────────────────────────
-//  Feature flags (user opt-in)
+//  Feature enablement (RK_ENABLE_*)
+//
 //  RK_HAS_*   = platform hardware capability (auto-detected above)
-//  RK_ENABLE_* = user wants this transport/feature (define in sketch/codegen)
+//  RK_ENABLE_* = feature is active (auto-derived OR user-defined)
 //
-//  The sketch or generated code must #define RK_ENABLE_BLE,
-//  RK_ENABLE_WIFI, RK_ENABLE_CLOUD, RK_ENABLE_OTA, RK_ENABLE_FS
-//  before #include <RadioKitLib.h> when those features are wanted.
-//  This decouples platform capability from user intent.
+//  RK_ENABLE_BLE / RK_ENABLE_WIFI / RK_ENABLE_OTA are auto-derived
+//  from RK_HAS_* when the sketch hasn't defined them. Sketches can
+//  override by defining or #undef-ing before #include <RadioKitLib.h>.
 //
-//  If undefined, they default to 0 (disabled). To enable, the sketch
-//  defines them before including <RadioKitLib.h>:
-//    #define RK_ENABLE_BLE
-//    #define RK_ENABLE_WIFI
-//    #define RK_ENABLE_CLOUD
-//    #define RK_ENABLE_OTA
-//    #define RK_ENABLE_FS
+//  RK_ENABLE_CLOUD and RK_ENABLE_FS are user opt-in only (no auto-
+//  detection). RK_ENABLE_CLOUD requires RK_ENABLE_WIFI. RK_ENABLE_FS
+//  is set via the -DRK_ENABLE_FS build flag in platformio.ini.
 // ─────────────────────────────────────────────
+
+// Auto-derive RK_ENABLE_BLE from RK_HAS_BLE (unless user overrode)
+#ifndef RK_ENABLE_BLE
+  #if RK_HAS_BLE
+    #define RK_ENABLE_BLE
+  #endif
+#endif
+
+// RK_ENABLE_WIFI: user opt-in only (requires -DRK_ENABLE_WIFI build flag
+// or #define RK_ENABLE_WIFI in RADIOKIT.h). NOT auto-derived because
+// WiFi pulls in large headers (WebSocketsServer, ESPmDNS) that many
+// examples don't need.
+
+// RK_ENABLE_OTA: user opt-in only (requires -DRK_ENABLE_OTA build flag
+// or #define RK_ENABLE_OTA in RADIOKIT.h). ESP32-only (Update.h + esp_ota_ops.h).
 
 // ─────────────────────────────────────────────
 //  Print stream buffer size
