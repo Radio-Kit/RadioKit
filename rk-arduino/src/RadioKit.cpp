@@ -11,7 +11,7 @@
 #include <stdarg.h>
 
 // ── OTA support (ESP32 Update.h + esp_ota_ops) ──────────────────────────────
-#if RK_HAS_OTA
+#if defined(RK_ENABLE_OTA)
 #include <Update.h>
 #include <esp_ota_ops.h>
 #endif
@@ -105,11 +105,10 @@ void RadioKitClass::_registerWidget(RadioKit_Widget* widget) {
 
 void RadioKitClass::begin() {
     RadioKit_Widget_drainDeferred();
-    // Auto-mount the FS. The handler namespace is a no-op when LittleFS
-    // is unavailable, in which case all FS commands reply with NO_FS.
+    // Register FS callbacks (sender + packet handler).
+    // The actual filesystem mount is deferred to enableFS().
     RKFs::setSender(&RadioKitClass::_sendFsFrame);
     rk_fsSetCallback(&RadioKitClass::_onFsPacket);
-    RKFs::begin();
 
     // ── Initialise NVS and load config ──────────────────────────────
     _nvsActive = RKNvs::init();
@@ -229,7 +228,7 @@ void RadioKitClass::pushMetaUpdate(uint8_t widgetId) {
 }
 
 void RadioKitClass::startBLE(const char* deviceName) {
-#if RK_BLE_ENABLED
+#if defined(RK_ENABLE_BLE)
     // Check NVS enable flag
     if (_nvsActive) {
         uint8_t bleOn = 1;
@@ -294,7 +293,7 @@ void RadioKitClass::startWiFi() {
             return;
         }
     }
-#if RK_WIFI_ENABLED
+#if defined(RK_ENABLE_WIFI)
     const char* baseName = (_nvsActive && _nvsName[0]) ? _nvsName :
                            (config.name ? config.name : "RadioKit");
 
@@ -338,7 +337,7 @@ void RadioKitClass::startCloud() {
         }
     }
 
-#if RK_WIFI_ENABLED
+#if defined(RK_ENABLE_CLOUD) && defined(RK_ENABLE_WIFI)
     RadioKitCloudInstance.setCloudUrl(_nvsCloudUrl);
     RadioKitCloudInstance.setAccount(_nvsCloudAccount);
 
@@ -842,7 +841,7 @@ void RadioKitClass::_handleSettingsTelemetry(const uint8_t* payload, uint16_t pa
 
 void RadioKitClass::_handleSettingsBleInfo() {
     if (!_transport) return;
-#if RK_BLE_ENABLED
+#if defined(RK_ENABLE_BLE)
     uint8_t payload[5];
     uint16_t interval = RadioKitBLEInstance.getConnIntervalMs();
     uint16_t mtu = RadioKitBLEInstance.getNegotiatedMtu();
@@ -867,7 +866,7 @@ void RadioKitClass::_handleSettingsBleInfo() {
 void RadioKitClass::_handleSettingsGetFeatures() {
     if (!_transport) return;
     uint8_t bitmask = 0;
-#if RK_HAS_OTA
+#if defined(RK_ENABLE_OTA)
     bitmask |= RK_SETTINGS_FEATURE_OTA;
 #endif
     if (isFsReady()) {
@@ -889,7 +888,7 @@ void RadioKitClass::_handleSettingsGetFeatures() {
             bitmask |= RK_SETTINGS_FEATURE_CLOUD;
         }
     }
-#if RK_BLE_ENABLED
+#if defined(RK_ENABLE_BLE)
     bitmask |= RK_SETTINGS_FEATURE_BLE;   // BLE transport compiled-in
 #endif
     bitmask |= RK_SETTINGS_FEATURE_PRINT_STREAM;  // 0xEE print stream always enabled
@@ -1032,7 +1031,7 @@ void RadioKitClass::_handleGetMeta() {
 }
 
 void RadioKitClass::_handleGetWifiInfo() {
-#if RK_WIFI_ENABLED
+#if defined(RK_ENABLE_WIFI)
     // Build WIFI_INFO_DATA payload:
     // [ip0][ip1][ip2][ip3][mode(1)][ssid_len][ssid...][rssi(1)]
     uint8_t buf[4 + 1 + 1 + RADIOKIT_MAX_SSID + 1];
@@ -1262,8 +1261,12 @@ void RadioKitClass::_sendToAllTransports(const uint8_t* buf, uint16_t len) {
 
 // ── Filesystem bulk protocol ────────────────────────────────────────────────
 
-bool RadioKitClass::beginFs() {
+bool RadioKitClass::enableFS() {
     return RKFs::begin();
+}
+
+bool RadioKitClass::beginFs() {
+    return enableFS();
 }
 
 bool RadioKitClass::isFsReady() const {
@@ -1364,7 +1367,7 @@ void RadioKitClass::_sendOtaFrame(const uint8_t* buf, uint16_t len) {
 }
 
 void RadioKitClass::_handleOtaBegin(const uint8_t* payload, uint16_t len) {
-#if RK_HAS_OTA
+#if defined(RK_ENABLE_OTA)
     if (len < 4) {
         uint8_t err = RK_OTA_ERR_INVALID_STATE;
         uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
@@ -1410,7 +1413,7 @@ void RadioKitClass::_handleOtaBegin(const uint8_t* payload, uint16_t len) {
 }
 
 void RadioKitClass::_handleOtaChunk(const uint8_t* payload, uint16_t len) {
-#if RK_HAS_OTA
+#if defined(RK_ENABLE_OTA)
     if (len < 4) {
         uint8_t err = RK_OTA_ERR_INVALID_STATE;
         uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
@@ -1492,7 +1495,7 @@ void RadioKitClass::_handleOtaChunk(const uint8_t* payload, uint16_t len) {
 }
 
 void RadioKitClass::_handleOtaEnd(const uint8_t* payload, uint16_t len) {
-#if RK_HAS_OTA
+#if defined(RK_ENABLE_OTA)
     if (len < 4) {
         uint8_t err = RK_OTA_ERR_INVALID_STATE;
         uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
@@ -1567,7 +1570,7 @@ void RadioKitClass::_handleOtaEnd(const uint8_t* payload, uint16_t len) {
 }
 
 void RadioKitClass::_handleOtaAbort() {
-#if RK_HAS_OTA
+#if defined(RK_ENABLE_OTA)
     RK_DEBUG_PRINT("OTA: Abort requested\n");
     Update.abort();
     s_otaBytesWritten = 0;
@@ -1580,7 +1583,7 @@ void RadioKitClass::_handleOtaAbort() {
 }
 
 void RadioKitClass::_handleOtaSetEraseFlag(const uint8_t* payload, uint16_t len) {
-#if RK_HAS_OTA
+#if defined(RK_ENABLE_OTA)
     if (len < 1) {
         uint8_t err = RK_OTA_ERR_INVALID_STATE;
         uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
@@ -1862,7 +1865,7 @@ void RadioKitClass::_syncNvsToBuffers() {
 }
 
 void RadioKitClass::_setBleAdvertisingName(const char* name) {
-#if RK_BLE_ENABLED
+#if defined(RK_ENABLE_BLE)
     // Re-start BLE advertising with the new name.
     // NimBLE allows updating the advertiser's name and re-starting.
     extern RadioKitBLE RadioKitBLEInstance;

@@ -21,7 +21,7 @@
 #include "RadioKitOTA.h"
 #include "RadioKitSettings.h"
 
-#if RK_BLE_ENABLED
+#if defined(RK_ENABLE_BLE)
 #include <NimBLEDevice.h>
 
 // Default MTU (will be updated after negotiation)
@@ -571,7 +571,7 @@ void RadioKitBLE::updateAdvertisingName(const char* name) {
     Serial.println("BLE: Advertising re-started with new name");
 }
 
-#else // !RK_BLE_ENABLED — no-op stubs for non-BLE platforms
+#else // !defined(RK_ENABLE_BLE) — no-op stubs for non-BLE platforms
 
 RadioKitBLE RadioKitBLEInstance;
 
@@ -606,4 +606,4 @@ void RadioKitBLE::_onSettingsWrite(const uint8_t* /*data*/, size_t /*len*/) {}
 void RadioKitBLE::_processPendingFs() {}
 void RadioKitBLE::_processPendingOta() {}
 
-#endif // RK_BLE_ENABLED
+#endif // defined(RK_ENABLE_BLE)

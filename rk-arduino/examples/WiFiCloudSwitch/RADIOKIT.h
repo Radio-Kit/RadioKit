@@ -61,8 +61,9 @@ RADIOKIT_Designer_Config__*/
 #ifndef RADIOKIT_UI_H
 #define RADIOKIT_UI_H
 
-#define RK_BLE_ENABLED 1
-#define RK_WIFI_ENABLED 1
+#define RK_ENABLE_BLE
+#define RK_ENABLE_WIFI
+#define RK_ENABLE_CLOUD
 #include <RadioKitLib.h>
 
 // ─── Widget Declarations ───
@@ -102,7 +103,7 @@ static inline void initRadioKit() {
   }
 
   RadioKit.startSerial(Serial);
-  RadioKit.startBLE(RadioKit.config.name);
+  RadioKit.startBLE();
   RadioKit.startWiFi();
   RadioKit.startCloud();
 }

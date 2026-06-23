@@ -151,7 +151,7 @@ RADIOKIT_Designer_Config__*/
 #ifndef RADIOKIT_UI_H
 #define RADIOKIT_UI_H
 
-#define RK_BLE_ENABLED 1
+#define RK_ENABLE_BLE
 #include <RadioKitLib.h>
 
 // ─── Widget Declarations ───
@@ -175,7 +175,7 @@ static inline void initRadioKit() {
   RadioKit.begin();
 
   RadioKit.startSerial(Serial);
-  RadioKit.startBLE(RadioKit.config.name);
+  RadioKit.startBLE();
 }
 
 #endif // RADIOKIT_UI_H

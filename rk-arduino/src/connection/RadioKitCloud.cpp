@@ -10,7 +10,7 @@
  *   - Heartbeat ping every 30s
  *
  * Requires ESP32 + arduinoWebSockets library.
- * Guarded by: #if RK_WIFI_ENABLED
+ * Guarded by: #if defined(RK_ENABLE_CLOUD) && defined(RK_ENABLE_WIFI)
  */
 
 #include "RadioKitCloud.h"
@@ -93,7 +93,7 @@ void RadioKitCloud::begin(const char* name, RK_PacketCallback cb) {
         return;
     }
 
-#if RK_WIFI_ENABLED
+#if defined(RK_ENABLE_CLOUD) && defined(RK_ENABLE_WIFI)
     RadioKit.printf("Cloud: Connecting to relay at %s:%u...\n", _host, _port);
     Serial.printf("Cloud: Connecting to relay at %s:%u...\n", _host, _port);
 
@@ -136,7 +136,7 @@ void RadioKitCloud::setPrintCallback(RK_PrintPacketCallback cb) {
     _printCb = cb;
 }
 
-#if RK_WIFI_ENABLED
+#if defined(RK_ENABLE_CLOUD) && defined(RK_ENABLE_WIFI)
 
 void RadioKitCloud::_sendRegister() {
     if (_deviceName[0] == '\0' || _account[0] == '\0') {
@@ -376,11 +376,11 @@ int8_t RadioKitCloud::getRssi() {
     return 0;  // Cloud relay RSSI not meaningful
 }
 
-#else // !RK_WIFI_ENABLED
+#else // !defined(RK_ENABLE_CLOUD) || !defined(RK_ENABLE_WIFI)
 
 void RadioKitCloud::update() {}
 void RadioKitCloud::sendPacket(const uint8_t* buf, uint16_t len) { (void)buf; (void)len; }
 bool RadioKitCloud::isConnected() const { return false; }
 int8_t RadioKitCloud::getRssi() { return 0; }
 
-#endif // RK_WIFI_ENABLED
+#endif // defined(RK_ENABLE_CLOUD) && defined(RK_ENABLE_WIFI)

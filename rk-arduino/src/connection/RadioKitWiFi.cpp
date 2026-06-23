@@ -37,7 +37,7 @@ RadioKitWiFi RadioKitWiFiInstance;
 RadioKitWiFi::RadioKitWiFi()
     : _apMode(false)
     , _lastStaRetryMs(0)
-#if RK_WIFI_ENABLED
+#if defined(RK_ENABLE_WIFI)
     , _server(nullptr)
     , _activeClientCount(0)
 #endif
@@ -50,7 +50,7 @@ RadioKitWiFi::RadioKitWiFi()
     memset(_staSsid, 0, sizeof(_staSsid));
     memset(_staPwd, 0, sizeof(_staPwd));
     memset(_localIpBuf, 0, sizeof(_localIpBuf));
-#if RK_WIFI_ENABLED
+#if defined(RK_ENABLE_WIFI)
     for (int i = 0; i < RK_WIFI_MAX_CLIENTS; i++) {
         _clients[i].active = false;
         _clients[i].connectTime = 0;
@@ -76,7 +76,7 @@ void RadioKitWiFi::begin(const char* name, RK_PacketCallback cb) {
         strncpy(_deviceName, name, sizeof(_deviceName) - 1);
     }
 
-#if RK_WIFI_ENABLED
+#if defined(RK_ENABLE_WIFI)
     // Determine mode based on STA credentials
     if (_staSsid[0] != '\0') {
         // Try STA first
@@ -128,7 +128,7 @@ void RadioKitWiFi::setPrintCallback(RK_PrintPacketCallback cb) {
     _printCb = cb;
 }
 
-#if RK_WIFI_ENABLED
+#if defined(RK_ENABLE_WIFI)
 
 uint8_t RadioKitWiFi::getClientAuthLevel(uint8_t clientNum) const {
     if (clientNum >= RK_WIFI_MAX_CLIENTS) return 0;
@@ -549,7 +549,7 @@ const char* RadioKitWiFi::getLocalIp() const {
     return _localIpBuf;
 }
 
-#else // !RK_WIFI_ENABLED
+#else // !defined(RK_ENABLE_WIFI)
 
 void RadioKitWiFi::update() {}
 void RadioKitWiFi::sendPacket(const uint8_t* buf, uint16_t len) { (void)buf; (void)len; }
@@ -558,4 +558,4 @@ int8_t RadioKitWiFi::getRssi() { return 0; }
 const char* RadioKitWiFi::getLocalIp() const { return "0.0.0.0"; }
 uint8_t RadioKitWiFi::getClientAuthLevel(uint8_t clientNum) const { (void)clientNum; return 0; }
 
-#endif // RK_WIFI_ENABLED
+#endif // defined(RK_ENABLE_WIFI)

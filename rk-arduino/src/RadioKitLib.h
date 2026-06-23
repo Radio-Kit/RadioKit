@@ -201,6 +201,12 @@ public:
      * Returns true on success. If the user sketch defines a custom
      * filesystem, override RKFs::begin() in user code instead.
      */
+    /**
+     * Mount the default filesystem (LittleFS when available).
+     * Alias for beginFs() — use this for cleaner API.
+     */
+    bool enableFS();
+
     bool beginFs();
 
     /// True once the FS is mounted and ready to serve requests.

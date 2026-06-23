@@ -27,16 +27,19 @@ class JsonArduinoGenerator {
 
     // ─── Feature defines (must precede #include) ───
     if (enableOta) {
-      buf.writeln('#define RADIOKIT_FEATURE_OTA');
+      buf.writeln('#define RK_ENABLE_OTA');
     }
     if (enableFs) {
-      buf.writeln('#define RADIOKIT_FEATURE_FS');
+      buf.writeln('#define RK_ENABLE_FS');
     }
     if (bleEnabled) {
-      buf.writeln('#define RK_BLE_ENABLED 1');
+      buf.writeln('#define RK_ENABLE_BLE');
     }
     if (wifiEnabled || cloudEnabled) {
-      buf.writeln('#define RK_WIFI_ENABLED 1');
+      buf.writeln('#define RK_ENABLE_WIFI');
+    }
+    if (cloudEnabled) {
+      buf.writeln('#define RK_ENABLE_CLOUD');
     }
     if (enableOta || enableFs || bleEnabled || wifiEnabled || cloudEnabled) buf.writeln();
     buf.writeln('#include <RadioKitLib.h>');
@@ -100,7 +103,7 @@ class JsonArduinoGenerator {
     buf.writeln();
     buf.writeln('  RadioKit.startSerial(Serial);');
     if (bleEnabled) {
-      buf.writeln('  RadioKit.startBLE(RadioKit.config.name);');
+      buf.writeln('  RadioKit.startBLE();');
     }
     if (wifiEnabled) {
       buf.writeln('  RadioKit.startWiFi();');
@@ -112,7 +115,7 @@ class JsonArduinoGenerator {
     // ─── Feature initialization ───
     if (enableFs) {
       buf.writeln('');
-      buf.writeln('  RKFs::begin();');
+      buf.writeln('  RadioKit.enableFS();');
     }
 
     buf.writeln('}');

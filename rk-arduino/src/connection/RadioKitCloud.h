@@ -7,7 +7,7 @@
  * prefix pattern as RadioKitWiFi for protocol multiplexing.
  *
  * Requires ESP32 + arduinoWebSockets library. Guarded by:
- *   #if defined(ESP32) && defined(RADIOKIT_ENABLE_WIFI)
+ *   #if defined(RK_ENABLE_CLOUD) && defined(RK_ENABLE_WIFI)
  *
  * Usage:
  *   1. Call setCloudUrl() and setAccount() before begin()
@@ -27,7 +27,7 @@
 #include "../RadioKitProtocol.h"
 #include "../RadioKitConfig.h"
 
-#if RK_WIFI_ENABLED
+#if defined(RK_ENABLE_CLOUD) && defined(RK_ENABLE_WIFI)
 #include <WebSocketsClient.h>
 #endif
 
@@ -74,7 +74,7 @@ private:
     RK_SettingsPacketCallback _settingsCb;
     RK_PrintPacketCallback _printCb;
 
-#if RK_WIFI_ENABLED
+#if defined(RK_ENABLE_CLOUD) && defined(RK_ENABLE_WIFI)
     WebSocketsClient _ws;
 
     // Send buffer (pre-allocated)
