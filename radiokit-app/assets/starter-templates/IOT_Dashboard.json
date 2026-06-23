@@ -7,9 +7,13 @@
     "name": "IOT-Dashboard",
     "description": "Sensor monitoring dashboard",
     "type": "IOT",
-    "transport": "WiFi",
     "theme": "default",
-    "password": ""
+    "password": "",
+    "transports": {
+      "ble": { "enabled": false },
+      "wifi": { "enabled": true, "ssid": "", "pass": "" },
+      "cloud": { "enabled": false, "account": "", "relay": "" }
+    }
   },
   "canvas": {
     "size": [200, 100],

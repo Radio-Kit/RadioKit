@@ -7,6 +7,7 @@ import '../../providers/device_provider.dart';
 import '../../models/fs_entry.dart';
 import '../../models/fs_info.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/themed_bottom_sheet.dart';
 import '../../services/device_fs_service.dart';
 import '../filesystem/fs_helpers.dart';
 import '../filesystem/fs_breadcrumbs.dart';
@@ -311,7 +312,7 @@ class _FsTabContentState extends State<FsTabContent> {
   // ── FS Operations ────────────────────────────────────────────────────
 
   void _showUploadMenu() {
-    showModalBottomSheet<_NewChoice>(
+    showThemedBottomSheet<_NewChoice>(
       context: context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(

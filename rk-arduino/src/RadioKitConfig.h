@@ -147,9 +147,6 @@
 // ─────────────────────────────────────────────
 //  Feature flags
 // ─────────────────────────────────────────────
-#ifndef RADIOKIT_FEATURE_FS
-#define RADIOKIT_FEATURE_FS
-#endif
 
 // ─────────────────────────────────────────────
 //  Print stream buffer size

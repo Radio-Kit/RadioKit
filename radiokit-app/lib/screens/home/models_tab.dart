@@ -17,6 +17,7 @@ import '../../services/secure_storage_service.dart';
 import '../../models/console_entry.dart';
 import '../../models/device_info.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/themed_bottom_sheet.dart';
 import '../../widgets/radiokit_app_bar.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 import '../../services/transport_service.dart';
@@ -539,7 +540,7 @@ class _ActiveLinkCardWithAuthState extends State<_ActiveLinkCardWithAuth> {
 void _showDeviceInfoSheet(
     BuildContext context, DeviceProvider dp, DeviceInfo device) {
   dp.requestChipInfo();
-  showModalBottomSheet(
+  showThemedBottomSheet(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,

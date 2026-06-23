@@ -9,7 +9,11 @@
     "name": "FS LED",
     "description": "Bulk filesystem + BLE LED switch",
     "type": "IOT",
-    "transport": "BLE",
+    "transports": {
+      "ble": { "enabled": true },
+      "wifi": { "enabled": false, "ssid": "", "pass": "" },
+      "cloud": { "enabled": false, "account": "", "relay": "" }
+    },
     "theme": "dragon",
     "password": "1234"
   },
@@ -54,6 +58,8 @@ RADIOKIT_Designer_Config__*/
 #ifndef RADIOKIT_UI_H
 #define RADIOKIT_UI_H
 
+#define RADIOKIT_FEATURE_FS
+
 #include <RadioKitLib.h>
 
 // ─── Widget Declarations ───
@@ -70,6 +76,7 @@ static inline void initRadioKit() {
   slide_switch_1.rk.labelHidden = true;
 
   RadioKit.begin();
+
   RadioKit.startSerial(Serial);
   RadioKit.startBLE(RadioKit.config.name);
 }

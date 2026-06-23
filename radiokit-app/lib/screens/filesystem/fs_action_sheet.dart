@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import '../../../models/fs_entry.dart';
 import 'fs_helpers.dart';
+import '../../../widgets/themed_bottom_sheet.dart';
 
 /// Result of one of the actions in [FsActionSheet]. The caller is
 /// responsible for performing the actual FS operation.
@@ -27,7 +28,7 @@ class FsActionSheet extends StatelessWidget {
 
   static Future<FsAction?> show(BuildContext context,
       {required FsEntry entry, required String fullPath}) {
-    return showModalBottomSheet<FsAction>(
+    return showThemedBottomSheet<FsAction>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,

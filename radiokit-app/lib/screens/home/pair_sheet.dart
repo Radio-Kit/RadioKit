@@ -15,6 +15,7 @@ import '../../models/account.dart';
 import 'accounts_sheet.dart';
 import '../../models/device_info.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/themed_bottom_sheet.dart';
 import '../../services/websocket_service.dart';
 import '../../widgets/console_log_view.dart';
 import '../../services/ble_transport.dart';
@@ -22,7 +23,7 @@ import '../../services/ble_transport.dart';
 // ── Pair Bottom Sheet ──────────────────────────────────────────────────────
 
 void showPairBottomSheet(BuildContext context) {
-  showModalBottomSheet(
+  showThemedBottomSheet(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,

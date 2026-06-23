@@ -357,64 +357,6 @@ class _DesignerInspectorState extends State<DesignerInspector> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── CONNECTION (with features merged in) ──────────────────────
-        InspectorFieldBuilders.buildSection(tokens, 'CONNECTION', [
-          InspectorFieldBuilders.buildCenterPinnedSelector(
-            tokens,
-            'Type',
-            widget.state.connectionType,
-            ['ble', 'serial'],
-            (v) => widget.state.setConnectionType(v),
-          ),
-          InspectorFieldBuilders.buildTextField(
-              tokens,
-              'Password',
-              widget.state.connectionPassword,
-              (v) => widget.state.setConnectionPassword(v)),
-          SizedBox(height: 8),
-          // Enable OTA
-          widget.state.connectionType == 'ble'
-              ? InspectorFieldBuilders.buildBoolToggle(
-                  tokens, 'Enable OTA', widget.state.featureOta, (v) {
-                  widget.state.setFeatureOta(v);
-                })
-              : IgnorePointer(
-                  child: Opacity(
-                    opacity: 0.4,
-                    child: InspectorFieldBuilders.buildBoolToggle(
-                        tokens, 'Enable OTA', false, (_) {}),
-                  ),
-                ),
-          Padding(
-            padding: const EdgeInsets.only(left: 20, bottom: 8),
-            child: Text(
-              widget.state.connectionType == 'ble'
-                  ? 'Include OTA firmware update support'
-                  : 'Only available for BLE transport',
-              style: TextStyle(
-                color: tokens.onSurface.withValues(alpha: 0.5),
-                fontSize: 10,
-              ),
-            ),
-          ),
-          // Enable Filesystem
-          InspectorFieldBuilders.buildBoolToggle(
-            tokens,
-            'Enable Filesystem',
-            widget.state.featureFilesystem,
-            (v) => widget.state.setFeatureFilesystem(v),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 20, bottom: 8),
-            child: Text(
-              'Include LittleFS support for file management',
-              style: TextStyle(
-                color: tokens.onSurface.withValues(alpha: 0.5),
-                fontSize: 10,
-              ),
-            ),
-          ),
-        ]),
         // ── MODEL ────────────────────────────────────────────────────
         InspectorFieldBuilders.buildSection(tokens, 'MODEL', [
           InspectorFieldBuilders.buildTextField(tokens, 'Name *',
@@ -433,8 +375,49 @@ class _DesignerInspectorState extends State<DesignerInspector> {
             ['Locomotive', 'Truck', 'Car', 'IOT'],
             (v) => widget.state.setModelType(v),
           ),
+          if (widget.state.connectionPassword.isNotEmpty)
+            InspectorFieldBuilders.buildTextField(
+                tokens,
+                'Password',
+                widget.state.connectionPassword,
+                (v) => widget.state.setConnectionPassword(v)),
         ]),
-        // ── CONTROL UI (was CANVAS) ──────────────────────────────────
+        // ── TRANSPORTS ──────────────────────────────────────────────
+        _buildTransportsSection(tokens),
+        // ── FEATURES ────────────────────────────────────────────────
+        InspectorFieldBuilders.buildSection(tokens, 'FEATURES', [
+          InspectorFieldBuilders.buildBoolToggle(
+              tokens, 'Enable OTA', widget.state.featureOta, (v) {
+              widget.state.setFeatureOta(v);
+            }),
+          Padding(
+            padding: const EdgeInsets.only(left: 20, bottom: 8),
+            child: Text(
+              'Include OTA firmware update support',
+              style: TextStyle(
+                color: tokens.onSurface.withValues(alpha: 0.5),
+                fontSize: 10,
+              ),
+            ),
+          ),
+          InspectorFieldBuilders.buildBoolToggle(
+            tokens,
+            'Enable Filesystem',
+            widget.state.featureFilesystem,
+            (v) => widget.state.setFeatureFilesystem(v),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 20, bottom: 8),
+            child: Text(
+              'Include LittleFS support for file management',
+              style: TextStyle(
+                color: tokens.onSurface.withValues(alpha: 0.5),
+                fontSize: 10,
+              ),
+            ),
+          ),
+        ]),
+        // ── CONTROL UI ──────────────────────────────────────────────
         _buildControlUISection(tokens),
         // ── TELEMETRY ────────────────────────────────────────────────
         _buildTelemetrySection(tokens),
@@ -612,6 +595,98 @@ class _DesignerInspectorState extends State<DesignerInspector> {
           ),
         ),
       ),
+    );
+  }
+
+  // ── TRANSPORTS section ──────────────────────────────────────────────────
+
+  Widget _buildTransportsSection(RKTokens tokens) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+          child: Text(
+            'TRANSPORTS',
+            style: TextStyle(
+              color: tokens.primary,
+              fontSize: 12,
+              fontFamily: 'monospace',
+              letterSpacing: 1,
+            ),
+          ),
+        ),
+        // BLE toggle
+        InspectorFieldBuilders.buildBoolToggle(
+          tokens, 'BLE', widget.state.bleEnabled,
+          (v) => widget.state.setBleEnabled(v),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: 20, bottom: 8),
+          child: Text(
+            'Bluetooth Low Energy',
+            style: TextStyle(
+              color: tokens.onSurface.withValues(alpha: 0.5),
+              fontSize: 10,
+            ),
+          ),
+        ),
+        // WiFi toggle
+        InspectorFieldBuilders.buildBoolToggle(
+          tokens, 'WiFi', widget.state.wifiEnabled,
+          (v) => widget.state.setWifiEnabled(v),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: 20, bottom: 8),
+          child: Text(
+            'Wireless network',
+            style: TextStyle(
+              color: tokens.onSurface.withValues(alpha: 0.5),
+              fontSize: 10,
+            ),
+          ),
+        ),
+        // WiFi STA settings (shown when WiFi enabled)
+        if (widget.state.wifiEnabled) ...[
+          InspectorFieldBuilders.buildTextField(
+            tokens, 'STA SSID', widget.state.wifiSsid,
+            (v) => widget.state.setWifiSsid(v),
+          ),
+          InspectorFieldBuilders.buildTextField(
+            tokens, 'STA PASS', widget.state.wifiPass,
+            (v) => widget.state.setWifiPass(v),
+          ),
+        ],
+        // Cloud toggle (shown only when WiFi enabled)
+        if (widget.state.wifiEnabled) ...[
+          InspectorFieldBuilders.buildBoolToggle(
+            tokens, 'Cloud', widget.state.cloudEnabled,
+            (v) => widget.state.setCloudEnabled(v),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 20, bottom: 8),
+            child: Text(
+              'Remote access over internet',
+              style: TextStyle(
+                color: tokens.onSurface.withValues(alpha: 0.5),
+                fontSize: 10,
+              ),
+            ),
+          ),
+        ],
+        // Cloud settings (shown when Cloud enabled)
+        if (widget.state.cloudEnabled) ...[
+          InspectorFieldBuilders.buildTextField(
+            tokens, 'Account', widget.state.cloudAccount,
+            (v) => widget.state.setCloudAccount(v),
+          ),
+          InspectorFieldBuilders.buildTextField(
+            tokens, 'Relay URL', widget.state.cloudRelay,
+            (v) => widget.state.setCloudRelay(v),
+          ),
+        ],
+        Container(height: 1, color: tokens.effectiveOutline),
+      ],
     );
   }
 

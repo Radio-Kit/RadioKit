@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 import '../../models/starter_template.dart';
+import 'design_preview.dart';
 import 'responsive_grid.dart';
 
 
@@ -223,15 +224,10 @@ class _TemplateCard extends StatelessWidget {
                       borderRadius: BorderRadius.vertical(
                         top: Radius.circular(tokens.borderRadius.clamp(4, 16)),
                       ),
-                      child: Container(
-                        color: tokens.base300,
-                        child: RKTheme(
-                          tokens: RKTokens.presetsByName[previewState!.activeSkin] ?? tokens,
-                          child: AbsorbPointer(
-                            child: DesignerCanvas(state: previewState!),
-                          ),
-                        ),
-                      ),
+                      child: DesignPreview(
+                              state: previewState!,
+                              fallbackTokens: tokens,
+                            ),
                     )
                   : Container(
                       decoration: BoxDecoration(

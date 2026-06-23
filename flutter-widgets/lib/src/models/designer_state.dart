@@ -14,7 +14,13 @@ class DesignerState extends ChangeNotifier {
   bool _isInspectorVisible = true;
   GridStyle _gridStyle = GridStyle.none;
   String _activeSkin = 'dragon';
-  String _connectionType = 'ble';
+  bool _bleEnabled = true;
+  bool _wifiEnabled = false;
+  bool _cloudEnabled = false;
+  String _wifiSsid = '';
+  String _wifiPass = '';
+  String _cloudAccount = '';
+  String _cloudRelay = '';
   String _modelName = '';
   String _modelType = 'Locomotive';
   String _modelDescription = '';
@@ -57,7 +63,13 @@ class DesignerState extends ChangeNotifier {
   bool get isInspectorVisible => _isInspectorVisible;
   GridStyle get gridStyle => _gridStyle;
   String get activeSkin => _activeSkin;
-  String get connectionType => _connectionType;
+  bool get bleEnabled => _bleEnabled;
+  bool get wifiEnabled => _wifiEnabled;
+  bool get cloudEnabled => _cloudEnabled;
+  String get wifiSsid => _wifiSsid;
+  String get wifiPass => _wifiPass;
+  String get cloudAccount => _cloudAccount;
+  String get cloudRelay => _cloudRelay;
   String get modelName => _modelName;
   String get modelType => _modelType;
   String get modelDescription => _modelDescription;
@@ -368,9 +380,46 @@ class DesignerState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setConnectionType(String value) {
+  void setBleEnabled(bool v) {
     _mutationCount++;
-    _connectionType = value;
+    _bleEnabled = v;
+    notifyListeners();
+  }
+
+  void setWifiEnabled(bool v) {
+    _mutationCount++;
+    _wifiEnabled = v;
+    if (!v) _cloudEnabled = false;
+    notifyListeners();
+  }
+
+  void setCloudEnabled(bool v) {
+    _mutationCount++;
+    _cloudEnabled = v;
+    notifyListeners();
+  }
+
+  void setWifiSsid(String v) {
+    _mutationCount++;
+    _wifiSsid = v;
+    notifyListeners();
+  }
+
+  void setWifiPass(String v) {
+    _mutationCount++;
+    _wifiPass = v;
+    notifyListeners();
+  }
+
+  void setCloudAccount(String v) {
+    _mutationCount++;
+    _cloudAccount = v;
+    notifyListeners();
+  }
+
+  void setCloudRelay(String v) {
+    _mutationCount++;
+    _cloudRelay = v;
     notifyListeners();
   }
 
@@ -549,7 +598,26 @@ class DesignerState extends ChangeNotifier {
     _modelName = (decoded['config']?['name'] as String?) ?? '';
     _modelDescription = (decoded['config']?['description'] as String?) ?? '';
     _modelType = (decoded['config']?['type'] as String?) ?? 'Locomotive';
-    _connectionType = ((decoded['config']?['transport'] as String?) ?? 'BLE').toLowerCase();
+    // transports (new nested format)
+    final transports = decoded['config']?['transports'] as Map<String, dynamic>?;
+    if (transports != null) {
+      _bleEnabled = (transports['ble']?['enabled'] as bool?) ?? true;
+      _wifiEnabled = (transports['wifi']?['enabled'] as bool?) ?? false;
+      _cloudEnabled = (transports['cloud']?['enabled'] as bool?) ?? false;
+      _wifiSsid = (transports['wifi']?['ssid'] as String?) ?? '';
+      _wifiPass = (transports['wifi']?['pass'] as String?) ?? '';
+      _cloudAccount = (transports['cloud']?['account'] as String?) ?? '';
+      _cloudRelay = (transports['cloud']?['relay'] as String?) ?? '';
+    } else {
+      // Fallback: old format ignored, use defaults
+      _bleEnabled = true;
+      _wifiEnabled = false;
+      _cloudEnabled = false;
+      _wifiSsid = '';
+      _wifiPass = '';
+      _cloudAccount = '';
+      _cloudRelay = '';
+    }
     _activeSkin = _normaliseSkin((decoded['config']?['theme'] as String?) ?? 'dragon');
     _connectionPassword = (decoded['config']?['password'] as String?) ?? '';
 
@@ -716,7 +784,19 @@ class DesignerState extends ChangeNotifier {
           'name': _modelName,
           'description': _modelDescription,
           'type': _modelType,
-          'transport': _connectionType.toUpperCase(),
+          'transports': {
+            'ble': {'enabled': _bleEnabled},
+            'wifi': {
+              'enabled': _wifiEnabled,
+              'ssid': _wifiSsid,
+              'pass': _wifiPass,
+            },
+            'cloud': {
+              'enabled': _cloudEnabled,
+              'account': _cloudAccount,
+              'relay': _cloudRelay,
+            },
+          },
           'theme': _normaliseSkin(_activeSkin),
           'password': _connectionPassword,
         },

@@ -4,7 +4,11 @@
   "config": {
     "name": "FS Command Test",
     "description": "Test REPLACE and CRC32 commands",
-    "transport": "SERIAL",
+    "transports": {
+      "ble": { "enabled": false },
+      "wifi": { "enabled": false, "ssid": "", "pass": "" },
+      "cloud": { "enabled": false, "account": "", "relay": "" }
+    },
     "theme": "dragon"
   },
   "widgets": []
@@ -21,6 +25,7 @@ static inline void initRadioKit() {
   RadioKit.config.description = "Test REPLACE and CRC32 commands";
 
   RadioKit.begin();
+
   RadioKit.startSerial(Serial);
 }
 

@@ -5,7 +5,11 @@
     "name": "RC Truck",
     "description": "Advanced RC Truck Controller",
     "type": "Vehicle",
-    "transport": "BLE",
+    "transports": {
+      "ble": { "enabled": true },
+      "wifi": { "enabled": false, "ssid": "", "pass": "" },
+      "cloud": { "enabled": false, "account": "", "relay": "" }
+    },
     "theme": "dragon",
     "password": ""
   },
@@ -123,6 +127,8 @@ static inline void initRadioKit() {
   truckStatus.rk.label = "Truck Status";
 
   RadioKit.begin();
+
+  RadioKit.startSerial(Serial);
   RadioKit.startBLE(RadioKit.config.name);
 }
 

@@ -15,6 +15,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:file_picker/file_picker.dart';
 import 'utils/file_download.dart';
 import 'widgets/designer_widget_dialog.dart';
+import '../../widgets/themed_bottom_sheet.dart';
 import 'widgets/designer_inspector.dart';
 
 import '../../providers/designs_provider.dart';
@@ -234,7 +235,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                           bottom: 16,
                           child: FloatingActionButton(
                             onPressed: () {
-                              showModalBottomSheet(
+                              showThemedBottomSheet(
                                 context: context,
                                 isScrollControlled: true,
                                 showDragHandle: true,

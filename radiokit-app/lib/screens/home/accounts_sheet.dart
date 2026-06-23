@@ -5,12 +5,13 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../models/account.dart';
 import '../../providers/account_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/themed_bottom_sheet.dart';
 
 class AccountsSheet extends StatelessWidget {
   const AccountsSheet({super.key});
 
   static Future<void> show(BuildContext context) {
-    return showModalBottomSheet(
+    return showThemedBottomSheet(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,

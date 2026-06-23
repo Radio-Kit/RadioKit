@@ -9,7 +9,11 @@
     "name": "Basic_Switch",
     "description": "",
     "type": "IOT",
-    "transport": "BLE",
+    "transports": {
+      "ble": { "enabled": true },
+      "wifi": { "enabled": false, "ssid": "", "pass": "" },
+      "cloud": { "enabled": false, "account": "", "relay": "" }
+    },
     "theme": "dragon",
     "password": ""
   },
@@ -168,6 +172,8 @@ static inline void initRadioKit() {
   led_1.rk.color      = 0x00ff00;
 
   RadioKit.begin();
+
+  RadioKit.startSerial(Serial);
   RadioKit.startBLE(RadioKit.config.name);
 }
 

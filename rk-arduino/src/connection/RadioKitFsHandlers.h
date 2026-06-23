@@ -17,7 +17,7 @@
 #include <Arduino.h>
 #include <stdint.h>
 
-#if __has_include(<LittleFS.h>)
+#ifdef RADIOKIT_FEATURE_FS
   #include <LittleFS.h>
   #define RK_FS_HAS_LITTLEFS 1
 #else

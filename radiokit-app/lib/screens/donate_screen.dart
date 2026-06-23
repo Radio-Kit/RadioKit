@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
+import '../widgets/themed_bottom_sheet.dart';
 
 class DonateBottomSheet {
   static void show(BuildContext context) {
-    showModalBottomSheet(
+    showThemedBottomSheet(
       context: context,
-      useRootNavigator: true,
       isScrollControlled: true,
       showDragHandle: true,
       backgroundColor: context.tokens.surface,

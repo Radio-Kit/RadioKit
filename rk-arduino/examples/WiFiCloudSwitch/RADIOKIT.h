@@ -9,7 +9,11 @@
     "name": "WiFi_Cloud_Switch",
     "description": "Auth test: device_pass / user_pass",
     "type": "IOT",
-    "transport": "BLE",
+    "transports": {
+      "ble": { "enabled": true },
+      "wifi": { "enabled": true, "ssid": "Rambros", "pass": "20252025" },
+      "cloud": { "enabled": true, "account": "6f5d64f15c8c0c80b3a39d4ed3ccfad30feb406ebaa6b36b70e80061389d3d1d", "relay": "10.0.0.9:9000" }
+    },
     "theme": "dragon",
     "password": "device_pass"
   },
@@ -83,15 +87,9 @@ static inline void initRadioKit() {
   RadioKit.begin();
 
   // Set user password in NVS (device password already set via JSON config)
-  // This ensures user-level auth is also required.
   RadioKit.setConfig(nullptr, nullptr, nullptr, "user_pass");
 
-  // ── Start ALL transports ──────────────────────────────
-  // Transport NVS defaults are set by RadioKit.begin() on first boot:
-  // BLE=1, WiFi=1, Cloud=0. Since begin() writes rk_cloud_on=0 even
-  // after factory reset, we must force-enable cloud here by checking
-  // the VALUE rather than the key existence.
-  // The user can still disable it later via NVS_RAW_WRITE(rk_cloud_on=0).
+  // Force-enable cloud in NVS on first boot (begin() defaults rk_cloud_on=0)
   {
     uint8_t _rkCloudOn = 0;
     RKNvs::readU8("rk_cloud_on", &_rkCloudOn);
@@ -101,10 +99,10 @@ static inline void initRadioKit() {
     }
   }
 
-  RadioKit.startSerial(Serial);  // USB CDC serial transport for testing
-  RadioKit.startWiFi();
-  RadioKit.startCloud();  // Cloud relay requires WiFi + relay server running
+  RadioKit.startSerial(Serial);
   RadioKit.startBLE(RadioKit.config.name);
+  RadioKit.startWiFi();
+  RadioKit.startCloud();
 }
 
 #endif // RADIOKIT_UI_H

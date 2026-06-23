@@ -13,6 +13,7 @@ import '../../models/tab_index.dart';
 import '../../widgets/radiokit_app_bar.dart';
 import '../../providers/designs_provider.dart';
 import '../../theme/app_theme.dart';
+import 'design_preview.dart';
 import 'starter_templates_section.dart';
 import 'responsive_grid.dart';
 
@@ -378,16 +379,10 @@ class _DesignCardState extends State<_DesignCard> {
                   ? ClipRRect(
                       borderRadius: BorderRadius.vertical(
                         top: Radius.circular(tokens.borderRadius.clamp(4, 16)),
-                      ),
-                      child: Container(
-                        color: tokens.base300,
-                        child: RKTheme(
-                          tokens: RKTokens.presetsByName[_previewState!.activeSkin] ?? tokens,
-                          child: AbsorbPointer(
-                            child: DesignerCanvas(state: _previewState!),
-                          ),
-                        ),
-                      ),
+                      ),                          child: DesignPreview(
+                              state: _previewState!,
+                              fallbackTokens: tokens,
+                            ),
                     )
                   : Container(
                       decoration: BoxDecoration(

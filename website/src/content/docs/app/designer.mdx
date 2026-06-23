@@ -60,8 +60,9 @@ The Inspector panel (right side) shows configuration options for the selected wi
 
 When no widget is selected, the Inspector shows **Model Settings**:
 
-- **CONNECTION** -- Transport type (BLE/Serial), password, OTA toggle, filesystem toggle
-- **MODEL** -- Device name (required), description, type (Locomotive/Truck/Car/IOT)
+- **MODEL** -- Device name (required), description, type (Locomotive/Truck/Car/IOT), password
+- **TRANSPORTS** -- Enable/disable BLE, WiFi, and Cloud transports. WiFi shows STA SSID/PASS fields. Cloud (shown only when WiFi is on) shows Account and Relay URL fields.
+- **FEATURES** -- OTA firmware update toggle, Filesystem (LittleFS) toggle
 - **CONTROL UI** -- Orientation (Landscape/Portrait), canvas size, grid style, skin selector
 - **TELEMETRY** -- Configure up to 4 telemetry widgets with labels, icons, and units
 
@@ -214,13 +215,17 @@ The designer serializes layouts to a standardized JSON format:
     "description": "Robot controller",
     "orientation": "landscape",
     "theme": "DRAGON",
-    "transport": "ble",
     "password": "",
-    "features": {
-      "ota": false,
-      "filesystem": false
-    },
-    "type": "Locomotive"
+    "type": "Locomotive",
+    "transports": {
+      "ble": { "enabled": true },
+      "wifi": { "enabled": false, "ssid": "", "pass": "" },
+      "cloud": { "enabled": false, "account": "", "relay": "" }
+    }
+  },
+  "features": {
+    "ota": false,
+    "filesystem": false
   },
   "canvas": {
     "size": [200, 100],
@@ -250,11 +255,25 @@ The designer serializes layouts to a standardized JSON format:
 
 The code generator produces a complete `.h` file with:
 
-1. A JSON config comment block (for re-import)
-2. Widget declarations matching the designer layout
-3. Proper positioning, sizing, and variant configuration
+1. `#define` directives for enabled transports (e.g. `#define ENABLE_RK_BLE`) at the top, before `#include <RadioKitLib.h>`
+2. A JSON config comment block (for re-import)
+3. Widget declarations matching the designer layout
+4. A `setup()` function with conditional transport start calls under `#ifdef` guards
+5. Proper positioning, sizing, and variant configuration
 
 The generated code can be included directly in your Arduino sketch with `#include "RadioKit_UI.h"`.
+
+**Transport `#define` pattern:**
+```cpp
+#define ENABLE_RK_SERIAL  // always on
+#define ENABLE_RK_BLE
+// #define ENABLE_RK_WIFI   // commented out when disabled
+// #define ENABLE_RK_CLOUD  // commented out when disabled
+
+#include <RadioKitLib.h>
+```
+
+Serial is always enabled. Comment out `#define ENABLE_RK_SERIAL` manually to disable it.
 
 ## Import and Export
 

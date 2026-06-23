@@ -13,6 +13,13 @@ Bluetooth Low Energy via NimBLE-Arduino (ESP32).
 RadioKit.startBLE("MyDevice");
 ```
 
+**Compile-time guard:**
+```cpp
+#define ENABLE_RK_BLE
+```
+
+When `ENABLE_RK_BLE` is defined, the generated `setup()` calls `RadioKit.startBLE()`. Comment out the define to disable BLE at compile time.
+
 **Configuration:**
 
 | Setting | Default | Description |
@@ -33,10 +40,15 @@ BLE can be enabled/disabled via NVS. On first boot, BLE is enabled by default (`
 
 ## Serial Transport
 
-USB/UART serial communication.
+USB/UART serial communication. Serial is always enabled by default — the generated code includes `#define ENABLE_RK_SERIAL` unconditionally. Comment out the define to disable serial.
 
 ```cpp
 RadioKit.startSerial(Serial);
+```
+
+**Compile-time guard:**
+```cpp
+#define ENABLE_RK_SERIAL  // always defined by default
 ```
 
 **Configuration:**
@@ -66,6 +78,13 @@ WebSocket server on port 5555. Supports both AP and STA modes.
 RadioKit.startWiFi();
 ```
 
+**Compile-time guard:**
+```cpp
+#define ENABLE_RK_WIFI
+```
+
+When `ENABLE_RK_WIFI` is defined, the generated `setup()` calls `RadioKit.startWiFi()`. Comment out the define to disable WiFi at compile time.
+
 **Configuration:**
 
 | Setting | Default | Description |
@@ -74,12 +93,6 @@ RadioKit.startWiFi();
 | AP SSID | `RK_<device_name>` | Open network (no password) |
 | STA SSID | Configured via `config.sta_ssid` or NVS | WiFi network name |
 | STA Password | Configured via `config.sta_password` or NVS | WiFi network password |
-
-**Build Flag Required:**
-
-```ini
-build_flags = -D RADIOKIT_ENABLE_WIFI
-```
 
 **AP vs STA Mode:**
 
@@ -104,18 +117,19 @@ RadioKit.config.cloud_account = "<public-key-hex>";
 RadioKit.startCloud();  // Must call startWiFi() first
 ```
 
+**Compile-time guard:**
+```cpp
+#define ENABLE_RK_CLOUD
+```
+
+When `ENABLE_RK_CLOUD` is defined, the generated `setup()` calls `RadioKit.startCloud()`. Comment out the define to disable Cloud at compile time.
+
 **Configuration:**
 
 | Setting | Default | Description |
 |---------|---------|-------------|
 | cloud_url | "" | Relay server WebSocket URL |
 | cloud_account | "" | Ed25519 public key hex for authentication |
-
-**Build Flag Required:**
-
-```ini
-build_flags = -D RADIOKIT_ENABLE_WIFI
-```
 
 **Authentication:**
 
@@ -131,17 +145,36 @@ Cloud can be enabled/disabled via NVS (`rk_cloud_on`). On first boot, Cloud is d
 
 ## Multiple Transports
 
-You can activate multiple transports simultaneously:
+You can activate multiple transports simultaneously. The designer generates `#define` directives at the top of the header file to enable/disable each transport at compile time:
+
+```cpp
+#define ENABLE_RK_SERIAL
+#define ENABLE_RK_BLE
+#define ENABLE_RK_WIFI
+// #define ENABLE_RK_CLOUD  // disabled
+```
+
+The generated `setup()` uses `#ifdef` guards around each start call:
 
 ```cpp
 void setup() {
   RadioKit.begin();
-  RadioKit.startBLE("MyDevice");
+#ifdef ENABLE_RK_SERIAL
   RadioKit.startSerial(Serial);
+#endif
+#ifdef ENABLE_RK_BLE
+  RadioKit.startBLE(RadioKit.config.name);
+#endif
+#ifdef ENABLE_RK_WIFI
   RadioKit.startWiFi();
+#endif
+#ifdef ENABLE_RK_CLOUD
   RadioKit.startCloud();  // Requires startWiFi() first
+#endif
 }
 ```
+
+Serial is always defined by default. Comment out `#define ENABLE_RK_SERIAL` manually to disable serial.
 
 The library will automatically broadcast widget state changes to all active transports.
 

@@ -6,6 +6,7 @@ import '../../services/ble_service_impl.dart';
 import '../../services/serial_service_native.dart';
 import '../../services/websocket_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/themed_bottom_sheet.dart';
 
 /// Full-screen dialog for editing device settings (name, description,
 /// passwords) and performing a factory reset.
@@ -17,7 +18,7 @@ class DeviceSettingsDialog extends StatefulWidget {
 
   /// Show the dialog as a full-screen modal bottom sheet.
   static Future<void> show(BuildContext context) {
-    return showModalBottomSheet(
+    return showThemedBottomSheet(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,

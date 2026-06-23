@@ -18,24 +18,23 @@ class JsonArduinoGenerator {
     buf.writeln('#ifndef RADIOKIT_H');
     buf.writeln('#define RADIOKIT_H');
     buf.writeln();
-    buf.writeln('#include <RadioKitLib.h>');
-    buf.writeln();
 
-    // ─── Feature includes ───
+    // ─── Transport defines ───
+    final transports = config['transports'] as Map<String, dynamic>? ?? {};
+    final bleEnabled = (transports['ble']?['enabled'] as bool?) ?? true;
+    final wifiEnabled = (transports['wifi']?['enabled'] as bool?) ?? false;
+    final cloudEnabled = (transports['cloud']?['enabled'] as bool?) ?? false;
+
+    // ─── Feature defines (must precede #include) ───
     if (enableOta) {
-      buf.writeln('#if defined(ESP32)');
       buf.writeln('#define RADIOKIT_FEATURE_OTA');
-      buf.writeln('#include "connection/RadioKitOTA.h"');
-      buf.writeln('#endif');
-      buf.writeln();
     }
     if (enableFs) {
-      buf.writeln('#if __has_include(<LittleFS.h>)');
       buf.writeln('#define RADIOKIT_FEATURE_FS');
-      buf.writeln('#include <LittleFS.h>');
-      buf.writeln('#endif');
-      buf.writeln();
     }
+    if (enableOta || enableFs) buf.writeln();
+    buf.writeln('#include <RadioKitLib.h>');
+    buf.writeln();
 
     final setupBuf = StringBuffer();
 
@@ -92,19 +91,22 @@ class JsonArduinoGenerator {
     }
 
     buf.writeln('  RadioKit.begin();');
-    final transport = (config['transport'] as String? ?? 'BLE').toLowerCase();
-    if (transport == 'ble') {
+    buf.writeln();
+    buf.writeln('  RadioKit.startSerial(Serial);');
+    if (bleEnabled) {
       buf.writeln('  RadioKit.startBLE(RadioKit.config.name);');
-    } else {
-      buf.writeln('  RadioKit.startSerial(Serial);');
+    }
+    if (wifiEnabled) {
+      buf.writeln('  RadioKit.startWiFi();');
+    }
+    if (cloudEnabled) {
+      buf.writeln('  RadioKit.startCloud();');
     }
 
     // ─── Feature initialization ───
     if (enableFs) {
       buf.writeln('');
-      buf.writeln('  #if __has_include(<LittleFS.h>)');
       buf.writeln('  RKFs::begin();');
-      buf.writeln('  #endif');
     }
 
     buf.writeln('}');
@@ -141,6 +143,35 @@ class JsonArduinoGenerator {
       buf.writeln('${indent}RadioKit.config.password    = "${_escapeC(password)}";');
     }
     buf.writeln('${indent}RadioKit.config.baudrate    = $baudrate;');
+
+    // ── Transport config fields ──
+    final transports = config['transports'] as Map<String, dynamic>? ?? {};
+    final wifi = transports['wifi'] as Map<String, dynamic>? ?? {};
+    final cloud = transports['cloud'] as Map<String, dynamic>? ?? {};
+    final wifiEnabled = (wifi['enabled'] as bool?) ?? false;
+    final cloudEnabled = (cloud['enabled'] as bool?) ?? false;
+
+    if (wifiEnabled) {
+      final ssid = (wifi['ssid'] as String?) ?? '';
+      final pass = (wifi['pass'] as String?) ?? '';
+      if (ssid.isNotEmpty) {
+        buf.writeln('${indent}RadioKit.config.sta_ssid     = "${_escapeC(ssid)}";');
+      }
+      if (pass.isNotEmpty) {
+        buf.writeln('${indent}RadioKit.config.sta_password = "${_escapeC(pass)}";');
+      }
+    }
+
+    if (cloudEnabled) {
+      final account = (cloud['account'] as String?) ?? '';
+      final relay = (cloud['relay'] as String?) ?? '';
+      if (relay.isNotEmpty) {
+        buf.writeln('${indent}RadioKit.config.cloud_url     = "${_escapeC(relay)}";');
+      }
+      if (account.isNotEmpty) {
+        buf.writeln('${indent}RadioKit.config.cloud_account = "${_escapeC(account)}";');
+      }
+    }
   }
 
   // ── Widget generator ─────────────────────────────────────────────────────

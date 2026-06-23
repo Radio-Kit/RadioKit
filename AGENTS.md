@@ -115,6 +115,23 @@ The `toJson()` method strips these keys from the base properties map before emit
 - `variant` — conditionally promoted (see 3.5)
 - `hidden` — promoted to top-level (see section 21)
 
+### 3.7 Transports config
+
+The `config` object includes a `transports` map (replaces the old `transport` string). Each transport sub-object has an `enabled` boolean and optional config fields:
+
+```json
+"transports": {
+  "ble": { "enabled": true },
+  "wifi": { "enabled": false, "ssid": "", "pass": "" },
+  "cloud": { "enabled": false, "account": "", "relay": "" }
+}
+```
+
+- `ble.enabled` defaults to `true` in `loadFromJson()` fallback.
+- `wifi.ssid` / `wifi.pass` are written to NVS as `sta_ssid` / `sta_password` on first boot.
+- `cloud.account` / `cloud.relay` are written to NVS as `cloud_account` / `cloud_url` on first boot.
+- The old `transport: "BLE"` string field is removed. No backward compatibility.
+
 ## 4. State Management Patterns
 
 - **DesignerState** extends `ChangeNotifier` — always call `notifyListeners()` after mutations.
@@ -179,6 +196,49 @@ Pass `showDebug: showDebug` to widgets (true only for the selected element in de
 - The C++ code is always derived from the JSON schema (never hand-edited alongside the designer).
 - Widget names use `snake_case` identifiers (e.g., `button_1`, `slider_2`).
 - Demo JSON files live in `radiokit-app/assets/demos/` and use the same schema.
+
+### 7.1 Transport Toggles and `#define` Directives
+
+The JSON config uses a nested `transports` object (not a flat `transport` string). The codegen emits compile-time `#define` directives at the **top** of the header, before `#include <RadioKitLib.h>`.
+
+**JSON schema (`config.transports`):**
+```json
+"transports": {
+  "ble": { "enabled": true },
+  "wifi": { "enabled": false, "ssid": "", "pass": "" },
+  "cloud": { "enabled": false, "account": "", "relay": "" }
+}
+```
+
+**Generated C++ output:**
+```cpp
+// Transports
+#define ENABLE_RK_SERIAL
+#define ENABLE_RK_BLE
+// #define ENABLE_RK_WIFI
+// #define ENABLE_RK_CLOUD
+
+#include <RadioKitLib.h>
+// ... widget declarations ...
+
+void setup() {
+  RadioKit.begin();
+#ifdef ENABLE_RK_SERIAL
+  RadioKit.startSerial(Serial);
+#endif
+#ifdef ENABLE_RK_BLE
+  RadioKit.startBLE(RadioKit.config.name);
+#endif
+}
+```
+
+**Rules:**
+- Serial is always on (`#define ENABLE_RK_SERIAL` emitted unconditionally). Users manually comment it out to disable.
+- `#define` directives are a **codegen-only** pattern — they gate the generated `setup()` code, not the library internals. The Arduino library uses runtime NVS checks (`rk_ble_on`, `rk_wifi_on`, `rk_cloud_on`) independently.
+- WiFi/Cloud config fields (`sta_ssid`, `sta_password`, `cloud_url`, `cloud_account`) are emitted only when the respective transport is enabled AND the value is non-empty.
+- Start call ordering: Serial -> BLE -> WiFi -> Cloud. Cloud requires WiFi to be started first.
+- The old `config.transport = "BLE"` line is no longer emitted (vestigial field in `RK_Config`).
+- The JSON `config.transports` object is embedded in the `.h` file comment block for re-import by the header parser.
 
 ## 8. Demo Screen Conventions
 

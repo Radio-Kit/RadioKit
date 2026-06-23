@@ -5,7 +5,11 @@
     "name": "RobotDrive",
     "description": "JoystickMotor — dual motor control with joystick",
     "type": "Robot",
-    "transport": "BLE",
+    "transports": {
+      "ble": { "enabled": true },
+      "wifi": { "enabled": false, "ssid": "", "pass": "" },
+      "cloud": { "enabled": false, "account": "", "relay": "" }
+    },
     "theme": "dragon",
     "password": ""
   },
@@ -74,6 +78,8 @@ static inline void initRadioKit() {
   speedText.rk.label = "Speed";
 
   RadioKit.begin();
+
+  RadioKit.startSerial(Serial);
   RadioKit.startBLE(RadioKit.config.name);
 }
 
