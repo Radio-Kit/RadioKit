@@ -307,10 +307,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_esptool
-      sha256: c9dd5b825396918198259a242a75d334b8e6ac65dcc59802812f5035e561215f
+      sha256: "55a3160b538825f6cfbd986af28cf5791f9a87b6dcd91b9ebcdda6ac7b071f60"
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.2"
+    version: "0.1.4"
   flutter_gen_core:
     dependency: transitive
     description:

@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flserial/flserial.dart';
 import 'package:flutter_esptool/flutter_esptool.dart';
-import 'package:flutter_esptool/src/application/stub_loader_service.dart';
+
 import '../services/flserial_port_adapter.dart';
 
 /// State management for the Flasher tab.
@@ -37,7 +37,6 @@ class FlasherProvider extends ChangeNotifier {
 
   // ── Chip info ────────────────────────────────────────────────
   EspConfig? _espConfig;
-  ChipFamily? _chipFamily;
   ChipInfo? _chipInfo;
   bool _isLoadingChipInfo = false;
 
@@ -318,7 +317,6 @@ class FlasherProvider extends ChangeNotifier {
 
       // 6. Create flash service with stub loader (required for ESP32-S3
       //    USB-JTAG-Serial flash operations).
-      _chipFamily = detectedChip?.family;
       _flashService = _createFlashService();
 
       _addLogEntry('[OK] Device ready for flashing');
@@ -570,15 +568,11 @@ class FlasherProvider extends ChangeNotifier {
     _flashService = _createFlashService();
   }
 
-  /// Create a new [FlashService] with a fresh stub loader.
+  /// Create a new [FlashService].
   FlashService _createFlashService() {
-    final stubLoader = StubLoaderService(_transport!);
-    final service = FlashService(
+    return FlashService(
       transport: _transport!,
-      stubLoader: stubLoader,
     );
-    service.chipFamily = _chipFamily;
-    return service;
   }
 
   // ── Log ───────────────────────────────────────────────────────
