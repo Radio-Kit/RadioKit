@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 import '../../providers/settings_provider.dart';
-import '../../theme/app_theme.dart';
 
 /// A read-only designer canvas preview that respects the app's
 /// [SettingsProvider.overrideTheme] setting.
