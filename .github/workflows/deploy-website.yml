@@ -42,7 +42,7 @@ jobs:
         run: |
           cd dist
           find . -type l -delete
-          find . -type f -links +1 -exec cp --remove-destination {} {} +
+          find . -type f -links +1 -exec sh -c 'cp --remove-destination "$1" "$1"' _ {} \;
 
       - name: Create tar
         run: |
