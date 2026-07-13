@@ -20,25 +20,40 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
     steps:
       - uses: actions/checkout@v4
 
-      - uses: withastro/action@v3
+      - uses: actions/setup-node@v4
         with:
-          path: website
           node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
 
-      - name: Fix artifact (remove symlinks/hardlinks)
+      - name: Install deps
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Clean dist
+        run: |
+          cd dist
+          find . -type l -delete
+          find . -type f -links +1 -exec cp --remove-destination {} {} +
+
+      - name: Create tar
         run: |
           cd website/dist
-          find . -type l -delete
-          find . -type f -links +1 -exec sh -c 'cp --remove-destination "$1" "$1"' _ {} \;
+          tar -cvf "$RUNNER_TEMP/github-pages.tar" .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: github-pages
-          path: website/dist
+          path: /home/runner/work/_temp/github-pages.tar
           retention-days: 1
           overwrite: true
 
