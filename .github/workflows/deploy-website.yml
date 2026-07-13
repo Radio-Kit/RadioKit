@@ -28,9 +28,13 @@ jobs:
           path: website
           node-version: 22
 
-      - uses: actions/upload-pages-artifact@v3
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
+          name: github-pages
           path: website/dist
+          retention-days: 1
+          overwrite: true
 
   deploy:
     needs: build
