@@ -1446,7 +1446,7 @@ class _PairedModelsListState extends State<_PairedModelsList> {
 
     if (device.lastUsedTransport == 'wifi') addIf('wifi', 'WiFi', device.wifiAddress, TransportType.wifi, () => WebSocketService());
     if (device.lastUsedTransport == 'ble') addIf('ble', 'BLE', device.bleAddress, TransportType.ble, () => BleTransport(ble.bleService));
-    if (device.lastUsedTransport == 'cloud' && cloudIdentity != null) addIf('cloud', 'Cloud', device.cloudAddress, TransportType.cloud, () { final ws = WebSocketService()..account = cloudIdentity.account..identity = cloudIdentity; return ws; });
+    if (device.lastUsedTransport == 'cloud' && cloudIdentity != null) { final ci = cloudIdentity; addIf('cloud', 'Cloud', device.cloudAddress, TransportType.cloud, () { final ws = WebSocketService()..account = ci.account..identity = ci; return ws; }); }
     if (device.lastUsedTransport == 'serial') addIf('serial', 'Serial', device.serialAddress, TransportType.serial, () => serial.serialService);
 
     addIf('wifi', 'WiFi', device.wifiAddress, TransportType.wifi, () => WebSocketService());
@@ -1454,7 +1454,8 @@ class _PairedModelsListState extends State<_PairedModelsList> {
     addIf('serial', 'Serial', device.serialAddress, TransportType.serial, () => serial.serialService);
 
     if (cloudIdentity != null && device.cloudAddress != null && device.cloudAddress!.isNotEmpty) {
-      addIf('cloud', 'Cloud', device.cloudAddress, TransportType.cloud, () { final ws = WebSocketService()..account = cloudIdentity.account..identity = cloudIdentity; return ws; });
+      final ci = cloudIdentity;
+      addIf('cloud', 'Cloud', device.cloudAddress, TransportType.cloud, () { final ws = WebSocketService()..account = ci.account..identity = ci; return ws; });
     }
 
     if (attempts.isEmpty) {
