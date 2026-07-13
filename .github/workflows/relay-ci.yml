@@ -12,6 +12,7 @@ on:
       - '*-mac'
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   relay:

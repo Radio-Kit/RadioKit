@@ -16,7 +16,8 @@
 
 #include "RadioKitBLE.h"
 #include "../RadioKitProtocol.h"
-#include "../RadioKitLib.h"
+#include "../RadioKitClass.h"
+#include "RadioKitPrint.h"
 #include "RadioKitFS.h"
 #include "RadioKitOTA.h"
 #include "RadioKitSettings.h"

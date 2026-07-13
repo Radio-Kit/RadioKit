@@ -1,16 +1,11 @@
 # =============================================================================
 # Unified .gitignore for RadioKit
 # =============================================================================
+# asgent
+.*/
+!/.github/
+
 # IDE
-.idea/
-.vscode/
-.gemini/
-.cursor/
-.agent/
-.kilo/
-.antigravity/
-.codex/
-.claude/
 references/
 .worktree/
 ref/

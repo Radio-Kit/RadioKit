@@ -11,7 +11,7 @@
     "type": "IOT",
     "transports": {
       "ble": { "enabled": true },
-      "wifi": { "enabled": true, "ssid": "Rambros", "pass": "20252025" },
+      "wifi": { "enabled": true, "ssid": "Leap", "pass": "awsedrft" },
       "cloud": { "enabled": true, "account": "6f5d64f15c8c0c80b3a39d4ed3ccfad30feb406ebaa6b36b70e80061389d3d1d", "relay": "10.0.0.9:9000" }
     },
     "theme": "dragon",
@@ -64,6 +64,7 @@ RADIOKIT_Designer_Config__*/
 #define RK_ENABLE_BLE
 #define RK_ENABLE_WIFI
 #define RK_ENABLE_CLOUD
+#define RK_ENABLE_OTA
 #include <RadioKitLib.h>
 
 // ─── Widget Declarations ───
@@ -82,8 +83,8 @@ static inline void initRadioKit() {
   RadioKit.config.cloud_account = "6f5d64f15c8c0c80b3a39d4ed3ccfad30feb406ebaa6b36b70e80061389d3d1d";
 
   // ── STA WiFi compile-time defaults ────────────────────
-  RadioKit.config.sta_ssid      = "Rambros";
-  RadioKit.config.sta_password  = "20252025";
+  RadioKit.config.sta_ssid      = "Leap";
+  RadioKit.config.sta_password  = "awsedrft";
 
   led_1.rk.color = 0x00ff00;
 
