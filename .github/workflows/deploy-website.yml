@@ -45,9 +45,7 @@ jobs:
           find . -type f -links +1 -exec sh -c 'cp --remove-destination "$1" "$1"' _ {} \;
 
       - name: Create tar
-        run: |
-          cd website/dist
-          tar -cvf "$RUNNER_TEMP/github-pages.tar" .
+        run: tar -cvf "$RUNNER_TEMP/github-pages.tar" -C dist .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
