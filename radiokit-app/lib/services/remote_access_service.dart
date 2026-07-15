@@ -33,6 +33,8 @@ import '../providers/multi_device_provider.dart';
 import 'ble_transport.dart';
 import 'demo_transport.dart';
 import '../models/account.dart';
+import 'docs_service.dart';
+import '../screens/designer/codegen/json_arduino_generator.dart';
 
 class RemoteAccessService {
   final DeviceProvider Function() _getActiveDevice;
@@ -52,6 +54,7 @@ class RemoteAccessService {
   final Map<String, dynamic> Function()? _viewStateGetter;
   final String Function() _currentRouteGetter;
   final Future<dynamic> Function(String demoId)? _connectDemo;
+  final DocsService? _docsService;
 
   HttpServer? _server;
   bool _isRunning = false;
@@ -80,6 +83,7 @@ class RemoteAccessService {
   String Function() currentRouteGetter = _defaultRouteGetter,
   Map<String, dynamic> Function()? viewStateGetter,
   Future<void> Function(String demoId)? connectDemo,
+  DocsService? docsService,
   })  :        _getActiveDevice = getActiveDevice,
         _bleProvider = bleProvider,
         _serialProvider = serialProvider,
@@ -95,7 +99,8 @@ class RemoteAccessService {
         _onFollowEvent = onFollowEvent,
       _viewStateGetter = viewStateGetter,
         _currentRouteGetter = currentRouteGetter,
-        _connectDemo = connectDemo;
+        _connectDemo = connectDemo,
+        _docsService = docsService;
 
   static String _defaultRouteGetter() => '';
 
@@ -273,6 +278,8 @@ class RemoteAccessService {
     router.post('/api/connection/demo', _handleConnectionDemo);
     router.get('/api/designs', _handleDesigns);
     router.post('/api/designs', _handleDesignsSave);
+    router.get('/api/designs/<id>/json', _handleDesignJson);
+    router.get('/api/designs/<id>/header', _handleDesignHeader);
     router.delete('/api/designs', _handleDesignsDeleteAll);
     router.delete('/api/designs/<id>', _handleDesignsDeleteOne);
     router.get('/api/session/route', _handleSessionRoute);
@@ -338,6 +345,14 @@ class RemoteAccessService {
     router.post('/api/cloud/accounts', _handleCloudAccountsCreate);
     router.put('/api/cloud/accounts/<id>', _handleCloudAccountsUpdate);
     router.delete('/api/cloud/accounts/<id>', _handleCloudAccountsDelete);
+
+    // ── Docs API ───────────────────────────────────────────────────────
+    if (_docsService != null) {
+      router.get('/', _handleLlmsTxt);
+      router.get('/api/docs', _handleDocsIndex);
+      router.get('/api/docs/api-schema', _handleDocsSchema);
+      router.get('/api/docs/<skill>', _handleDocsSkill);
+    }
 
     final pipeline = Pipeline()
         .addMiddleware(_corsMiddleware())
@@ -642,6 +657,42 @@ class RemoteAccessService {
     }
     await _accountProvider.deleteAccount(id);
     return _json({'ok': true, 'message': 'Account deleted'});
+  }
+
+  // ── Docs Handlers ────────────────────────────────────────────────────────
+
+  Future<Response> _handleLlmsTxt(Request request) async {
+    final llmsTxt = _docsService?.getLlmsTxt() ?? '# RadioKit API\n\nNo documentation loaded.';
+    return Response.ok(
+      llmsTxt,
+      headers: {'content-type': 'text/plain; charset=utf-8'},
+    );
+  }
+
+  Future<Response> _handleDocsIndex(Request request) async {
+    if (_docsService == null) {
+      return _error('not_available', 'Docs service not initialized');
+    }
+    final skills = _docsService.getSkillsIndex();
+    return _json({'skills': skills});
+  }
+
+  Future<Response> _handleDocsSkill(Request request, String skill) async {
+    if (_docsService == null) {
+      return _error('not_available', 'Docs service not initialized');
+    }
+    final doc = _docsService.getSkillContent(skill);
+    if (doc == null) {
+      return _error('not_found', 'Skill not found: $skill', status: 404);
+    }
+    return _json(doc.toJson());
+  }
+
+  Future<Response> _handleDocsSchema(Request request) async {
+    if (_docsService == null) {
+      return _error('not_available', 'Docs service not initialized');
+    }
+    return _json(_docsService.getApiSchema());
   }
 
   /// Last device list returned by the relay.
@@ -3295,8 +3346,6 @@ class RemoteAccessService {
       'id': d.id,
       'name': d.name,
       'timestamp': d.timestamp,
-      'jsonContent': d.jsonContent,
-      'filePath': d.filePath,
       'appVersion': d.appVersion,
     }).toList();
     return _json({'designs': designs});
@@ -3336,6 +3385,36 @@ class RemoteAccessService {
     }
     await _designsProvider.deleteDesign(id);
     return _json({'ok': true, 'message': 'Design removed'});
+  }
+
+  Future<Response> _handleDesignJson(Request request, String id) async {
+    try {
+      final design = _designsProvider.designs.firstWhere((d) => d.id == id);
+      if (design.jsonContent == null) {
+        return _error('no_content', 'Design has no JSON content', status: 400);
+      }
+      final json = jsonDecode(design.jsonContent!) as Map<String, dynamic>;
+      return _json(json);
+    } catch (_) {
+      return _error('not_found', 'Design not found: $id', status: 404);
+    }
+  }
+
+  Future<Response> _handleDesignHeader(Request request, String id) async {
+    try {
+      final design = _designsProvider.designs.firstWhere((d) => d.id == id);
+      if (design.jsonContent == null) {
+        return _error('no_content', 'Design has no JSON content', status: 400);
+      }
+      final json = jsonDecode(design.jsonContent!) as Map<String, dynamic>;
+      final header = JsonArduinoGenerator.generate(json);
+      return Response.ok(
+        header,
+        headers: {'content-type': 'text/plain; charset=utf-8'},
+      );
+    } catch (_) {
+      return _error('not_found', 'Design not found: $id', status: 404);
+    }
   }
 
   // ── OTA Upload ────────────────────────────────────────────────────────────────

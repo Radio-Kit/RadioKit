@@ -4,6 +4,10 @@
 # asgent
 .*/
 !/.github/
+changes/archive/
+
+# my tasks
+todo.txt
 
 # IDE
 references/

@@ -4,9 +4,13 @@
     "name": "IOT_DASHBOARD",
     "description": "Interactive Demo Mode",
     "type": "Dashboard",
-    "transport": "BLE",
     "theme": "RK_DEFAULT",
-    "password": ""
+    "password": "",
+    "transports": {
+      "ble": { "enabled": true },
+      "wifi": { "enabled": false, "ssid": "", "pass": "" },
+      "cloud": { "enabled": false, "account": "", "relay": "" }
+    }
   },
   "initialOutputs": {
     "ac": [1, 0, 255, 255, 255],

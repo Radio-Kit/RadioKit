@@ -63,7 +63,7 @@ class HeaderAppConfig {
   final String name;
   final String description;
   final String type;
-  final String transport;
+  final Map<String, dynamic> transports;
   final String theme;
   final String password;
 
@@ -71,25 +71,45 @@ class HeaderAppConfig {
     this.name = '',
     this.description = '',
     this.type = 'Locomotive',
-    this.transport = 'BLE',
+    this.transports = const {
+      'ble': {'enabled': true},
+      'wifi': {'enabled': false, 'ssid': '', 'pass': ''},
+      'cloud': {'enabled': false, 'account': '', 'relay': ''},
+    },
     this.theme = 'dragon',
     this.password = '',
   });
 
-  factory HeaderAppConfig.fromJson(Map<String, dynamic> json) => HeaderAppConfig(
-        name: json['name'] as String? ?? '',
-        description: json['description'] as String? ?? '',
-        type: json['type'] as String? ?? 'Locomotive',
-        transport: json['transport'] as String? ?? 'BLE',
-        theme: json['theme'] as String? ?? 'dragon',
-        password: json['password'] as String? ?? '',
-      );
+  bool get bleEnabled => (transports['ble']?['enabled'] as bool?) ?? true;
+  bool get wifiEnabled => (transports['wifi']?['enabled'] as bool?) ?? false;
+  bool get cloudEnabled => (transports['cloud']?['enabled'] as bool?) ?? false;
+  String get wifiSsid => (transports['wifi']?['ssid'] as String?) ?? '';
+  String get wifiPass => (transports['wifi']?['pass'] as String?) ?? '';
+  String get cloudAccount => (transports['cloud']?['account'] as String?) ?? '';
+  String get cloudRelay => (transports['cloud']?['relay'] as String?) ?? '';
+
+  factory HeaderAppConfig.fromJson(Map<String, dynamic> json) {
+    final transports = json['transports'] as Map<String, dynamic>?;
+    return HeaderAppConfig(
+      name: json['name'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      type: json['type'] as String? ?? 'Locomotive',
+      transports: transports ??
+          {
+            'ble': {'enabled': true},
+            'wifi': {'enabled': false, 'ssid': '', 'pass': ''},
+            'cloud': {'enabled': false, 'account': '', 'relay': ''},
+          },
+      theme: json['theme'] as String? ?? 'dragon',
+      password: json['password'] as String? ?? '',
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'name': name,
         'description': description,
         'type': type,
-        'transport': transport,
+        'transports': transports,
         'theme': theme,
         'password': password,
       };

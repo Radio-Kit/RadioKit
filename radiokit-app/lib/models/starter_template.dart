@@ -9,7 +9,7 @@ class StarterTemplate {
   /// Template type from `config.type` (e.g. "Locomotive").
   final String type;
 
-  /// Transport badge from `config.transport` (e.g. "BLE", "WiFi").
+  /// Enabled transports from `config.transports` (e.g. "BLE", "BLE + WiFi").
   final String transport;
 
   /// Canvas dimensions [width, height].
@@ -46,11 +46,25 @@ class StarterTemplate {
         ? [(canvasSizeRaw[0] as num).toInt(), (canvasSizeRaw[1] as num).toInt()]
         : [200, 100];
 
+    // Build transport badge from nested transports object
+    final transports = json['config']?['transports'] as Map<String, dynamic>?;
+    final List<String> enabled = [];
+    if (transports != null) {
+      if ((transports['ble']?['enabled'] as bool?) ?? false) enabled.add('BLE');
+      if ((transports['wifi']?['enabled'] as bool?) ?? false) enabled.add('WiFi');
+      if ((transports['cloud']?['enabled'] as bool?) ?? false) enabled.add('Cloud');
+    }
+    // Fallback to legacy single transport string
+    if (enabled.isEmpty) {
+      final legacy = (json['config']?['transport'] as String?) ?? '';
+      if (legacy.isNotEmpty) enabled.add(legacy.toUpperCase());
+    }
+
     return StarterTemplate(
       assetPath: assetPath,
       name: (json['config']?['name'] as String?) ?? 'Untitled',
       type: (json['config']?['type'] as String?) ?? '',
-      transport: (json['config']?['transport'] as String?) ?? '',
+      transport: enabled.join(' + '),
       canvasSize: canvasSize,
       widgetCount: (json['widgets'] as List?)?.length ?? 0,
       skin: (json['canvas']?['skin'] as String?) ?? 'dragon',

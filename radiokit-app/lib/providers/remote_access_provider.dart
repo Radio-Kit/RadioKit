@@ -19,6 +19,7 @@ import 'cloud_identity_provider.dart';
 import 'account_provider.dart';
 import 'flasher_provider.dart';
 import '../services/demo_transport.dart';
+import '../services/docs_service.dart';
 
 class RemoteAccessProvider extends ChangeNotifier {
   final SettingsProvider _settingsProvider;
@@ -118,6 +119,10 @@ class RemoteAccessProvider extends ChangeNotifier {
   Future<String?> start() async {
     if (_isRunning) return null;
 
+    // Initialize docs service with bundled skills assets
+    final docsService = DocsService();
+    await docsService.loadSkills();
+
     _service = RemoteAccessService(
       getActiveDevice: () => _multiDeviceProvider.primaryDevice ?? (_multiDeviceProvider.devices.isNotEmpty ? _multiDeviceProvider.devices.first : _idleDeviceProvider),
       bleProvider: _bleProvider,
@@ -138,6 +143,7 @@ class RemoteAccessProvider extends ChangeNotifier {
         await _multiDeviceProvider.connectDemo(demoId);
         _multiDeviceProvider.setFocusedDevice('DEMO_$demoId');
       },
+      docsService: docsService,
     );
 
     final error = await _service!.start();

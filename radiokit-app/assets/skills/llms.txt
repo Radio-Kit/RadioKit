@@ -1,0 +1,107 @@
+# RadioKit Remote Access API
+
+RadioKit is an Arduino library for building wireless UI controllers. The Flutter companion app exposes a REST API for device control and firmware documentation.
+
+## Base URL
+
+http://<app-ip>:7007
+
+## Quick Start
+
+1. GET /api/status - verify server is running
+2. POST /api/connection/connect - connect to a device
+3. GET /api/widgets - list available widgets
+4. PUT /api/widgets/<id> - control widget values
+
+## Endpoints
+
+### Server
+- GET /api/status - Server health, version, platform
+
+### Connection
+- GET /api/connection - Connection state and device info
+- POST /api/connection/connect - Connect to device (body: id, type)
+- POST /api/connection/disconnect - Disconnect
+- POST /api/connection/reconnect - Auto-reconnect
+- POST /api/connection/switch - Switch transport (body: transport)
+- POST /api/connection/demo - Load demo (body: demoId)
+
+### Widgets
+- GET /api/widgets - List all widgets with state
+- GET /api/widgets/<id> - Get single widget
+- PUT /api/widgets/<id> - Set widget value (body: values)
+
+### Filesystem
+- GET /api/fs/list?path=/ - List directory
+- GET /api/fs/info - Storage usage
+- GET /api/fs/read?path=/file - Read file (base64)
+- POST /api/fs/write - Write file (body: path, data)
+- POST /api/fs/upload - Upload file (body: path, data)
+- POST /api/fs/mkdir - Create directory (body: path)
+- POST /api/fs/delete - Delete file (body: path, recursive)
+- POST /api/fs/rename - Rename file (body: oldPath, newPath)
+- POST /api/fs/format - Format filesystem
+
+### OTA
+- POST /api/ota/upload - Upload firmware (body: data, eraseAll)
+- GET /api/ota/progress - Upload progress
+
+### Console
+- GET /api/console - Log entries
+- DELETE /api/console - Clear log
+
+### Device Config
+- GET /api/settings/nvs - Read device config
+- POST /api/settings/nvs - Write config (body: name, description, password)
+- POST /api/settings/nvs/authenticate - Auth (body: password)
+- POST /api/settings/nvs/reboot - Reboot device
+- POST /api/settings/nvs/factory-reset - Erase and reboot (body: confirm: true)
+
+### Multi-Device
+- GET /api/devices - List connected devices
+- POST /api/devices/connect - Connect device (body: id, type)
+- POST /api/devices/disconnect - Disconnect device (body: id)
+- GET /api/devices/<id> - Device info
+- GET /api/devices/<id>/widgets - Device widgets
+- PUT /api/devices/<id>/widgets/<wid> - Set widget value
+
+### Serial Flasher
+- GET /api/flasher/ports - List serial ports
+- POST /api/flasher/scan - Scan ports
+- POST /api/flasher/connect - Connect port (body: portId)
+- POST /api/flasher/flash - Start flash
+- GET /api/flasher/status - Flash status
+
+### Cloud Relay
+- POST /api/cloud/connect - Connect relay (body: host, port, account, privateKey)
+- GET /api/cloud/devices - Cloud device list
+- POST /api/cloud/join - Join device (body: device)
+- POST /api/cloud/disconnect - Disconnect relay
+
+### Designs
+- GET /api/designs - List all saved designs
+- POST /api/designs - Save a design (body: id, name, jsonContent)
+- GET /api/designs/<id>/json - Get design JSON config
+- GET /api/designs/<id>/header - Fetch RADIOKIT.h file (text/plain)
+- DELETE /api/designs/<id> - Delete a design
+
+## Firmware Code Generation
+
+To generate firmware from a saved design:
+1. GET /api/designs - list designs, pick one by id
+2. GET /api/designs/<id>/header - fetch the RADIOKIT.h file
+3. Use the fetched content as the device's header file
+
+## Documentation
+
+- GET /api/docs - List all documentation files
+- GET /api/docs/<skill> - Read specific skill doc (markdown)
+- GET /api/docs/api-schema - Full API schema as JSON
+
+### Available Skills
+- radiokit-firmware: Complete firmware development guide
+- radiokit-widgets: All widget types and usage patterns
+- radiokit-transports: BLE, Serial, WiFi, Cloud setup
+- radiokit-filesystem: LittleFS file operations
+- radiokit-ota: Over-the-air firmware updates
+- radiokit-remote: This API reference and autonomous agent workflows

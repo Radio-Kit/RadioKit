@@ -81,6 +81,7 @@ flutter:
     - resources/icon/app_icon.png
     - assets/demos/
     - assets/starter-templates/
+    - assets/skills/
 
 flutter_gen:
   output: lib/gen/

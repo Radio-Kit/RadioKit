@@ -8,9 +8,13 @@
     "name": "WIDGETS_DEMO",
     "description": "Interactive Demo Mode",
     "type": "Locomotive",
-    "transport": "BLE",
     "theme": "RK_DEFAULT",
-    "password": ""
+    "password": "",
+    "transports": {
+      "ble": { "enabled": true },
+      "wifi": { "enabled": false, "ssid": "", "pass": "" },
+      "cloud": { "enabled": false, "account": "", "relay": "" }
+    }
   },
   "canvas": {
     "size": [
