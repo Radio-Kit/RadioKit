@@ -2093,6 +2093,13 @@ class DeviceProvider extends ChangeNotifier {
     // Return to idle state — page switch is complete.
     _pageSwitchState = _PageSwitchState.idle;
     notifyListeners();
+
+    // Re-request CONF_DATA and VAR_DATA for the new page. During pagePending,
+    // the firmware may have sent CONF_DATA/VAR_DATA before PAGE_CHANGED arrived
+    // (BLE ordering). Those were discarded — request fresh data now.
+    _requestConfig().then((_) {
+      _writePacket(ProtocolService.buildGetVars());
+    });
   }
 
   /// Handle CMD_PAGES_DATA (0x23) — page name list from MCU.
