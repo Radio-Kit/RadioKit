@@ -1,6 +1,6 @@
 /*__RADIOKIT_Designer_Config__
 {
-  "version": 1,
+  "version": 2,
   "config": {
     "name": "RC Truck",
     "description": "Advanced RC Truck Controller",
@@ -18,64 +18,70 @@
     "grid": "none",
     "skin": "cyberpunk"
   },
-  "widgets": [
+  "pages": [
     {
-      "type": "slider",
-      "variant": "gasPedal",
-      "name": "gasPedal",
-      "label": { "text": "Gas Pedal", "show": true },
-      "position": [15, 60, -90],
-      "size": [null, 12],
-      "autoCenter": ["min", "smooth", 300],
-      "properties": { "min": -100, "max": 100 }
-    },
-    {
-      "type": "knob",
-      "variant": "steeringWheel",
-      "name": "steeringWheel",
-      "label": { "text": "Steering", "show": true },
-      "position": [85, 60, 0],
-      "size": [null, 30],
-      "autoCenter": ["center", "smooth", 500],
-      "properties": { "startAngle": -150, "endAngle": 150 }
-    },
-    {
-      "type": "multiButton",
-      "name": "driveMode",
-      "label": { "text": "Gear", "show": true },
-      "position": [50, 85, 0],
-      "size": [null, 10],
-      "variant": "multiButton",
-      "properties": {
-        "items": [
-          { "onLabel": "D", "onIcon": "drive_eta" },
-          { "onLabel": "P", "onIcon": "local_parking" },
-          { "onLabel": "R", "onIcon": "settings_backup_restore" }
-        ]
+      "name": "Main",
+      "orientation": "landscape",
+      "widgets": [
+      {
+        "type": "slider",
+        "variant": "gasPedal",
+        "name": "gasPedal",
+        "label": { "text": "Gas Pedal", "show": true },
+        "position": [15, 60, -90],
+        "size": [null, 12],
+        "autoCenter": ["min", "smooth", 300],
+        "properties": { "min": -100, "max": 100 }
+      },
+      {
+        "type": "knob",
+        "variant": "steeringWheel",
+        "name": "steeringWheel",
+        "label": { "text": "Steering", "show": true },
+        "position": [85, 60, 0],
+        "size": [null, 30],
+        "autoCenter": ["center", "smooth", 500],
+        "properties": { "startAngle": -150, "endAngle": 150 }
+      },
+      {
+        "type": "multiButton",
+        "name": "driveMode",
+        "label": { "text": "Gear", "show": true },
+        "position": [50, 85, 0],
+        "size": [null, 10],
+        "variant": "multiButton",
+        "properties": {
+          "items": [
+            { "onLabel": "D", "onIcon": "drive_eta" },
+            { "onLabel": "P", "onIcon": "local_parking" },
+            { "onLabel": "R", "onIcon": "settings_backup_restore" }
+          ]
+        }
+      },
+      {
+        "type": "multiSelect",
+        "name": "lights",
+        "label": { "text": "Truck Lights", "show": true },
+        "position": [50, 35, 0],
+        "size": [null, 10],
+        "variant": "multiSelect",
+        "properties": {
+          "items": [
+            { "onLabel": "Head", "onIcon": "lightbulb" },
+            { "onLabel": "Fog", "onIcon": "cloud" },
+            { "onLabel": "Hazard", "onIcon": "warning" },
+            { "onLabel": "Cabin", "onIcon": "home" }
+          ]
+        }
+      },
+      {
+        "type": "text",
+        "name": "truckStatus",
+        "label": { "text": "Truck Status", "show": true },
+        "position": [50, 10, 0],
+        "size": [null, 10]
       }
-    },
-    {
-      "type": "multiSelect",
-      "name": "lights",
-      "label": { "text": "Truck Lights", "show": true },
-      "position": [50, 35, 0],
-      "size": [null, 10],
-      "variant": "multiSelect",
-      "properties": {
-        "items": [
-          { "onLabel": "Head", "onIcon": "lightbulb" },
-          { "onLabel": "Fog", "onIcon": "cloud" },
-          { "onLabel": "Hazard", "onIcon": "warning" },
-          { "onLabel": "Cabin", "onIcon": "home" }
-        ]
-      }
-    },
-    {
-      "type": "text",
-      "name": "truckStatus",
-      "label": { "text": "Truck Status", "show": true },
-      "position": [50, 10, 0],
-      "size": [null, 10]
+      ]
     }
   ]
 }

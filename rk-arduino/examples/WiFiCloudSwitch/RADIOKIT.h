@@ -1,6 +1,6 @@
 /*__RADIOKIT_Designer_Config__
 {
-  "version": 1,
+  "version": 2,
   "appdata": {
     "appVersion": "1.0.0",
     "lastEdit": 1779879673081
@@ -22,35 +22,41 @@
     "grid": "none",
     "skin": "dragon"
   },
-  "widgets": [
+  "pages": [
     {
-      "type": "switch",
-      "name": "slide_switch_1",
-      "label": { "text": "slide_switch_1", "show": false },
-      "position": [135, 71, 0],
-      "size": [null, 31],
-      "haptic": true,
-      "variant": "slideSwitch",
-      "properties": {
-        "onText": "ON",
-        "offText": "OFF",
-        "autoCenter": [null, "smooth", 300]
+      "name": "Main",
+      "orientation": "landscape",
+      "widgets": [
+      {
+        "type": "switch",
+        "name": "slide_switch_1",
+        "label": { "text": "slide_switch_1", "show": false },
+        "position": [135, 71, 0],
+        "size": [null, 31],
+        "haptic": true,
+        "variant": "slideSwitch",
+        "properties": {
+          "onText": "ON",
+          "offText": "OFF",
+          "autoCenter": [null, "smooth", 300]
+        }
+      },
+      {
+        "type": "led",
+        "name": "led_1",
+        "label": { "text": "led_1", "show": false },
+        "position": [115, 29, 0],
+        "size": [null, 28],
+        "haptic": true,
+        "properties": {
+          "state": "off",
+          "shape": "circle",
+          "color": 65280,
+          "timing": 500,
+          "autoCenter": [null, "smooth", 300]
+        }
       }
-    },
-    {
-      "type": "led",
-      "name": "led_1",
-      "label": { "text": "led_1", "show": false },
-      "position": [115, 29, 0],
-      "size": [null, 28],
-      "haptic": true,
-      "properties": {
-        "state": "off",
-        "shape": "circle",
-        "color": 65280,
-        "timing": 500,
-        "autoCenter": [null, "smooth", 300]
-      }
+      ]
     }
   ]
 }

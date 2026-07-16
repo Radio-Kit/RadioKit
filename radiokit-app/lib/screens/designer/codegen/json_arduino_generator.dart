@@ -269,13 +269,13 @@ class JsonArduinoGenerator {
     void writeLabelAndHidden() {
       // Emit page assignment for multi-page configs.
       if (pageIndex > 0) {
-        setupBuf.writeln('  $name.rk.page = $pageIndex;');
+        setupBuf.writeln('  $name.setPage($pageIndex);');
       }
       if (labelText.isNotEmpty) {
         setupBuf.writeln('  $name.rk.label = "${_escapeC(labelText)}";');
       }
       if (!showLabel) {
-        setupBuf.writeln('  $name.rk.labelHidden = true;');
+        setupBuf.writeln('  $name.setLabelHidden(true);');
       }
     }
 
@@ -414,9 +414,9 @@ class JsonArduinoGenerator {
         break;
     }
 
-    // Emit rk.hidden for ALL widget types (including sub-method variants).
+    // Emit setHidden() for ALL widget types (including sub-method variants).
     if (isHidden) {
-      setupBuf.writeln('  $name.rk.hidden = true;');
+      setupBuf.writeln('  $name.setHidden(true);');
     }
   }
 
@@ -430,7 +430,7 @@ class JsonArduinoGenerator {
       setupBuf.writeln('  $name.rk.label = "${_escapeC(labelText)}";');
     }
     if (!showLabel) {
-      setupBuf.writeln('  $name.rk.labelHidden = true;');
+      setupBuf.writeln('  $name.setLabelHidden(true);');
     }
     setupBuf.writeln('  $name.rk.centering = ${_centeringEnum(ac)};');
   }
@@ -443,7 +443,7 @@ class JsonArduinoGenerator {
       setupBuf.writeln('  $name.rk.label = "${_escapeC(labelText)}";');
     }
     if (!showLabel) {
-      setupBuf.writeln('  $name.rk.labelHidden = true;');
+      setupBuf.writeln('  $name.setLabelHidden(true);');
     }
     setupBuf.writeln('  $name.rk.centering = ${_centeringEnum(ac)};');
   }
@@ -459,7 +459,7 @@ class JsonArduinoGenerator {
       setupBuf.writeln('  $name.rk.label = "${_escapeC(labelText)}";');
     }
     if (!showLabel) {
-      setupBuf.writeln('  $name.rk.labelHidden = true;');
+      setupBuf.writeln('  $name.setLabelHidden(true);');
     }
     setupBuf.writeln('  $name.rk.centering = ${_centeringEnum(ac)};');
     setupBuf.writeln('  $name.rk.startAngle = $minAngle;');
@@ -485,7 +485,7 @@ class JsonArduinoGenerator {
       setupBuf.writeln('  $name.rk.label = "${_escapeC(labelText)}";');
     }
     if (!showLabel) {
-      setupBuf.writeln('  $name.rk.labelHidden = true;');
+      setupBuf.writeln('  $name.setLabelHidden(true);');
     }
     setupBuf.writeln('  $name.rk.variant = 1;     // steeringWheel');
     setupBuf.writeln('  $name.rk.centering = ${_centeringEnum(ac)};');
@@ -503,7 +503,7 @@ class JsonArduinoGenerator {
       setupBuf.writeln('  $name.rk.label = "${_escapeC(labelText)}";');
     }
     if (!showLabel) {
-      setupBuf.writeln('  $name.rk.labelHidden = true;');
+      setupBuf.writeln('  $name.setLabelHidden(true);');
     }
 
     for (int i = 0; i < items.length; i++) {

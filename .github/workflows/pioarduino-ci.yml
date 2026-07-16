@@ -50,6 +50,10 @@ jobs:
           - env: WiFiCloudSwitch
             dir: WiFiCloudSwitch
             pio_env: wificloudswitch
+          # ESP32 Multi-page demo
+          - env: MultiPageController
+            dir: MultiPageController
+            pio_env: multipagecontroller
           # STM32 (serial-only examples — no LittleFS)
           - env: FsCommandTest_stm32
             dir: FsCommandTest

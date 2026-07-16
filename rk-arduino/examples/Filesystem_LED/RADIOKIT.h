@@ -1,6 +1,6 @@
 /*__RADIOKIT_Designer_Config__
 {
-  "version": 1,
+  "version": 2,
   "appdata": {
     "appVersion": "1.0.0",
     "lastEdit": 1780753772137
@@ -25,29 +25,35 @@
     "grid": "none",
     "skin": "dragon"
   },
-  "widgets": [
+  "pages": [
     {
-      "type": "switch",
-      "name": "slide_switch_1",
-      "label": {
-        "text": "slide_switch_1",
-        "show": false
-      },
-      "position": [
-        101,
-        46,
-        0
-      ],
-      "size": [
-        null,
-        20
-      ],
-      "haptic": true,
-      "variant": "slideSwitch",
-      "properties": {
-        "onText": "ON",
-        "offText": "OFF"
+      "name": "Main",
+      "orientation": "landscape",
+      "widgets": [
+      {
+        "type": "switch",
+        "name": "slide_switch_1",
+        "label": {
+          "text": "slide_switch_1",
+          "show": false
+        },
+        "position": [
+          101,
+          46,
+          0
+        ],
+        "size": [
+          null,
+          20
+        ],
+        "haptic": true,
+        "variant": "slideSwitch",
+        "properties": {
+          "onText": "ON",
+          "offText": "OFF"
+        }
       }
+      ]
     }
   ]
 }
@@ -74,7 +80,7 @@ static inline void initRadioKit() {
   RadioKit.config.theme       = "dragon";
   RadioKit.config.password    = "1234";
 
-  slide_switch_1.rk.labelHidden = true;
+  slide_switch_1.setLabelHidden(true);
 
   RadioKit.begin();
 

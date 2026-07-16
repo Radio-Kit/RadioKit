@@ -1,6 +1,6 @@
 /*__RADIOKIT_Designer_Config__
 {
-  "version": 1,
+  "version": 2,
   "config": {
     "name": "RobotDrive",
     "description": "JoystickMotor — dual motor control with joystick",
@@ -18,34 +18,40 @@
     "grid": "none",
     "skin": "dragon"
   },
-  "widgets": [
+  "pages": [
     {
-      "type": "joystick",
-      "name": "drive",
-      "label": { "text": "Drive", "show": true },
-      "position": [160, 50, 0],
-      "size": [null, 60]
-    },
-    {
-      "type": "pushButton",
-      "name": "eStop",
-      "label": { "text": "E-Stop", "show": true },
-      "position": [20, 50, 0],
-      "size": [null, 24]
-    },
-    {
-      "type": "led",
-      "name": "dirLED",
-      "label": { "text": "", "show": false },
-      "position": [20, 20, 0],
-      "size": [null, 14]
-    },
-    {
-      "type": "text",
-      "name": "speedText",
-      "label": { "text": "Speed", "show": true },
-      "position": [100, 20, 0],
-      "size": [null, 10]
+      "name": "Main",
+      "orientation": "landscape",
+      "widgets": [
+      {
+        "type": "joystick",
+        "name": "drive",
+        "label": { "text": "Drive", "show": true },
+        "position": [160, 50, 0],
+        "size": [null, 60]
+      },
+      {
+        "type": "pushButton",
+        "name": "eStop",
+        "label": { "text": "E-Stop", "show": true },
+        "position": [20, 50, 0],
+        "size": [null, 24]
+      },
+      {
+        "type": "led",
+        "name": "dirLED",
+        "label": { "text": "", "show": false },
+        "position": [20, 20, 0],
+        "size": [null, 14]
+      },
+      {
+        "type": "text",
+        "name": "speedText",
+        "label": { "text": "Speed", "show": true },
+        "position": [100, 20, 0],
+        "size": [null, 10]
+      }
+      ]
     }
   ]
 }

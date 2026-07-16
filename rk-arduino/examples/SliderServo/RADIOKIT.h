@@ -1,6 +1,6 @@
 /*__RADIOKIT_Designer_Config__
 {
-  "version": 1,
+  "version": 2,
   "config": {
     "name": "ServoControl",
     "description": "SliderServo — servo control via slider",
@@ -18,33 +18,39 @@
     "grid": "none",
     "skin": "dragon"
   },
-  "widgets": [
+  "pages": [
     {
-      "type": "slider",
-      "name": "servoSlider",
-      "label": { "text": "servoSlider", "show": true },
-      "position": [100, 70, 0],
-      "size": [147, 26],
-      "haptic": true,
-      "properties": { "min": -100, "max": 100, "divisions": null, "autoCenter": [null, "smooth", 300] }
-    },
-    {
-      "type": "led",
-      "name": "zoneLED",
-      "label": { "text": "zoneLED", "show": true },
-      "position": [45, 28, 0],
-      "size": [null, 22],
-      "haptic": true,
-      "properties": { "state": "off", "shape": "circle", "color": 65280, "timing": 500, "autoCenter": [null, "smooth", 300] }
-    },
-    {
-      "type": "text",
-      "name": "angleText",
-      "label": { "text": "angleText", "show": true },
-      "position": [139, 28, 0],
-      "size": [67, 16],
-      "haptic": true,
-      "properties": { "text": "Display", "fontSize": 14, "fontFamily": "monospace", "autoCenter": [null, "smooth", 300] }
+      "name": "Main",
+      "orientation": "landscape",
+      "widgets": [
+      {
+        "type": "slider",
+        "name": "servoSlider",
+        "label": { "text": "servoSlider", "show": true },
+        "position": [100, 70, 0],
+        "size": [147, 26],
+        "haptic": true,
+        "properties": { "min": -100, "max": 100, "divisions": null, "autoCenter": [null, "smooth", 300] }
+      },
+      {
+        "type": "led",
+        "name": "zoneLED",
+        "label": { "text": "zoneLED", "show": true },
+        "position": [45, 28, 0],
+        "size": [null, 22],
+        "haptic": true,
+        "properties": { "state": "off", "shape": "circle", "color": 65280, "timing": 500, "autoCenter": [null, "smooth", 300] }
+      },
+      {
+        "type": "text",
+        "name": "angleText",
+        "label": { "text": "angleText", "show": true },
+        "position": [139, 28, 0],
+        "size": [67, 16],
+        "haptic": true,
+        "properties": { "text": "Display", "fontSize": 14, "fontFamily": "monospace", "autoCenter": [null, "smooth", 300] }
+      }
+      ]
     }
   ]
 }

@@ -42,6 +42,7 @@ public:
 
     void setLabelHidden(bool hidden) { _labelHidden = hidden; }
     void setHidden(bool hidden) { _hidden = hidden; }
+    void setPage(uint8_t p) { _page = p; }
 
     // ── Serialization ─────────────────────────────────────────────────────
     virtual uint8_t inputSize()  const = 0;

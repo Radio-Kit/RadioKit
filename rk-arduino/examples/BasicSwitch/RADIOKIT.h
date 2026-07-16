@@ -1,6 +1,6 @@
 /*__RADIOKIT_Designer_Config__
 {
-  "version": 1,
+  "version": 2,
   "appdata": {
     "appVersion": "1.0.0",
     "lastEdit": 1779879673081
@@ -25,7 +25,11 @@
     "grid": "none",
     "skin": "dragon"
   },
-  "widgets": [
+  "pages": [
+    {
+      "name": "Controls",
+      "orientation": "landscape",
+      "widgets": [
     {
       "type": "switch",
       "name": "slide_switch_1",
@@ -141,6 +145,8 @@
           300
         ]
       }
+    }
+  ]
     }
   ]
 }

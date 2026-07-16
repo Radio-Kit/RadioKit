@@ -1,6 +1,6 @@
 /*__RADIOKIT_Designer_Config__
 {
-  "version": 1,
+  "version": 2,
   "config": {
     "name": "Serial_Simple",
     "description": "Serial-only example for RP2040 — push button toggles LED",
@@ -9,31 +9,37 @@
   "canvas": {
     "size": [200, 100]
   },
-  "widgets": [
+  "pages": [
     {
-      "type": "button",
-      "name": "button_1",
-      "label": { "text": "Toggle LED", "show": true },
-      "position": [40, 30, 0],
-      "size": [80, 30],
-      "haptic": true,
-      "properties": {
-        "variant": "push",
-        "onText": "ON",
-        "offText": "OFF"
+      "name": "Main",
+      "orientation": "landscape",
+      "widgets": [
+      {
+        "type": "button",
+        "name": "button_1",
+        "label": { "text": "Toggle LED", "show": true },
+        "position": [40, 30, 0],
+        "size": [80, 30],
+        "haptic": true,
+        "properties": {
+          "variant": "push",
+          "onText": "ON",
+          "offText": "OFF"
+        }
+      },
+      {
+        "type": "led",
+        "name": "led_1",
+        "label": { "text": "LED", "show": true },
+        "position": [40, 70, 0],
+        "size": [40, 20],
+        "haptic": true,
+        "properties": {
+          "color": 65280,
+          "shape": "circle"
+        }
       }
-    },
-    {
-      "type": "led",
-      "name": "led_1",
-      "label": { "text": "LED", "show": true },
-      "position": [40, 70, 0],
-      "size": [40, 20],
-      "haptic": true,
-      "properties": {
-        "color": 65280,
-        "shape": "circle"
-      }
+      ]
     }
   ]
 }

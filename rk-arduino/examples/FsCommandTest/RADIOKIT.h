@@ -1,6 +1,6 @@
 /*__RADIOKIT_Designer_Config__
 {
-  "version": 1,
+  "version": 2,
   "config": {
     "name": "FS Command Test",
     "description": "Test REPLACE and CRC32 commands",
@@ -11,7 +11,13 @@
     },
     "theme": "dragon"
   },
-  "widgets": []
+  "pages": [
+    {
+      "name": "Main",
+      "orientation": "landscape",
+      "widgets": []
+    }
+  ]
 }
 RADIOKIT_Designer_Config__*/
 
