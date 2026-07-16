@@ -377,8 +377,10 @@ class ProtocolService {
       //   && 4 + payload[3] <= payload.length, treat as v5
       // Otherwise fall back to v4
       // v5 format: [ORIENTATION(1)] [NUM_WIDGETS(1)] [ACTIVE_PAGE(1)] [NUM_PAGES(1)] [THEME_LEN(1)] [THEME...]
-      if (payload.length >= 5 && payload[2] >= 1 && payload[2] <= 32 &&
-          payload[3] >= 1 && 5 + payload[3] <= payload.length) {
+      // Detect v5: payload[3] is NUM_PAGES (must be >= 1), payload[4] is THEME_LEN
+      // activePage (payload[2]) can be 0 on startup, so we check NUM_PAGES instead
+      if (payload.length >= 5 && payload[3] >= 1 && payload[3] <= 32 &&
+          payload[4] >= 1 && 5 + payload[4] <= payload.length) {
         activePage = payload[2];
         numPages = payload[3];
         offset = 4; // Skip to THEME_LEN at index 4
