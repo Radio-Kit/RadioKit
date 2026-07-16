@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "appdata": {
     "appVersion": "1.0.0"
   },
@@ -10,84 +10,172 @@
     "theme": "default",
     "password": "",
     "transports": {
-      "ble": { "enabled": true },
-      "wifi": { "enabled": false, "ssid": "", "pass": "" },
-      "cloud": { "enabled": false, "account": "", "relay": "" }
+      "ble": {
+        "enabled": true
+      },
+      "wifi": {
+        "enabled": false,
+        "ssid": "",
+        "pass": ""
+      },
+      "cloud": {
+        "enabled": false,
+        "account": "",
+        "relay": ""
+      }
     }
   },
   "canvas": {
-    "size": [100, 200],
     "grid": "none",
     "skin": "dragon"
   },
   "enableControlUI": true,
   "telemetry": [
-    { "label": "Speed", "icon": "gauge", "unit": "km/h" },
-    { "label": "Battery", "icon": "battery", "unit": "%" },
-    { "label": "RSSI", "icon": "signal", "unit": "dBm" },
-    { "label": "", "icon": null, "unit": "" }
+    {
+      "label": "Speed",
+      "icon": "gauge",
+      "unit": "km/h"
+    },
+    {
+      "label": "Battery",
+      "icon": "battery",
+      "unit": "%"
+    },
+    {
+      "label": "RSSI",
+      "icon": "signal",
+      "unit": "dBm"
+    },
+    {
+      "label": "",
+      "icon": null,
+      "unit": ""
+    }
   ],
   "features": {
     "ota": false,
     "filesystem": false
   },
-  "widgets": [
+  "pages": [
     {
-      "type": "joystick",
-      "name": "steering",
-      "label": { "text": "steering", "show": false },
-      "position": [28, 55, 0],
-      "size": [null, 50],
-      "haptic": true,
-      "properties": {
-        "centerX": 0.0,
-        "centerY": 0.0,
-        "autoCenter": ["center", "smooth", 300]
-      }
-    },
-    {
-      "type": "slider",
-      "name": "throttle",
-      "label": { "text": "throttle", "show": false },
-      "position": [75, 105, 0],
-      "size": [26, 120],
-      "haptic": true,
-      "properties": {
-        "min": 0,
-        "max": 100,
-        "divisions": null,
-        "autoCenter": ["min", "smooth", 300]
-      }
-    },
-    {
-      "type": "multiple",
-      "name": "modes",
-      "label": { "text": "modes", "show": false },
-      "position": [28, 170, 0],
-      "size": [null, 20],
-      "haptic": true,
-      "variant": "multiButton",
-      "properties": {
-        "itemCount": 3,
-        "items": [
-          { "onLabel": "SLOW", "onIcon": null },
-          { "onLabel": "MED", "onIcon": null },
-          { "onLabel": "FAST", "onIcon": null }
-        ]
-      }
-    },
-    {
-      "type": "switch",
-      "name": "lights",
-      "label": { "text": "lights", "show": false },
-      "position": [75, 185, 0],
-      "size": [null, 14],
-      "haptic": true,
-      "variant": "slideSwitch",
-      "properties": {
-        "onText": "LIGHTS",
-        "offText": "OFF"
-      }
+      "name": "Page 1",
+      "orientation": "portrait",
+      "widgets": [
+        {
+          "type": "joystick",
+          "name": "steering",
+          "label": {
+            "text": "steering",
+            "show": false
+          },
+          "position": [
+            28,
+            55,
+            0
+          ],
+          "size": [
+            null,
+            50
+          ],
+          "haptic": true,
+          "properties": {
+            "centerX": 0.0,
+            "centerY": 0.0,
+            "autoCenter": [
+              "center",
+              "smooth",
+              300
+            ]
+          }
+        },
+        {
+          "type": "slider",
+          "name": "throttle",
+          "label": {
+            "text": "throttle",
+            "show": false
+          },
+          "position": [
+            75,
+            105,
+            0
+          ],
+          "size": [
+            26,
+            120
+          ],
+          "haptic": true,
+          "properties": {
+            "min": 0,
+            "max": 100,
+            "divisions": null,
+            "autoCenter": [
+              "min",
+              "smooth",
+              300
+            ]
+          }
+        },
+        {
+          "type": "multiple",
+          "name": "modes",
+          "label": {
+            "text": "modes",
+            "show": false
+          },
+          "position": [
+            28,
+            170,
+            0
+          ],
+          "size": [
+            null,
+            20
+          ],
+          "haptic": true,
+          "variant": "multiButton",
+          "properties": {
+            "itemCount": 3,
+            "items": [
+              {
+                "onLabel": "SLOW",
+                "onIcon": null
+              },
+              {
+                "onLabel": "MED",
+                "onIcon": null
+              },
+              {
+                "onLabel": "FAST",
+                "onIcon": null
+              }
+            ]
+          }
+        },
+        {
+          "type": "switch",
+          "name": "lights",
+          "label": {
+            "text": "lights",
+            "show": false
+          },
+          "position": [
+            75,
+            185,
+            0
+          ],
+          "size": [
+            null,
+            14
+          ],
+          "haptic": true,
+          "variant": "slideSwitch",
+          "properties": {
+            "onText": "LIGHTS",
+            "offText": "OFF"
+          }
+        }
+      ]
     }
   ]
 }

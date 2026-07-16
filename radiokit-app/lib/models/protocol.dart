@@ -38,6 +38,13 @@ const int kCmdFactoryReset = 0x1B;
 const int kCmdGetWifiInfo = 0x1D;
 const int kCmdWifiInfoData = 0x1E;
 
+// ── Page management commands ─────────────────────────────────────────────
+const int kCmdSetPage    = 0x20;  // App → MCU: switch to page N
+const int kCmdPageChanged = 0x21;  // MCU → App: page switch acknowledged
+const int kCmdGetPages   = 0x22;  // App → MCU: request page names
+const int kCmdPagesData  = 0x23;  // MCU → App: page names payload
+const int kCmdPageSwitch = 0x24;  // MCU → App: device-initiated page switch
+
 // ── NVS SET_CONF field mask bits ────────────────────────────────────────────
 const int kSetConfName       = 1 << 0;
 const int kSetConfDesc       = 1 << 1;

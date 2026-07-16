@@ -393,6 +393,8 @@ void RadioKitClass::update() {
     if (isConnected()) {
         for (uint8_t i = 0; i < _widgetCount; i++) {
             RadioKit_Widget* w = _widgets[i];
+            // Page gating: skip widgets not on the active page.
+            if (w->page() != _activePage) continue;
             uint8_t inSz = w->inputSize();
             uint8_t outSz = w->outputSize();
             
@@ -706,6 +708,8 @@ void RadioKitClass::_onPacket(uint8_t cmd,
         case RK_CMD_VAR_UPDATE: s_instance->_handleVarUpdate(payload, payloadLen);  break;
         case RK_CMD_META_UPDATE:s_instance->_handleMetaUpdate(payload, payloadLen); break;
         case RK_CMD_GET_WIFI_INFO: s_instance->_handleGetWifiInfo();                          break;
+        case RK_CMD_SET_PAGE:    s_instance->_handleSetPage(payload, payloadLen);            break;
+        case RK_CMD_GET_PAGES:   s_instance->_handleGetPages();                              break;
         default: 
             RadioKit.printf("RK: Unknown CMD %s (0x%02X)\n", rk_cmdName(cmd), cmd);
             Serial.printf("RK: Unknown CMD %s (0x%02X)\n", rk_cmdName(cmd), cmd);
@@ -1082,6 +1086,8 @@ void RadioKitClass::_handleSetInput(const uint8_t* payload, uint16_t len) {
     for (uint8_t i = 0; i < _widgetCount; i++) {
         RadioKit_Widget* w = _widgets[i];
         uint8_t sz = w->inputSize();
+        // Page gating: skip widgets not on the active page.
+        if (w->page() != _activePage) { offset += sz; continue; }
         if (sz == 0) continue;
         if (offset + sz > len) break;
         w->deserializeInput(payload + offset);
@@ -1138,6 +1144,59 @@ void RadioKitClass::_handleVarUpdate(const uint8_t* payload, uint16_t len) {
     _sendPacket(pkt);
 }
 
+// ── Page management ──────────────────────────────────────────────────────
+
+void RadioKitClass::setActivePage(uint8_t page) {
+    if (page >= _numPages) return;
+    if (page == _activePage) return;
+    _activePage = page;
+
+    // Send CMD_PAGE_SWITCH (device-initiated) to notify the app
+    uint8_t pktBuf[RK_MAX_PACKET_SIZE];
+    uint16_t pktLen = rk_buildPacket(pktBuf, RK_CMD_PAGE_SWITCH, &page, 1);
+    _sendPacket(pktBuf, pktLen);
+
+    // Send updated CONF_DATA and VAR_DATA for the new page
+    _handleGetConf();
+    _handleGetVars();
+}
+
+void RadioKitClass::_handleSetPage(const uint8_t* payload, uint16_t len) {
+    if (len < 1) return;
+    uint8_t page = payload[0];
+    if (page >= _numPages) return;
+    _activePage = page;
+    RadioKit.printf("PAGE: Switched to page %d\n", page);
+    Serial.printf("PAGE: Switched to page %d\n", page);
+
+    // Send CMD_PAGE_CHANGED (app-initiated confirmation) back to the app
+    uint8_t pktBuf[RK_MAX_PACKET_SIZE];
+    uint16_t pktLen = rk_buildPacket(pktBuf, RK_CMD_PAGE_CHANGED, &page, 1);
+    _sendPacket(pktBuf, pktLen);
+
+    // Send updated CONF_DATA and VAR_DATA for the new page
+    _handleGetConf();
+    _handleGetVars();
+}
+
+void RadioKitClass::_handleGetPages() {
+    // Build CMD_PAGES_DATA: [NUM_PAGES(1)] + per-page [NAME_LEN(1)][NAME...]
+    uint8_t buf[RK_MAX_PACKET_SIZE];
+    uint16_t offset = 0;
+    buf[offset++] = _numPages;
+    // For now, send empty names — real page names will come from codegen
+    for (uint8_t i = 0; i < _numPages; i++) {
+        char name[16];
+        snprintf(name, sizeof(name), "Page %d", i + 1);
+        uint8_t nameLen = (uint8_t)strnlen(name, sizeof(name));
+        buf[offset++] = nameLen;
+        memcpy(&buf[offset], name, nameLen);
+        offset += nameLen;
+    }
+    uint16_t pktLen = rk_buildPacket(_txBuf, RK_CMD_PAGES_DATA, buf, offset);
+    _sendPacket(pktLen);
+}
+
 void RadioKitClass::_handleMetaUpdate(const uint8_t* payload, uint16_t len) {
     if (len < 2) return;
     uint8_t widgetId = payload[0];
@@ -1172,13 +1231,24 @@ uint16_t RadioKitClass::_buildConfPayload(uint8_t* buf, uint16_t bufSize) {
     const char* themeStr = config.theme ? config.theme : "dragon";
     uint8_t themeLen = (uint8_t)strnlen(themeStr, 64);
 
-    // Minimal CONF_DATA: orientation + widget count + theme + per-widget layout
+    // v5 CONF_DATA: orientation + widget count + activePage + numPages + theme + per-widget layout
+    // v4 fallback (no pages): orientation + widget count + theme + per-widget layout
     // Name, description, protocol version moved to Settings protocol (GET_DEVICE_INFO)
-    if (out + 3 + themeLen > bufSize) return 0;
-
-    buf[out++] = config.orientation;
-    buf[out++] = _widgetCount;
-    buf[out++] = themeLen;
+    if (_numPages > 1) {
+        // v5 format: includes activePage and numPages
+        if (out + 5 + themeLen > bufSize) return 0;
+        buf[out++] = config.orientation;
+        buf[out++] = _widgetCount;
+        buf[out++] = _activePage;
+        buf[out++] = _numPages;
+        buf[out++] = themeLen;
+    } else {
+        // v4 format: no page fields (backward compat)
+        if (out + 3 + themeLen > bufSize) return 0;
+        buf[out++] = config.orientation;
+        buf[out++] = _widgetCount;
+        buf[out++] = themeLen;
+    }
     memcpy(&buf[out], themeStr, themeLen); out += themeLen;
 
     for (uint8_t i = 0; i < _widgetCount; i++) {

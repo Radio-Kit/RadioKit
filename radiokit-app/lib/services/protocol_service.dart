@@ -13,12 +13,16 @@ class ParsedConf {
   final String description;
   final String theme;
   final int orientation;
+  final int activePage;
+  final int numPages;
   final List<WidgetConfig> widgets;
   const ParsedConf({
     required this.name,
     required this.description,
     required this.theme,
     required this.orientation,
+    this.activePage = 0,
+    this.numPages = 1,
     required this.widgets,
   });
 }
@@ -177,14 +181,21 @@ class ProtocolService {
   /// Build an ACK packet acknowledging a VAR_UPDATE with [seq].
   static Uint8List buildAck(int seq) => buildPacket(kCmdAck, [seq & 0xFF]);
 
-  /// Build a VAR_UPDATE packet: [WIDGET_ID(1)] [SEQ(1)] [VALUES...]
-  static Uint8List buildVarUpdate(int widgetId, int seq, List<int> values) =>
-      buildPacket(kCmdVarUpdate, [widgetId & 0xFF, seq & 0xFF, ...values]);
-
-  /// Build a SET_INPUT packet from the full widget state.
-  static Uint8List buildSetInput(
-      List<WidgetConfig> widgets, RadioWidgetState state) {
+  /// Build a VAR_UPDATE packet: [PAGE(1)] [WIDGET_ID(1)] [SEQ(1)] [VALUES...]
+  /// The page prefix byte is only emitted when [page] > 0, for v4 firmware compat.
+  static Uint8List buildVarUpdate(int widgetId, int seq, List<int> values, {int page = 0}) {
     final payload = <int>[];
+    if (page > 0) payload.add(page & 0xFF);
+    payload.addAll([widgetId & 0xFF, seq & 0xFF, ...values]);
+    return buildPacket(kCmdVarUpdate, payload);
+  }
+
+  /// Build a SET_INPUT packet: [PAGE(1)] [WIDGET_ID(1)] [VALUES...]
+  /// The page prefix byte is only emitted when [page] > 0, for v4 firmware compat.
+  static Uint8List buildSetInput(
+      List<WidgetConfig> widgets, RadioWidgetState state, {int page = 0}) {
+    final payload = <int>[];
+    if (page > 0) payload.add(page & 0xFF);
     final inputWidgets = widgets.where((w) => w.hasInput).toList()
       ..sort((a, b) => a.widgetId.compareTo(b.widgetId));
 
@@ -346,14 +357,35 @@ class ProtocolService {
     int offset;
     int orientation;
     int numWidgets;
+    int activePage = 0;
+    int numPages = 1;
     String name = '';
     String description = '';
 
     if (isV4) {
-      // v4: [ORIENTATION(1)] [NUM_WIDGETS(1)] [THEME_LEN(1)] [THEME...]
+      // v5 (with pages): [ORIENTATION(1)] [NUM_WIDGETS(1)] [ACTIVE_PAGE(1)] [NUM_PAGES(1)] [THEME_LEN(1)] [THEME...]
+      // v4 (without pages): [ORIENTATION(1)] [NUM_WIDGETS(1)] [THEME_LEN(1)] [THEME...]
       orientation = payload[0];
       numWidgets = payload[1];
-      offset = 2;
+      // Detect v5 format: payload[2] is NUM_PAGES (must be >= 1), payload[3] is THEME_LEN
+      // For v4, payload[2] is THEME_LEN which could be 0-255
+      // For v5, payload[3] must be THEME_LEN (0-255) and must leave room for theme
+      // Key heuristic: in v5, payload[2] is NUM_PAGES (>= 1) and payload[3] is THEME_LEN
+      // and 4 + payload[3] <= payload.length
+      // In v4, payload[2] is THEME_LEN and 2 + payload[2] <= payload.length
+      // We try v5 first: if payload.length >= 4 && payload[2] >= 1 && payload[2] <= 32
+      //   && 4 + payload[3] <= payload.length, treat as v5
+      // Otherwise fall back to v4
+      // v5 format: [ORIENTATION(1)] [NUM_WIDGETS(1)] [ACTIVE_PAGE(1)] [NUM_PAGES(1)] [THEME_LEN(1)] [THEME...]
+      if (payload.length >= 5 && payload[2] >= 1 && payload[2] <= 32 &&
+          payload[3] >= 1 && 5 + payload[3] <= payload.length) {
+        activePage = payload[2];
+        numPages = payload[3];
+        offset = 4; // Skip to THEME_LEN at index 4
+      } else {
+        // v4 fallback: [ORIENTATION(1)] [NUM_WIDGETS(1)] [THEME_LEN(1)] [THEME...]
+        offset = 2;
+      }
     } else {
       // v3 (backward compat): [VERSION(1)] [ORIENTATION(1)] [NUM_WIDGETS(1)]
       //                       [NAME_LEN(1)] [NAME...] [DESC_LEN(1)] [DESC...]
@@ -504,6 +536,8 @@ class ProtocolService {
       description: description,
       theme: theme,
       orientation: orientation,
+      activePage: activePage,
+      numPages: numPages,
       widgets: widgets,
     );
   }
@@ -558,13 +592,18 @@ class ProtocolService {
     return state;
   }
 
-  /// Parse a VAR_UPDATE payload: [WIDGET_ID(1)] [SEQ(1)] [VALUES...]
-  static (int, int, List<int>)? parseVarUpdate(List<int> payload) {
-    if (payload.length < 2) return null;
-    final widgetId = payload[0];
-    final seq      = payload[1];
-    final values   = payload.sublist(2);
-    return (widgetId, seq, values);
+  /// Parse a VAR_UPDATE payload.
+  /// v5: [PAGE(1)] [WIDGET_ID(1)] [SEQ(1)] [VALUES...]
+  /// v4: [WIDGET_ID(1)] [SEQ(1)] [VALUES...]
+  static (int page, int widgetId, int seq, List<int> values)? parseVarUpdate(
+      List<int> payload, {bool hasPagePrefix = true}) {
+    if (hasPagePrefix) {
+      if (payload.length < 3) return null;
+      return (payload[0], payload[1], payload[2], payload.sublist(3));
+    } else {
+      if (payload.length < 2) return null;
+      return (0, payload[0], payload[1], payload.sublist(2));
+    }
   }
 
   /// Parse a full META_DATA payload.
@@ -593,6 +632,43 @@ class ProtocolService {
     final (updated, _) = _readStrings(widget, payload, 2);
     return (widgetId, seq, updated);
   }
+
+  // ── Page management commands ─────────────────────────────────────────────
+
+  /// Build CMD_SET_PAGE (0x20): switch to page [pageIndex].
+  static Uint8List buildSetPage(int pageIndex) =>
+      buildPacket(kCmdSetPage, [pageIndex & 0xFF]);
+
+  /// Build CMD_GET_PAGES (0x22): request page names.
+  static Uint8List buildGetPages() => buildPacket(kCmdGetPages);
+
+  /// Parse CMD_PAGE_CHANGED (0x21) or CMD_PAGE_SWITCH (0x24) payload: [PAGE_INDEX(1)].
+  static int? parsePageIndex(List<int> payload) {
+    if (payload.isEmpty) return null;
+    return payload[0];
+  }
+
+  /// Parse CMD_PAGES_DATA (0x23) payload: [NUM_PAGES(1)] + per-page [NAME_LEN(1)][NAME...].
+  static List<String>? parsePagesData(List<int> payload) {
+    if (payload.isEmpty) return null;
+    final numPages = payload[0];
+    final names = <String>[];
+    int offset = 1;
+    for (int i = 0; i < numPages; i++) {
+      if (offset >= payload.length) return names;
+      final nameLen = payload[offset++];
+      if (offset + nameLen > payload.length) {
+        names.add('');
+        break;
+      }
+      names.add(utf8.decode(payload.sublist(offset, offset + nameLen),
+          allowMalformed: true));
+      offset += nameLen;
+    }
+    return names;
+  }
+
+  // ── Helper: read strings section ───────────────────────────────────────────
 
   /// Helper to read the string section [MASK(1)] [LEN(1)][STR...] into a WidgetConfig.
   static (WidgetConfig, int) _readStrings(

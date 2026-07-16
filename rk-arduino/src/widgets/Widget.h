@@ -26,6 +26,8 @@ public:
     uint8_t     height()   const { return _height; }
     /// Width in virtual units (0-200).
     uint8_t     width()    const { return _width; }
+    /// Page index this widget belongs to (0-based).
+    uint8_t     page()     const { return _page; }
     /// Rotation in degrees (absolute).
     int16_t     rotation() const { return _rotation; }
     bool        enabled()  const { return _enabled; }
@@ -55,6 +57,7 @@ public:
 
 protected:
     uint8_t  _x, _y;
+    uint8_t  _page;
     uint8_t  _height;
     uint8_t  _width;
     int16_t  _rotation;
@@ -75,7 +78,7 @@ protected:
                uint8_t height,     uint8_t width,
                uint8_t style,      uint8_t variant,
                const char* icon,   const char* onText, const char* offText,
-               int16_t rotation = 0);
+               int16_t rotation = 0, uint8_t page = 0);
 
 private:
     void _registerSelf();

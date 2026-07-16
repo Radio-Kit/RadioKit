@@ -155,6 +155,21 @@ private:
     uint8_t            _widgetCount;
     RadioKitTransport* _transport;
 
+    // ── Page management ──────────────────────────────────────
+    uint8_t _activePage = 0;
+    uint8_t _numPages   = 1;
+
+public:
+    /** Switch to a new active page. Sends PAGE_CHANGED + CONF_DATA + VAR_DATA.
+     *  If called from user code (not from protocol), also sends CMD_PAGE_SWITCH.
+     */
+    void setActivePage(uint8_t page);
+    uint8_t getActivePage() const { return _activePage; }
+    uint8_t getNumPages() const { return _numPages; }
+    void setNumPages(uint8_t n) { _numPages = n; }
+
+private:
+
     // Additional transport pointers (WiFi, Cloud, Serial) — separate from _transport
     bool _wifiActive;
     bool _cloudActive;
@@ -205,6 +220,8 @@ private:
     void _handleSettingsGetCloudInfo();
     void _handleSettingsReboot();
     void _handleGetWifiInfo();
+    void _handleSetPage(const uint8_t* payload, uint16_t len);
+    void _handleGetPages();
     void _sendSettingsFrame(uint16_t len);
 
     void _sendPacket(const uint8_t* buf, uint16_t len);

@@ -41,6 +41,13 @@
 // Settings sub-commands are in RadioKitSettings.h (0xDD protocol).
 // REBOOT: 0x0D in settings protocol — reboot without erasing NVS.
 
+// ── Page management commands ─────────────────────────────────────────────
+#define RK_CMD_SET_PAGE     0x20  // App → Arduino: switch to page N
+#define RK_CMD_PAGE_CHANGED 0x21  // Arduino → App: page switch acknowledged
+#define RK_CMD_GET_PAGES    0x22  // App → Arduino: request page names
+#define RK_CMD_PAGES_DATA   0x23  // Arduino → App: page names payload
+#define RK_CMD_PAGE_SWITCH  0x24  // Arduino → App: device-initiated page switch
+
 // ── PWD_AUTH response codes (used by public API RadioKitClass::authenticate) ─
 #define RK_PWD_AUTH_DEVICE      0x00   ///< Authenticated as device (full access)
 #define RK_PWD_AUTH_USER        0x01   ///< Authenticated as user (widgets-only)

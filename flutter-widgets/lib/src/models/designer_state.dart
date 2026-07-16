@@ -3,13 +3,16 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../theme/rk_tokens.dart';
 import 'designer_element.dart';
+import 'designer_page.dart';
 
 enum GridStyle { lines, dots, none }
 
 class DesignerState extends ChangeNotifier {
-  List<DesignerElement> _elements = [];
+  // ── Multi-page state ────────────────────────────────────────────────────
+  List<DesignerPage> _pages = [DesignerPage(name: 'Page 1')];
+  int _activePageIndex = 0;
+
   String? _selectedElementId;
-  bool _isLandscape = true;
   bool _isPlayMode = false;
   bool _isInspectorVisible = true;
   GridStyle _gridStyle = GridStyle.none;
@@ -25,7 +28,6 @@ class DesignerState extends ChangeNotifier {
   String _modelType = 'Locomotive';
   String _modelDescription = '';
   String _connectionPassword = '';
-  String _screenSize = '200 x 100';
   Map<String, dynamic> _features = {'ota': false, 'filesystem': false};
   bool _enableControlUI = true;
   List<Map<String, dynamic>> _telemetryWidgets = List.generate(4, (_) => <String, dynamic>{'label': '', 'icon': null, 'unit': ''});
@@ -41,24 +43,29 @@ class DesignerState extends ChangeNotifier {
   void Function(String id, dynamic value)? onRuntimeValueChanged;
 
   /// Monotonically-increasing counter bumped on every real data mutation.
-  /// The screen listener compares this against a saved baseline to detect
-  /// unsaved changes without false positives from UI-only notifications
-  /// (e.g. selectElement, togglePlayMode).
   int _mutationCount = 0;
   int get mutationCount => _mutationCount;
 
-  final List<List<DesignerElement>> _undoStack = [];
-  final List<List<DesignerElement>> _redoStack = [];
+  // ── Per-page undo/redo stacks ──────────────────────────────────────────
+  final Map<int, List<List<DesignerElement>>> _undoStacks = {};
+  final Map<int, List<List<DesignerElement>>> _redoStacks = {};
   static const int _maxUndoStack = 50;
 
-  /// Snapshot saved at gesture start (resize/rotate). Intermediate mutations
-  /// during the gesture skip _pushUndo(); commitGesture() pushes the snapshot
-  /// to the undo stack once, preventing one undo entry per drag frame.
+  /// Snapshot saved at gesture start (resize/rotate).
   List<DesignerElement>? _gestureSnapshot;
 
-  List<DesignerElement> get elements => _elements;
+  // ── Public getters ──────────────────────────────────────────────────────
+  List<DesignerPage> get pages => _pages;
+  int get activePageIndex => _activePageIndex;
+  int get numPages => _pages.length;
+
+  DesignerPage get activePage => _pages[_activePageIndex];
+
+  /// Elements of the active page (backward-compatible getter).
+  List<DesignerElement> get elements => activePage.elements;
+
   String? get selectedElementId => _selectedElementId;
-  bool get isLandscape => _isLandscape;
+  bool get isLandscape => activePage.isLandscape;
   bool get isPlayMode => _isPlayMode;
   bool get isInspectorVisible => _isInspectorVisible;
   GridStyle get gridStyle => _gridStyle;
@@ -74,11 +81,10 @@ class DesignerState extends ChangeNotifier {
   String get modelType => _modelType;
   String get modelDescription => _modelDescription;
   String get connectionPassword => _connectionPassword;
-  String get screenSize => _screenSize;
   int? get lastEdit => _lastEdit;
   String? get appVersion => _appVersion;
-  bool get canUndo => _undoStack.isNotEmpty;
-  bool get canRedo => _redoStack.isNotEmpty;
+  bool get canUndo => (_undoStacks[_activePageIndex]?.isNotEmpty) ?? false;
+  bool get canRedo => (_redoStacks[_activePageIndex]?.isNotEmpty) ?? false;
 
   bool get featureOta => (_features['ota'] as bool?) ?? false;
   bool get featureFilesystem => (_features['filesystem'] as bool?) ?? false;
@@ -88,56 +94,179 @@ class DesignerState extends ChangeNotifier {
   DesignerElement? get selectedElement {
     if (_selectedElementId == null) return null;
     try {
-      return _elements.firstWhere((e) => e.id == _selectedElementId);
+      return elements.firstWhere((e) => e.id == _selectedElementId);
     } catch (_) {
       return null;
     }
   }
 
-  int get canvasWidth => _isLandscape ? 200 : 100;
-  int get canvasHeight => _isLandscape ? 100 : 200;
+  int get canvasWidth => activePage.canvasWidth;
+  int get canvasHeight => activePage.canvasHeight;
+  bool get isLandscapeGlobal => canvasWidth >= canvasHeight;
+
+  // ── Private helpers ─────────────────────────────────────────────────────
+  List<List<DesignerElement>> _getUndoStack(int pageIndex) =>
+      _undoStacks.putIfAbsent(pageIndex, () => []);
+  List<List<DesignerElement>> _getRedoStack(int pageIndex) =>
+      _redoStacks.putIfAbsent(pageIndex, () => []);
 
   void _pushUndo() {
-    // During an active resize/rotate gesture, skip undo pushes per frame.
-    // The pre-gesture snapshot is saved in beginGesture() and committed
-    // once in commitGesture() at gesture end.
     if (_gestureSnapshot != null) return;
     _mutationCount++;
-    _undoStack.add(_elements.map((e) => e.copyWith()).toList());
-    if (_undoStack.length > _maxUndoStack) {
-      _undoStack.removeAt(0);
-    }
-    _redoStack.clear();
+    final stack = _getUndoStack(_activePageIndex);
+    stack.add(elements.map((e) => e.copyWith()).toList());
+    if (stack.length > _maxUndoStack) stack.removeAt(0);
+    _getRedoStack(_activePageIndex).clear();
   }
 
-  /// Call when a gesture (resize/rotate) starts. Saves a snapshot of
-  /// the current element state so commitGesture can push it to undo.
   void beginGesture() {
     assert(_gestureSnapshot == null, 'beginGesture without matching commitGesture');
-    _gestureSnapshot = _elements.map((e) => e.copyWith()).toList();
+    _gestureSnapshot = elements.map((e) => e.copyWith()).toList();
   }
 
-  /// Call when a gesture ends. Pushes the pre-gesture snapshot to the
-  /// undo stack — a single undo point for the whole gesture.
   void commitGesture() {
     if (_gestureSnapshot == null) return;
     _mutationCount++;
-    _undoStack.add(_gestureSnapshot!);
-    if (_undoStack.length > _maxUndoStack) {
-      _undoStack.removeAt(0);
-    }
-    _redoStack.clear();
+    final stack = _getUndoStack(_activePageIndex);
+    stack.add(_gestureSnapshot!);
+    if (stack.length > _maxUndoStack) stack.removeAt(0);
+    _getRedoStack(_activePageIndex).clear();
     _gestureSnapshot = null;
   }
 
-  /// Call if the gesture is cancelled without applying changes.
   void cancelGesture() {
     if (_gestureSnapshot == null) return;
-    // Restore elements to the pre-gesture state
-    _elements = _gestureSnapshot!;
+    activePage.elements = _gestureSnapshot!;
     _gestureSnapshot = null;
     notifyListeners();
   }
+
+  // ── Page management ─────────────────────────────────────────────────────
+
+  void setActivePage(int index) {
+    if (index < 0 || index >= _pages.length) return;
+    _activePageIndex = index;
+    _selectedElementId = null;
+    notifyListeners();
+  }
+
+  void addPage({String? name, bool? isLandscape}) {
+    _mutationCount++;
+    final newPage = DesignerPage(
+      name: name ?? 'Page ${_pages.length + 1}',
+      isLandscape: isLandscape ?? true,
+    );
+    _pages.add(newPage);
+    _activePageIndex = _pages.length - 1;
+    _selectedElementId = null;
+    notifyListeners();
+  }
+
+  void removePage(int index) {
+    if (_pages.length <= 1) return;
+    _mutationCount++;
+    _pages.removeAt(index);
+    // Clean up undo/redo stacks for removed page
+    _undoStacks.remove(index);
+    _redoStacks.remove(index);
+    // Adjust active index
+    if (_activePageIndex >= _pages.length) {
+      _activePageIndex = _pages.length - 1;
+    }
+    _selectedElementId = null;
+    notifyListeners();
+  }
+
+  void renamePage(int index, String name) {
+    if (index < 0 || index >= _pages.length) return;
+    _mutationCount++;
+    _pages[index].name = name;
+    notifyListeners();
+  }
+
+  void reorderPage(int oldIndex, int newIndex) {
+    if (oldIndex == newIndex) return;
+    if (newIndex > oldIndex) newIndex -= 1;
+    _mutationCount++;
+    final page = _pages.removeAt(oldIndex);
+    _pages.insert(newIndex, page);
+    // Remap undo/redo stacks to follow their pages
+    final oldUndo = _undoStacks.remove(oldIndex);
+    final oldRedo = _redoStacks.remove(oldIndex);
+    // Shift stacks between oldIndex and newIndex
+    if (oldIndex < newIndex) {
+      for (int i = oldIndex; i < newIndex; i++) {
+        final nextUndo = _undoStacks.remove(i + 1);
+        final nextRedo = _redoStacks.remove(i + 1);
+        if (nextUndo != null) _undoStacks[i] = nextUndo;
+        if (nextRedo != null) _redoStacks[i] = nextRedo;
+      }
+    } else {
+      for (int i = oldIndex; i > newIndex; i--) {
+        final prevUndo = _undoStacks.remove(i - 1);
+        final prevRedo = _redoStacks.remove(i - 1);
+        if (prevUndo != null) _undoStacks[i] = prevUndo;
+        if (prevRedo != null) _redoStacks[i] = prevRedo;
+      }
+    }
+    if (oldUndo != null) _undoStacks[newIndex] = oldUndo;
+    if (oldRedo != null) _redoStacks[newIndex] = oldRedo;
+    // Update active index to follow the active page
+    if (_activePageIndex == oldIndex) {
+      _activePageIndex = newIndex;
+    } else if (oldIndex < _activePageIndex && newIndex >= _activePageIndex) {
+      _activePageIndex--;
+    } else if (oldIndex > _activePageIndex && newIndex <= _activePageIndex) {
+      _activePageIndex++;
+    }
+    notifyListeners();
+  }
+
+  void duplicatePage(int index) {
+    if (index < 0 || index >= _pages.length) return;
+    _mutationCount++;
+    final original = _pages[index];
+    final copy = original.copyWith(
+      name: '${original.name} (Copy)',
+      elements: original.elements.map((e) {
+        final newElement = e.copyWith(
+          id: UniqueKey().toString(),
+          label: _generateUniqueLabelAcrossAllPages(e.label),
+        );
+        return newElement;
+      }).toList(),
+    );
+    _pages.insert(index + 1, copy);
+    _activePageIndex = index + 1;
+    _selectedElementId = null;
+    notifyListeners();
+  }
+
+  void toggleOrientation() {
+    final page = activePage;
+    final oldCw = page.isLandscape ? 200 : 100;
+    final oldCh = page.isLandscape ? 100 : 200;
+    final newCw = page.isLandscape ? 100 : 200;
+    final newCh = page.isLandscape ? 200 : 100;
+
+    final ratioX = newCw / oldCw;
+    final ratioY = newCh / oldCh;
+
+    _pushUndo();
+    page.elements = page.elements.map((e) {
+      final halfW = e.width ~/ 2;
+      final halfH = e.height ~/ 2;
+      return e.copyWith(
+        x: (e.x * ratioX).round().clamp(halfW, newCw - halfW),
+        y: (e.y * ratioY).round().clamp(halfH, newCh - halfH),
+      );
+    }).toList();
+
+    page.isLandscape = !page.isLandscape;
+    notifyListeners();
+  }
+
+  // ── Element operations (operate on active page) ─────────────────────────
 
   void addElement(DesignerElementType type, int x, int y,
       {Map<String, dynamic>? properties, int? width, int? height}) {
@@ -158,7 +287,7 @@ class DesignerState extends ChangeNotifier {
       properties: properties,
       label: autoLabel,
     );
-    _elements = [..._elements, element];
+    activePage.elements = [...activePage.elements, element];
     _selectedElementId = element.id;
     notifyListeners();
   }
@@ -166,7 +295,7 @@ class DesignerState extends ChangeNotifier {
   void removeSelected() {
     if (_selectedElementId == null) return;
     _pushUndo();
-    _elements = _elements.where((e) => e.id != _selectedElementId).toList();
+    activePage.elements = activePage.elements.where((e) => e.id != _selectedElementId).toList();
     _selectedElementId = null;
     notifyListeners();
   }
@@ -177,117 +306,116 @@ class DesignerState extends ChangeNotifier {
   }
 
   void updateElementPosition(String id, int x, int y) {
-    final index = _elements.indexWhere((e) => e.id == id);
+    final index = elements.indexWhere((e) => e.id == id);
     if (index == -1) return;
     _pushUndo();
-    final el = _elements[index];
+    final el = elements[index];
     final halfW = el.width ~/ 2;
     final halfH = el.height ~/ 2;
-    _elements = [
-      for (int i = 0; i < _elements.length; i++)
-        if (i == index) _elements[i].copyWith(
+    activePage.elements = [
+      for (int i = 0; i < elements.length; i++)
+        if (i == index) elements[i].copyWith(
           x: x.clamp(halfW, canvasWidth - halfW),
           y: y.clamp(halfH, canvasHeight - halfH),
         )
-        else _elements[i],
+        else elements[i],
     ];
     notifyListeners();
   }
 
   void updateElementProperty(String id, String key, dynamic value) {
-    final index = _elements.indexWhere((e) => e.id == id);
+    final index = elements.indexWhere((e) => e.id == id);
     if (index == -1) return;
     _pushUndo();
-    final el = _elements[index];
+    final el = elements[index];
     final newProps = Map<String, dynamic>.from(el.properties);
     newProps[key] = value;
-    _elements = [
-      for (int i = 0; i < _elements.length; i++)
+    activePage.elements = [
+      for (int i = 0; i < elements.length; i++)
         if (i == index) el.copyWith(properties: newProps)
-        else _elements[i],
+        else elements[i],
     ];
     notifyListeners();
   }
 
   void updateElementSize(String id, {int? width, int? height}) {
-    final index = _elements.indexWhere((e) => e.id == id);
+    final index = elements.indexWhere((e) => e.id == id);
     if (index == -1) return;
     _pushUndo();
-    final el = _elements[index];
+    final el = elements[index];
     final (minW, minH) = DesignerElement.minSize(el.type,
         currentWidth: el.width, currentHeight: el.height);
-    _elements = [
-      for (int i = 0; i < _elements.length; i++)
-        if (i == index) el.copyWith(
+    activePage.elements = [
+      for (int i = 0; i < elements.length; i++)
+        if (i == index) elements[i].copyWith(
           width: (width ?? el.width).clamp(minW, canvasWidth),
           height: (height ?? el.height).clamp(minH, canvasHeight),
         )
-        else _elements[i],
+        else elements[i],
     ];
     notifyListeners();
   }
 
   void updateElementLabel(String id, String label) {
-    final index = _elements.indexWhere((e) => e.id == id);
+    final index = elements.indexWhere((e) => e.id == id);
     if (index == -1) return;
     _pushUndo();
     final uniqueLabel = _ensureUniqueLabel(label, excludeElementId: id);
-    _elements = [
-      for (int i = 0; i < _elements.length; i++)
-        if (i == index) _elements[i].copyWith(label: uniqueLabel)
-        else _elements[i],
+    activePage.elements = [
+      for (int i = 0; i < elements.length; i++)
+        if (i == index) elements[i].copyWith(label: uniqueLabel)
+        else elements[i],
     ];
     notifyListeners();
   }
 
   void toggleElementLabelHidden(String id) {
-    final index = _elements.indexWhere((e) => e.id == id);
+    final index = elements.indexWhere((e) => e.id == id);
     if (index == -1) return;
     _pushUndo();
-    _elements = [
-      for (int i = 0; i < _elements.length; i++)
-        if (i == index) _elements[i].copyWith(labelHidden: !_elements[i].labelHidden)
-        else _elements[i],
+    activePage.elements = [
+      for (int i = 0; i < elements.length; i++)
+        if (i == index) elements[i].copyWith(labelHidden: !elements[i].labelHidden)
+        else elements[i],
     ];
     notifyListeners();
   }
 
   void toggleElementHidden(String id) {
-    final index = _elements.indexWhere((e) => e.id == id);
+    final index = elements.indexWhere((e) => e.id == id);
     if (index == -1) return;
     _pushUndo();
-    _elements = [
-      for (int i = 0; i < _elements.length; i++)
-        if (i == index) _elements[i].copyWith(hidden: !_elements[i].hidden)
-        else _elements[i],
+    activePage.elements = [
+      for (int i = 0; i < elements.length; i++)
+        if (i == index) elements[i].copyWith(hidden: !elements[i].hidden)
+        else elements[i],
     ];
     notifyListeners();
   }
 
   void updateElementRotation(String id, int rotation) {
-    final index = _elements.indexWhere((e) => e.id == id);
+    final index = elements.indexWhere((e) => e.id == id);
     if (index == -1) return;
     _pushUndo();
-    // Normalize to -180..180
     var r = rotation % 360;
     if (r > 180) r -= 360;
-    _elements = [
-      for (int i = 0; i < _elements.length; i++)
-        if (i == index) _elements[i].copyWith(rotation: r)
-        else _elements[i],
+    activePage.elements = [
+      for (int i = 0; i < elements.length; i++)
+        if (i == index) elements[i].copyWith(rotation: r)
+        else elements[i],
     ];
     notifyListeners();
   }
 
   void resetSelectedTransform() {
     if (_selectedElementId == null) return;
-    final index = _elements.indexWhere((e) => e.id == _selectedElementId);
+    final index = elements.indexWhere((e) => e.id == _selectedElementId);
     if (index == -1) return;
-    final el = _elements[index];
+    final el = elements[index];
     final (defaultW, defaultH) = DesignerElement.defaultSize(el.type);
     _pushUndo();
-    _elements = [
-      for (int i = 0; i < _elements.length; i++)
+    activePage.elements = [
+      for (int i = 0; i < elements.length; i++)
         if (i == index)
           el.copyWith(
             width: defaultW,
@@ -295,35 +423,44 @@ class DesignerState extends ChangeNotifier {
             rotation: 0,
           )
         else
-          _elements[i],
+          elements[i],
     ];
     notifyListeners();
   }
 
-  void toggleOrientation() {
-    final oldCw = _isLandscape ? 200 : 100;
-    final oldCh = _isLandscape ? 100 : 200;
-    final newCw = _isLandscape ? 100 : 200;
-    final newCh = _isLandscape ? 200 : 100;
+  // ── Cross-page operations ───────────────────────────────────────────────
 
-    final ratioX = newCw / oldCw;
-    final ratioY = newCh / oldCh;
+  /// Copies an element to the clipboard (stored internally).
+  DesignerElement? _clipboard;
 
+  void copyElement(String id) {
+    final pageElements = elements;
+    final index = pageElements.indexWhere((e) => e.id == id);
+    if (index == -1) return;
+    _clipboard = pageElements[index].copyWith();
+  }
+
+  void pasteElement({int? targetPageIndex}) {
+    if (_clipboard == null) return;
+    final targetIndex = targetPageIndex ?? _activePageIndex;
+    final savedIndex = _activePageIndex;
+    if (targetIndex != _activePageIndex) {
+      _activePageIndex = targetIndex;
+    }
     _pushUndo();
-    _elements = _elements.map((e) {
-      final halfW = e.width ~/ 2;
-      final halfH = e.height ~/ 2;
-      return e.copyWith(
-        x: (e.x * ratioX).round().clamp(halfW, newCw - halfW),
-        y: (e.y * ratioY).round().clamp(halfH, newCh - halfH),
-
-      );
-    }).toList();
-
-    _isLandscape = !_isLandscape;
-    _screenSize = _isLandscape ? '200 x 100' : '100 x 200';
+    final newElement = _clipboard!.copyWith(
+      id: UniqueKey().toString(),
+      label: _generateUniqueLabelAcrossAllPages(_clipboard!.label),
+    );
+    activePage.elements = [...activePage.elements, newElement];
+    _selectedElementId = newElement.id;
+    if (targetIndex != savedIndex) {
+      _activePageIndex = savedIndex;
+    }
     notifyListeners();
   }
+
+  // ── Skin / grid ─────────────────────────────────────────────────────────
 
   void setSkin(String name) {
     _mutationCount++;
@@ -346,6 +483,8 @@ class DesignerState extends ChangeNotifier {
     };
     notifyListeners();
   }
+
+  // ── Runtime values ──────────────────────────────────────────────────────
 
   dynamic getRuntimeWidgetValue(String id, dynamic defaultValue) {
     return _runtimeWidgetValues.containsKey(id) ? _runtimeWidgetValues[id] : defaultValue;
@@ -379,6 +518,8 @@ class DesignerState extends ChangeNotifier {
   void notifyChanged() {
     notifyListeners();
   }
+
+  // ── Config setters ──────────────────────────────────────────────────────
 
   void setBleEnabled(bool v) {
     _mutationCount++;
@@ -499,48 +640,49 @@ class DesignerState extends ChangeNotifier {
     if (value is List && value.length >= 2) {
       final w = (value[0] as num?)?.toInt() ?? 200;
       final h = (value[1] as num?)?.toInt() ?? 100;
-      _isLandscape = w >= h;
-      _screenSize = '${w} x ${h}';
+      activePage.isLandscape = w >= h;
     } else if (value is String) {
       final parts = value.split(' x ');
       final w = int.tryParse(parts[0]) ?? 200;
       final h = int.tryParse(parts[1]) ?? 100;
-      _isLandscape = w >= h;
-      _screenSize = '${w} x ${h}';
+      activePage.isLandscape = w >= h;
     }
     notifyListeners();
   }
 
+  // ── Undo / redo ─────────────────────────────────────────────────────────
+
   void undo() {
-    if (_undoStack.isEmpty) return;
+    final stack = _getUndoStack(_activePageIndex);
+    if (stack.isEmpty) return;
     _mutationCount++;
-    _redoStack.add(_elements.map((e) => e.copyWith()).toList());
-    _elements = _undoStack.removeLast();
+    _getRedoStack(_activePageIndex).add(elements.map((e) => e.copyWith()).toList());
+    activePage.elements = stack.removeLast();
     _selectedElementId = null;
     notifyListeners();
   }
 
   void redo() {
-    if (_redoStack.isEmpty) return;
+    final stack = _getRedoStack(_activePageIndex);
+    if (stack.isEmpty) return;
     _mutationCount++;
-    _undoStack.add(_elements.map((e) => e.copyWith()).toList());
-    _elements = _redoStack.removeLast();
+    _getUndoStack(_activePageIndex).add(elements.map((e) => e.copyWith()).toList());
+    activePage.elements = stack.removeLast();
     _selectedElementId = null;
     notifyListeners();
   }
 
   void clearAll() {
-    if (_elements.isEmpty) return;
+    if (elements.isEmpty) return;
     _pushUndo();
-    _elements = [];
+    activePage.elements = [];
     _selectedElementId = null;
     _runtimeWidgetValues.clear();
     notifyListeners();
   }
 
   // ──────────────────────────────────────────────────────────────────────────
-  //  .h-file persistence — reads/writes the JSON inside
-  //  /*__RadioKit_UI_Designer_Config__ … RadioKit_UI_Designer_Config__*/
+  //  .h-file persistence
   // ──────────────────────────────────────────────────────────────────────────
 
   static const _configStart = '/*__RadioKit_UI_Designer_Config__';
@@ -551,7 +693,6 @@ class DesignerState extends ChangeNotifier {
     dotAll: true,
   );
 
-  /// Load designer state from a `.h` file's embedded JSON comment block.
   Future<void> loadFromHeaderFile(String filePath) async {
     if (kIsWeb || !(Platform.isLinux || Platform.isMacOS || Platform.isWindows)) {
       throw UnsupportedError('Header-file I/O requires a desktop platform');
@@ -560,7 +701,6 @@ class DesignerState extends ChangeNotifier {
     loadFromHeaderContent(content, path: filePath);
   }
 
-  /// Load designer state from a plain `.json` file (no header markers).
   Future<void> loadJsonFromPath(String filePath) async {
     if (kIsWeb || !(Platform.isLinux || Platform.isMacOS || Platform.isWindows)) {
       throw UnsupportedError('JSON file I/O requires a desktop platform');
@@ -572,7 +712,6 @@ class DesignerState extends ChangeNotifier {
     loadFromJson(decoded);
   }
 
-  /// Load designer state from raw header string content.
   void loadFromHeaderContent(String content, {String? path}) {
     _originalHeaderContent = content;
     _originalHeaderPath = path;
@@ -588,17 +727,47 @@ class DesignerState extends ChangeNotifier {
     loadFromJson(decoded);
   }
 
+  /// Load designer state from a JSON map.
+  ///
+  /// Supports both v1 (flat `widgets[]`) and v2 (`pages[]`) formats.
   void loadFromJson(Map<String, dynamic> decoded) {
-    _elements.clear();
-    for (final wJson in (decoded['widgets'] as List? ?? [])) {
-      _elements.add(DesignerElement.fromJson(wJson as Map<String, dynamic>));
+    _pages.clear();
+    _undoStacks.clear();
+    _redoStacks.clear();
+
+    final version = decoded['version'] as int? ?? 1;
+
+    if (version >= 2 && decoded.containsKey('pages')) {
+      // ── v2 format: pages[] ──────────────────────────────────────────
+      for (final pageJson in (decoded['pages'] as List? ?? [])) {
+        _pages.add(DesignerPage.fromJson(pageJson as Map<String, dynamic>));
+      }
+      // Read per-page orientation from page data (already in DesignerPage)
+    } else {
+      // ── v1 format: flat widgets[] (backward compat for loading) ─────
+      final page = DesignerPage(name: 'Page 1');
+      for (final wJson in (decoded['widgets'] as List? ?? [])) {
+        page.elements.add(DesignerElement.fromJson(wJson as Map<String, dynamic>));
+      }
+      // Read orientation from canvas.size
+      final rawSize = decoded['canvas']?['size'] ?? decoded['canvas']?['screenSize'];
+      if (rawSize is List && rawSize.length >= 2) {
+        final w = (rawSize[0] as num?)?.toInt() ?? 200;
+        final h = (rawSize[1] as num?)?.toInt() ?? 100;
+        page.isLandscape = w >= h;
+      }
+      _pages.add(page);
     }
 
-    // restore model config so the generated header block uses the right values
+    if (_pages.isEmpty) {
+      _pages.add(DesignerPage(name: 'Page 1'));
+    }
+    _activePageIndex = 0;
+
+    // restore model config
     _modelName = (decoded['config']?['name'] as String?) ?? '';
     _modelDescription = (decoded['config']?['description'] as String?) ?? '';
     _modelType = (decoded['config']?['type'] as String?) ?? 'Locomotive';
-    // transports (new nested format)
     final transports = decoded['config']?['transports'] as Map<String, dynamic>?;
     if (transports != null) {
       _bleEnabled = (transports['ble']?['enabled'] as bool?) ?? true;
@@ -609,7 +778,6 @@ class DesignerState extends ChangeNotifier {
       _cloudAccount = (transports['cloud']?['account'] as String?) ?? '';
       _cloudRelay = (transports['cloud']?['relay'] as String?) ?? '';
     } else {
-      // Fallback: old format ignored, use defaults
       _bleEnabled = true;
       _wifiEnabled = false;
       _cloudEnabled = false;
@@ -621,26 +789,7 @@ class DesignerState extends ChangeNotifier {
     _activeSkin = _normaliseSkin((decoded['config']?['theme'] as String?) ?? 'dragon');
     _connectionPassword = (decoded['config']?['password'] as String?) ?? '';
 
-    // canvas section: read 'size' (array [w, h] or legacy string "W x H")
-    final rawSize = decoded['canvas']?['size'] ?? decoded['canvas']?['screenSize'];
-    if (rawSize is List && rawSize.length >= 2) {
-      final w = (rawSize[0] as num?)?.toInt() ?? 200;
-      final h = (rawSize[1] as num?)?.toInt() ?? 100;
-      _isLandscape = w >= h;
-      _screenSize = '${w} x ${h}';
-    } else if (rawSize is String) {
-      final parts = rawSize.split(' x ');
-      final w = int.tryParse(parts[0]) ?? 200;
-      final h = int.tryParse(parts[1]) ?? 100;
-      _isLandscape = w >= h;
-      _screenSize = '${w} x ${h}';
-    } else if (rawSize == null) {
-      // default to landscape
-      _isLandscape = true;
-      _screenSize = '200 x 100';
-    }
-
-    // read grid style (string: 'lines', 'dots', 'none')
+    // read grid style
     final gridStr = decoded['canvas']?['grid'] as String?;
     if (gridStr != null) {
       _gridStyle = switch (gridStr) {
@@ -650,7 +799,7 @@ class DesignerState extends ChangeNotifier {
       };
     }
 
-    // read skin from canvas (overrides config.theme if present)
+    // read skin from canvas
     final canvasSkin = decoded['canvas']?['skin'] as String?;
     if (canvasSkin != null) {
       _activeSkin = canvasSkin;
@@ -663,7 +812,6 @@ class DesignerState extends ChangeNotifier {
       _appVersion = appData['appVersion'] as String?;
     }
 
-    // enableControlUI
     _enableControlUI = (decoded['enableControlUI'] as bool?) ?? true;
 
     // telemetry
@@ -688,8 +836,6 @@ class DesignerState extends ChangeNotifier {
   String? get originalHeaderContent => _originalHeaderContent;
   String? get originalHeaderPath => _originalHeaderPath;
 
-  /// Write the current designer state into the `.h` file's embedded JSON block,
-  /// preserving everything else (user code below the markers) unchanged.
   Future<void> saveToHeaderFile(String filePath) async {
     if (kIsWeb || !(Platform.isLinux || Platform.isMacOS || Platform.isWindows)) {
       throw UnsupportedError('Header-file I/O requires a desktop platform');
@@ -700,8 +846,6 @@ class DesignerState extends ChangeNotifier {
     await File(filePath).writeAsString(result);
   }
 
-  /// Replaces the embedded JSON block in the given [originalContent] with the
-  /// current designer state and returns the new complete header string.
   String generateHeaderContent(String originalContent) {
     final match = configPattern.firstMatch(originalContent);
     final encoder = JsonEncoder.withIndent('  ');
@@ -717,7 +861,8 @@ class DesignerState extends ChangeNotifier {
     return originalContent.replaceRange(match.start, match.end, fullBlock);
   }
 
-  /// Returns a snake_case base label name for the given widget type.
+  // ── Label generation helpers ────────────────────────────────────────────
+
   String _baseLabelForType(DesignerElementType type) {
     switch (type) {
       case DesignerElementType.button: return 'button';
@@ -736,12 +881,10 @@ class DesignerState extends ChangeNotifier {
     }
   }
 
-  /// Generates an auto-label for the given [type] in the format `{base}_{N}`
-  /// (e.g., `button_1`, `button_2`), always starting the counter at 1 and
-  /// incrementing until a unique label is found.
+  /// Generates an auto-label unique across ALL pages.
   String _generateAutoLabel(DesignerElementType type) {
     final base = _baseLabelForType(type);
-    final existingLabels = _elements.map((e) => e.label).toSet();
+    final existingLabels = _allLabels();
     int counter = 1;
     while (existingLabels.contains('${base}_$counter')) {
       counter++;
@@ -749,16 +892,38 @@ class DesignerState extends ChangeNotifier {
     return '${base}_$counter';
   }
 
-  /// Ensures [label] is unique among all elements, excluding the element
-  /// with [excludeElementId] (if provided). Appends `_N` suffix as needed.
+  /// Generates a label unique across ALL pages.
+  String _generateUniqueLabelAcrossAllPages(String base) {
+    final existingLabels = _allLabels();
+    if (!existingLabels.contains(base)) return base;
+    int counter = 1;
+    while (existingLabels.contains('${base}_$counter')) {
+      counter++;
+    }
+    return '${base}_$counter';
+  }
+
+  /// Returns all labels across all pages.
+  Set<String> _allLabels() {
+    final labels = <String>{};
+    for (final page in _pages) {
+      for (final el in page.elements) {
+        labels.add(el.label);
+      }
+    }
+    return labels;
+  }
+
   String _ensureUniqueLabel(String label, {String? excludeElementId}) {
-    final existingLabels = _elements
-        .where((e) => e.id != excludeElementId)
-        .map((e) => e.label)
-        .toSet();
-
+    final existingLabels = <String>{};
+    for (final page in _pages) {
+      for (final el in page.elements) {
+        if (el.id != excludeElementId) {
+          existingLabels.add(el.label);
+        }
+      }
+    }
     if (!existingLabels.contains(label)) return label;
-
     int counter = 1;
     while (existingLabels.contains('${label}_$counter')) {
       counter++;
@@ -766,48 +931,48 @@ class DesignerState extends ChangeNotifier {
     return '${label}_$counter';
   }
 
-  /// Validates and normalises a skin/theme name to a lowercase preset key
-  /// or 'default'. Used for both serialisation and deserialisation.
   String _normaliseSkin(String name) {
     if (name == 'default') return 'default';
     if (RKTokens.presetsByName.containsKey(name)) return name;
     return 'dragon';
   }
 
+  // ── Serialization ───────────────────────────────────────────────────────
+
+  /// Serialize to v2 JSON format with pages[].
   Map<String, dynamic> toJson() => {
-        'version': 1,
-        'appdata': {
-          if (_appVersion != null) 'appVersion': _appVersion,
-          if (_lastEdit != null) 'lastEdit': _lastEdit,
+    'version': 2,
+    'appdata': {
+      if (_appVersion != null) 'appVersion': _appVersion,
+      if (_lastEdit != null) 'lastEdit': _lastEdit,
+    },
+    'config': {
+      'name': _modelName,
+      'description': _modelDescription,
+      'type': _modelType,
+      'transports': {
+        'ble': {'enabled': _bleEnabled},
+        'wifi': {
+          'enabled': _wifiEnabled,
+          'ssid': _wifiSsid,
+          'pass': _wifiPass,
         },
-        'config': {
-          'name': _modelName,
-          'description': _modelDescription,
-          'type': _modelType,
-          'transports': {
-            'ble': {'enabled': _bleEnabled},
-            'wifi': {
-              'enabled': _wifiEnabled,
-              'ssid': _wifiSsid,
-              'pass': _wifiPass,
-            },
-            'cloud': {
-              'enabled': _cloudEnabled,
-              'account': _cloudAccount,
-              'relay': _cloudRelay,
-            },
-          },
-          'theme': _normaliseSkin(_activeSkin),
-          'password': _connectionPassword,
+        'cloud': {
+          'enabled': _cloudEnabled,
+          'account': _cloudAccount,
+          'relay': _cloudRelay,
         },
-        'canvas': {
-          'size': [canvasWidth, canvasHeight],
-          'grid': _gridStyle.name,
-          'skin': _activeSkin,
-        },
-        'enableControlUI': _enableControlUI,
-        'telemetry': List<Map<String, dynamic>>.from(_telemetryWidgets),
-        'features': Map<String, dynamic>.from(_features),
-        'widgets': _elements.map((e) => e.toJson()).toList(),
-      };
+      },
+      'theme': _normaliseSkin(_activeSkin),
+      'password': _connectionPassword,
+    },
+    'canvas': {
+      'grid': _gridStyle.name,
+      'skin': _activeSkin,
+    },
+    'enableControlUI': _enableControlUI,
+    'telemetry': List<Map<String, dynamic>>.from(_telemetryWidgets),
+    'features': Map<String, dynamic>.from(_features),
+    'pages': _pages.map((p) => p.toJson()).toList(),
+  };
 }

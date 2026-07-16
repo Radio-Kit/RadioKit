@@ -55,6 +55,9 @@ class _PendingUpdate {
 /// or user password (widgets-only).
 enum AuthLevel { none, user, device }
 
+/// Page switch state machine states.
+enum _PageSwitchState { idle, pagePending }
+
 /// Manages the connected device, widget configuration, and variable
 /// polling/update loop. Transport-agnostic.
 class DeviceProvider extends ChangeNotifier {
@@ -89,6 +92,12 @@ class DeviceProvider extends ChangeNotifier {
   Completer<int>? _nvsRawWriteCompleter;
   Completer<int>? _authCompleter;  // For CMD_PWD_AUTH response
   Timer? _authTimeoutTimer;
+
+  // ── Page state ───────────────────────────────────────────────
+  int _activePage = 0;
+  int _numPages = 1;
+  List<String> _pageNames = [];
+  _PageSwitchState _pageSwitchState = _PageSwitchState.idle;
   static const Duration _authTimeout = Duration(seconds: 30);
   DateTime? _connectedAt;
   DateTime? get authTimeoutAt =>
@@ -234,6 +243,9 @@ class DeviceProvider extends ChangeNotifier {
   /// Whether the connected device supports OTA firmware updates.
   bool get hasOta => (_deviceFeatures & kFeatureOta) != 0;
 
+  /// Whether an OTA firmware update is currently in progress.
+  bool get isOtaInProgress => _otaProgressCallback != null;
+
   /// Cached chip info from the device, or null if not yet fetched.
   Map<String, dynamic>? get chipInfo => _chipInfo;
 
@@ -260,6 +272,15 @@ class DeviceProvider extends ChangeNotifier {
 
   /// Whether the device has a LittleFS filesystem (detected via features bitmask).
   bool get hasFs => (_deviceFeatures & kFeatureFilesystem) != 0;
+
+  /// Current active page index (0-based).
+  int get activePage => _activePage;
+
+  /// Total number of pages.
+  int get numPages => _numPages;
+
+  /// Page names from the device.
+  List<String> get pageNames => List.unmodifiable(_pageNames);
 
   /// Whether the device supports the 0xEE print stream.
   bool get hasPrintStream => (_deviceFeatures & kSettingsFeaturePrintStream) != 0;
@@ -765,26 +786,44 @@ class DeviceProvider extends ChangeNotifier {
       _configName = config['name'] as String? ?? demoId;
       _description = config['description'] as String? ?? 'Interactive Demo Mode';
 
-      // Infer orientation from canvas size (array [w, h] or legacy string)
-      final rawSize = canvas['size'];
-      int cw, ch;
-      if (rawSize is List && rawSize.length >= 2) {
-        cw = (rawSize[0] as num?)?.toInt() ?? 200;
-        ch = (rawSize[1] as num?)?.toInt() ?? 100;
-      } else if (rawSize is String) {
-        final parts = rawSize.split(' x ');
-        cw = int.tryParse(parts[0]) ?? 200;
-        ch = int.tryParse(parts[1]) ?? 100;
+      // Infer orientation from canvas size or page orientation
+      final version = data['version'] as int? ?? 1;
+      List<dynamic> widgetsJson;
+      if (version >= 2 && data.containsKey('pages')) {
+        // v2 format: pages[].widgets
+        final pages = data['pages'] as List<dynamic>? ?? [];
+        // Flatten all pages' widgets for demo rendering
+        widgetsJson = [];
+        for (final page in pages) {
+          final pageWidgets = (page as Map<String, dynamic>?)?['widgets'] as List<dynamic>? ?? [];
+          widgetsJson.addAll(pageWidgets);
+        }
+        // Use first page orientation
+        final firstPage = pages.isNotEmpty ? pages[0] as Map<String, dynamic>? : null;
+        final orientation = firstPage?['orientation'] as String? ?? 'landscape';
+        _orientation = orientation == 'portrait'
+            ? kOrientationPortrait
+            : kOrientationLandscape;
       } else {
-        cw = 200;
-        ch = 100;
+        // v1 format: flat widgets[], orientation from canvas.size
+        widgetsJson = data['widgets'] as List<dynamic>? ?? [];
+        final rawSize = canvas['size'];
+        int cw, ch;
+        if (rawSize is List && rawSize.length >= 2) {
+          cw = (rawSize[0] as num?)?.toInt() ?? 200;
+          ch = (rawSize[1] as num?)?.toInt() ?? 100;
+        } else if (rawSize is String) {
+          final parts = rawSize.split(' x ');
+          cw = int.tryParse(parts[0]) ?? 200;
+          ch = int.tryParse(parts[1]) ?? 100;
+        } else {
+          cw = 200;
+          ch = 100;
+        }
+        _orientation = cw >= ch
+            ? kOrientationLandscape
+            : kOrientationPortrait;
       }
-      _orientation = cw >= ch
-          ? kOrientationLandscape
-          : kOrientationPortrait;
-
-      // Parse widgets and build name→widgetId lookup
-      final widgetsJson = data['widgets'] as List<dynamic>? ?? [];
       final nameToId = <String, int>{};
       _widgets = [];
       for (final w in widgetsJson) {
@@ -1207,6 +1246,17 @@ class DeviceProvider extends ChangeNotifier {
       case kCmdAck:           _handleAck(packet.payload);       break;
       case kCmdWifiInfoData:
         _handleWifiInfoData(packet.payload);
+        break;
+      case kCmdSetPage:
+        _handleSetPage(packet.payload);
+        break;
+
+      case kCmdPageChanged:
+      case kCmdPageSwitch:
+        _handlePageChanged(packet.cmd, packet.payload);
+        break;
+      case kCmdPagesData:
+        _handlePagesData(packet.payload);
         break;
       default:
         debugPrint('RadioKit: Unknown cmd 0x${packet.cmd.toRadixString(16)}');
@@ -1787,6 +1837,11 @@ class DeviceProvider extends ChangeNotifier {
 
 
   void _handleConfData(List<int> payload) {
+    // Discard stale CONF_DATA while waiting for PAGE_CHANGED response.
+    if (_pageSwitchState == _PageSwitchState.pagePending) {
+      _log('Discarding stale CONF_DATA during PAGE_PENDING', level: ConsoleLogLevel.info);
+      return;
+    }
     _log('MCU <- CONF_DATA (${payload.length} bytes)');
     debugPrint('RadioKit CONF_DATA raw hex: ${payload.take(64).map((b) => b.toRadixString(16).padLeft(2, "0")).join(" ")}${payload.length > 64 ? ' ...' : ''}');
     final conf = ProtocolService.parseConfData(payload);
@@ -1814,6 +1869,8 @@ class DeviceProvider extends ChangeNotifier {
       orientation: conf.orientation,
       theme: conf.theme,
     );
+    _numPages = conf.numPages;
+    _activePage = conf.activePage;
 
     // Apply the skin provided by the device
     _themePresetProvider?.setTheme(conf.theme);
@@ -1840,9 +1897,9 @@ class DeviceProvider extends ChangeNotifier {
   }
 
   void _handleSetInput(List<int> payload) {
-    final result = ProtocolService.parseVarUpdate(payload);
+    final result = ProtocolService.parseVarUpdate(payload, hasPagePrefix: false);
     if (result == null) return;
-    final (widgetId, seq, values) = result;
+    final (_, widgetId, seq, values) = result;
 
     final current = _widgetState;
     if (current == null) return;
@@ -1872,9 +1929,14 @@ class DeviceProvider extends ChangeNotifier {
   }
 
   void _handleVarUpdate(List<int> payload) {
-    final result = ProtocolService.parseVarUpdate(payload);
+    // Discard stale VAR_UPDATE while waiting for PAGE_CHANGED response.
+    if (_pageSwitchState == _PageSwitchState.pagePending) {
+      _log('Discarding stale VAR_UPDATE during PAGE_PENDING', level: ConsoleLogLevel.info);
+      return;
+    }
+    final result = ProtocolService.parseVarUpdate(payload, hasPagePrefix: false);
     if (result == null) return;
-    final (widgetId, seq, values) = result;
+    final (_, widgetId, seq, values) = result;
 
     final current = _widgetState;
     if (current == null) return;
@@ -2018,6 +2080,66 @@ class DeviceProvider extends ChangeNotifier {
       completer.complete(parsed);
     }
   }
+
+  // ── Page management handlers ─────────────────────────────────────────────
+
+  /// Handle CMD_PAGE_CHANGED (0x21) and CMD_PAGE_SWITCH (0x24).
+  void _handlePageChanged(int cmd, List<int> payload) {
+    final pageIndex = ProtocolService.parsePageIndex(payload);
+    if (pageIndex == null) return;
+    _log('MCU <- ${cmd == kCmdPageChanged ? "PAGE_CHANGED" : "PAGE_SWITCH"}: page=$pageIndex',
+        level: ConsoleLogLevel.info);
+    _activePage = pageIndex;
+    // Return to idle state — page switch is complete.
+    _pageSwitchState = _PageSwitchState.idle;
+    notifyListeners();
+  }
+
+  /// Handle CMD_PAGES_DATA (0x23) — page name list from MCU.
+  void _handlePagesData(List<int> payload) {
+    final names = ProtocolService.parsePagesData(payload);
+    if (names == null) return;
+    _log('MCU <- PAGES_DATA: ${names.length} pages',
+        level: ConsoleLogLevel.info);
+    _pageNames = names;
+    _numPages = names.length;
+    notifyListeners();
+  }
+
+  /// Handle incoming CMD_SET_PAGE (0x20) from device — device requests page switch.
+  void _handleSetPage(List<int> payload) {
+    final pageIndex = ProtocolService.parsePageIndex(payload);
+    if (pageIndex == null) return;
+    _log('MCU -> SET_PAGE: switch to page $pageIndex',
+        level: ConsoleLogLevel.info);
+    // TODO: sync active page state when page state machine is implemented (task 6)
+    notifyListeners();
+  }
+
+  /// Send CMD_SET_PAGE (0x20) to switch the MCU to a specific page.
+  Future<void> sendSetPage(int pageIndex) async {
+    if (!_transport.isConnected) return;
+    try {
+      await _writePacket(ProtocolService.buildSetPage(pageIndex));
+      _pageSwitchState = _PageSwitchState.pagePending;
+      _log('APP -> SET_PAGE: page=$pageIndex (entering PAGE_PENDING)', level: ConsoleLogLevel.info);
+    } catch (e) {
+      _log('sendSetPage failed: $e', level: ConsoleLogLevel.error);
+    }
+  }
+
+  /// Send CMD_GET_PAGES (0x22) to request page names from the MCU.
+  Future<void> sendGetPages() async {
+    if (!_transport.isConnected) return;
+    try {
+      await _writePacket(ProtocolService.buildGetPages());
+      _log('APP -> GET_PAGES', level: ConsoleLogLevel.info);
+    } catch (e) {
+      _log('sendGetPages failed: $e', level: ConsoleLogLevel.error);
+    }
+  }
+
+  // ── WiFi configuration ──────────────────────────────────────────────────
 
   /// Send SET_WIFI command via settings protocol to configure WiFi credentials.
   /// The device will save to NVS and reboot. Returns true if command was sent.
@@ -2576,6 +2698,10 @@ class DeviceProvider extends ChangeNotifier {
     _configName       = null;
     _widgets          = [];
     _widgetState      = null;
+    _activePage       = 0;
+    _numPages         = 1;
+    _pageNames        = [];
+    _pageSwitchState  = _PageSwitchState.idle;
     _description      = null;
     _deviceConfigJson = null;
     _fsTreeCache      = null;

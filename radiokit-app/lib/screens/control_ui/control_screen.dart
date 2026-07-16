@@ -10,6 +10,7 @@ import '../../providers/debug_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/device_designer_bridge.dart';
+import 'page_switcher.dart';
 
 /// Dynamic widget rendering screen for a connected RadioKit device.
 ///
@@ -502,10 +503,17 @@ class _ControlScreenState extends State<ControlScreen> {
   Widget _buildCanvas(DeviceProvider deviceProvider) {
     final debugProvider = context.watch<DebugProvider>();
     final settings = context.watch<SettingsProvider>();
-    return DeviceDesignerBridge(
-      deviceProvider: deviceProvider,
-      debugMode: debugProvider.debugMode,
-      overrideTheme: settings.overrideTheme,
+    return Column(
+      children: [
+        const PageSwitcher(),
+        Expanded(
+          child: DeviceDesignerBridge(
+            deviceProvider: deviceProvider,
+            debugMode: debugProvider.debugMode,
+            overrideTheme: settings.overrideTheme,
+          ),
+        ),
+      ],
     );
   }
 }

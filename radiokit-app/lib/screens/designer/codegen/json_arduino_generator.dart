@@ -47,13 +47,46 @@ class JsonArduinoGenerator {
 
     final setupBuf = StringBuffer();
 
-    // ─── Widget Declarations ───
-    if (widgets.isNotEmpty) {
-      buf.writeln('// ─── Widget Declarations ───');
-      for (final w in widgets) {
-        if (w is! Map<String, dynamic>) continue;
-        _generateWidget(w, buf, setupBuf);
-        buf.writeln();
+    // ─── Multi-page support ───
+    final version = json['version'] as int? ?? 1;
+    final pages = json['pages'] as List? ?? [];
+    final isMultiPage = version >= 2 && pages.isNotEmpty;
+
+    if (isMultiPage) {
+      // v2 format: pages[] array
+      buf.writeln('#define RK_NUM_PAGES ${pages.length}');
+      buf.writeln('static const char* rk_pageNames[] = {');
+      for (int i = 0; i < pages.length; i++) {
+        final page = pages[i] as Map<String, dynamic>? ?? {};
+        final pageName = page['name'] as String? ?? 'Page ${i + 1}';
+        buf.writeln('  "${_escapeC(pageName)}",');
+      }
+      buf.writeln('};');
+      buf.writeln();
+
+      // Widget declarations grouped by page
+      for (int i = 0; i < pages.length; i++) {
+        final page = pages[i] as Map<String, dynamic>? ?? {};
+        final pageName = page['name'] as String? ?? 'Page ${i + 1}';
+        final pageWidgets = page['widgets'] as List? ?? [];
+        if (pageWidgets.isNotEmpty) {
+          buf.writeln('// ─── Page $i: $pageName ───');
+        for (final w in pageWidgets) {
+          if (w is! Map<String, dynamic>) continue;
+          _generateWidget(w, buf, setupBuf, pageIndex: i);
+          buf.writeln();
+        }
+        }
+      }
+    } else {
+      // v1 format: flat widgets[]
+      if (widgets.isNotEmpty) {
+        buf.writeln('// ─── Widget Declarations ───');
+        for (final w in widgets) {
+          if (w is! Map<String, dynamic>) continue;
+          _generateWidget(w, buf, setupBuf);
+          buf.writeln();
+        }
       }
     }
 
@@ -96,6 +129,12 @@ class JsonArduinoGenerator {
 
     if (setupBuf.isNotEmpty) {
       buf.write(setupBuf.toString());
+      buf.writeln();
+    }
+
+    // ─── Multi-page initialization ───
+    if (isMultiPage) {
+      buf.writeln('  RadioKit.setNumPages(RK_NUM_PAGES);');
       buf.writeln();
     }
 
@@ -186,7 +225,8 @@ class JsonArduinoGenerator {
   // ── Widget generator ─────────────────────────────────────────────────────
 
   static void _generateWidget(
-      Map<String, dynamic> w, StringBuffer declBuf, StringBuffer setupBuf) {
+      Map<String, dynamic> w, StringBuffer declBuf, StringBuffer setupBuf,
+      {int pageIndex = 0}) {
     final type = w['type'] as String;
     final name = _sanitizeName(w['name'] as String? ?? '');
     final position = w['position'] as List? ?? [10, 10, 0];
@@ -227,6 +267,10 @@ class JsonArduinoGenerator {
 
     // Common label post-set (for widgets that have labels)
     void writeLabelAndHidden() {
+      // Emit page assignment for multi-page configs.
+      if (pageIndex > 0) {
+        setupBuf.writeln('  $name.rk.page = $pageIndex;');
+      }
       if (labelText.isNotEmpty) {
         setupBuf.writeln('  $name.rk.label = "${_escapeC(labelText)}";');
       }

@@ -26,28 +26,55 @@ class HeaderFileConfig {
   final int version;
   final HeaderAppConfig app;
   final HeaderCanvasConfig canvas;
-  final List<DesignerElement> widgets;
+  final List<DesignerPage> pages;
+
+  /// Convenience: flatten all pages' widgets into a single list.
+  List<DesignerElement> get widgets => pages.expand((p) => p.elements).toList();
 
   const HeaderFileConfig({
     required this.version,
     required this.app,
     required this.canvas,
-    required this.widgets,
+    required this.pages,
   });
 
   factory HeaderFileConfig.fromJson(Map<String, dynamic> json) {
     final version = json['version'] as int? ?? 1;
     final appJson = json['config'] as Map<String, dynamic>? ?? {};
     final canvasJson = json['canvas'] as Map<String, dynamic>? ?? {};
-    final widgetsJson = json['widgets'] as List? ?? [];
+
+    List<DesignerPage> parsedPages;
+    if (version >= 2 && json.containsKey('pages')) {
+      // v2 format: pages[]
+      parsedPages = (json['pages'] as List? ?? [])
+          .map((e) => DesignerPage.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } else {
+      // v1 format: flat widgets[]
+      final widgetsJson = json['widgets'] as List? ?? [];
+      final page = DesignerPage(name: 'Page 1');
+      for (final wJson in widgetsJson) {
+        page.elements.add(DesignerElement.fromJson(wJson as Map<String, dynamic>));
+      }
+      // Read orientation from canvas.size
+      final rawSize = canvasJson['size'] ?? canvasJson['screenSize'];
+      if (rawSize is List && rawSize.length >= 2) {
+        final w = (rawSize[0] as num?)?.toInt() ?? 200;
+        final h = (rawSize[1] as num?)?.toInt() ?? 100;
+        page.isLandscape = w >= h;
+      }
+      parsedPages = [page];
+    }
+
+    if (parsedPages.isEmpty) {
+      parsedPages = [DesignerPage(name: 'Page 1')];
+    }
 
     return HeaderFileConfig(
       version: version,
       app: HeaderAppConfig.fromJson(appJson),
       canvas: HeaderCanvasConfig.fromJson(canvasJson),
-      widgets: widgetsJson
-          .map((e) => DesignerElement.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      pages: parsedPages,
     );
   }
 
@@ -55,7 +82,7 @@ class HeaderFileConfig {
         'version': version,
         'config': app.toJson(),
         'canvas': canvas.toJson(),
-        'widgets': widgets.map((e) => e.toJson()).toList(),
+        'pages': pages.map((p) => p.toJson()).toList(),
       };
 }
 

@@ -30,3 +30,4 @@ export 'src/canvas/designer_canvas.dart';
 export 'src/canvas/canvas_element.dart';
 export 'src/models/designer_state.dart';
 export 'src/models/designer_element.dart';
+export 'src/models/designer_page.dart';

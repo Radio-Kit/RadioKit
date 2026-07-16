@@ -17,6 +17,7 @@ import 'utils/file_download.dart';
 import 'widgets/designer_widget_dialog.dart';
 import '../../widgets/themed_bottom_sheet.dart';
 import 'widgets/designer_inspector.dart';
+import 'widgets/designer_page_bar.dart';
 
 import '../../providers/designs_provider.dart';
 import 'codegen/json_arduino_generator.dart';
@@ -220,6 +221,8 @@ class _DesignerScreenState extends State<DesignerScreen> {
       body: Column(
         children: [
           _buildTopBar(tokens),
+          if (!_state.isPlayMode)
+            DesignerPageBar(state: _state),
           Expanded(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -754,8 +757,8 @@ class _DesignerScreenState extends State<DesignerScreen> {
     final data = jsonDecode(rawJson);
     if (data is! Map<String, dynamic>) return rawJson;
 
-    final widgets = data['widgets'];
-    if (widgets is List) {
+    // Handle both v1 (flat widgets) and v2 (pages[].widgets) formats
+    void transformWidgets(List widgets) {
       for (final w in widgets) {
         if (w is! Map<String, dynamic>) continue;
         // Replace 'label': { text, show } object with just the show/hide string
@@ -763,6 +766,25 @@ class _DesignerScreenState extends State<DesignerScreen> {
         if (labelObj is Map) {
           final show = (labelObj['show'] as bool?) ?? true;
           w['label'] = show ? 'show' : 'hide';
+        }
+      }
+    }
+
+    // v1: flat widgets array
+    final widgets = data['widgets'];
+    if (widgets is List) {
+      transformWidgets(widgets);
+    }
+
+    // v2: pages[].widgets
+    final pages = data['pages'];
+    if (pages is List) {
+      for (final page in pages) {
+        if (page is Map<String, dynamic>) {
+          final pageWidgets = page['widgets'];
+          if (pageWidgets is List) {
+            transformWidgets(pageWidgets);
+          }
         }
       }
     }

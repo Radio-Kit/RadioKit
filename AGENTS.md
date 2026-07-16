@@ -240,6 +240,42 @@ void setup() {
 - The old `config.transport = "BLE"` line is no longer emitted (vestigial field in `RK_Config`).
 - The JSON `config.transports` object is embedded in the `.h` file comment block for re-import by the header parser.
 
+### 7.2 Page-Grouped Output Format
+
+For multi-page configs (version >= 2), the generated code groups widgets by page:
+
+```cpp
+// Transports
+#define ENABLE_RK_SERIAL
+#define ENABLE_RK_BLE
+
+// Page definitions
+#define RK_NUM_PAGES 2
+const char* rk_pageNames[] = {"Control", "Settings"};
+
+// --- Page 0: Control ---
+Button button_1;
+Slider slider_1;
+
+// --- Page 1: Settings ---
+Switch switch_1;
+
+void setup() {
+  RadioKit.setNumPages(RK_NUM_PAGES);
+  RadioKit.begin();
+  // ... widget init ...
+  button_1.rk.label = "Forward";
+  slider_1.rk.page = 1;  // only emitted for page > 0
+}
+```
+
+Key rules:
+- Widget names are globally sequential across pages (button_1, slider_1, switch_1).
+- `rk.page = N;` is emitted only when pageIndex > 0 (page 0 is the default).
+- `#define RK_NUM_PAGES` and `rk_pageNames[]` are emitted only for multi-page configs.
+- `RadioKit.setNumPages(RK_NUM_PAGES)` is called before `RadioKit.begin()` in setup.
+- For single-page configs (v1 format), no page-related code is emitted.
+
 ## 8. Demo Screen Conventions
 
 ### 8.1 Layout Structure
@@ -915,3 +951,112 @@ The `hidden` field is promoted to top-level in the JSON config (like `label`, `h
   "size": [40, 40]
 }
 ```
+
+## 22. Multi-Page UI
+
+### 22.1 JSON Config Schema v2
+
+The designer uses a v2 JSON format with a `pages` array instead of a flat `widgets` array:
+
+```json
+{
+  "version": 2,
+  "config": { ... },
+  "canvas": { ... },
+  "pages": [
+    {
+      "name": "Page 1",
+      "orientation": "landscape",
+      "widgets": [ ... ]
+    },
+    {
+      "name": "Page 2",
+      "orientation": "portrait",
+      "widgets": [ ... ]
+    }
+  ]
+}
+```
+
+- `version`: Must be `2` for multi-page configs.
+- `pages[]`: Array of page objects, each with `name`, `orientation`, and `widgets`.
+- `widgets`: Array of widget objects (same format as v1 flat list).
+- Backward compat: v1 flat `widgets` array is still supported.
+
+### 22.2 Protocol Commands
+
+New commands for page management (see `protocol.dart` and `RadioKitProtocol.h`):
+
+| Command | Code | Direction | Description |
+|---------|------|-----------|-------------|
+| `SET_PAGE` | 0x20 | App -> MCU | Switch to page N |
+| `PAGE_CHANGED` | 0x21 | MCU -> App | Page switch acknowledged |
+| `GET_PAGES` | 0x22 | App -> MCU | Request page list |
+| `PAGES_DATA` | 0x23 | MCU -> App | Page names list |
+| `PAGE_SWITCH` | 0x24 | MCU -> App | Device-initiated page switch |
+
+### 22.3 App State Machine
+
+The `DeviceProvider` tracks page switch state:
+
+- `_PageSwitchState.idle` - no pending page switch
+- `_PageSwitchState.pagePending` - SET_PAGE sent, waiting for PAGE_CHANGED
+
+Rules:
+- On `sendSetPage()`: enter `pagePending`, start timer.
+- On `PAGE_CHANGED` or `PAGE_SWITCH`: return to `idle`, update `_activePage`.
+- While in `pagePending`: discard stale `VAR_UPDATE` and `CONF_DATA` packets.
+- Timeout (60s): return to `idle` if no response.
+
+### 22.4 Arduino Library
+
+Widgets have a `page` field (`uint8_t _page`) set during codegen `_init()`:
+
+- `RadioKit.setActivePage(page)` - switches active page, sends PAGE_SWITCH + CONF_DATA + VAR_DATA.
+- `RadioKit.setNumPages(n)` - sets total page count (called in `setup()`).
+- Page gating: `update()` loop and `_handleSetInput()` skip widgets where `w->page() != _activePage`.
+- `_buildConfPayload` emits v5 header with `ACTIVE_PAGE` + `NUM_PAGES` when `_numPages > 1`.
+
+### 22.5 Codegen Output
+
+Generated code includes:
+
+```cpp
+#define RK_NUM_PAGES 3
+const char* rk_pageNames[] = {"Control", "Settings", "Monitor"};
+
+// --- Page 0: Control ---
+Button button_1;  // page=0
+Slider slider_1;   // page=0
+
+// --- Page 1: Settings ---
+Switch switch_1;   // page=1
+
+void setup() {
+  RadioKit.setNumPages(RK_NUM_PAGES);
+  RadioKit.begin();
+  // ... widget init with page param ...
+}
+```
+
+### 22.6 Remote Access API
+
+New endpoints for page management:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/page` | Returns `{ activePage, numPages, pages }` |
+| POST | `/api/page` | Switch page: `{ page: N }` |
+| GET | `/api/pages` | Returns `{ pages, numPages, activePage }` |
+
+Follow mode: `/api/page` and `/api/pages` map to `/control` route.
+
+### 22.7 Designer State
+
+`DesignerState` manages pages via:
+
+- `List<DesignerPage> pages` - page list with name, elements, orientation.
+- `activePageIndex` getter / `setActivePage(index)` setter.
+- Element operations (`addElement`, `removeSelected`, etc.) operate on active page.
+- Undo/redo is per-page scoped.
+- `toJson()` / `loadFromJson()` serialize/deserialize the pages structure.

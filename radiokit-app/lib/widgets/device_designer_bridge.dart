@@ -47,6 +47,13 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
     if (currentJson != _lastJson) {
       _syncElementsFromJson();
     }
+    // Sync active page from device — when the device switches pages
+    // (CMD_PAGE_SWITCH or CMD_PAGE_CHANGED), update the designer state
+    // so only the active page's widgets are rendered.
+    final deviceActivePage = widget.deviceProvider.activePage;
+    if (_designerState.activePageIndex != deviceActivePage) {
+      _designerState.setActivePage(deviceActivePage);
+    }
     _syncValues();
   }
 

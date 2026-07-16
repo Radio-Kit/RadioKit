@@ -212,6 +212,7 @@ class RemoteAccessService {
     if (path == '/api/settings') return null;
     if (path.startsWith('/api/cloud/accounts')) return _applySheet('/system', 'accounts');
     if (path.startsWith('/api/cloud/account')) return _applySheet('/system', 'accounts');
+    if (path == '/api/page' || path.startsWith('/api/pages')) return '/control';
     if (path.startsWith('/api/console')) return '/system';
     if (path.startsWith('/api/log')) return '/system';
     if (path.startsWith('/api/models')) return '/models';
@@ -333,6 +334,11 @@ class RemoteAccessService {
     router.post('/api/devices/<id>/settings/nvs/raw/<key>', _handleDeviceNvsRawWrite);
     router.get('/api/devices/<id>/settings/nvs/cloud-info', _handleDeviceNvsCloudInfo);
     router.get('/api/devices/<id>/widgets/<wid>', _handleDeviceWidgetInfo);
+
+    // ── Page API ──────────────────────────────────────────────────────
+    router.get('/api/page', _handleGetPage);
+    router.post('/api/page', _handleSetPage);
+    router.get('/api/pages', _handleGetPages);
 
     // ── Cloud relay API ────────────────────────────────────────────────
     router.post('/api/cloud/connect', _handleCloudConnect);
@@ -3090,6 +3096,60 @@ class RemoteAccessService {
     return _json({'device': id, 'widget': _widgetToJson(widget, dp: dp)});
   }
 
+  // ── Page Handlers ───────────────────────────────────────────────────────────
+
+  /// Handle GET /api/page — returns current page index, total pages, and page names.
+  Future<Response> _handleGetPage(Request request) async {
+    if (!_deviceProvider.isConnected) {
+      return _error('not_connected', 'Not connected to a device', status: 503);
+    }
+    return _json({
+      'activePage': _deviceProvider.activePage,
+      'numPages': _deviceProvider.numPages,
+      'pages': _deviceProvider.pageNames,
+    });
+  }
+
+  /// Handle POST /api/page — switch to a specific page.
+  /// Body: { "page": 0 }
+  Future<Response> _handleSetPage(Request request) async {
+    if (!_deviceProvider.isConnected) {
+      return _error('not_connected', 'Not connected to a device', status: 503);
+    }
+    final body = await _parseBody(request);
+    final page = body['page'] as int?;
+    if (page == null) {
+      return _error('invalid_params', 'page is required');
+    }
+    if (page < 0 || page >= _deviceProvider.numPages) {
+      return _error('invalid_page',
+          'page must be between 0 and ${_deviceProvider.numPages - 1}',
+          status: 400);
+    }
+    try {
+      await _deviceProvider.sendSetPage(page);
+      return _json({
+        'ok': true,
+        'page': page,
+        'message': 'Switched to page $page',
+      });
+    } catch (e) {
+      return _error('set_page_failed', e.toString(), status: 500);
+    }
+  }
+
+  /// Handle GET /api/pages — returns the page name list with metadata.
+  Future<Response> _handleGetPages(Request request) async {
+    if (!_deviceProvider.isConnected) {
+      return _error('not_connected', 'Not connected to a device', status: 503);
+    }
+    return _json({
+      'pages': _deviceProvider.pageNames,
+      'numPages': _deviceProvider.numPages,
+      'activePage': _deviceProvider.activePage,
+    });
+  }
+
   // ── Cloud Relay Handlers ────────────────────────────────────────────────────
 
   /// Handle POST /api/cloud/connect — connect to relay, authenticate, list devices.
@@ -3321,8 +3381,15 @@ class RemoteAccessService {
   // ── Session / Route ──────────────────────────────────────────────────────────
 
   Future<Response> _handleSessionRoute(Request request) async {
+    final route = _currentRouteGetter();
+    final dp = _deviceProvider;
     return _json({
-      'route': _currentRouteGetter(),
+      'route': route,
+      if (dp.isConnected) ...{
+        'activePage': dp.activePage,
+        'numPages': dp.numPages,
+        'pages': dp.pageNames,
+      },
     });
   }
 

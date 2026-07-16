@@ -45,7 +45,7 @@ void RadioKit_Widget_drainDeferred() {
 
 RadioKit_Widget::RadioKit_Widget()
     : typeId(0), widgetId(0)
-    , _x(0), _y(0), _height(10), _width(0)
+    , _x(0), _y(0), _page(0), _height(10), _width(0)
     , _rotation(0), _enabled(true)
     , _style(0), _variant(0)
 {
@@ -60,10 +60,11 @@ void RadioKit_Widget::_init(
     uint8_t height,     uint8_t width,
     uint8_t style,      uint8_t variant,
     const char* icon,   const char* onText, const char* offText,
-    int16_t rotation)
+    int16_t rotation, uint8_t page)
 {
     _x        = x;
     _y        = y;
+    _page     = page;
     _height   = height;
     _width    = width;
     _rotation = rotation;
