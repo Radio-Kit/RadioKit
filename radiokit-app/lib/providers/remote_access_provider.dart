@@ -57,6 +57,15 @@ class RemoteAccessProvider extends ChangeNotifier {
 
   bool get isRunning => _isRunning;
   String get lastError => _lastError;
+
+  /// Whether the active device (used by the API) is connected.
+  /// Covers both MultiDeviceProvider devices and the fallback idle provider
+  /// used by the remote-access API connect handler.
+  bool get isActiveDeviceConnected {
+    final device = _multiDeviceProvider.primaryDevice ??
+        (_multiDeviceProvider.devices.isNotEmpty ? _multiDeviceProvider.devices.first : _idleDeviceProvider);
+    return device.isConnected;
+  }
   String get localIp => _localIp;
   int get actualPort => _actualPort;
   String get actualUrl =>

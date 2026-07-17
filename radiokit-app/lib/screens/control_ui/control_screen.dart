@@ -503,17 +503,21 @@ class _ControlScreenState extends State<ControlScreen> {
   Widget _buildCanvas(DeviceProvider deviceProvider) {
     final debugProvider = context.watch<DebugProvider>();
     final settings = context.watch<SettingsProvider>();
-    return Column(
-      children: [
-        const PageSwitcher(),
-        Expanded(
-          child: DeviceDesignerBridge(
-            deviceProvider: deviceProvider,
-            debugMode: debugProvider.debugMode,
-            overrideTheme: settings.overrideTheme,
+    // Provide DeviceProvider to descendants (PageSwitcher uses Consumer<DeviceProvider>)
+    return Provider<DeviceProvider>.value(
+      value: deviceProvider,
+      child: Column(
+        children: [
+          const PageSwitcher(),
+          Expanded(
+            child: DeviceDesignerBridge(
+              deviceProvider: deviceProvider,
+              debugMode: debugProvider.debugMode,
+              overrideTheme: settings.overrideTheme,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

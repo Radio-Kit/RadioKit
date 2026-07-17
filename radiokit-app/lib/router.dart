@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import 'providers/device_provider.dart';
 import 'providers/multi_device_provider.dart';
+import 'providers/remote_access_provider.dart';
 import 'screens/home/models_tab.dart';
 import 'screens/home/system_tab.dart';
 import 'screens/home/flasher_tab.dart';
@@ -15,29 +17,42 @@ import 'theme/app_theme.dart';
 
 class ConnectionNotifier extends ChangeNotifier {
   final MultiDeviceProvider _multiDeviceProvider;
+  final DeviceProvider _primaryDeviceProvider;
+  final RemoteAccessProvider _remoteAccessProvider;
   bool _wasConnected;
 
-  ConnectionNotifier(this._multiDeviceProvider)
-      : _wasConnected = _multiDeviceProvider.anyConnected {
+  ConnectionNotifier(this._multiDeviceProvider, this._primaryDeviceProvider, this._remoteAccessProvider)
+      : _wasConnected = _effectiveConnected(_multiDeviceProvider, _primaryDeviceProvider, _remoteAccessProvider) {
     _multiDeviceProvider.addListener(_onUpdate);
+    _primaryDeviceProvider.addListener(_onUpdate);
+    _remoteAccessProvider.addListener(_onUpdate);
+  }
+
+  static bool _effectiveConnected(MultiDeviceProvider multi, DeviceProvider primary, RemoteAccessProvider ra) {
+    return multi.anyConnected || primary.isConnected || ra.isActiveDeviceConnected;
   }
 
   void _onUpdate() {
-    // Only re-evaluate when MultiDeviceProvider notifies (connect/disconnect)
-    // This is fine because MultiDeviceProvider only calls notifyListeners
-    // on connect/disconnect/focus changes, not on widget value updates.
-    final isConnected = _multiDeviceProvider.anyConnected;
+    // Check three connection sources:
+    // - MultiDeviceProvider: UI-initiated connections (tap "Open Controller")
+    // - Primary DeviceProvider: legacy single-device connections
+    // - RemoteAccessProvider: API-initiated connections (POST /api/connection/connect)
+    //   The remote-access API connects via its own fallback idle provider,
+    //   which is not tracked by MultiDeviceProvider.
+    final isConnected = _effectiveConnected(_multiDeviceProvider, _primaryDeviceProvider, _remoteAccessProvider);
     if (isConnected != _wasConnected) {
       _wasConnected = isConnected;
       notifyListeners();
     }
   }
 
-  bool get isConnected => _multiDeviceProvider.anyConnected;
+  bool get isConnected => _effectiveConnected(_multiDeviceProvider, _primaryDeviceProvider, _remoteAccessProvider);
 
   @override
   void dispose() {
     _multiDeviceProvider.removeListener(_onUpdate);
+    _primaryDeviceProvider.removeListener(_onUpdate);
+    _remoteAccessProvider.removeListener(_onUpdate);
     super.dispose();
   }
 }
