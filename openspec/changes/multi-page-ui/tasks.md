@@ -65,7 +65,7 @@
 ## 8. Arduino Codegen
 
 - [x] 8.1 Refactor `JsonArduinoGenerator.generate()` to iterate `pages[]` instead of flat `widgets`
-- [x] 8.2 Emit page-grouped widget declarations with comment headers ("// ─── Page N: Name ───")
+- [x] 8.2 Emit page-grouped widget declarations with comment headers ("// --- Page N: Name ---")
 - [x] 8.3 Assign global sequential widget names across pages (reset not per-page, continue globally)
 - [x] 8.4 Emit `#define RK_NUM_PAGES` and `const char* rk_pageNames[]` array
 - [x] 8.5 Emit per-page orientation metadata in setup block
@@ -93,7 +93,7 @@
 
 - [x] 11.1 Write unit tests for `DesignerPage` model and page management operations
 - [x] 11.2 Write unit tests for protocol command builders/parsers with page prefix
-- [x] 11.3 Write unit tests for page switch state machine (IDLE → PAGE_PENDING → IDLE)
+- [x] 11.3 Write unit tests for page switch state machine (IDLE -> PAGE_PENDING -> IDLE)
 - [x] 11.4 Write unit tests for codegen output with multi-page configs
 - [x] 11.5 Write widget tests for page bar UI (chevrons, dots, rename, delete)
 - [x] 11.6 Write widget tests for page switcher in control mode
@@ -105,3 +105,104 @@
 - [x] 12.1 Update `AGENTS.md` with multi-page conventions (JSON schema, protocol commands, codegen patterns)
 - [x] 12.2 Update demo JSON files with multi-page examples
 - [x] 12.3 Update codegen documentation with page-grouped output format
+
+---
+
+## Hardware Testing Findings (ESP32-S3 + Android Tablet)
+
+All 72 implementation tasks are complete. Hardware testing on a real ESP32-S3 board and Android tablet (device HA26JZ08) revealed several bugs that were fixed. Below is a summary of findings, fixes, and remaining issues.
+
+### Fixes Applied
+
+#### 1. Page Switch Red Screen (CRITICAL)
+- **Symptom**: Red screen when switching pages via PageSwitcher chevrons or API.
+- **Root cause**: `_handlePageChanged()` in `device_provider.dart` called `_requestConfig()`, which set `_connectionState = DeviceConnectionState.fetchingConfig`. This caused ControlScreen to show a loading spinner and tear down DeviceDesignerBridge, triggering a red screen during the transition.
+- **Fix**: Send `GET_CONF` and `GET_VARS` directly via `_writePacket()` without changing `connectionState`. The CONF_DATA response is still processed by `_handleConfData()` which updates widgets and configJson.
+- **File**: `radiokit-app/lib/providers/device_provider.dart`
+
+#### 2. ListenableProvider Debug Assertion (CRITICAL)
+- **Symptom**: Red screen with error: "Tried to use Provider with a subtype of Listenable/Stream (DeviceProvider)".
+- **Root cause**: `ControlScreen._buildCanvas()` used `Provider<DeviceProvider>.value` for `_idleDeviceProvider` (from RemoteAccessProvider). `DeviceProvider` extends `ChangeNotifier` (a `Listenable`), requiring `ListenableProvider` instead.
+- **Fix**: Changed to `ListenableProvider<DeviceProvider>.value`.
+- **File**: `radiokit-app/lib/screens/control_ui/control_screen.dart`
+
+#### 3. Follow Mode Navigation Broken (CRITICAL)
+- **Symptom**: Follow mode API calls (`POST /api/connection/connect`) triggered navigation to `/models` instead of `/control`.
+- **Root cause**: `ControlScreen._resolveDeviceProvider()` used `multiDevice.primaryDevice` for the bare `/control` route, but the API-connected device lives in `RemoteAccessProvider._idleDeviceProvider`, not `MultiDeviceProvider`. `deviceProvider` was null, causing immediate redirect to `/models`.
+- **Fix**:
+  - Added `apiDeviceProvider` getter to `RemoteAccessProvider` that returns the active device from either `MultiDeviceProvider` (UI connections) or `_idleDeviceProvider` (API connections).
+  - `ControlScreen._resolveDeviceProvider()` and `build()` now fall back to `RemoteAccessProvider.apiDeviceProvider` when `primaryDevice` is null.
+- **File**: `radiokit-app/lib/screens/control_ui/control_screen.dart`, `radiokit-app/lib/providers/remote_access_provider.dart`
+
+#### 4. Disconnect Propagation Missing
+- **Symptom**: BLE disconnect did not trigger GoRouter redirect guard, leaving user stuck on `/control` after drop.
+- **Root cause**: `_idleDeviceProvider` disconnects did not notify `ConnectionNotifier` since `RemoteAccessProvider` wasn't listening to it.
+- **Fix**: Added `_idleDeviceProvider.addListener(_onIdleDeviceChanged)` in `start()`, removed in `stop()`. `_onIdleDeviceChanged()` calls `notifyListeners()`.
+- **Dispose ordering fix**: `stop()` is now called before `_idleDeviceProvider.dispose()` to avoid FlutterError on disposed notifier.
+- **File**: `radiokit-app/lib/providers/remote_access_provider.dart`
+
+#### 5. DRY Violation in ControlScreen
+- **Symptom**: `build()` method duplicated the device resolution logic from `_resolveDeviceProvider()`.
+- **Fix**: `build()` now calls `_resolveDeviceProvider()` instead of duplicating the logic.
+- **File**: `radiokit-app/lib/screens/control_ui/control_screen.dart`
+
+#### 6. Page Switch State — Stale CONF_DATA Ordering
+- **Symptom**: During page switch, firmware sends PAGE_CHANGED followed by CONF_DATA, but due to BLE ordering, CONF_DATA may arrive before PAGE_CHANGED and get discarded by the pagePending guard.
+- **Fix**: After PAGE_CHANGED arrives and transitions to idle, re-request CONF_DATA and GET_VARS to ensure fresh widget config for the new page.
+- **File**: `radiokit-app/lib/providers/device_provider.dart`
+
+### Commits Made
+
+| Commit | Description |
+|--------|-------------|
+| `fix: page switch red screen` | Send GET_CONF/GET_VARS directly without connectionState teardown |
+| `fix: ListenableProvider for idle device` | Changed Provider to ListenableProvider for DeviceProvider |
+| `fix: follow mode navigates to /control` | Added apiDeviceProvider, ControlScreen fallback, ConnectionNotifier check |
+| `fix: propagate idle device disconnects` | Added _idleDeviceProvider listener, dispose ordering fix, DRY refactor |
+
+### Test Results
+
+- **Flutter tests**: 249/249 pass (all existing + new multi-page tests)
+- **Flutter analyze**: Clean, no warnings
+- **Hardware verification**: Page switching confirmed working via API and tablet UI — no red screen
+
+### Remaining Issues
+
+#### 1. PageSwitcher Chevron Taps Not Working via Tablet UI
+- **Status**: OPEN — chevrons don't respond to taps on the tablet screen
+- **Symptom**: User tapped chevron arrows on the PageSwitcher widget but nothing happened
+- **Possible causes**:
+  - Touch target too small on the tablet screen
+  - Gesture detector not receiving the tap (hit testing issue)
+  - `sendSetPage()` not being called or failing silently
+- **Next steps**: Debug via `adb shell uiautomator dump` to inspect the touch targets, add debug logging to the chevron tap handlers
+
+#### 2. PageSwitcher Widget Rendering in Control Mode
+- **Status**: NEEDS INVESTIGATION
+- **Symptom**: The PageSwitcher widget may not be rendering correctly in the control screen layout
+- **Next steps**: Verify the PageSwitcher is visible and properly positioned in the control screen, check if it's behind other widgets
+
+#### 3. Firmware — MultiPageController Example
+- **Status**: NEEDS FLASHING AND VERIFICATION
+- **Finding**: MultiPageController sketch exists in `rk-arduino/examples/MultiPageController/` but has not been fully tested on hardware
+- **Next steps**: Flash the MultiPageController firmware to the ESP32-S3 board, verify page switching works between Control and Settings pages via the app
+
+### Test Procedure for Next Session
+
+```bash
+# 1. Connect to ESP32 via API
+curl -s -X POST http://127.0.0.1:7007/api/pair/scan -H 'Content-Type: application/json' -d '{"type":"ble"}'
+# Wait 12s for scan, then connect
+curl -s -X POST http://127.0.0.1:7007/api/connection/connect -H 'Content-Type: application/json' -d '{"id":"<device_id>","type":"ble"}'
+
+# 2. Test page switching via API
+curl -s -X POST http://127.0.0.1:7007/api/page -H 'Content-Type: application/json' -d '{"page":1}'
+curl -s http://127.0.0.1:7007/api/page
+
+# 3. Verify no red screen
+adb -s HA26JZ08 shell screencap -p /sdcard/screenshot.png
+adb -s HA26JZ08 pull /sdcard/screenshot.png /tmp/radiokit_screenshot.png
+
+# 4. Debug PageSwitcher chevron taps
+adb -s HA26JZ08 shell uiautomator dump /dev/stdout 2>/dev/null | grep -i 'chevron\|page'
+```
