@@ -507,7 +507,7 @@ class _ControlScreenState extends State<ControlScreen> {
     final debugProvider = context.watch<DebugProvider>();
     final settings = context.watch<SettingsProvider>();
     // Provide DeviceProvider to descendants (PageSwitcher uses Consumer<DeviceProvider>)
-    return Provider<DeviceProvider>.value(
+    return ListenableProvider<DeviceProvider>.value(
       value: deviceProvider,
       child: Column(
         children: [
