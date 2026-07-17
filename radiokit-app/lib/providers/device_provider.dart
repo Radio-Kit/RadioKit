@@ -2097,9 +2097,14 @@ class DeviceProvider extends ChangeNotifier {
     // Re-request CONF_DATA and VAR_DATA for the new page. During pagePending,
     // the firmware may have sent CONF_DATA/VAR_DATA before PAGE_CHANGED arrived
     // (BLE ordering). Those were discarded — request fresh data now.
-    _requestConfig().then((_) {
-      _writePacket(ProtocolService.buildGetVars());
-    });
+    //
+    // IMPORTANT: Do NOT use _requestConfig() here — it sets connectionState
+    // to fetchingConfig which tears down DeviceDesignerBridge, causing a red
+    // screen during the page switch transition. Instead, send GET_CONF and
+    // GET_VARS directly — _handleConfData will process the response and
+    // update widgets/configJson without changing connectionState.
+    _writePacket(ProtocolService.buildGetConf()).catchError((_) {});
+    _writePacket(ProtocolService.buildGetVars()).catchError((_) {});
   }
 
   /// Handle CMD_PAGES_DATA (0x23) — page name list from MCU.
