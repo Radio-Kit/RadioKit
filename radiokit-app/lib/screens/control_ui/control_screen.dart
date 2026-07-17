@@ -7,6 +7,7 @@ import '../../models/protocol.dart';
 import '../../providers/device_provider.dart';
 import '../../providers/multi_device_provider.dart';
 import '../../providers/debug_provider.dart';
+import '../../providers/remote_access_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/device_designer_bridge.dart';
@@ -93,10 +94,17 @@ class _ControlScreenState extends State<ControlScreen> {
   }
 
   /// Resolve the DeviceProvider for this screen from MultiDeviceProvider.
+  /// When no deviceId is set (bare /control route used by follow-mode API),
+  /// falls back to RemoteAccessProvider's API-connected device.
   DeviceProvider? _resolveDeviceProvider() {
     final multiDevice = context.read<MultiDeviceProvider>();
-    if (widget.deviceId == null) return multiDevice.primaryDevice;
-    return multiDevice.getDevice(widget.deviceId!);
+    if (widget.deviceId != null) return multiDevice.getDevice(widget.deviceId!);
+    // Check MultiDeviceProvider first (UI-initiated connections)
+    final primary = multiDevice.primaryDevice;
+    if (primary != null) return primary;
+    // Fall back to RemoteAccessProvider's API-connected device (_idleDeviceProvider)
+    final ra = context.read<RemoteAccessProvider>();
+    return ra.apiDeviceProvider;
   }
 
   Future<void> _disconnect() async {
@@ -132,6 +140,9 @@ class _ControlScreenState extends State<ControlScreen> {
       deviceProvider = multiDevice.getDevice(widget.deviceId!);
     } else {
       deviceProvider = multiDevice.primaryDevice;
+      // Fall back to RemoteAccessProvider's API-connected device
+      // (used by follow-mode API which connects via _idleDeviceProvider)
+      deviceProvider ??= context.read<RemoteAccessProvider>().apiDeviceProvider;
     }
 
     // Device gone (disconnected / removed from collection) — go back silently

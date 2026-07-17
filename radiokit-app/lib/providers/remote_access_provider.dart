@@ -62,10 +62,20 @@ class RemoteAccessProvider extends ChangeNotifier {
   /// Covers both MultiDeviceProvider devices and the fallback idle provider
   /// used by the remote-access API connect handler.
   bool get isActiveDeviceConnected {
-    final device = _multiDeviceProvider.primaryDevice ??
-        (_multiDeviceProvider.devices.isNotEmpty ? _multiDeviceProvider.devices.first : _idleDeviceProvider);
-    return device.isConnected;
+    // Check MultiDeviceProvider first (UI-initiated connections), then
+    // fall back to _idleDeviceProvider (API-initiated connections).
+    // Do NOT use primaryDevice here — it may return a disconnected device
+    // from the map even when _idleDeviceProvider is connected.
+    return _multiDeviceProvider.anyConnected || _idleDeviceProvider.isConnected;
   }
+
+  /// The DeviceProvider used by the remote-access API for the active device.
+  /// When the API connects directly (not through MultiDeviceProvider),
+  /// this returns _idleDeviceProvider which holds the active connection.
+  DeviceProvider? get apiDeviceProvider =>
+      _multiDeviceProvider.anyConnected
+          ? (_multiDeviceProvider.primaryDevice ?? (_multiDeviceProvider.devices.isNotEmpty ? _multiDeviceProvider.devices.first : null))
+          : (_idleDeviceProvider.isConnected ? _idleDeviceProvider : null);
   String get localIp => _localIp;
   int get actualPort => _actualPort;
   String get actualUrl =>
@@ -95,9 +105,10 @@ class RemoteAccessProvider extends ChangeNotifier {
   }
 
   /// Called by _FollowModeWrapper whenever the route changes.
+  /// Does NOT call notifyListeners() — the route string is only read by the
+  /// /api/session/route endpoint and should not trigger GoRouter re-evaluation.
   void updateCurrentRoute(String route) {
     _currentRoute = route;
-    notifyListeners();
   }
 
   RemoteAccessProvider({
