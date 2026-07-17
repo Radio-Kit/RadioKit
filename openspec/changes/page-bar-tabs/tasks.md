@@ -35,9 +35,9 @@
 
 ## 5. Testing & Validation
 
-- [ ] 5.1 Write widget test for tab rendering with page names
-- [ ] 5.2 Write widget test for tab tap switches active page
-- [ ] 5.3 Write widget test for toggle button hides/shows page bar
-- [ ] 5.4 Write unit test for `showPageBar` serialization in JSON
+- [x] 5.1 Write widget test for tab rendering with page names
+- [x] 5.2 Write widget test for tab tap switches active page
+- [x] 5.3 Write widget test for toggle button hides/shows page bar
+- [x] 5.4 Write unit test for `showPageBar` serialization in JSON
 - [x] 5.5 Run `flutter analyze --fatal-warnings` — all pass
 - [x] 5.6 Run `flutter test` — all pass
