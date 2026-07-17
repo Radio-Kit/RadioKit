@@ -5,9 +5,9 @@ import 'package:radiokit_widgets/radiokit_widgets.dart';
 
 /// Page bar shown below the top toolbar in the designer.
 ///
-/// Displays centered chevron navigation (< Page Name >), dot indicators,
-/// and an add button. Supports tap-to-rename, long-press context menu
-/// for delete/duplicate, and drag-to-reorder on dots.
+/// Displays tab-style buttons with page names, chevron navigation,
+/// and an add button. Supports tap-to-switch, long-press context menu
+/// for rename/duplicate/delete, and horizontal scrolling.
 class DesignerPageBar extends StatelessWidget {
   final DesignerState state;
 
@@ -22,81 +22,145 @@ class DesignerPageBar extends StatelessWidget {
     return ListenableBuilder(
       listenable: state,
       builder: (context, _) {
-        return Container(
-          height: 40,
-          decoration: BoxDecoration(
-            color: tokens.base300,
-            border: Border(
-              bottom: BorderSide(color: tokens.effectiveOutline, width: 1),
-            ),
-          ),
-          child: Row(
-            children: [
-              const SizedBox(width: 8),
-              // Left chevron
-              _ChevronButton(
-                icon: LucideIcons.chevronLeft,
-                onPressed: activeIndex > 0
-                    ? () => state.setActivePage(activeIndex - 1)
-                    : null,
-                tokens: tokens,
-              ),
-              const SizedBox(width: 4),
-              // Dot indicators (scrollable if many pages)
-              Expanded(
-                child: Center(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        for (int i = 0; i < numPages; i++)
-                          _DotIndicator(
-                            index: i,
-                            isActive: i == activeIndex,
-                            page: state.pages[i],
-                            tokens: tokens,
-                            onTap: () => state.setActivePage(i),
-                            onLongPress: () => _showContextMenu(
-                              context,
-                              tokens,
-                              i,
-                            ),
-                            onAcceptReorder: (oldIndex) {
-                              state.reorderPage(oldIndex, i);
-                            },
-                          ),
-                      ],
+        return AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          child: state.showPageBar
+              ? Container(
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: tokens.base300,
+                    border: Border(
+                      bottom: BorderSide(color: tokens.effectiveOutline, width: 1),
                     ),
                   ),
-                ),
-              ),
-              // Page name (tap to rename)
-              _PageNameLabel(
-                name: state.activePage.name,
-                tokens: tokens,
-                onTap: () => _renamePage(context, tokens, activeIndex),
-              ),
-              const SizedBox(width: 4),
-              // Right chevron
-              _ChevronButton(
-                icon: LucideIcons.chevronRight,
-                onPressed: activeIndex < numPages - 1
-                    ? () => state.setActivePage(activeIndex + 1)
-                    : null,
-                tokens: tokens,
-              ),
-              const SizedBox(width: 4),
-              // Add page button
-              _AddPageButton(
-                tokens: tokens,
-                onPressed: () => state.addPage(),
-              ),
-              const SizedBox(width: 8),
-            ],
-          ),
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 8),
+                      // Left chevron
+                      _ChevronButton(
+                        icon: LucideIcons.chevronLeft,
+                        onPressed: activeIndex > 0
+                            ? () => state.setActivePage(activeIndex - 1)
+                            : null,
+                        tokens: tokens,
+                      ),
+                      const SizedBox(width: 4),
+                      // Tab buttons (scrollable if many pages)
+                      Expanded(
+                        child: Center(
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                for (int i = 0; i < numPages; i++)
+                                  _TabButton(
+                                    index: i,
+                                    isActive: i == activeIndex,
+                                    page: state.pages[i],
+                                    tokens: tokens,
+                                    onTap: () => state.setActivePage(i),
+                                    onLongPress: () => _showContextMenu(
+                                      context,
+                                      tokens,
+                                      i,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Toggle button (hide page bar)
+                      _ToggleButton(
+                        tokens: tokens,
+                        onPressed: () => state.togglePageBar(),
+                      ),
+                      const SizedBox(width: 4),
+                      // Add page button
+                      _AddPageButton(
+                        tokens: tokens,
+                        onPressed: () => state.addPage(),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                  ),
+                )
+              : const SizedBox.shrink(),
         );
       },
+    );
+  }
+
+  void _showContextMenu(
+    BuildContext context,
+    RKTokens tokens,
+    int pageIndex,
+  ) {
+    HapticFeedback.mediumImpact();
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(
+                LucideIcons.pencil,
+                color: tokens.onSurface.withValues(alpha: 0.7),
+              ),
+              title: Text(
+                'Rename Page',
+                style: TextStyle(
+                  color: tokens.onSurface.withValues(alpha: 0.88),
+                  fontFamily: 'monospace',
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                _renamePage(context, tokens, pageIndex);
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                LucideIcons.copy,
+                color: tokens.onSurface.withValues(alpha: 0.7),
+              ),
+              title: Text(
+                'Duplicate Page',
+                style: TextStyle(
+                  color: tokens.onSurface.withValues(alpha: 0.88),
+                  fontFamily: 'monospace',
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                state.duplicatePage(pageIndex);
+              },
+            ),
+            if (state.numPages > 1)
+              ListTile(
+                leading: Icon(
+                  LucideIcons.trash2,
+                  color: tokens.error,
+                ),
+                title: Text(
+                  'Delete Page',
+                  style: TextStyle(
+                    color: tokens.error,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _confirmDeletePage(context, tokens, pageIndex);
+                },
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -173,77 +237,6 @@ class DesignerPageBar extends StatelessWidget {
     );
   }
 
-  void _showContextMenu(
-    BuildContext context,
-    RKTokens tokens,
-    int pageIndex,
-  ) {
-    HapticFeedback.mediumImpact();
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: Icon(
-                LucideIcons.copy,
-                color: tokens.onSurface.withValues(alpha: 0.7),
-              ),
-              title: Text(
-                'Duplicate Page',
-                style: TextStyle(
-                  color: tokens.onSurface.withValues(alpha: 0.88),
-                  fontFamily: 'monospace',
-                ),
-              ),
-              onTap: () {
-                Navigator.pop(ctx);
-                state.duplicatePage(pageIndex);
-              },
-            ),
-            ListTile(
-              leading: Icon(
-                LucideIcons.pencil,
-                color: tokens.onSurface.withValues(alpha: 0.7),
-              ),
-              title: Text(
-                'Rename Page',
-                style: TextStyle(
-                  color: tokens.onSurface.withValues(alpha: 0.88),
-                  fontFamily: 'monospace',
-                ),
-              ),
-              onTap: () {
-                Navigator.pop(ctx);
-                _renamePage(context, tokens, pageIndex);
-              },
-            ),
-            if (state.numPages > 1)
-              ListTile(
-                leading: Icon(
-                  LucideIcons.trash2,
-                  color: tokens.error,
-                ),
-                title: Text(
-                  'Delete Page',
-                  style: TextStyle(
-                    color: tokens.error,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _confirmDeletePage(context, tokens, pageIndex);
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _confirmDeletePage(
     BuildContext context,
     RKTokens tokens,
@@ -299,6 +292,62 @@ class DesignerPageBar extends StatelessWidget {
   }
 }
 
+/// Tab button showing page name. Active = filled primary, inactive = outlined.
+class _TabButton extends StatelessWidget {
+  final int index;
+  final bool isActive;
+  final DesignerPage page;
+  final RKTokens tokens;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  const _TabButton({
+    required this.index,
+    required this.isActive,
+    required this.page,
+    required this.tokens,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        constraints: const BoxConstraints(minWidth: 48, maxWidth: 120),
+        decoration: BoxDecoration(
+          color: isActive ? tokens.primary : tokens.surface,
+          border: Border.all(
+            color: isActive
+                ? tokens.primary
+                : tokens.effectiveOutline,
+            width: 1,
+          ),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          page.name,
+          style: TextStyle(
+            color: isActive
+                ? tokens.onPrimary
+                : tokens.onSurface.withValues(alpha: 0.7),
+            fontSize: 11,
+            fontFamily: 'monospace',
+            fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+          ),
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+}
+
 class _ChevronButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onPressed;
@@ -338,141 +387,35 @@ class _ChevronButton extends StatelessWidget {
   }
 }
 
-class _DotIndicator extends StatefulWidget {
-  final int index;
-  final bool isActive;
-  final DesignerPage page;
+/// Toggle button to show/hide the page bar.
+class _ToggleButton extends StatelessWidget {
   final RKTokens tokens;
-  final VoidCallback onTap;
-  final VoidCallback onLongPress;
-  final void Function(int oldIndex) onAcceptReorder;
+  final VoidCallback onPressed;
 
-  const _DotIndicator({
-    required this.index,
-    required this.isActive,
-    required this.page,
+  const _ToggleButton({
     required this.tokens,
-    required this.onTap,
-    required this.onLongPress,
-    required this.onAcceptReorder,
-  });
-
-  @override
-  State<_DotIndicator> createState() => _DotIndicatorState();
-}
-
-class _DotIndicatorState extends State<_DotIndicator> {
-  @override
-  Widget build(BuildContext context) {
-    return Draggable<int>(
-      data: widget.index,
-      feedback: _Dot(
-        isActive: true,
-        tokens: widget.tokens,
-        label: '${widget.index + 1}',
-      ),
-      childWhenDragging: Opacity(
-        opacity: 0.3,
-        child: _Dot(
-          isActive: widget.isActive,
-          tokens: widget.tokens,
-          label: '${widget.index + 1}',
-        ),
-      ),
-      child: DragTarget<int>(
-        onAcceptWithDetails: (details) {
-          widget.onAcceptReorder(details.data);
-        },
-        builder: (context, candidateData, rejectedData) {
-          return GestureDetector(
-            onTap: widget.onTap,
-            onLongPress: widget.onLongPress,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 3),
-              child: _Dot(
-                isActive: widget.isActive,
-                tokens: widget.tokens,
-                label: '${widget.index + 1}',
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _Dot extends StatelessWidget {
-  final bool isActive;
-  final RKTokens tokens;
-  final String label;
-
-  const _Dot({
-    required this.isActive,
-    required this.tokens,
-    required this.label,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: isActive ? 24 : 10,
-      height: 10,
-      decoration: BoxDecoration(
-        color: isActive ? tokens.primary : tokens.effectiveOutline,
-        borderRadius: BorderRadius.circular(5),
-      ),
-      alignment: Alignment.center,
-      child: isActive
-          ? Text(
-              label,
-              style: TextStyle(
-                color: tokens.onPrimary,
-                fontSize: 8,
-                fontFamily: 'monospace',
-                fontWeight: FontWeight.bold,
-              ),
-            )
-          : null,
-    );
-  }
-}
-
-class _PageNameLabel extends StatelessWidget {
-  final String name;
-  final RKTokens tokens;
-  final VoidCallback onTap;
-
-  const _PageNameLabel({
-    required this.name,
-    required this.tokens,
-    required this.onTap,
+    required this.onPressed,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: onPressed,
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 120),
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        width: 28,
+        height: 28,
         decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: tokens.primary.withValues(alpha: 0.4),
-              width: 1,
-            ),
+          color: tokens.surface,
+          border: Border.all(
+            color: tokens.primary.withValues(alpha: 0.5),
+            width: 1,
           ),
+          borderRadius: BorderRadius.circular(4),
         ),
-        child: Text(
-          name,
-          style: TextStyle(
-            color: tokens.onSurface.withValues(alpha: 0.88),
-            fontSize: 11,
-            fontFamily: 'monospace',
-            fontWeight: FontWeight.w600,
-          ),
-          overflow: TextOverflow.ellipsis,
+        child: Icon(
+          LucideIcons.panelTopOpen,
+          size: 14,
+          color: tokens.primary,
         ),
       ),
     );

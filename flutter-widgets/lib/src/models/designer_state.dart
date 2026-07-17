@@ -30,6 +30,7 @@ class DesignerState extends ChangeNotifier {
   String _connectionPassword = '';
   Map<String, dynamic> _features = {'ota': false, 'filesystem': false};
   bool _enableControlUI = true;
+  bool _showPageBar = true;
   List<Map<String, dynamic>> _telemetryWidgets = List.generate(4, (_) => <String, dynamic>{'label': '', 'icon': null, 'unit': ''});
 
   // appdata (metadata from the JSON block, not user-configurable)
@@ -89,6 +90,7 @@ class DesignerState extends ChangeNotifier {
   bool get featureOta => (_features['ota'] as bool?) ?? false;
   bool get featureFilesystem => (_features['filesystem'] as bool?) ?? false;
   bool get enableControlUI => _enableControlUI;
+  bool get showPageBar => _showPageBar;
   List<Map<String, dynamic>> get telemetryWidgets => _telemetryWidgets;
 
   DesignerElement? get selectedElement {
@@ -606,6 +608,12 @@ class DesignerState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void togglePageBar() {
+    _mutationCount++;
+    _showPageBar = !_showPageBar;
+    notifyListeners();
+  }
+
   void setTelemetryLabel(int index, String label) {
     _mutationCount++;
     final newList = List<Map<String, dynamic>>.from(_telemetryWidgets);
@@ -805,6 +813,9 @@ class DesignerState extends ChangeNotifier {
       _activeSkin = canvasSkin;
     }
 
+    // read showPageBar from canvas
+    _showPageBar = (decoded['canvas']?['showPageBar'] as bool?) ?? true;
+
     // appdata
     final appData = decoded['appdata'];
     if (appData is Map) {
@@ -969,6 +980,7 @@ class DesignerState extends ChangeNotifier {
     'canvas': {
       'grid': _gridStyle.name,
       'skin': _activeSkin,
+      'showPageBar': _showPageBar,
     },
     'enableControlUI': _enableControlUI,
     'telemetry': List<Map<String, dynamic>>.from(_telemetryWidgets),

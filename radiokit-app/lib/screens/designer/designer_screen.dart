@@ -232,6 +232,34 @@ class _DesignerScreenState extends State<DesignerScreen> {
                     clipBehavior: Clip.none,
                     children: [
                       _buildCanvasWithSkin(),
+                      // Restore page bar button (when hidden)
+                      if (!_state.isPlayMode && !_state.showPageBar)
+                        Positioned(
+                          top: 8,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: GestureDetector(
+                              onTap: () => _state.togglePageBar(),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: tokens.base300,
+                                  border: Border.all(
+                                    color: tokens.effectiveOutline,
+                                    width: 1,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Icon(
+                                  LucideIcons.panelTopClose,
+                                  size: 14,
+                                  color: tokens.primary,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       if (!_state.isPlayMode)
                         Positioned(
                           left: 16,
