@@ -179,6 +179,9 @@ class RemoteAccessProvider extends ChangeNotifier {
     _actualPort = _service!.actualPort;
     _localIp = _service!.localIp;
     _lastError = '';
+    // Listen to _idleDeviceProvider so disconnects propagate to
+    // ConnectionNotifier -> GoRouter redirect guard.
+    _idleDeviceProvider.addListener(_onIdleDeviceChanged);
     _addLogEntry(ApiLogEntry(
       timestamp: DateTime.now(),
       method: 'SRV',
@@ -192,6 +195,7 @@ class RemoteAccessProvider extends ChangeNotifier {
 
   Future<void> stop() async {
     if (!_isRunning) return;
+    _idleDeviceProvider.removeListener(_onIdleDeviceChanged);
     await _service?.stop();
     _service = null;
     _isRunning = false;
@@ -238,6 +242,12 @@ class RemoteAccessProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Called when _idleDeviceProvider notifies (connect/disconnect).
+  /// Propagates to ConnectionNotifier so GoRouter re-evaluates the redirect.
+  void _onIdleDeviceChanged() {
+    notifyListeners();
+  }
+
   void _onFollowEvent(String route) {
     followNavigationTarget.value = route;
     glowColor.value = const Color(0xFF4488FF);
@@ -248,10 +258,11 @@ class RemoteAccessProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    // Stop first so removeListener runs before dispose
+    stop();
     _idleDeviceProvider.dispose();
     followNavigationTarget.dispose();
     glowColor.dispose();
-    stop();
     super.dispose();
   }
 }

@@ -134,16 +134,8 @@ class _ControlScreenState extends State<ControlScreen> {
     final settings = context.watch<SettingsProvider>();
     final multiDevice = context.watch<MultiDeviceProvider>();
 
-    // Resolve device provider for this screen
-    DeviceProvider? deviceProvider;
-    if (widget.deviceId != null) {
-      deviceProvider = multiDevice.getDevice(widget.deviceId!);
-    } else {
-      deviceProvider = multiDevice.primaryDevice;
-      // Fall back to RemoteAccessProvider's API-connected device
-      // (used by follow-mode API which connects via _idleDeviceProvider)
-      deviceProvider ??= context.read<RemoteAccessProvider>().apiDeviceProvider;
-    }
+    // Resolve device provider for this screen (shared logic with _resolveDeviceProvider)
+    final deviceProvider = _resolveDeviceProvider();
 
     // Device gone (disconnected / removed from collection) — go back silently
     if (deviceProvider == null) {
