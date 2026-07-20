@@ -26,6 +26,8 @@ class ControlScreen extends StatefulWidget {
 }
 
 class _ControlScreenState extends State<ControlScreen> {
+  int? _lastOrientation;
+
   @override
   void initState() {
     super.initState();
@@ -181,7 +183,15 @@ class _ControlScreenState extends State<ControlScreen> {
     return ListenableBuilder(
       listenable: deviceProvider,
       builder: (context, _) {
-        final isDisconnected = deviceProvider!.connectionState == DeviceConnectionState.disconnected ||
+        // Re-apply orientation when it changes (e.g., on page switch)
+        if (_lastOrientation != deviceProvider!.orientation) {
+          _lastOrientation = deviceProvider.orientation;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _applyCanvasOrientation();
+          });
+        }
+
+        final isDisconnected = deviceProvider.connectionState == DeviceConnectionState.disconnected ||
             deviceProvider.connectionState == DeviceConnectionState.error;
 
         if (isDisconnected) {

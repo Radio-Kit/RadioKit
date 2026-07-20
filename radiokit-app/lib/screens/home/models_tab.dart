@@ -1696,6 +1696,11 @@ class _InteractiveDemoSection extends StatelessWidget {
         await multiDevice.connectDemo('IOT_DASHBOARD');
         if (context.mounted) context.go('/control/DEMO_IOT_DASHBOARD');
       }),
+      _DemoTile(icon: Icons.tab_rounded, title: 'MULTI_PAGE', subtitle: 'Multi-page demo with Control and Settings', onTap: () async {
+        final multiDevice = context.read<MultiDeviceProvider>();
+        await multiDevice.connectDemo('MULTI_PAGE_DEMO');
+        if (context.mounted) context.go('/control/DEMO_MULTI_PAGE_DEMO');
+      }),
     ];
 
     if (useWide)

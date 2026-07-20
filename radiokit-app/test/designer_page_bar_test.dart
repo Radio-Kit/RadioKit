@@ -293,4 +293,91 @@ void main() {
       expect(state2.showPageBar, isFalse);
     });
   });
+
+  group('DesignerPageBar orientation badge', () {
+    testWidgets('shows badge when page has landscape override', (tester) async {
+      final state = _createStateWithPages(['Control', 'Settings']);
+      state.setActivePage(0);
+      state.setPageOrientationOverride('landscape');
+
+      await tester.pumpWidget(
+        RKTheme(
+          tokens: RKTokens.dragon,
+          child: MaterialApp(
+            theme: ThemeData.dark(),
+            home: Scaffold(
+              body: DesignerPageBar(state: state),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Find the rotate icon
+      expect(find.byIcon(LucideIcons.rotateCw), findsOneWidget);
+    });
+
+    testWidgets('shows badge when page has portrait override', (tester) async {
+      final state = _createStateWithPages(['Control', 'Settings']);
+      state.setActivePage(0);
+      state.setPageOrientationOverride('portrait');
+
+      await tester.pumpWidget(
+        RKTheme(
+          tokens: RKTokens.dragon,
+          child: MaterialApp(
+            theme: ThemeData.dark(),
+            home: Scaffold(
+              body: DesignerPageBar(state: state),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(LucideIcons.rotateCw), findsOneWidget);
+    });
+
+    testWidgets('hides badge when page has global override', (tester) async {
+      final state = _createStateWithPages(['Control', 'Settings']);
+      state.setActivePage(0);
+      state.setPageOrientationOverride('global');
+
+      await tester.pumpWidget(
+        RKTheme(
+          tokens: RKTokens.dragon,
+          child: MaterialApp(
+            theme: ThemeData.dark(),
+            home: Scaffold(
+              body: DesignerPageBar(state: state),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(LucideIcons.rotateCw), findsNothing);
+    });
+
+    testWidgets('hides badge when override is null', (tester) async {
+      final state = _createStateWithPages(['Control', 'Settings']);
+      state.setActivePage(0);
+      // Don't set any override
+
+      await tester.pumpWidget(
+        RKTheme(
+          tokens: RKTokens.dragon,
+          child: MaterialApp(
+            theme: ThemeData.dark(),
+            home: Scaffold(
+              body: DesignerPageBar(state: state),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(LucideIcons.rotateCw), findsNothing);
+    });
+  });
 }

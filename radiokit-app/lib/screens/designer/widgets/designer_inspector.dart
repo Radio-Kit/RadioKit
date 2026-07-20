@@ -357,6 +357,8 @@ class _DesignerInspectorState extends State<DesignerInspector> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── PAGE SETTINGS (multi-page only) ─────────────────────────
+        if (widget.state.numPages > 1) _buildPageSettingsSection(tokens),
         // ── MODEL ────────────────────────────────────────────────────
         InspectorFieldBuilders.buildSection(tokens, 'MODEL', [
           InspectorFieldBuilders.buildTextField(tokens, 'Name *',
@@ -690,6 +692,29 @@ class _DesignerInspectorState extends State<DesignerInspector> {
     );
   }
 
+  // ── PAGE SETTINGS section (multi-page only) ──────────────────────────────
+
+  Widget _buildPageSettingsSection(RKTokens tokens) {
+    final page = widget.state.activePage;
+    final override = page.orientationOverride ?? 'global';
+
+    return InspectorFieldBuilders.buildSection(tokens, 'PAGE SETTINGS', [
+      InspectorFieldBuilders.buildTextField(
+        tokens,
+        'Page Name',
+        page.name,
+        (v) => widget.state.renamePage(widget.state.activePageIndex, v),
+      ),
+      InspectorFieldBuilders.buildCenterPinnedSelector(
+        tokens,
+        'Orientation',
+        override,
+        ['global', 'landscape', 'portrait'],
+        (v) => widget.state.setPageOrientationOverride(v),
+      ),
+    ]);
+  }
+
   // ── CONTROL UI section (replaces CANVAS) ──────────────────────────────────
 
   Widget _buildControlUISection(RKTokens tokens) {
@@ -769,10 +794,10 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                           child: _buildMiniToggle(
                             tokens,
                             label: 'LANDSCAPE',
-                            selected: widget.state.isLandscape,
+                            selected: widget.state.globalIsLandscape,
                             onTap: () {
-                              if (!widget.state.isLandscape)
-                                widget.state.toggleOrientation();
+                              if (!widget.state.globalIsLandscape)
+                                widget.state.setGlobalOrientation(true);
                             },
                           ),
                         ),
@@ -781,10 +806,10 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                           child: _buildMiniToggle(
                             tokens,
                             label: 'PORTRAIT',
-                            selected: !widget.state.isLandscape,
+                            selected: !widget.state.globalIsLandscape,
                             onTap: () {
-                              if (widget.state.isLandscape)
-                                widget.state.toggleOrientation();
+                              if (widget.state.globalIsLandscape)
+                                widget.state.setGlobalOrientation(false);
                             },
                           ),
                         ),
@@ -797,7 +822,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
             InspectorFieldBuilders.buildReadOnlyField(
               tokens,
               'Size',
-              widget.state.isLandscape ? '200 x 100' : '100 x 200',
+              widget.state.globalIsLandscape ? '200 x 100' : '100 x 200',
             ),
             // Grid
             Padding(

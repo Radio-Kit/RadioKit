@@ -1,11 +1,11 @@
 ## ADDED Requirements
 
 ### Requirement: Page bar with navigation controls
-The designer SHALL display a page bar below the top toolbar containing centered chevron buttons (< and >), dot indicators for each page, and the current page name.
+The designer SHALL display a page bar below the top toolbar containing centered chevron buttons (< and >), tab buttons with page names for each page, and the current page name. The page bar SHALL include a toggle button to hide/show the bar, and an add page button.
 
 #### Scenario: Page bar renders correctly
 - **WHEN** the designer screen loads with a multi-page config
-- **THEN** the page bar displays with left chevron, dot indicators, page name, and right chevron
+- **THEN** the page bar displays with left chevron, tab buttons with page names, toggle button, add button, and right chevron
 
 #### Scenario: Left chevron disabled on first page
 - **WHEN** the active page is page 0 (first page)
@@ -15,8 +15,16 @@ The designer SHALL display a page bar below the top toolbar containing centered 
 - **WHEN** the active page is the last page
 - **THEN** the right chevron button is disabled/hidden
 
+#### Scenario: Tab tap switches page
+- **WHEN** user taps an inactive tab
+- **THEN** that page becomes active
+
+#### Scenario: Tab long-press opens context menu
+- **WHEN** user long-presses a tab
+- **THEN** a context menu appears with rename, duplicate, and delete options
+
 ### Requirement: Add new page
-The designer SHALL allow users to add a new page via an "+" button in the page bar.
+The designer SHALL allow users to add a new page via the add button in the page bar.
 
 #### Scenario: Add page creates new blank page
 - **WHEN** user taps the add page button
@@ -41,14 +49,6 @@ The designer SHALL allow users to rename a page by tapping on the page name in t
 #### Scenario: Rename page updates the name
 - **WHEN** user taps page name and enters a new name
 - **THEN** the page name is updated in the page bar and JSON config
-
-### Requirement: Reorder pages
-The designer SHALL allow users to reorder pages via drag-and-drop on the dot indicators.
-
-#### Scenario: Drag to reorder changes page order
-- **WHEN** user drags a dot indicator to a new position
-- **THEN** the page moves to that position in the page list
-- **AND** all page indices are updated accordingly
 
 ### Requirement: Duplicate page
 The designer SHALL allow users to duplicate a page with all its widgets.

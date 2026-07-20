@@ -97,6 +97,7 @@ class DeviceProvider extends ChangeNotifier {
   int _activePage = 0;
   int _numPages = 1;
   List<String> _pageNames = [];
+  List<int> _pageOrientations = []; // per-page effective orientations (kOrientationLandscape/kOrientationPortrait)
   _PageSwitchState _pageSwitchState = _PageSwitchState.idle;
   static const Duration _authTimeout = Duration(seconds: 30);
   DateTime? _connectedAt;
@@ -794,15 +795,36 @@ class DeviceProvider extends ChangeNotifier {
         final pages = data['pages'] as List<dynamic>? ?? [];
         // Flatten all pages' widgets for demo rendering
         widgetsJson = [];
+        _pageOrientations = [];
+        // Read global orientation from canvas
+        final canvasOrientation = canvas['orientation'] as String? ?? 'landscape';
+        final globalIsLandscape = canvasOrientation != 'portrait';
+
         for (final page in pages) {
           final pageWidgets = (page as Map<String, dynamic>?)?['widgets'] as List<dynamic>? ?? [];
           widgetsJson.addAll(pageWidgets);
+          // Compute per-page effective orientation
+          final pageOrientation = page?['orientation'] as String? ?? 'global';
+          bool effectiveIsLandscape;
+          switch (pageOrientation) {
+            case 'landscape':
+              effectiveIsLandscape = true;
+              break;
+            case 'portrait':
+              effectiveIsLandscape = false;
+              break;
+            case 'global':
+            default:
+              effectiveIsLandscape = globalIsLandscape;
+              break;
+          }
+          _pageOrientations.add(effectiveIsLandscape
+              ? kOrientationLandscape
+              : kOrientationPortrait);
         }
-        // Use first page orientation
-        final firstPage = pages.isNotEmpty ? pages[0] as Map<String, dynamic>? : null;
-        final orientation = firstPage?['orientation'] as String? ?? 'landscape';
-        _orientation = orientation == 'portrait'
-            ? kOrientationPortrait
+        // Set initial orientation from first page
+        _orientation = _pageOrientations.isNotEmpty
+            ? _pageOrientations[0]
             : kOrientationLandscape;
       } else {
         // v1 format: flat widgets[], orientation from canvas.size
@@ -823,6 +845,7 @@ class DeviceProvider extends ChangeNotifier {
         _orientation = cw >= ch
             ? kOrientationLandscape
             : kOrientationPortrait;
+        _pageOrientations = [_orientation];
       }
       final nameToId = <String, int>{};
       _widgets = [];
@@ -1871,6 +1894,9 @@ class DeviceProvider extends ChangeNotifier {
     );
     _numPages = conf.numPages;
     _activePage = conf.activePage;
+    // Populate per-page orientations from the device's global orientation
+    // (real devices don't send per-page orientation overrides)
+    _pageOrientations = List.filled(_numPages, conf.orientation);
 
     // Apply the skin provided by the device
     _themePresetProvider?.setTheme(conf.theme);
@@ -2090,6 +2116,10 @@ class DeviceProvider extends ChangeNotifier {
     _log('MCU <- ${cmd == kCmdPageChanged ? "PAGE_CHANGED" : "PAGE_SWITCH"}: page=$pageIndex',
         level: ConsoleLogLevel.info);
     _activePage = pageIndex;
+    // Update orientation from per-page data if available
+    if (pageIndex < _pageOrientations.length) {
+      _orientation = _pageOrientations[pageIndex];
+    }
     // Return to idle state — page switch is complete.
     _pageSwitchState = _PageSwitchState.idle;
     notifyListeners();
@@ -2124,7 +2154,11 @@ class DeviceProvider extends ChangeNotifier {
     if (pageIndex == null) return;
     _log('MCU -> SET_PAGE: switch to page $pageIndex',
         level: ConsoleLogLevel.info);
-    // TODO: sync active page state when page state machine is implemented (task 6)
+    _activePage = pageIndex;
+    // Update orientation from per-page data if available
+    if (pageIndex < _pageOrientations.length) {
+      _orientation = _pageOrientations[pageIndex];
+    }
     notifyListeners();
   }
 

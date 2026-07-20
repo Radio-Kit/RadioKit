@@ -7,6 +7,26 @@ import 'designer_page.dart';
 
 enum GridStyle { lines, dots, none }
 
+/// Snapshot of a single page's state for undo/redo.
+class _PageSnapshot {
+  final List<DesignerElement> elements;
+  final String? orientationOverride;
+  _PageSnapshot(this.elements, this.orientationOverride);
+  _PageSnapshot.fromPage(DesignerPage page)
+      : elements = page.elements.map((e) => e.copyWith()).toList(),
+        orientationOverride = page.orientationOverride;
+  _PageSnapshot.fromElements(List<DesignerElement> elements)
+      : elements = elements.map((e) => e.copyWith()).toList(),
+        orientationOverride = null;
+}
+
+/// Snapshot of all pages' state for global undo (e.g., setGlobalOrientation).
+class _GlobalSnapshot {
+  final bool globalIsLandscape;
+  final List<_PageSnapshot> pages;
+  _GlobalSnapshot(this.globalIsLandscape, this.pages);
+}
+
 class DesignerState extends ChangeNotifier {
   // ── Multi-page state ────────────────────────────────────────────────────
   List<DesignerPage> _pages = [DesignerPage(name: 'Page 1')];
@@ -31,6 +51,7 @@ class DesignerState extends ChangeNotifier {
   Map<String, dynamic> _features = {'ota': false, 'filesystem': false};
   bool _enableControlUI = true;
   bool _showPageBar = true;
+  bool _globalIsLandscape = true; // global orientation from CONTROL UI
   List<Map<String, dynamic>> _telemetryWidgets = List.generate(4, (_) => <String, dynamic>{'label': '', 'icon': null, 'unit': ''});
 
   // appdata (metadata from the JSON block, not user-configurable)
@@ -48,9 +69,18 @@ class DesignerState extends ChangeNotifier {
   int get mutationCount => _mutationCount;
 
   // ── Per-page undo/redo stacks ──────────────────────────────────────────
-  final Map<int, List<List<DesignerElement>>> _undoStacks = {};
-  final Map<int, List<List<DesignerElement>>> _redoStacks = {};
+  final Map<int, List<_PageSnapshot>> _undoStacks = {};
+  final Map<int, List<_PageSnapshot>> _redoStacks = {};
   static const int _maxUndoStack = 50;
+
+  // ── Global undo/redo (for multi-page mutations like setGlobalOrientation)
+  final List<_GlobalSnapshot> _globalUndoStack = [];
+  final List<_GlobalSnapshot> _globalRedoStack = [];
+
+  /// Monotonic sequence for ordering undo entries across stacks.
+  int _undoSeq = 0;
+  final Map<int, int> _pageUndoSeq = {};  // pageIndex -> seq of last push
+  int _globalUndoSeq = 0;
 
   /// Snapshot saved at gesture start (resize/rotate).
   List<DesignerElement>? _gestureSnapshot;
@@ -66,7 +96,7 @@ class DesignerState extends ChangeNotifier {
   List<DesignerElement> get elements => activePage.elements;
 
   String? get selectedElementId => _selectedElementId;
-  bool get isLandscape => activePage.isLandscape;
+  bool get isLandscape => activePage.effectiveIsLandscape(_globalIsLandscape);
   bool get isPlayMode => _isPlayMode;
   bool get isInspectorVisible => _isInspectorVisible;
   GridStyle get gridStyle => _gridStyle;
@@ -84,13 +114,14 @@ class DesignerState extends ChangeNotifier {
   String get connectionPassword => _connectionPassword;
   int? get lastEdit => _lastEdit;
   String? get appVersion => _appVersion;
-  bool get canUndo => (_undoStacks[_activePageIndex]?.isNotEmpty) ?? false;
-  bool get canRedo => (_redoStacks[_activePageIndex]?.isNotEmpty) ?? false;
+  bool get canUndo => (_undoStacks[_activePageIndex]?.isNotEmpty) ?? false || _globalUndoStack.isNotEmpty;
+  bool get canRedo => (_redoStacks[_activePageIndex]?.isNotEmpty) ?? false || _globalRedoStack.isNotEmpty;
 
   bool get featureOta => (_features['ota'] as bool?) ?? false;
   bool get featureFilesystem => (_features['filesystem'] as bool?) ?? false;
   bool get enableControlUI => _enableControlUI;
   bool get showPageBar => _showPageBar;
+  bool get globalIsLandscape => _globalIsLandscape;
   List<Map<String, dynamic>> get telemetryWidgets => _telemetryWidgets;
 
   DesignerElement? get selectedElement {
@@ -102,23 +133,24 @@ class DesignerState extends ChangeNotifier {
     }
   }
 
-  int get canvasWidth => activePage.canvasWidth;
-  int get canvasHeight => activePage.canvasHeight;
-  bool get isLandscapeGlobal => canvasWidth >= canvasHeight;
+  int get canvasWidth => activePage.effectiveIsLandscape(_globalIsLandscape) ? 200 : 100;
+  int get canvasHeight => activePage.effectiveIsLandscape(_globalIsLandscape) ? 100 : 200;
+  bool get isLandscapeGlobal => _globalIsLandscape;
 
   // ── Private helpers ─────────────────────────────────────────────────────
-  List<List<DesignerElement>> _getUndoStack(int pageIndex) =>
+  List<_PageSnapshot> _getUndoStack(int pageIndex) =>
       _undoStacks.putIfAbsent(pageIndex, () => []);
-  List<List<DesignerElement>> _getRedoStack(int pageIndex) =>
+  List<_PageSnapshot> _getRedoStack(int pageIndex) =>
       _redoStacks.putIfAbsent(pageIndex, () => []);
 
   void _pushUndo() {
     if (_gestureSnapshot != null) return;
     _mutationCount++;
     final stack = _getUndoStack(_activePageIndex);
-    stack.add(elements.map((e) => e.copyWith()).toList());
+    stack.add(_PageSnapshot.fromPage(activePage));
     if (stack.length > _maxUndoStack) stack.removeAt(0);
     _getRedoStack(_activePageIndex).clear();
+    _pageUndoSeq[_activePageIndex] = ++_undoSeq;
   }
 
   void beginGesture() {
@@ -130,7 +162,7 @@ class DesignerState extends ChangeNotifier {
     if (_gestureSnapshot == null) return;
     _mutationCount++;
     final stack = _getUndoStack(_activePageIndex);
-    stack.add(_gestureSnapshot!);
+    stack.add(_PageSnapshot.fromElements(_gestureSnapshot!));
     if (stack.length > _maxUndoStack) stack.removeAt(0);
     _getRedoStack(_activePageIndex).clear();
     _gestureSnapshot = null;
@@ -157,6 +189,7 @@ class DesignerState extends ChangeNotifier {
     final newPage = DesignerPage(
       name: name ?? 'Page ${_pages.length + 1}',
       isLandscape: isLandscape ?? true,
+      orientationOverride: 'global',
     );
     _pages.add(newPage);
     _activePageIndex = _pages.length - 1;
@@ -166,11 +199,27 @@ class DesignerState extends ChangeNotifier {
 
   void removePage(int index) {
     if (_pages.length <= 1) return;
-    _mutationCount++;
+    _pushUndo();
     _pages.removeAt(index);
     // Clean up undo/redo stacks for removed page
     _undoStacks.remove(index);
     _redoStacks.remove(index);
+    _pageUndoSeq.remove(index);
+    // Remap stacks at higher indices to follow shifted pages
+    final newStacks = <int, List<_PageSnapshot>>{};
+    final newRedo = <int, List<_PageSnapshot>>{};
+    final newSeq = <int, int>{};
+    for (int i = index + 1; i < _pages.length + 1; i++) {
+      final undo = _undoStacks.remove(i);
+      final redo = _redoStacks.remove(i);
+      final seq = _pageUndoSeq.remove(i);
+      if (undo != null) newStacks[i - 1] = undo;
+      if (redo != null) newRedo[i - 1] = redo;
+      if (seq != null) newSeq[i - 1] = seq;
+    }
+    _undoStacks.addAll(newStacks);
+    _redoStacks.addAll(newRedo);
+    _pageUndoSeq.addAll(newSeq);
     // Adjust active index
     if (_activePageIndex >= _pages.length) {
       _activePageIndex = _pages.length - 1;
@@ -184,6 +233,56 @@ class DesignerState extends ChangeNotifier {
     _mutationCount++;
     _pages[index].name = name;
     notifyListeners();
+  }
+
+  void setPageOrientationOverride(String value) {
+    final page = activePage;
+    final oldEffective = page.effectiveIsLandscape(_globalIsLandscape);
+    _pushUndo();
+    page.orientationOverride = value;
+    final newEffective = page.effectiveIsLandscape(_globalIsLandscape);
+    if (oldEffective != newEffective) _rescalePage(page, oldEffective, newEffective);
+    notifyListeners();
+  }
+
+  void setGlobalOrientation(bool landscape) {
+    if (_globalIsLandscape == landscape) return;
+    _mutationCount++;
+    // Save full state for undo
+    final snapshot = _GlobalSnapshot(
+      _globalIsLandscape,
+      _pages.map((p) => _PageSnapshot.fromPage(p)).toList(),
+    );
+    _globalUndoStack.add(snapshot);
+    if (_globalUndoStack.length > _maxUndoStack) _globalUndoStack.removeAt(0);
+    _globalRedoStack.clear();
+    _globalUndoSeq = ++_undoSeq;
+
+    _globalIsLandscape = landscape;
+    // Rescale pages that inherit from global
+    for (final page in _pages) {
+      if (page.orientationOverride == 'global' || page.orientationOverride == null) {
+        _rescalePage(page, !landscape, landscape);
+      }
+    }
+    notifyListeners();
+  }
+
+  void _rescalePage(DesignerPage page, bool oldLandscape, bool newLandscape) {
+    final oldCw = oldLandscape ? 200 : 100;
+    final oldCh = oldLandscape ? 100 : 200;
+    final newCw = newLandscape ? 200 : 100;
+    final newCh = newLandscape ? 100 : 200;
+    final ratioX = newCw / oldCw;
+    final ratioY = newCh / oldCh;
+    page.elements = page.elements.map((e) {
+      final halfW = e.width ~/ 2;
+      final halfH = e.height ~/ 2;
+      return e.copyWith(
+        x: (e.x * ratioX).round().clamp(halfW, newCw - halfW),
+        y: (e.y * ratioY).round().clamp(halfH, newCh - halfH),
+      );
+    }).toList();
   }
 
   void reorderPage(int oldIndex, int newIndex) {
@@ -246,10 +345,14 @@ class DesignerState extends ChangeNotifier {
 
   void toggleOrientation() {
     final page = activePage;
-    final oldCw = page.isLandscape ? 200 : 100;
-    final oldCh = page.isLandscape ? 100 : 200;
-    final newCw = page.isLandscape ? 100 : 200;
-    final newCh = page.isLandscape ? 200 : 100;
+    // Compute current effective orientation for rescaling
+    final currentEffective = page.effectiveIsLandscape(_globalIsLandscape);
+    final newIsLandscape = !currentEffective;
+
+    final oldCw = currentEffective ? 200 : 100;
+    final oldCh = currentEffective ? 100 : 200;
+    final newCw = newIsLandscape ? 200 : 100;
+    final newCh = newIsLandscape ? 100 : 200;
 
     final ratioX = newCw / oldCw;
     final ratioY = newCh / oldCh;
@@ -264,7 +367,9 @@ class DesignerState extends ChangeNotifier {
       );
     }).toList();
 
-    page.isLandscape = !page.isLandscape;
+    // Set override to the new orientation (explicit, not global)
+    page.orientationOverride = newIsLandscape ? 'landscape' : 'portrait';
+    page.isLandscape = newIsLandscape;
     notifyListeners();
   }
 
@@ -661,21 +766,72 @@ class DesignerState extends ChangeNotifier {
   // ── Undo / redo ─────────────────────────────────────────────────────────
 
   void undo() {
-    final stack = _getUndoStack(_activePageIndex);
-    if (stack.isEmpty) return;
+    final pageStack = _getUndoStack(_activePageIndex);
+    final pageSeq = _pageUndoSeq[_activePageIndex] ?? 0;
+    final hasPage = pageStack.isNotEmpty;
+    final hasGlobal = _globalUndoStack.isNotEmpty;
+
+    if (!hasPage && !hasGlobal) return;
+
+    // Determine which stack has the most recent entry
+    final useGlobal = hasGlobal && (!hasPage || _globalUndoSeq > pageSeq);
+
     _mutationCount++;
-    _getRedoStack(_activePageIndex).add(elements.map((e) => e.copyWith()).toList());
-    activePage.elements = stack.removeLast();
+    if (useGlobal) {
+      final snapshot = _globalUndoStack.removeLast();
+      // Save current state to global redo
+      _globalRedoStack.add(_GlobalSnapshot(
+        _globalIsLandscape,
+        _pages.map((p) => _PageSnapshot.fromPage(p)).toList(),
+      ));
+      // Restore
+      _globalIsLandscape = snapshot.globalIsLandscape;
+      for (int i = 0; i < snapshot.pages.length && i < _pages.length; i++) {
+        final s = snapshot.pages[i];
+        _pages[i].elements = s.elements;
+        _pages[i].orientationOverride = s.orientationOverride;
+      }
+    } else {
+      final snapshot = pageStack.removeLast();
+      // Save current state to per-page redo
+      _getRedoStack(_activePageIndex).add(_PageSnapshot.fromPage(activePage));
+      // Restore
+      activePage.elements = snapshot.elements;
+      activePage.orientationOverride = snapshot.orientationOverride;
+    }
     _selectedElementId = null;
     notifyListeners();
   }
 
   void redo() {
-    final stack = _getRedoStack(_activePageIndex);
-    if (stack.isEmpty) return;
+    final pageStack = _getRedoStack(_activePageIndex);
+    final hasPage = pageStack.isNotEmpty;
+    final hasGlobal = _globalRedoStack.isNotEmpty;
+
+    if (!hasPage && !hasGlobal) return;
+
+    // For redo, prefer per-page (redo is the inverse direction)
+    final usePage = hasPage;
+
     _mutationCount++;
-    _getUndoStack(_activePageIndex).add(elements.map((e) => e.copyWith()).toList());
-    activePage.elements = stack.removeLast();
+    if (!usePage && hasGlobal) {
+      final snapshot = _globalRedoStack.removeLast();
+      _globalUndoStack.add(_GlobalSnapshot(
+        _globalIsLandscape,
+        _pages.map((p) => _PageSnapshot.fromPage(p)).toList(),
+      ));
+      _globalIsLandscape = snapshot.globalIsLandscape;
+      for (int i = 0; i < snapshot.pages.length && i < _pages.length; i++) {
+        final s = snapshot.pages[i];
+        _pages[i].elements = s.elements;
+        _pages[i].orientationOverride = s.orientationOverride;
+      }
+    } else if (hasPage) {
+      final snapshot = pageStack.removeLast();
+      _getUndoStack(_activePageIndex).add(_PageSnapshot.fromPage(activePage));
+      activePage.elements = snapshot.elements;
+      activePage.orientationOverride = snapshot.orientationOverride;
+    }
     _selectedElementId = null;
     notifyListeners();
   }
@@ -742,6 +898,11 @@ class DesignerState extends ChangeNotifier {
     _pages.clear();
     _undoStacks.clear();
     _redoStacks.clear();
+    _globalUndoStack.clear();
+    _globalRedoStack.clear();
+    _pageUndoSeq.clear();
+    _globalUndoSeq = 0;
+    _undoSeq = 0;
 
     final version = decoded['version'] as int? ?? 1;
 
@@ -750,7 +911,6 @@ class DesignerState extends ChangeNotifier {
       for (final pageJson in (decoded['pages'] as List? ?? [])) {
         _pages.add(DesignerPage.fromJson(pageJson as Map<String, dynamic>));
       }
-      // Read per-page orientation from page data (already in DesignerPage)
     } else {
       // ── v1 format: flat widgets[] (backward compat for loading) ─────
       final page = DesignerPage(name: 'Page 1');
@@ -762,6 +922,7 @@ class DesignerState extends ChangeNotifier {
       if (rawSize is List && rawSize.length >= 2) {
         final w = (rawSize[0] as num?)?.toInt() ?? 200;
         final h = (rawSize[1] as num?)?.toInt() ?? 100;
+        _globalIsLandscape = w >= h;
         page.isLandscape = w >= h;
       }
       _pages.add(page);
@@ -816,18 +977,31 @@ class DesignerState extends ChangeNotifier {
     // read showPageBar from canvas
     _showPageBar = (decoded['canvas']?['showPageBar'] as bool?) ?? true;
 
+    // read global orientation from canvas
+    final canvasOrientation = decoded['canvas']?['orientation'] as String?;
+    if (canvasOrientation != null) {
+      _globalIsLandscape = canvasOrientation != 'portrait';
+    }
+
     // appdata
     final appData = decoded['appdata'];
     if (appData is Map) {
-      _lastEdit = appData['lastEdit'] as int?;
+      final rawLastEdit = appData['lastEdit'];
+      if (rawLastEdit is int) {
+        _lastEdit = rawLastEdit;
+      } else if (rawLastEdit is String) {
+        _lastEdit = DateTime.tryParse(rawLastEdit)?.millisecondsSinceEpoch;
+      } else {
+        _lastEdit = null;
+      }
       _appVersion = appData['appVersion'] as String?;
     }
 
     _enableControlUI = (decoded['enableControlUI'] as bool?) ?? true;
 
     // telemetry
-    final rawTelemetry = decoded['telemetry'] as List?;
-    if (rawTelemetry != null && rawTelemetry.length == 4) {
+    final rawTelemetry = decoded['telemetry'];
+    if (rawTelemetry is List && rawTelemetry.length == 4) {
       _telemetryWidgets = rawTelemetry
           .map((e) => Map<String, dynamic>.from(e as Map))
           .toList();
@@ -981,6 +1155,7 @@ class DesignerState extends ChangeNotifier {
       'grid': _gridStyle.name,
       'skin': _activeSkin,
       'showPageBar': _showPageBar,
+      'orientation': _globalIsLandscape ? 'landscape' : 'portrait',
     },
     'enableControlUI': _enableControlUI,
     'telemetry': List<Map<String, dynamic>>.from(_telemetryWidgets),

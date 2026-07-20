@@ -312,6 +312,9 @@ class _TabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasOrientationOverride = page.orientationOverride != null &&
+        page.orientationOverride != 'global';
+
     return GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
@@ -330,18 +333,42 @@ class _TabButton extends StatelessWidget {
           ),
           borderRadius: BorderRadius.circular(6),
         ),
-        child: Text(
-          page.name,
-          style: TextStyle(
-            color: isActive
-                ? tokens.onPrimary
-                : tokens.onSurface.withValues(alpha: 0.7),
-            fontSize: 11,
-            fontFamily: 'monospace',
-            fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-          ),
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Center(
+              child: Text(
+                page.name,
+                style: TextStyle(
+                  color: isActive
+                      ? tokens.onPrimary
+                      : tokens.onSurface.withValues(alpha: 0.7),
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                  fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                ),
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+            ),
+            if (hasOrientationOverride)
+              Positioned(
+                top: -4,
+                right: -4,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: tokens.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    LucideIcons.rotateCw,
+                    size: 8,
+                    color: tokens.onPrimary,
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );

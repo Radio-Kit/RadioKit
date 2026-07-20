@@ -1627,7 +1627,7 @@ class RemoteAccessService {
       return _error('invalid_params', 'demoId is required');
     }
 
-    const validDemos = {'WIDGETS_DEMO', 'RC_CONTROLLER', 'IOT_DASHBOARD'};
+    const validDemos = {'WIDGETS_DEMO', 'RC_CONTROLLER', 'IOT_DASHBOARD', 'MULTI_PAGE_DEMO'};
     if (!validDemos.contains(demoId)) {
       return _error('demo_not_found', 'Invalid demo ID: $demoId');
     }
