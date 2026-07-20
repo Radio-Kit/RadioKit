@@ -151,4 +151,69 @@ void main() {
       expect(state.globalIsLandscape, isFalse);
     });
   });
+
+  group('showControlPageBar', () {
+    test('defaults to true', () {
+      final state = DesignerState();
+      expect(state.showControlPageBar, isTrue);
+    });
+
+    test('toggle flips value', () {
+      final state = DesignerState();
+      expect(state.showControlPageBar, isTrue);
+      state.toggleControlPageBar();
+      expect(state.showControlPageBar, isFalse);
+      state.toggleControlPageBar();
+      expect(state.showControlPageBar, isTrue);
+    });
+
+    test('toJson includes showControlPageBar in canvas', () {
+      final state = DesignerState();
+      final json = state.toJson();
+      expect(json['canvas']['showControlPageBar'], isTrue);
+    });
+
+    test('toJson reflects toggled value', () {
+      final state = DesignerState();
+      state.toggleControlPageBar();
+      final json = state.toJson();
+      expect(json['canvas']['showControlPageBar'], isFalse);
+    });
+
+    test('loadFromJson reads showControlPageBar from canvas', () {
+      final state = DesignerState();
+      final json = {
+        'version': 2,
+        'canvas': {'showControlPageBar': false},
+        'pages': [
+          {'name': 'Page 1', 'orientation': 'global', 'widgets': []},
+        ],
+      };
+      state.loadFromJson(json);
+      expect(state.showControlPageBar, isFalse);
+    });
+
+    test('loadFromJson defaults showControlPageBar to true when missing', () {
+      final state = DesignerState();
+      state.toggleControlPageBar(); // set to false first
+      final json = {
+        'version': 2,
+        'canvas': {},
+        'pages': [
+          {'name': 'Page 1', 'orientation': 'global', 'widgets': []},
+        ],
+      };
+      state.loadFromJson(json);
+      expect(state.showControlPageBar, isTrue);
+    });
+
+    test('round-trip serialization preserves showControlPageBar', () {
+      final state = DesignerState();
+      state.toggleControlPageBar();
+      final json = state.toJson();
+      final state2 = DesignerState();
+      state2.loadFromJson(json);
+      expect(state2.showControlPageBar, state.showControlPageBar);
+    });
+  });
 }

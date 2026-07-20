@@ -51,6 +51,7 @@ class DesignerState extends ChangeNotifier {
   Map<String, dynamic> _features = {'ota': false, 'filesystem': false};
   bool _enableControlUI = true;
   bool _showPageBar = true;
+  bool _showControlPageBar = true;
   bool _globalIsLandscape = true; // global orientation from CONTROL UI
   List<Map<String, dynamic>> _telemetryWidgets = List.generate(4, (_) => <String, dynamic>{'label': '', 'icon': null, 'unit': ''});
 
@@ -121,6 +122,7 @@ class DesignerState extends ChangeNotifier {
   bool get featureFilesystem => (_features['filesystem'] as bool?) ?? false;
   bool get enableControlUI => _enableControlUI;
   bool get showPageBar => _showPageBar;
+  bool get showControlPageBar => _showControlPageBar;
   bool get globalIsLandscape => _globalIsLandscape;
   List<Map<String, dynamic>> get telemetryWidgets => _telemetryWidgets;
 
@@ -719,6 +721,12 @@ class DesignerState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void toggleControlPageBar() {
+    _mutationCount++;
+    _showControlPageBar = !_showControlPageBar;
+    notifyListeners();
+  }
+
   void setTelemetryLabel(int index, String label) {
     _mutationCount++;
     final newList = List<Map<String, dynamic>>.from(_telemetryWidgets);
@@ -977,6 +985,9 @@ class DesignerState extends ChangeNotifier {
     // read showPageBar from canvas
     _showPageBar = (decoded['canvas']?['showPageBar'] as bool?) ?? true;
 
+    // read showControlPageBar from canvas
+    _showControlPageBar = (decoded['canvas']?['showControlPageBar'] as bool?) ?? true;
+
     // read global orientation from canvas
     final canvasOrientation = decoded['canvas']?['orientation'] as String?;
     if (canvasOrientation != null) {
@@ -1155,6 +1166,7 @@ class DesignerState extends ChangeNotifier {
       'grid': _gridStyle.name,
       'skin': _activeSkin,
       'showPageBar': _showPageBar,
+      'showControlPageBar': _showControlPageBar,
       'orientation': _globalIsLandscape ? 'landscape' : 'portrait',
     },
     'enableControlUI': _enableControlUI,

@@ -889,6 +889,13 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                 widget.state.setSkin(v);
               },
             ),
+            // Show Page Bar in Control UI
+            InspectorFieldBuilders.buildBoolToggle(
+              tokens,
+              'Show Page Bar in Control UI',
+              widget.state.showControlPageBar,
+              (v) => widget.state.toggleControlPageBar(),
+            ),
           ],
           Container(height: 1, color: tokens.effectiveOutline),
         ],
