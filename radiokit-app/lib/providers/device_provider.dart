@@ -107,7 +107,13 @@ class DeviceProvider extends ChangeNotifier {
     if (_authLevel != AuthLevel.none || _connectedAt == null) return Duration.zero;
     final remaining = _authTimeout - DateTime.now().difference(_connectedAt!);
     return remaining.isNegative ? Duration.zero : remaining;
-  }  final Map<int, _PendingUpdate> _pendingUpdates = {};
+  }
+
+  // ── Telemetry values ─────────────────────────────────────────
+  // Live values for telemetry widgets, keyed by widget index (0-based).
+  final Map<int, String> _telemetryValues = <int, String>{};
+
+  final Map<int, _PendingUpdate> _pendingUpdates = {};
   int _nextSeq = 0;
 
   // ── FS (bulk protocol) ────────────────────────────────────────────────
@@ -282,6 +288,9 @@ class DeviceProvider extends ChangeNotifier {
 
   /// Page names from the device.
   List<String> get pageNames => List.unmodifiable(_pageNames);
+
+  /// Live telemetry values keyed by widget index (0-based).
+  Map<int, String> get telemetryValues => Map.unmodifiable(_telemetryValues);
 
   /// Whether the device supports the 0xEE print stream.
   bool get hasPrintStream => (_deviceFeatures & kSettingsFeaturePrintStream) != 0;
@@ -1919,7 +1928,19 @@ class DeviceProvider extends ChangeNotifier {
     final current = _widgetState;
     if (current == null) return;
     final next = ProtocolService.parseVarData(payload, _widgets, current);
-    if (next != null) { _widgetState = next; notifyListeners(); }
+    if (next != null) {
+      // Extract telemetry widget values (keyed by widget index)
+      for (final w in _widgets) {
+        if (w.typeId == kWidgetTelemetry) {
+          final value = next.outputValues[w.widgetId];
+          if (value != null) {
+            _telemetryValues[w.widgetId] = value is String ? value : value.toString();
+          }
+        }
+      }
+      _widgetState = next;
+      notifyListeners();
+    }
   }
 
   void _handleSetInput(List<int> payload) {
@@ -2748,6 +2769,7 @@ class DeviceProvider extends ChangeNotifier {
     _numPages         = 1;
     _pageNames        = [];
     _pageSwitchState  = _PageSwitchState.idle;
+    _telemetryValues.clear();
     _description      = null;
     _deviceConfigJson = null;
     _fsTreeCache      = null;

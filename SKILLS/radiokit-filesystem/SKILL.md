@@ -10,7 +10,7 @@ description: Guide for using the RadioKit filesystem (LittleFS) on ESP32. Use th
 RadioKit provides a built-in filesystem layer using LittleFS on ESP32. The companion Flutter app can browse, upload, download, and manage files on the device through the same transport used for widgets.
 
 **Requirements**:
-- ESP32 only (STM32, RP2040 not supported)
+- ESP32 or RP2040 (STM32 not supported)
 - Build flag: `-DRK_ENABLE_FS`
 - `board_build.filesystem = littlefs` in platformio.ini
 
@@ -102,18 +102,20 @@ size_t used = LittleFS.usedBytes();
 
 The Flutter app can perform these operations remotely through the FS protocol (0xAA):
 
-| Operation | Description |
-|-----------|-------------|
-| List | List files in a directory |
-| Read | Read file content (with offset + length) |
-| Write | Write data to file (at offset) |
-| Delete | Delete file or directory |
-| Mkdir | Create directory |
-| Rename | Rename/move file |
-| Upload | Stream file upload (begin/chunk/end) |
-| Format | Format entire filesystem |
-| Info | Get storage usage stats |
-| CRC32 | Compute file checksum |
+| Operation | Code | Description |
+|-----------|------|-------------|
+| List | 0xA1 | List files in a directory |
+| Read | 0xA2 | Read file content (with offset + length) |
+| Write | 0xA3 | Write data to file (at offset) |
+| Delete | 0xA4 | Delete file or directory |
+| Mkdir | 0xA5 | Create directory |
+| Rename | 0xA6 | Rename/move file |
+| Upload | 0xA7 | Stream file upload (begin/chunk/end) |
+| Format | 0xA8 | Format entire filesystem |
+| Info | 0xA9 | Get storage usage stats |
+| Ping | 0x0B | Heartbeat (documented but not implemented) |
+| Replace | 0x0D | Single-frame file replace with CRC32 verification |
+| CRC32 | 0x0E | Compute file checksum |
 
 These are handled automatically by the RadioKit library. No firmware code needed.
 
@@ -259,7 +261,7 @@ void loadJsonConfig() {
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `enableFS()` returns false | Flash not formatted | Call `RadioKit.formatFs()` once |
+| `enableFS()` returns false | Flash not formatted (RP2040 only) | Call `RadioKit.formatFs()` once. **Note**: ESP32 auto-formats on `begin()`, so this shouldn't occur on ESP32. |
 | Files disappear after OTA | OTA erases FS by default | Check erase flag in OTA protocol |
 | Upload fails mid-transfer | Not enough space | Check `LittleFS.totalBytes() - LittleFS.usedBytes()` |
 | Read returns garbage | File not closed properly | Ensure `f.close()` after writes |

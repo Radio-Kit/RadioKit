@@ -300,6 +300,7 @@ const int kWidgetText        = 0x06;
 const int kWidgetMultiple    = 0x07;
 const int kWidgetSlideSwitch = 0x08;
 const int kWidgetKnob        = 0x09;
+const int kWidgetTelemetry   = 0x0A;
 
 // Widget input sizes in bytes (app → device)
 const Map<int, int> kWidgetInputSize = {

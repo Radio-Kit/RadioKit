@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 import 'inspector_field_builders.dart';
@@ -72,6 +73,9 @@ class DesignerInspector extends StatefulWidget {
 }
 
 class _DesignerInspectorState extends State<DesignerInspector> {
+  int? _draggingIndex;
+  int? _dragOverIndex;
+
   @override
   Widget build(BuildContext context) {
     final tokens = RKTheme.of(context);
@@ -911,167 +915,294 @@ class _DesignerInspectorState extends State<DesignerInspector> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-          child: Text(
-            'TELEMETRY',
-            style: TextStyle(
-              color: tokens.primary,
-              fontSize: 12,
-              fontFamily: 'monospace',
-              letterSpacing: 1,
-            ),
+          child: Row(
+            children: [
+              Text(
+                'TELEMETRY',
+                style: TextStyle(
+                  color: tokens.primary,
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                  letterSpacing: 1,
+                ),
+              ),
+              const Spacer(),
+              if (telemetry.length < 4)
+                GestureDetector(
+                  onTap: () => widget.state.addTelemetrySlot(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: tokens.primary.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(LucideIcons.plus, size: 12, color: tokens.primary),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Add',
+                          style: TextStyle(
+                            color: tokens.primary,
+                            fontSize: 10,
+                            fontFamily: 'monospace',
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
-        ...List.generate(4, (i) {
+        // Preview row
+        if (telemetry.any((tw) => ((tw['label'] as String?) ?? '').isNotEmpty))
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                for (final tw in telemetry)
+                  if (((tw['label'] as String?) ?? '').isNotEmpty)
+                    Flexible(
+                      child: _TelemetryPreviewItem(
+                        label: tw['label'] ?? '',
+                        iconName: tw['icon'] as String?,
+                        unit: tw['unit'] ?? '',
+                      ),
+                    ),
+              ],
+            ),
+          ),
+        ...List.generate(telemetry.length, (i) {
           final tw = telemetry[i];
           final label = (tw['label'] as String?) ?? '';
           final iconName = tw['icon'] as String?;
           final unit = (tw['unit'] as String?) ?? '';
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Text(
-                    'WIDGET ${i + 1}',
-                    style: TextStyle(
-                      color: tokens.onSurface.withValues(alpha: 0.5),
-                      fontSize: 9,
-                      fontFamily: 'monospace',
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Drop indicator above this row
+              if (_dragOverIndex == i && _draggingIndex != null && _draggingIndex != i)
+                Container(
+                  height: 2,
+                  margin: const EdgeInsets.symmetric(horizontal: 20),
+                  color: tokens.primary,
+                ),
+              DragTarget<int>(
+                onWillAccept: (data) => data != i,
+                onMove: (details) {
+                  setState(() {
+                    _dragOverIndex = i;
+                  });
+                },
+                onLeave: (_) {
+                  setState(() {
+                    _dragOverIndex = null;
+                  });
+                },
+                onAccept: (data) {
+                  final target = _dragOverIndex ?? i;
+                  setState(() {
+                    widget.state.reorderTelemetrySlot(data, target);
+                    _draggingIndex = null;
+                    _dragOverIndex = null;
+                  });
+                },
+                builder: (context, candidateData, rejectedData) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                  child: Row(
+                    children: [
+                      // Grip handle
+                      if (telemetry.length > 1)
+                        LongPressDraggable<int>(
+                          data: i,
+                          feedback: Material(
+                            color: Colors.transparent,
+                            child: Opacity(
+                              opacity: 0.8,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(LucideIcons.gripVertical, color: tokens.primary, size: 14),
+                                    const SizedBox(width: 6),
+                                    Text(label.isNotEmpty ? label : 'Slot ${i + 1}',
+                                      style: TextStyle(color: tokens.onSurface, fontSize: 11, fontFamily: 'monospace')),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          onDragStarted: () {
+                            setState(() {
+                              _draggingIndex = i;
+                            });
+                          },
+                          onDragEnd: (_) {
+                            setState(() {
+                              _draggingIndex = null;
+                              _dragOverIndex = null;
+                            });
+                          },
+                          child: Icon(
+                            LucideIcons.gripVertical,
+                            color: _draggingIndex == i
+                                ? tokens.primary
+                                : tokens.onSurface.withValues(alpha: 0.38),
+                            size: 14,
+                          ),
+                        ),
+                      if (telemetry.length > 1) const SizedBox(width: 6),
+                      // Icon picker
+                      GestureDetector(
+                        onTap: () => IconFieldBuilder.openIconPickerDialog(
+                    context,
+                    currentIconName: iconName,
+                    onChanged: (v) => widget.state.setTelemetryIcon(i, v),
+                  ),
+                  child: Container(
+                    height: 28,
+                    width: 40,
+                    decoration: BoxDecoration(
+                      color: tokens.base200,
+                      border: Border.all(color: tokens.effectiveOutline),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (iconName != null &&
+                            kDesignerIcons.containsKey(iconName))
+                          Padding(
+                            padding: const EdgeInsets.only(right: 2),
+                            child: Icon(
+                              kDesignerIcons[iconName]!,
+                              color: tokens.primary,
+                              size: 14,
+                            ),
+                          )
+                        else
+                          Padding(
+                            padding: const EdgeInsets.only(right: 2),
+                            child: Text(
+                              '—',
+                              style: TextStyle(
+                                color: tokens.onSurface.withValues(alpha: 0.38),
+                                fontSize: 11,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ),
+                        Icon(
+                          LucideIcons.chevronDown,
+                          color: tokens.onSurface.withValues(alpha: 0.38),
+                          size: 10,
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                Row(
-                  children: [
-                    // Label (C++ variable name)
-                    Expanded(
-                      flex: 3,
-                      child: Container(
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: tokens.base200,
-                          border: Border.all(color: tokens.effectiveOutline),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                        child: TextField(
-                          controller: TextEditingController(text: label)
-                            ..selection = TextSelection.collapsed(
-                                offset: label.length),
-                          style: TextStyle(
-                            color: tokens.onSurface.withValues(alpha: 0.88),
-                            fontSize: 11,
-                            fontFamily: 'monospace',
-                          ),
-                          decoration: InputDecoration(
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            border: InputBorder.none,
-                            isDense: true,
-                            hintText: 'Label',
-                            hintStyle: TextStyle(
-                              color: tokens.onSurface.withValues(alpha: 0.38),
-                              fontSize: 11,
-                            ),
-                          ),
-                          onChanged: (v) =>
-                              widget.state.setTelemetryLabel(i, v),
-                        ),
-                      ),
+                const SizedBox(width: 6),
+                // Label (C++ variable name)
+                Expanded(
+                  flex: 3,
+                  child: Container(
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: tokens.base200,
+                      border: Border.all(color: tokens.effectiveOutline),
+                      borderRadius: BorderRadius.circular(2),
                     ),
-                    SizedBox(width: 6),
-                    // Icon picker
-                    GestureDetector(
-                      onTap: () => IconFieldBuilder.openIconPickerDialog(
-                        context,
-                        currentIconName: iconName,
-                        onChanged: (v) => widget.state.setTelemetryIcon(i, v),
+                    child: TextField(
+                      controller: TextEditingController(text: label)
+                        ..selection = TextSelection.collapsed(
+                            offset: label.length),
+                      style: TextStyle(
+                        color: tokens.onSurface.withValues(alpha: 0.88),
+                        fontSize: 11,
+                        fontFamily: 'monospace',
                       ),
-                      child: Container(
-                        height: 28,
-                        width: 40,
-                        decoration: BoxDecoration(
-                          color: tokens.base200,
-                          border: Border.all(color: tokens.effectiveOutline),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            if (iconName != null &&
-                                kDesignerIcons.containsKey(iconName))
-                              Padding(
-                                padding: const EdgeInsets.only(right: 2),
-                                child: Icon(
-                                  kDesignerIcons[iconName]!,
-                                  color: tokens.primary,
-                                  size: 14,
-                                ),
-                              )
-                            else
-                              Padding(
-                                padding: EdgeInsets.only(right: 2),
-                                child: Text(
-                                  '—',
-                                  style: TextStyle(
-                                    color: tokens.onSurface.withValues(alpha: 0.38),
-                                    fontSize: 11,
-                                    fontFamily: 'monospace',
-                                  ),
-                                ),
-                              ),
-                            Icon(
-                              LucideIcons.chevronDown,
-                              color: tokens.onSurface.withValues(alpha: 0.38),
-                              size: 10,
-                            ),
-                          ],
+                      decoration: InputDecoration(
+                        contentPadding: EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        border: InputBorder.none,
+                        isDense: true,
+                        hintText: 'Label',
+                        hintStyle: TextStyle(
+                          color: tokens.onSurface.withValues(alpha: 0.38),
+                          fontSize: 11,
                         ),
                       ),
+                      onChanged: (v) =>
+                          widget.state.setTelemetryLabel(i, v),
                     ),
-                    SizedBox(width: 6),
-                    // Unit
-                    Expanded(
-                      flex: 2,
-                      child: Container(
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: tokens.base200,
-                          border: Border.all(color: tokens.effectiveOutline),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                        child: TextField(
-                          controller: TextEditingController(text: unit)
-                            ..selection = TextSelection.collapsed(
-                                offset: unit.length),
-                          style: TextStyle(
-                            color: tokens.onSurface.withValues(alpha: 0.88),
-                            fontSize: 11,
-                            fontFamily: 'monospace',
-                          ),
-                          decoration: InputDecoration(
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            border: InputBorder.none,
-                            isDense: true,
-                            hintText: 'Unit',
-                            hintStyle: TextStyle(
-                              color: tokens.onSurface.withValues(alpha: 0.38),
-                              fontSize: 11,
-                            ),
-                          ),
-                          onChanged: (v) =>
-                              widget.state.setTelemetryUnit(i, v),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                // Unit
+                Expanded(
+                  flex: 2,
+                  child: Container(
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: tokens.base200,
+                      border: Border.all(color: tokens.effectiveOutline),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    child: TextField(
+                      controller: TextEditingController(text: unit)
+                        ..selection = TextSelection.collapsed(
+                            offset: unit.length),
+                      style: TextStyle(
+                        color: tokens.onSurface.withValues(alpha: 0.88),
+                        fontSize: 11,
+                        fontFamily: 'monospace',
+                      ),
+                      decoration: InputDecoration(
+                        contentPadding: EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        border: InputBorder.none,
+                        isDense: true,
+                        hintText: 'Unit',
+                        hintStyle: TextStyle(
+                          color: tokens.onSurface.withValues(alpha: 0.38),
+                          fontSize: 11,
                         ),
                       ),
+                      onChanged: (v) =>
+                          widget.state.setTelemetryUnit(i, v),
                     ),
-                  ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                // Remove button
+                GestureDetector(
+                  onTap: () => widget.state.removeTelemetrySlot(i),
+                  child: Container(
+                    height: 28,
+                    width: 28,
+                    decoration: BoxDecoration(
+                      color: tokens.base200,
+                      border: Border.all(color: tokens.effectiveOutline),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    child: Icon(
+                      LucideIcons.x,
+                      color: tokens.onSurface.withValues(alpha: 0.5),
+                      size: 14,
+                    ),
+                  ),
                 ),
               ],
             ),
-          );
+          ),
+        ),
+      ],
+    );
         }),
         Container(height: 1, color: tokens.effectiveOutline),
       ],
@@ -1996,6 +2127,65 @@ class CppIdentifierFormatter extends TextInputFormatter {
     return TextEditingValue(
       text: sanitized,
       selection: TextSelection.collapsed(offset: adjustedPos),
+    );
+  }
+}
+
+class _TelemetryPreviewItem extends StatelessWidget {
+  final String label;
+  final String? iconName;
+  final String unit;
+  const _TelemetryPreviewItem({required this.label, this.iconName, required this.unit});
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = RKTheme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: tokens.onSurface.withValues(alpha: 0.38),
+            fontSize: 9,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            if (iconName != null && kDesignerIcons.containsKey(iconName))
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Icon(
+                  kDesignerIcons[iconName]!,
+                  color: tokens.primary,
+                  size: 16,
+                ),
+              ),
+            Text(
+              '120',
+              style: GoogleFonts.exo2(
+                color: tokens.primary,
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              unit,
+              style: TextStyle(
+                color: tokens.onSurface.withValues(alpha: 0.38),
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

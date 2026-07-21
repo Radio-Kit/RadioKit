@@ -34,14 +34,9 @@ class CanvasElement extends StatelessWidget {
 
     Widget child = _buildWidget(context);
 
-    // In play mode, hidden widgets are completely invisible.
-    if (isPlayMode && element.hidden) {
+    // Hidden widgets are completely invisible in both play and designer mode.
+    if (element.hidden) {
       return const SizedBox.shrink();
-    }
-
-    // In designer mode, hidden widgets are dimmed/ghosted but still selectable.
-    if (!isPlayMode && element.hidden) {
-      child = Opacity(opacity: 0.15, child: child);
     }
 
     if (!isPlayMode) {

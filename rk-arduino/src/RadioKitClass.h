@@ -158,6 +158,10 @@ private:
     // ── Page management ──────────────────────────────────────
     uint8_t _activePage = 0;
     uint8_t _numPages   = 1;
+    const char* const* _pageNames = nullptr;
+
+    // ── Visibility dirty flag ────────────────────────────────
+    bool _confDirty = false;
 
 public:
     /** Switch to a new active page. Sends PAGE_CHANGED + CONF_DATA + VAR_DATA.
@@ -167,6 +171,10 @@ public:
     uint8_t getActivePage() const { return _activePage; }
     uint8_t getNumPages() const { return _numPages; }
     void setNumPages(uint8_t n) { _numPages = n; }
+    void setPageNames(const char* const* names) { _pageNames = names; }
+
+    /// Mark CONF_DATA as needing rebuild (called by Widget on hidden/labelHidden change).
+    static void markConfDirty();
 
 private:
 

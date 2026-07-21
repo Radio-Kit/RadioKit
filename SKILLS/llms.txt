@@ -63,20 +63,96 @@ http://<app-ip>:7007
 - POST /api/devices/disconnect - Disconnect device (body: id)
 - GET /api/devices/<id> - Device info
 - GET /api/devices/<id>/widgets - Device widgets
+- GET /api/devices/<id>/widgets/<wid> - Get device widget
 - PUT /api/devices/<id>/widgets/<wid> - Set widget value
+- GET /api/devices/<id>/console - Device console log
+- DELETE /api/devices/<id>/console - Clear device console
+- GET /api/devices/<id>/fs/list - Device FS list
+- GET /api/devices/<id>/fs/info - Device FS info
+- GET /api/devices/<id>/fs/read - Device FS read
+- POST /api/devices/<id>/fs/write - Device FS write
+- POST /api/devices/<id>/fs/upload - Device FS upload
+- POST /api/devices/<id>/fs/mkdir - Device FS mkdir
+- POST /api/devices/<id>/fs/delete - Device FS delete
+- POST /api/devices/<id>/fs/rename - Device FS rename
+- POST /api/devices/<id>/fs/format - Device FS format
+- POST /api/devices/<id>/fs/probe - Device FS probe
+- POST /api/devices/<id>/ota/upload - Device OTA upload
+- GET /api/devices/<id>/ota/progress - Device OTA progress
+- POST /api/devices/<id>/transport/send - Device transport send
+- POST /api/devices/<id>/transport/ping - Device transport ping
+- POST /api/devices/<id>/transport/wifi_info - Device WiFi info
+- POST /api/devices/<id>/transport/<cmd> - Device transport command
+- GET /api/devices/<id>/settings/nvs - Device NVS read
+- POST /api/devices/<id>/settings/nvs - Device NVS write
+- POST /api/devices/<id>/settings/nvs/authenticate - Device auth
+- POST /api/devices/<id>/settings/nvs/factory-reset - Device factory reset
+- POST /api/devices/<id>/settings/nvs/reboot - Device reboot
+- GET /api/devices/<id>/settings/nvs/raw/<key> - Device raw NVS read
+- POST /api/devices/<id>/settings/nvs/raw/<key> - Device raw NVS write
+- GET /api/devices/<id>/settings/nvs/cloud-info - Device cloud info
 
 ### Serial Flasher
 - GET /api/flasher/ports - List serial ports
 - POST /api/flasher/scan - Scan ports
 - POST /api/flasher/connect - Connect port (body: portId)
+- POST /api/flasher/disconnect - Disconnect port
 - POST /api/flasher/flash - Start flash
 - GET /api/flasher/status - Flash status
+- GET /api/flasher/log - Flash log
+- POST /api/flasher/log/clear - Clear flash log
+- POST /api/flasher/select-firmware - Select firmware file
+- POST /api/flasher/clear-firmware - Clear selected firmware
+- POST /api/flasher/erase-all - Erase all flash
 
 ### Cloud Relay
 - POST /api/cloud/connect - Connect relay (body: host, port, account, privateKey)
 - GET /api/cloud/devices - Cloud device list
 - POST /api/cloud/join - Join device (body: device)
 - POST /api/cloud/disconnect - Disconnect relay
+- GET /api/cloud/account - Get Ed25519 identity (public key)
+- POST /api/cloud/account - Generate new Ed25519 identity
+- GET /api/cloud/accounts - List all cloud accounts
+- POST /api/cloud/accounts - Create named account (body: name, relay)
+- PUT /api/cloud/accounts/<id> - Update account (body: name, relay)
+- DELETE /api/cloud/accounts/<id> - Delete cloud account
+
+### Page Management
+- GET /api/page - Get active page (returns activePage, numPages, pages)
+- POST /api/page - Set active page (body: page)
+- GET /api/pages - Get all pages (returns pages, numPages, activePage)
+
+### Session
+- GET /api/session/route - Current GoRouter location
+- GET /api/session/state - Session state
+- GET /api/session/sheets - Session sheets
+
+### Device Settings (NVS)
+- GET /api/settings - Get device config
+- PUT /api/settings - Update device config
+- GET /api/settings/nvs - Read NVS
+- POST /api/settings/nvs - Write NVS (body: name, description, password)
+- POST /api/settings/nvs/authenticate - Auth (body: password)
+- POST /api/settings/nvs/factory-reset - Erase and reboot (body: confirm: true)
+- POST /api/settings/nvs/reboot - Reboot device
+- GET /api/settings/nvs/raw/<key> - Raw NVS read
+- POST /api/settings/nvs/raw/<key> - Raw NVS write
+- GET /api/settings/nvs/cloud-info - Cloud info from NVS
+
+### Transport
+- POST /api/transport/send - Send raw frame
+- POST /api/transport/ping - Ping device
+- POST /api/transport/wifi_info - WiFi info
+- POST /api/transport/<cmd> - Quick command
+
+### Log
+- GET /api/log - App log entries
+- DELETE /api/log - Clear app log
+
+### Models (Paired Devices)
+- GET /api/models - List paired models
+- DELETE /api/models - Delete all paired models
+- DELETE /api/models/<id> - Delete paired model
 
 ### Designs
 - GET /api/designs - List all saved designs

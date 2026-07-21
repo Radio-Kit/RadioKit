@@ -135,6 +135,7 @@ class JsonArduinoGenerator {
     // ─── Multi-page initialization ───
     if (isMultiPage) {
       buf.writeln('  RadioKit.setNumPages(RK_NUM_PAGES);');
+      buf.writeln('  RadioKit.setPageNames(rk_pageNames);');
       buf.writeln();
     }
 

@@ -575,6 +575,8 @@ All endpoints return standard error format:
 
 ## Quick Reference
 
+### Server & Connection
+
 | Operation | Method | Endpoint |
 |-----------|--------|----------|
 | Server status | GET | `/api/status` |
@@ -582,11 +584,24 @@ All endpoints return standard error format:
 | Scan results | GET | `/api/pair/devices` |
 | Connect | POST | `/api/connection/connect` |
 | Connection state | GET | `/api/connection` |
+| Connection params | GET | `/api/connection/params` |
 | Disconnect | POST | `/api/connection/disconnect` |
 | Reconnect | POST | `/api/connection/reconnect` |
+| Switch transport | POST | `/api/connection/switch` |
+| Load demo | POST | `/api/connection/demo` |
+
+### Widgets
+
+| Operation | Method | Endpoint |
+|-----------|--------|----------|
 | List widgets | GET | `/api/widgets` |
 | Get widget | GET | `/api/widgets/{id}` |
 | Set widget | PUT | `/api/widgets/{id}` |
+
+### Filesystem
+
+| Operation | Method | Endpoint |
+|-----------|--------|----------|
 | FS list | GET | `/api/fs/list?path=/` |
 | FS info | GET | `/api/fs/info` |
 | FS read | GET | `/api/fs/read?path=/file` |
@@ -597,10 +612,147 @@ All endpoints return standard error format:
 | FS rename | POST | `/api/fs/rename` |
 | FS format | POST | `/api/fs/format` |
 | FS probe | POST | `/api/fs/probe` |
+
+### OTA
+
+| Operation | Method | Endpoint |
+|-----------|--------|----------|
 | OTA upload | POST | `/api/ota/upload` |
 | OTA progress | GET | `/api/ota/progress` |
+
+### Console & Log
+
+| Operation | Method | Endpoint |
+|-----------|--------|----------|
 | Console log | GET | `/api/console` |
 | Console clear | DELETE | `/api/console` |
-| Device list | GET | `/api/devices` |
-| Per-device widgets | GET | `/api/devices/{id}/widgets` |
-| Per-device console | GET | `/api/devices/{id}/console` |
+| App log | GET | `/api/log` |
+| App log clear | DELETE | `/api/log` |
+
+### Device Settings (NVS)
+
+| Operation | Method | Endpoint |
+|-----------|--------|----------|
+| Get settings | GET | `/api/settings` |
+| Update settings | PUT | `/api/settings` |
+| Get NVS | GET | `/api/settings/nvs` |
+| Set NVS | POST | `/api/settings/nvs` |
+| Authenticate | POST | `/api/settings/nvs/authenticate` |
+| Factory reset | POST | `/api/settings/nvs/factory-reset` |
+| Reboot | POST | `/api/settings/nvs/reboot` |
+| Raw NVS read | GET | `/api/settings/nvs/raw/{key}` |
+| Raw NVS write | POST | `/api/settings/nvs/raw/{key}` |
+| Cloud info | GET | `/api/settings/nvs/cloud-info` |
+
+### Cloud Relay
+
+| Operation | Method | Endpoint |
+|-----------|--------|----------|
+| Connect relay | POST | `/api/cloud/connect` |
+| Cloud devices | GET | `/api/cloud/devices` |
+| Join device | POST | `/api/cloud/join` |
+| Disconnect relay | POST | `/api/cloud/disconnect` |
+| Get identity | GET | `/api/cloud/account` |
+| Reset identity | POST | `/api/cloud/account` |
+| List accounts | GET | `/api/cloud/accounts` |
+| Create account | POST | `/api/cloud/accounts` |
+| Update account | PUT | `/api/cloud/accounts/{id}` |
+| Delete account | DELETE | `/api/cloud/accounts/{id}` |
+
+### Page Management
+
+| Operation | Method | Endpoint |
+|-----------|--------|----------|
+| Get active page | GET | `/api/page` |
+| Set active page | POST | `/api/page` |
+| Get all pages | GET | `/api/pages` |
+
+### Session
+
+| Operation | Method | Endpoint |
+|-----------|--------|----------|
+| Current route | GET | `/api/session/route` |
+| Session state | GET | `/api/session/state` |
+| Session sheets | GET | `/api/session/sheets` |
+
+### Designs
+
+| Operation | Method | Endpoint |
+|-----------|--------|----------|
+| List designs | GET | `/api/designs` |
+| Save design | POST | `/api/designs` |
+| Design JSON | GET | `/api/designs/{id}/json` |
+| Design header | GET | `/api/designs/{id}/header` |
+| Delete design | DELETE | `/api/designs/{id}` |
+| Delete all | DELETE | `/api/designs` |
+
+### Models (Paired Devices)
+
+| Operation | Method | Endpoint |
+|-----------|--------|----------|
+| List models | GET | `/api/models` |
+| Delete all models | DELETE | `/api/models` |
+| Delete model | DELETE | `/api/models/{id}` |
+
+### Serial Flasher
+
+| Operation | Method | Endpoint |
+|-----------|--------|----------|
+| List ports | GET | `/api/flasher/ports` |
+| Scan ports | POST | `/api/flasher/scan` |
+| Connect port | POST | `/api/flasher/connect` |
+| Disconnect port | POST | `/api/flasher/disconnect` |
+| Flash status | GET | `/api/flasher/status` |
+| Flash log | GET | `/api/flasher/log` |
+| Clear flash log | POST | `/api/flasher/log/clear` |
+| Select firmware | POST | `/api/flasher/select-firmware` |
+| Clear firmware | POST | `/api/flasher/clear-firmware` |
+| Erase all | POST | `/api/flasher/erase-all` |
+| Start flash | POST | `/api/flasher/flash` |
+
+### Multi-Device
+
+| Operation | Method | Endpoint |
+|-----------|--------|----------|
+| List devices | GET | `/api/devices` |
+| Connect device | POST | `/api/devices/connect` |
+| Disconnect device | POST | `/api/devices/disconnect` |
+| Device info | GET | `/api/devices/{id}` |
+| Device widgets | GET | `/api/devices/{id}/widgets` |
+| Get device widget | GET | `/api/devices/{id}/widgets/{wid}` |
+| Set device widget | PUT | `/api/devices/{id}/widgets/{wid}` |
+| Device console | GET | `/api/devices/{id}/console` |
+| Clear device console | DELETE | `/api/devices/{id}/console` |
+| Device FS list | GET | `/api/devices/{id}/fs/list` |
+| Device FS info | GET | `/api/devices/{id}/fs/info` |
+| Device FS read | GET | `/api/devices/{id}/fs/read` |
+| Device FS write | POST | `/api/devices/{id}/fs/write` |
+| Device FS upload | POST | `/api/devices/{id}/fs/upload` |
+| Device FS mkdir | POST | `/api/devices/{id}/fs/mkdir` |
+| Device FS delete | POST | `/api/devices/{id}/fs/delete` |
+| Device FS rename | POST | `/api/devices/{id}/fs/rename` |
+| Device FS format | POST | `/api/devices/{id}/fs/format` |
+| Device FS probe | POST | `/api/devices/{id}/fs/probe` |
+| Device OTA upload | POST | `/api/devices/{id}/ota/upload` |
+| Device OTA progress | GET | `/api/devices/{id}/ota/progress` |
+| Device transport send | POST | `/api/devices/{id}/transport/send` |
+| Device transport ping | POST | `/api/devices/{id}/transport/ping` |
+| Device transport wifi | POST | `/api/devices/{id}/transport/wifi_info` |
+| Device transport cmd | POST | `/api/devices/{id}/transport/{cmd}` |
+| Device NVS get | GET | `/api/devices/{id}/settings/nvs` |
+| Device NVS set | POST | `/api/devices/{id}/settings/nvs` |
+| Device NVS auth | POST | `/api/devices/{id}/settings/nvs/authenticate` |
+| Device factory reset | POST | `/api/devices/{id}/settings/nvs/factory-reset` |
+| Device reboot | POST | `/api/devices/{id}/settings/nvs/reboot` |
+| Device raw NVS read | GET | `/api/devices/{id}/settings/nvs/raw/{key}` |
+| Device raw NVS write | POST | `/api/devices/{id}/settings/nvs/raw/{key}` |
+| Device cloud info | GET | `/api/devices/{id}/settings/nvs/cloud-info` |
+
+### Transport
+
+| Operation | Method | Endpoint |
+|-----------|--------|----------|
+| Send raw frame | POST | `/api/transport/send` |
+| Ping device | POST | `/api/transport/ping` |
+| WiFi info | POST | `/api/transport/wifi_info` |
+| Quick command | POST | `/api/transport/{cmd}` |

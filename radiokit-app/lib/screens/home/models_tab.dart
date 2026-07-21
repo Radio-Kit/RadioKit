@@ -553,20 +553,53 @@ void _showDeviceInfoSheet(
 }
 
 Widget _buildActiveLinkTelemetry(DeviceProvider dp, DeviceInfo device) {
-  final battery = 85;
-  final speed = 42;
-  final temp = 23;
+  // Read configured telemetry from the device's config JSON
+  final configJson = dp.deviceConfigJson;
+  final telemetry = configJson?['telemetry'];
+  if (telemetry is! List || telemetry.isEmpty) {
+    return const SizedBox.shrink();
+  }
+
+  // The widgets list provides typeId + widgetId for telemetry widgets
+  final widgets = configJson?['widgets'] as List? ?? [];
+  final telemetryWidgets = widgets.where((w) {
+    final wMap = w as Map?;
+    return (wMap?['type'] as String? ?? '') == 'telemetry';
+  }).toList();
+
+  final items = <Widget>[];
+  for (int i = 0; i < telemetry.length; i++) {
+    final t = telemetry[i] as Map;
+    final label = (t['label'] as String?) ?? '';
+    if (label.isEmpty) continue;
+    final iconName = t['icon'] as String?;
+    final unit = (t['unit'] as String?) ?? '';
+
+    // Find widgetId for this telemetry slot (index-based)
+    String value = '--';
+    if (i < telemetryWidgets.length) {
+      final wMap = telemetryWidgets[i] as Map;
+      final widgetId = (wMap['id'] as num?)?.toInt() ?? -1;
+      value = dp.telemetryValues[widgetId] ?? '--';
+    }
+
+    items.add(
+      Flexible(
+        child: _TelemetryItem(
+          label: label,
+          iconName: iconName,
+          value: value,
+          unit: unit,
+        ),
+      ),
+    );
+  }
+
+  if (items.isEmpty) return const SizedBox.shrink();
 
   return Row(
     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-    children: [
-      Flexible(
-          child: _TelemetryItem(label: 'BATTERY', value: '$battery', unit: '%')),
-      Flexible(
-          child: _TelemetryItem(label: 'SPEED', value: '$speed', unit: 'km/h')),
-      Flexible(
-          child: _TelemetryItem(label: 'TEMP', value: '$temp', unit: 'C')),
-    ],
+    children: items,
   );
 }
 
@@ -1055,10 +1088,11 @@ Widget _buildSectionTag(BuildContext context, String title) {
 
 class _TelemetryItem extends StatelessWidget {
   final String label;
+  final String? iconName;
   final String value;
   final String unit;
 
-  const _TelemetryItem({required this.label, required this.value, required this.unit});
+  const _TelemetryItem({required this.label, this.iconName, required this.value, required this.unit});
 
   @override
   Widget build(BuildContext context) {
@@ -1072,6 +1106,15 @@ class _TelemetryItem extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
+            if (iconName != null && kDesignerIcons.containsKey(iconName))
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Icon(
+                  kDesignerIcons[iconName]!,
+                  color: context.tokens.primary,
+                  size: 16,
+                ),
+              ),
             Text(value, style: GoogleFonts.exo2(color: context.tokens.primary, fontSize: 22, fontWeight: FontWeight.w900)),
             const SizedBox(width: 4),
             Text(unit, style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.38), fontSize: 10, fontWeight: FontWeight.bold)),

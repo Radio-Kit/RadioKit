@@ -216,4 +216,136 @@ void main() {
       expect(state2.showControlPageBar, state.showControlPageBar);
     });
   });
+
+  group('Telemetry', () {
+    test('defaults to empty list', () {
+      final state = DesignerState();
+      expect(state.telemetryWidgets, isEmpty);
+    });
+
+    test('addTelemetrySlot appends a slot (max 4)', () {
+      final state = DesignerState();
+      state.addTelemetrySlot();
+      state.addTelemetrySlot();
+      state.addTelemetrySlot();
+      state.addTelemetrySlot();
+      expect(state.telemetryWidgets.length, 4);
+      // Fifth add is ignored
+      state.addTelemetrySlot();
+      expect(state.telemetryWidgets.length, 4);
+    });
+
+    test('removeTelemetrySlot removes at index', () {
+      final state = DesignerState();
+      state.addTelemetrySlot();
+      state.addTelemetrySlot();
+      state.setTelemetryLabel(0, 'Speed');
+      state.removeTelemetrySlot(0);
+      expect(state.telemetryWidgets.length, 1);
+      expect(state.telemetryWidgets[0]['label'], '');
+    });
+
+    test('toJson emits variable-length telemetry array', () {
+      final state = DesignerState();
+      state.addTelemetrySlot();
+      state.setTelemetryLabel(0, 'Speed');
+      state.setTelemetryUnit(0, 'km/h');
+      final json = state.toJson();
+      final telemetry = json['telemetry'] as List;
+      expect(telemetry.length, 1);
+      expect(telemetry[0]['label'], 'Speed');
+      expect(telemetry[0]['unit'], 'km/h');
+    });
+
+    test('toJson with no telemetry emits empty array', () {
+      final state = DesignerState();
+      final json = state.toJson();
+      expect(json['telemetry'], isEmpty);
+    });
+
+    test('loadFromJson normalizes legacy 4-element array (strips trailing empties)', () {
+      final state = DesignerState();
+      final json = {
+        'version': 2,
+        'telemetry': [
+          {'label': 'Speed', 'icon': null, 'unit': 'km/h'},
+          {'label': '', 'icon': null, 'unit': ''},
+          {'label': '', 'icon': null, 'unit': ''},
+          {'label': '', 'icon': null, 'unit': ''},
+        ],
+        'pages': [
+          {'name': 'Page 1', 'orientation': 'global', 'widgets': []},
+        ],
+      };
+      state.loadFromJson(json);
+      expect(state.telemetryWidgets.length, 1);
+      expect(state.telemetryWidgets[0]['label'], 'Speed');
+    });
+
+    test('loadFromJson preserves variable-length array', () {
+      final state = DesignerState();
+      final json = {
+        'version': 2,
+        'telemetry': [
+          {'label': 'Speed', 'icon': 'gauge', 'unit': 'km/h'},
+          {'label': 'Battery', 'icon': 'battery', 'unit': '%'},
+        ],
+        'pages': [
+          {'name': 'Page 1', 'orientation': 'global', 'widgets': []},
+        ],
+      };
+      state.loadFromJson(json);
+      expect(state.telemetryWidgets.length, 2);
+      expect(state.telemetryWidgets[1]['label'], 'Battery');
+    });
+
+    test('undo supports telemetry mutations', () {
+      final state = DesignerState();
+      state.addTelemetrySlot();
+      state.setTelemetryLabel(0, 'Speed');
+      expect(state.telemetryWidgets[0]['label'], 'Speed');
+      // Two undos: first reverts label, second reverts the add
+      state.undo();
+      expect(state.telemetryWidgets[0]['label'], '');
+      state.undo();
+      expect(state.telemetryWidgets, isEmpty);
+    });
+
+    test('reorderTelemetrySlot moves item to new position', () {
+      final state = DesignerState();
+      state.addTelemetrySlot();
+      state.addTelemetrySlot();
+      state.addTelemetrySlot();
+      state.setTelemetryLabel(0, 'A');
+      state.setTelemetryLabel(1, 'B');
+      state.setTelemetryLabel(2, 'C');
+      state.reorderTelemetrySlot(0, 2);
+      expect(state.telemetryWidgets[0]['label'], 'B');
+      expect(state.telemetryWidgets[1]['label'], 'C');
+      expect(state.telemetryWidgets[2]['label'], 'A');
+    });
+
+    test('reorderTelemetrySlot is undoable', () {
+      final state = DesignerState();
+      state.addTelemetrySlot();
+      state.addTelemetrySlot();
+      state.setTelemetryLabel(0, 'Speed');
+      state.setTelemetryLabel(1, 'Battery');
+      state.reorderTelemetrySlot(0, 1);
+      expect(state.telemetryWidgets[0]['label'], 'Battery');
+      expect(state.telemetryWidgets[1]['label'], 'Speed');
+      state.undo();
+      expect(state.telemetryWidgets[0]['label'], 'Speed');
+      expect(state.telemetryWidgets[1]['label'], 'Battery');
+    });
+
+    test('reorderTelemetrySlot no-ops when oldIndex equals newIndex', () {
+      final state = DesignerState();
+      state.addTelemetrySlot();
+      state.setTelemetryLabel(0, 'Speed');
+      state.reorderTelemetrySlot(0, 0);
+      expect(state.telemetryWidgets[0]['label'], 'Speed');
+      expect(state.telemetryWidgets.length, 1);
+    });
+  });
 }

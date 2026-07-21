@@ -9,6 +9,7 @@
 #include <Arduino.h>
 #include <stdint.h>
 #include "../RadioKitConfig.h"
+#include "../RadioKitClass.h"
 
 class RadioKit_Widget {
 public:
@@ -40,8 +41,14 @@ public:
     bool        labelHidden() const { return _labelHidden; }
     bool        hidden() const { return _hidden; }
 
-    void setLabelHidden(bool hidden) { _labelHidden = hidden; }
-    void setHidden(bool hidden) { _hidden = hidden; }
+    void setLabelHidden(bool hidden) {
+        _labelHidden = hidden;
+        RadioKitClass::markConfDirty();
+    }
+    void setHidden(bool hidden) {
+        _hidden = hidden;
+        RadioKitClass::markConfDirty();
+    }
     void setPage(uint8_t p) { _page = p; }
 
     // ── Serialization ─────────────────────────────────────────────────────

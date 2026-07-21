@@ -11,20 +11,24 @@ enum GridStyle { lines, dots, none }
 class _PageSnapshot {
   final List<DesignerElement> elements;
   final String? orientationOverride;
-  _PageSnapshot(this.elements, this.orientationOverride);
-  _PageSnapshot.fromPage(DesignerPage page)
+  final List<Map<String, dynamic>> telemetry;
+  _PageSnapshot(this.elements, this.orientationOverride, this.telemetry);
+  _PageSnapshot.fromPage(DesignerPage page, List<Map<String, dynamic>> telemetry)
       : elements = page.elements.map((e) => e.copyWith()).toList(),
-        orientationOverride = page.orientationOverride;
+        orientationOverride = page.orientationOverride,
+        telemetry = telemetry.map((e) => Map<String, dynamic>.from(e)).toList();
   _PageSnapshot.fromElements(List<DesignerElement> elements)
       : elements = elements.map((e) => e.copyWith()).toList(),
-        orientationOverride = null;
+        orientationOverride = null,
+        telemetry = [];
 }
 
 /// Snapshot of all pages' state for global undo (e.g., setGlobalOrientation).
 class _GlobalSnapshot {
   final bool globalIsLandscape;
   final List<_PageSnapshot> pages;
-  _GlobalSnapshot(this.globalIsLandscape, this.pages);
+  final List<Map<String, dynamic>> telemetry;
+  _GlobalSnapshot(this.globalIsLandscape, this.pages, this.telemetry);
 }
 
 class DesignerState extends ChangeNotifier {
@@ -53,7 +57,7 @@ class DesignerState extends ChangeNotifier {
   bool _showPageBar = true;
   bool _showControlPageBar = true;
   bool _globalIsLandscape = true; // global orientation from CONTROL UI
-  List<Map<String, dynamic>> _telemetryWidgets = List.generate(4, (_) => <String, dynamic>{'label': '', 'icon': null, 'unit': ''});
+  List<Map<String, dynamic>> _telemetryWidgets = <Map<String, dynamic>>[];
 
   // appdata (metadata from the JSON block, not user-configurable)
   int? _lastEdit;
@@ -149,7 +153,7 @@ class DesignerState extends ChangeNotifier {
     if (_gestureSnapshot != null) return;
     _mutationCount++;
     final stack = _getUndoStack(_activePageIndex);
-    stack.add(_PageSnapshot.fromPage(activePage));
+    stack.add(_PageSnapshot.fromPage(activePage, _telemetryWidgets));
     if (stack.length > _maxUndoStack) stack.removeAt(0);
     _getRedoStack(_activePageIndex).clear();
     _pageUndoSeq[_activePageIndex] = ++_undoSeq;
@@ -253,7 +257,8 @@ class DesignerState extends ChangeNotifier {
     // Save full state for undo
     final snapshot = _GlobalSnapshot(
       _globalIsLandscape,
-      _pages.map((p) => _PageSnapshot.fromPage(p)).toList(),
+      _pages.map((p) => _PageSnapshot.fromPage(p, _telemetryWidgets)).toList(),
+      _telemetryWidgets,
     );
     _globalUndoStack.add(snapshot);
     if (_globalUndoStack.length > _maxUndoStack) _globalUndoStack.removeAt(0);
@@ -502,6 +507,18 @@ class DesignerState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Set hidden state directly (firmware-driven, no undo push).
+  void setElementHidden(String id, bool hidden) {
+    final index = elements.indexWhere((e) => e.id == id);
+    if (index == -1) return;
+    activePage.elements = [
+      for (int i = 0; i < elements.length; i++)
+        if (i == index) elements[i].copyWith(hidden: hidden)
+        else elements[i],
+    ];
+    notifyListeners();
+  }
+
   void updateElementRotation(String id, int rotation) {
     final index = elements.indexWhere((e) => e.id == id);
     if (index == -1) return;
@@ -727,8 +744,35 @@ class DesignerState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void addTelemetrySlot() {
+    if (_telemetryWidgets.length >= 4) return;
+    _pushUndo();
+    _telemetryWidgets = List<Map<String, dynamic>>.from(_telemetryWidgets)
+      ..add(<String, dynamic>{'label': '', 'icon': null, 'unit': ''});
+    notifyListeners();
+  }
+
+  void removeTelemetrySlot(int index) {
+    if (index < 0 || index >= _telemetryWidgets.length) return;
+    _pushUndo();
+    final newList = List<Map<String, dynamic>>.from(_telemetryWidgets)..removeAt(index);
+    _telemetryWidgets = newList;
+    notifyListeners();
+  }
+
+  void reorderTelemetrySlot(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= _telemetryWidgets.length) return;
+    if (newIndex < 0 || newIndex >= _telemetryWidgets.length) return;
+    if (oldIndex == newIndex) return;
+    _pushUndo();
+    final item = _telemetryWidgets.removeAt(oldIndex);
+    _telemetryWidgets.insert(newIndex, item);
+    notifyListeners();
+  }
+
   void setTelemetryLabel(int index, String label) {
-    _mutationCount++;
+    if (index < 0 || index >= _telemetryWidgets.length) return;
+    _pushUndo();
     final newList = List<Map<String, dynamic>>.from(_telemetryWidgets);
     newList[index] = Map<String, dynamic>.from(newList[index])..['label'] = label;
     _telemetryWidgets = newList;
@@ -736,7 +780,8 @@ class DesignerState extends ChangeNotifier {
   }
 
   void setTelemetryIcon(int index, String? icon) {
-    _mutationCount++;
+    if (index < 0 || index >= _telemetryWidgets.length) return;
+    _pushUndo();
     final newList = List<Map<String, dynamic>>.from(_telemetryWidgets);
     newList[index] = Map<String, dynamic>.from(newList[index])..['icon'] = icon;
     _telemetryWidgets = newList;
@@ -744,7 +789,8 @@ class DesignerState extends ChangeNotifier {
   }
 
   void setTelemetryUnit(int index, String unit) {
-    _mutationCount++;
+    if (index < 0 || index >= _telemetryWidgets.length) return;
+    _pushUndo();
     final newList = List<Map<String, dynamic>>.from(_telemetryWidgets);
     newList[index] = Map<String, dynamic>.from(newList[index])..['unit'] = unit;
     _telemetryWidgets = newList;
@@ -790,7 +836,8 @@ class DesignerState extends ChangeNotifier {
       // Save current state to global redo
       _globalRedoStack.add(_GlobalSnapshot(
         _globalIsLandscape,
-        _pages.map((p) => _PageSnapshot.fromPage(p)).toList(),
+        _pages.map((p) => _PageSnapshot.fromPage(p, _telemetryWidgets)).toList(),
+        _telemetryWidgets,
       ));
       // Restore
       _globalIsLandscape = snapshot.globalIsLandscape;
@@ -799,13 +846,17 @@ class DesignerState extends ChangeNotifier {
         _pages[i].elements = s.elements;
         _pages[i].orientationOverride = s.orientationOverride;
       }
+      if (snapshot.pages.isNotEmpty) {
+        _telemetryWidgets = snapshot.telemetry.map((e) => Map<String, dynamic>.from(e)).toList();
+      }
     } else {
       final snapshot = pageStack.removeLast();
       // Save current state to per-page redo
-      _getRedoStack(_activePageIndex).add(_PageSnapshot.fromPage(activePage));
+      _getRedoStack(_activePageIndex).add(_PageSnapshot.fromPage(activePage, _telemetryWidgets));
       // Restore
       activePage.elements = snapshot.elements;
       activePage.orientationOverride = snapshot.orientationOverride;
+      _telemetryWidgets = snapshot.telemetry.map((e) => Map<String, dynamic>.from(e)).toList();
     }
     _selectedElementId = null;
     notifyListeners();
@@ -826,7 +877,8 @@ class DesignerState extends ChangeNotifier {
       final snapshot = _globalRedoStack.removeLast();
       _globalUndoStack.add(_GlobalSnapshot(
         _globalIsLandscape,
-        _pages.map((p) => _PageSnapshot.fromPage(p)).toList(),
+        _pages.map((p) => _PageSnapshot.fromPage(p, _telemetryWidgets)).toList(),
+        _telemetryWidgets,
       ));
       _globalIsLandscape = snapshot.globalIsLandscape;
       for (int i = 0; i < snapshot.pages.length && i < _pages.length; i++) {
@@ -834,11 +886,15 @@ class DesignerState extends ChangeNotifier {
         _pages[i].elements = s.elements;
         _pages[i].orientationOverride = s.orientationOverride;
       }
+      if (snapshot.pages.isNotEmpty) {
+        _telemetryWidgets = snapshot.pages[0].telemetry.map((e) => Map<String, dynamic>.from(e)).toList();
+      }
     } else if (hasPage) {
       final snapshot = pageStack.removeLast();
-      _getUndoStack(_activePageIndex).add(_PageSnapshot.fromPage(activePage));
+      _getUndoStack(_activePageIndex).add(_PageSnapshot.fromPage(activePage, _telemetryWidgets));
       activePage.elements = snapshot.elements;
       activePage.orientationOverride = snapshot.orientationOverride;
+      _telemetryWidgets = snapshot.telemetry.map((e) => Map<String, dynamic>.from(e)).toList();
     }
     _selectedElementId = null;
     notifyListeners();
@@ -1012,12 +1068,23 @@ class DesignerState extends ChangeNotifier {
 
     // telemetry
     final rawTelemetry = decoded['telemetry'];
-    if (rawTelemetry is List && rawTelemetry.length == 4) {
-      _telemetryWidgets = rawTelemetry
+    if (rawTelemetry is List) {
+      final parsed = rawTelemetry
           .map((e) => Map<String, dynamic>.from(e as Map))
           .toList();
+      // Strip trailing empty slots (backward compat for legacy 4-element arrays)
+      while (parsed.isNotEmpty) {
+        final last = parsed.last;
+        final label = (last['label'] as String?) ?? '';
+        if (label.isEmpty) {
+          parsed.removeLast();
+        } else {
+          break;
+        }
+      }
+      _telemetryWidgets = parsed;
     } else {
-      _telemetryWidgets = List.generate(4, (_) => <String, dynamic>{'label': '', 'icon': null, 'unit': ''});
+      _telemetryWidgets = <Map<String, dynamic>>[];
     }
 
     // features
@@ -1170,7 +1237,7 @@ class DesignerState extends ChangeNotifier {
       'orientation': _globalIsLandscape ? 'landscape' : 'portrait',
     },
     'enableControlUI': _enableControlUI,
-    'telemetry': List<Map<String, dynamic>>.from(_telemetryWidgets),
+    'telemetry': _telemetryWidgets.map((e) => Map<String, dynamic>.from(e)).toList(),
     'features': Map<String, dynamic>.from(_features),
     'pages': _pages.map((p) => p.toJson()).toList(),
   };

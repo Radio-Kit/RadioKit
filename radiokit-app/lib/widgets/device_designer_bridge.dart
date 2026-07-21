@@ -163,6 +163,15 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
         _designerState.onRuntimeValueChanged = oldCallback;
       }
     }
+
+    // Sync hidden state from WidgetConfig → DesignerElement
+    for (final el in _designerState.elements) {
+      final config = _widgetConfigForElement(el);
+      if (config.typeId == 0) continue;
+      if (config.hidden != el.hidden) {
+        _designerState.setElementHidden(el.id, config.hidden);
+      }
+    }
   }
 
   void _onWidgetValueChanged(String id, dynamic value) {

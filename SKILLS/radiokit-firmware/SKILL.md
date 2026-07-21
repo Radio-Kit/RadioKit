@@ -32,14 +32,25 @@ For PlatformIO projects, also add `platformio.ini`.
 ```cpp
 /*__RADIOKIT_Designer_Config__
 {
-  "version": 1,
+  "version": 2,
   "config": {
     "name": "MyDevice",
     "description": "A custom controller",
-    "theme": "dragon"
+    "theme": "dragon",
+    "transports": {
+      "ble": { "enabled": true },
+      "wifi": { "enabled": false, "ssid": "", "pass": "" },
+      "cloud": { "enabled": false, "account": "", "relay": "" }
+    }
   },
   "canvas": { "size": [200, 100] },
-  "widgets": []
+  "pages": [
+    {
+      "name": "Controls",
+      "orientation": "landscape",
+      "widgets": []
+    }
+  ]
 }
 RADIOKIT_Designer_Config__*/
 
@@ -52,11 +63,23 @@ RK_LED led_status(115, 29, 28);
 RK_Slider slider_speed(20, 20, 15, 80);
 
 inline void initRadioKit() {
-  // Post-construction configuration
+  // 1. Configure
+  RadioKit.config.name = "MyDevice";
+  RadioKit.config.description = "A custom controller";
+  RadioKit.config.theme = "dragon";
+
+  // 2. Post-construction widget config
   btn_power.rk.onText = "ON";
   btn_power.rk.offText = "OFF";
   led_status.rk.color = RK_GREEN;
   slider_speed.rk.centering = RK_SPRING_CENTER;
+
+  // 3. Initialize library
+  RadioKit.begin();
+
+  // 4. Start transports (after begin)
+  RadioKit.startSerial(Serial);
+  RadioKit.startBLE();
 }
 ```
 
@@ -68,21 +91,10 @@ inline void initRadioKit() {
 void setup() {
   Serial.begin(115200);
 
-  // 1. Configure
-  RadioKit.config.name = "MyDevice";
-  RadioKit.config.description = "A custom controller";
-  RadioKit.config.theme = "dragon";
-
-  // 2. Initialize widgets
+  // Initialize RadioKit (config, begin, and transports are all inside initRadioKit)
   initRadioKit();
 
-  // 3. Initialize library
-  RadioKit.begin();
-
-  // 4. Start transports (after begin)
-  RadioKit.startBLE("MyDevice");
-
-  // Optional: set passwords
+  // Optional: set passwords at runtime
   RadioKit.setConfig(nullptr, nullptr, "device_pass", "user_pass");
 }
 
@@ -117,13 +129,15 @@ All fields are set on `RadioKit.config` before calling `RadioKit.begin()`:
 | `orientation` | `uint8_t` | `0` (landscape) | - | `0`=Landscape, `1`=Portrait |
 | `width` | `uint8_t` | `0` | - | Canvas width (0 = auto) |
 | `height` | `uint8_t` | `0` | - | Canvas height (0 = auto) |
-| `transport` | `uint8_t` | `0` (BLE) | - | Default transport |
+| `transport` | `uint8_t` | `0` (BLE) | - | **Vestigial** -- transport is now selected via `transports` object in JSON config and NVS flags |
 | `baudrate` | `uint32_t` | `1000000` | - | Serial baud rate |
 | `sta_ssid` | `const char*` | `""` | 32 | WiFi STA SSID |
 | `sta_password` | `const char*` | `""` | 64 | WiFi STA password |
 | `cloud_url` | `const char*` | `""` | 128 | Cloud relay URL (wss://...) |
 | `cloud_account` | `const char*` | `""` | 64 | Ed25519 public key hex |
 | `device_icon` | `const char*` | `""` | 32 | Icon name from designer registry |
+| `architecture` | `uint8_t` | auto-detected | - | **Read-only** -- chip architecture (set by `RK_ARCH_DETECTED`) |
+| `libversion` | `const char*` | compile-time | - | **Read-only** -- library version string |
 
 ## Build Flags
 
@@ -163,6 +177,11 @@ RadioKit.startBLE(const char* name = nullptr); // Start BLE (NimBLE)
 RadioKit.startSerial(Stream& stream);          // Start Serial transport
 RadioKit.startWiFi();                          // Start WiFi WebSocket server
 RadioKit.startCloud();                         // Start cloud relay client
+RadioKit.setNumPages(uint8_t n);               // Set total page count (call before begin)
+RadioKit.setPageNames(const char* const* names); // Set page name array (call before begin)
+RadioKit.setActivePage(uint8_t page);          // Switch active page at runtime
+RadioKit.getActivePage();                      // Get current page index
+RadioKit.getNumPages();                        // Get total page count
 ```
 
 ### Loop Methods
@@ -172,6 +191,27 @@ RadioKit.update();                             // Poll transports, sync state (c
 RadioKit.pushUpdate(uint8_t widgetId);         // Force-push widget state
 RadioKit.pushMetaUpdate(uint8_t widgetId);     // Force-push widget metadata (strings)
 ```
+
+### Widget Visibility (firmware-controlled)
+
+Widgets can be hidden from the app UI at runtime. Hidden widgets are excluded from CONF_DATA, VAR_DATA, and META_DATA — the app never creates a WidgetConfig for them.
+
+```cpp
+led_status.setHidden(true);      // hide from app UI (auto-rebuilds CONF_DATA)
+led_status.setHidden(false);     // show again (auto-rebuilds CONF_DATA)
+led_status.hidden();             // query current state (bool)
+
+slider.setLabelHidden(true);     // hide label only (widget still visible)
+slider.setLabelHidden(false);    // show label again
+slider.labelHidden();            // query current state (bool)
+```
+
+**Behavior:**
+- `setHidden()` / `setLabelHidden()` auto-trigger CONF_DATA + VAR_DATA rebuild on next `update()` cycle
+- Hidden widgets are excluded from all wire payloads (CONF_DATA, VAR_DATA, META_DATA)
+- Hidden widgets are skipped in `update()` change detection (no shadow comparison)
+- Hidden widgets are skipped in `_handleSetInput` (no incoming value deserialization)
+- Page switch (`setActivePage()`) also respects hidden state — hidden widgets are excluded from the new page's CONF_DATA
 
 ### Status Methods
 
@@ -210,6 +250,7 @@ RadioKit.hasFullAccess()    // Device-level access granted
 
 ```cpp
 RadioKit.enableFS();        // Mount LittleFS (requires RK_ENABLE_FS)
+RadioKit.beginFs();         // Alias for enableFS()
 RadioKit.isFsReady();       // Check if mounted
 RadioKit.formatFs();        // Format (destructive)
 ```
@@ -240,9 +281,12 @@ RKNvs::eraseAll();          // Factory reset
 
 | Example | Transport | Features |
 |---------|-----------|----------|
-| `BasicSwitch` | BLE | Minimal toggle button + LED |
+| `BasicSwitch` | Serial (USB) | Minimal rocker switch + LED, Serial-only |
+| `SerialSimple` | Serial | Minimal serial-only example for RP2040 |
 | `JoystickMotor` | BLE | 2-axis joystick controlling motor |
 | `SliderServo` | BLE | Slider mapped to servo angle |
 | `BLE_RC_Truck` | BLE | Multi-widget RC controller |
 | `Filesystem_LED` | BLE + FS | Filesystem with LED control |
+| `FsCommandTest` | BLE + FS | FS REPLACE/CRC32 command testing |
 | `WiFiCloudSwitch` | BLE + WiFi + Cloud | Full-stack cloud relay |
+| `MultiPageController` | BLE | Multi-page UI demo |
