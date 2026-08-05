@@ -25,6 +25,27 @@ radiokit-app/lib/screens/designer/
     designer_inspector.dart         # Property inspector panel
     designer_widget_dialog.dart     # Widget type picker dialog
     inspector_field_builders.dart   # Reusable field builder methods
+
+flutter-widgets/lib/src/
+  models/
+    widget_definition.dart          # Abstract WidgetDefinition contract
+    widget_registry.dart            # Central WidgetRegistry singleton
+    inspector_property_schema.dart  # Schema-driven inspector property fields
+  widgets/
+    definitions/                    # Modular widget definitions (buttons, sliders, display)
+```
+
+## Widget Registry & Schema Architecture
+
+All designer widgets are registered in `WidgetRegistry.instance`:
+
+```dart
+// Registering a widget definition
+WidgetRegistry.instance.register(ButtonWidgetDefinition());
+
+// Looking up property schemas for dynamic inspector rendering
+final def = WidgetRegistry.instance.getDefinition(widgetType);
+final schemas = def?.propertySchemas ?? [];
 ```
 
 ## JSON Config Schema

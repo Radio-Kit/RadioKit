@@ -63,17 +63,42 @@ All transports use the same binary frame format:
 | 0x09 | CRC32 | App→Device |
 | 0x80+ | (responses) | Device→App |
 
-## Arduino-Side Transports
+## Arduino-Side Transports & Command Architecture
 
-### Transport Files
+### Directory Structure
 
 ```
-rk-arduino/src/connection/
-  RadioKitTransport.h    # Base transport interface
-  RadioKitBLE.h/.cpp     # NimBLE-Arduino BLE transport
-  RadioKitSerial.h/.cpp  # Serial/UART transport
-  RadioKitWiFi.h/.cpp    # WebSocket server transport
-  RadioKitCloud.h/.cpp   # Cloud relay WebSocket client
+rk-arduino/src/
+  core/
+    ICommandHandler.h      # Command handler interface contract
+    CommandDispatcher.h/.cpp # Header-based command routing engine
+    TransportManager.h/.cpp  # Multi-transport registration and broadcasting
+  handlers/
+    ControlCommandHandler.h/.cpp  # 0x55 Widget control command handler
+    SettingsCommandHandler.h/.cpp # 0xDD Settings command handler
+    FsCommandHandler.h/.cpp       # 0xAA Filesystem command handler
+    OtaCommandHandler.h/.cpp      # 0xBB OTA firmware update handler
+    PrintCommandHandler.h/.cpp    # 0xEE Print/log output handler
+  connection/
+    RadioKitTransport.h    # Base transport interface
+    RadioKitBLE.h/.cpp     # NimBLE-Arduino BLE transport
+    RadioKitSerial.h/.cpp  # Serial/UART transport
+    RadioKitWiFi.h/.cpp    # WebSocket server transport
+    RadioKitCloud.h/.cpp   # Cloud relay WebSocket client
+```
+
+### Modular Command Dispatching
+
+Commands are routed by `CommandDispatcher` based on frame header command bytes:
+
+```cpp
+// Registering a command handler with CommandDispatcher
+CommandDispatcher::instance().registerHandler(0x55, &controlHandler);
+CommandDispatcher::instance().registerHandler(0xAA, &fsHandler);
+
+// TransportManager handles multi-transport management and frame broadcast
+TransportManager::instance().registerTransport(&RadioKitBLEInstance);
+TransportManager::instance().sendPacket(pktBuf, pktLen);
 ```
 
 ### Transport Interface

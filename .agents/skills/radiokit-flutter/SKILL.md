@@ -18,11 +18,41 @@ radiokit-app/lib/
   router.dart            # GoRouter route definitions
   models/                # Data classes (DeviceInfo, WidgetConfig, etc.)
   providers/             # ChangeNotifier state management
-  services/              # Transport, protocol, FS, auth services
+  services/              # Transport, protocol, FS, auth, module registry
+    feature_module.dart  # Abstract FeatureModule contract for modular UI features
+    module_registry.dart # Central ModuleRegistry for registering app features
   screens/               # UI screens organized by feature
   theme/                 # App theme definitions
   widgets/               # Shared UI components
   gen/                   # Generated code (flutter_gen)
+```
+
+## Feature Module Architecture
+
+App features (like Flasher, Explorer, Designer, Remote Access) extend `FeatureModule`:
+
+```dart
+class MyFeatureModule extends FeatureModule {
+  @override
+  String get id => 'my_feature';
+
+  @override
+  String get name => 'My Feature';
+
+  @override
+  List<GoRoute> get routes => [
+    GoRoute(
+      path: '/my-feature',
+      builder: (context, state) => const MyFeatureScreen(),
+    ),
+  ];
+}
+```
+
+Modules are registered with `ModuleRegistry.instance`:
+
+```dart
+ModuleRegistry.instance.register(MyFeatureModule());
 ```
 
 ## State Management: Provider Pattern
