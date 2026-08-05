@@ -5,6 +5,7 @@ library radiokit_widgets;
 
 // Utils
 export 'src/utils/icon_registry.dart';
+export 'src/utils/auto_center_helpers.dart';
 
 // Theme
 export 'src/theme/rk_theme.dart';
@@ -25,9 +26,18 @@ export 'src/widgets/multiple/rk_multi_button.dart';
 export 'src/widgets/display/rk_display.dart';
 export 'src/widgets/display/rk_serial_monitor.dart';
 
+// Definitions
+export 'src/widgets/definitions/button_definitions.dart';
+export 'src/widgets/definitions/slider_definitions.dart';
+export 'src/widgets/definitions/display_definitions.dart';
+export 'src/widgets/definitions/register_all.dart';
+
 // Canvas & Models
 export 'src/canvas/designer_canvas.dart';
 export 'src/canvas/canvas_element.dart';
 export 'src/models/designer_state.dart';
 export 'src/models/designer_element.dart';
 export 'src/models/designer_page.dart';
+export 'src/models/inspector_property_schema.dart';
+export 'src/models/widget_definition.dart';
+export 'src/models/widget_registry.dart';

@@ -254,6 +254,7 @@ void RadioKitClass::startBLE(const char* deviceName) {
     static char bleAdvName[RADIOKIT_MAX_NAME + 4]; // 3 for "RK_" + null
     snprintf(bleAdvName, sizeof(bleAdvName), "RK_%s", baseName ? baseName : "RadioKit");
     _transport = &RadioKitBLEInstance;
+    TransportManager::instance().registerTransport(&RadioKitBLEInstance);
     _transport->begin(bleAdvName, _onPktW<RK_SOURCE_BLE>);
     _transport->setFsCallback(_onFsPktW<RK_SOURCE_BLE>);
     rk_otaSetCallback(_onOtaPktW<RK_SOURCE_BLE>);
@@ -270,6 +271,7 @@ void RadioKitClass::startBLE(const char* deviceName) {
 
 void RadioKitClass::startSerial(Stream& stream) {
     _transport = &RadioKitSerialInstance;
+    TransportManager::instance().registerTransport(&RadioKitSerialInstance);
     _serialActive = true;
     RadioKitSerialInstance.begin(stream, _onPktW<RK_SOURCE_SERIAL>);
     RadioKitSerialInstance.setFsCallback(_onFsPktW<RK_SOURCE_SERIAL>);

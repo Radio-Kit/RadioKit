@@ -64,222 +64,27 @@ class CanvasElement extends StatelessWidget {
     final cs = _cellSize;
     final isPlay = isPlayMode && designerState != null;
     final id = element.id;
-    // In play mode the global RKDebugOverlay.enabled is false, so showDebug
-    // is irrelevant; pass false for clarity. In designer mode only the
-    // selected element shows the debug border.
-    final showDebug = isPlayMode ? false : isSelected;
 
-    switch (element.type) {
-      case DesignerElementType.button:
-        return RKButton(
-          mode: element.properties['variant'] == 'toggle'
-              ? RKButtonMode.toggle
-              : RKButtonMode.push,
-          onText: element.properties['onText'] ?? 'ON',
-          offText: element.properties['offText'] ?? 'OFF',
-          onIcon: iconFromName(element.properties['onIcon'] as String?),
-          offIcon: iconFromName(element.properties['offIcon'] as String?),
-          enableHapticFeedback: element.properties['haptic'] ?? true,
-          label: (!element.labelHidden && element.label.isNotEmpty)
-              ? element.label
-              : null,
-          onChanged: isPlay
-              ? (v) => designerState!.setRuntimeWidgetValue(id, v)
-              : (_) {},
-          size: math.min(element.width.toDouble(), element.height.toDouble()) *
-              cs,
-          showDebug: showDebug,
-        );
-
-      case DesignerElementType.slideSwitch:
-        return RKSlideSwitch(
-          value: isPlay
-              ? (designerState!.getRuntimeWidgetValue(id, false) as bool)
-              : false,
-          onChanged: isPlay
-              ? (v) => designerState!.setRuntimeWidgetValue(id, v)
-              : (_) {},
-          onText: element.properties['onText'] ?? 'ON',
-          offText: element.properties['offText'] ?? 'OFF',
-          icon: () {
-            final onIcon =
-                iconFromName(element.properties['onIcon'] as String?);
-            final offIcon =
-                iconFromName(element.properties['offIcon'] as String?);
-            if (onIcon == null && offIcon == null) return null;
-            final curVal = isPlay
-                ? (designerState!.getRuntimeWidgetValue(id, false) as bool)
-                : false;
-            final iconData = curVal ? (onIcon ?? offIcon) : (offIcon ?? onIcon);
-            return Icon(iconData!);
-          }(),
-          enableHapticFeedback: element.properties['haptic'] ?? true,
-          label: (!element.labelHidden && element.label.isNotEmpty)
-              ? element.label
-              : null,
-          width: element.width.toDouble() * cs,
-          height: element.height.toDouble() * cs,
-          showDebug: showDebug,
-        );
-
-      case DesignerElementType.rockerSwitch:
-        return RKRockerSwitch(
-          value: isPlay
-              ? (designerState!.getRuntimeWidgetValue(id, false) as bool)
-              : false,
-          onChanged: isPlay
-              ? (v) => designerState!.setRuntimeWidgetValue(id, v)
-              : (_) {},
-          onIcon: iconFromName(element.properties['onIcon'] as String?),
-          offIcon: iconFromName(element.properties['offIcon'] as String?),
-          enableHapticFeedback: element.properties['haptic'] ?? true,
-          label: (!element.labelHidden && element.label.isNotEmpty)
-              ? element.label
-              : null,
-          width: element.width.toDouble() * cs,
-          height: element.height.toDouble() * cs,
-          showDebug: showDebug,
-        );
-
-      case DesignerElementType.slider:
-        return _buildSlider(id, isPlay, cs, showDebug);
-
-        case DesignerElementType.steeringWheel:
-          return RKSteeringWheel(
-            centerIcon: iconFromName(element.properties['centerIcon'] as String?),
-            value: isPlay
-                ? (designerState!.getRuntimeWidgetValue(id, 0.5) as double)
-                : 0.5,
-            onChanged: isPlay
-                ? (v) => designerState!.setRuntimeWidgetValue(id, v)
-                : (_) {},
-            min: (element.properties['min'] as num?)?.toDouble() ?? 0,
-            max: (element.properties['max'] as num?)?.toDouble() ?? 100,
-            minAngle:
-                (element.properties['minAngle'] as num?)?.toDouble() ?? -135,
-            maxAngle: (element.properties['maxAngle'] as num?)?.toDouble() ?? 135,
-            autoCenter: _acEnabled(element.properties['autoCenter'] as List?),
-            center: _acPosition(element.properties['autoCenter'] as List?),
-            springCurve: _acCurve(element.properties['autoCenter'] as List?),
-            springDuration: Duration(
-              milliseconds:
-                  _acDuration(element.properties['autoCenter'] as List?, 500),
-            ),
-            divisions: element.properties['divisions'] as int?,
-            label: (!element.labelHidden && element.label.isNotEmpty)
-                ? element.label
-                : null,
-            size: math.min(element.width.toDouble(), element.height.toDouble()) *
-                cs,
-            showDebug: showDebug,
-          );
-
-        case DesignerElementType.knob:
-          return RKKnob(
-            centerIcon: iconFromName(element.properties['centerIcon'] as String?),
-            value: isPlay
-                ? (designerState!.getRuntimeWidgetValue(id, 0.5) as double)
-                : 0.5,
-            onChanged: isPlay
-                ? (v) => designerState!.setRuntimeWidgetValue(id, v)
-                : (_) {},
-            min: (element.properties['min'] as num?)?.toDouble() ?? 0,
-            max: (element.properties['max'] as num?)?.toDouble() ?? 100,
-            minAngle:
-                (element.properties['minAngle'] as num?)?.toDouble() ?? -135,
-            maxAngle: (element.properties['maxAngle'] as num?)?.toDouble() ?? 135,
-            autoCenter: _acEnabled(element.properties['autoCenter'] as List?),
-            center: _acPosition(element.properties['autoCenter'] as List?),
-            springCurve: _acCurve(element.properties['autoCenter'] as List?),
-            springDuration: Duration(
-              milliseconds:
-                  _acDuration(element.properties['autoCenter'] as List?, 500),
-            ),
-            divisions: element.properties['divisions'] as int?,
-            label: (!element.labelHidden && element.label.isNotEmpty)
-                ? element.label
-                : null,
-            size: math.min(element.width.toDouble(), element.height.toDouble()) *
-                cs,
-            showDebug: showDebug,
-          );
-
-       case DesignerElementType.joystick:
-         return RKJoystick(
-           onChanged: isPlay
-               ? (v) => designerState!.setRuntimeWidgetValue(id, v)
-               : (_) {},
-            autoCenter: _acEnabled(element.properties['autoCenter'] as List?),
-            center: RKJoystickValue(
-              x: (element.properties['centerX'] as num?)?.toDouble() ?? 0,
-              y: (element.properties['centerY'] as num?)?.toDouble() ?? 0,
-            ),
-            springCurve: _acCurve(element.properties['autoCenter'] as List?),
-            springDuration: Duration(
-              milliseconds:
-                  _acDuration(element.properties['autoCenter'] as List?, 300),
-            ),
-           label: (!element.labelHidden && element.label.isNotEmpty)
-               ? element.label
-               : null,
-           size: math.min(element.width.toDouble(), element.height.toDouble()) *
-               cs,
-           showDebug: showDebug,
-         );
-
-      case DesignerElementType.multiButton:
-        final mbCount = (element.properties['itemCount'] as num?)?.toInt() ?? 3;
-        return _buildMultiButton(id, mbCount, isPlay, cs, showDebug);
-
-      case DesignerElementType.multiSelect:
-        final msCount = (element.properties['itemCount'] as num?)?.toInt() ?? 3;
-        return _buildMultiSelect(id, msCount, isPlay, cs, showDebug);
-
-      case DesignerElementType.gasPedal:
-        return _buildGasPedal(id, isPlay, cs, showDebug);
-
-      case DesignerElementType.led:
-        return RKLed(
-          showDebug: showDebug,
-          state: _getLEDState(element.properties['state'] as String?),
-          shape: _getLEDShape(element.properties['shape'] as String?),
-          color: element.properties['color'] != null
-              ? Color(element.properties['color'] as int)
-              : null,
-          timing: (element.properties['timing'] as num?)?.toInt() ?? 500,
-          label: (!element.labelHidden && element.label.isNotEmpty)
-              ? element.label
-              : null,
-          size: math.min(element.width.toDouble(), element.height.toDouble()) *
-              cs,
-        );
-
-      case DesignerElementType.text:
-        return RKDisplay(
-          text: element.properties['text'] ?? 'Display',
-          fontSize: (element.properties['fontSize'] as num?)?.toDouble() ?? 14,
-          fontFamily: element.properties['fontFamily'] ?? 'monospace',
-          label: (!element.labelHidden && element.label.isNotEmpty)
-              ? element.label
-              : null,
-          width: element.width.toDouble() * cs,
-          height: element.height.toDouble() * cs,
-          showDebug: showDebug,
-        );
-
-      case DesignerElementType.serialMonitor:
-        return RKSerialMonitor(
-          messages: const ['> Serial Monitor'],
-          fontSize: (element.properties['fontSize'] as num?)?.toDouble() ?? 12,
-          fontFamily: element.properties['fontFamily'] ?? 'monospace',
-          label: (!element.labelHidden && element.label.isNotEmpty)
-              ? element.label
-              : null,
-          width: element.width.toDouble() * cs,
-          height: element.height.toDouble() * cs,
-          showDebug: showDebug,
-        );
+    final definition = WidgetRegistry.instance.getByType(element.type);
+    if (definition != null) {
+      final runtimeVal = isPlay ? designerState!.getRuntimeWidgetValue(id, null) : null;
+      final buildCtx = WidgetBuildContext(
+        id: id,
+        type: element.type,
+        properties: element.properties,
+        runtimeValue: runtimeVal,
+        onChanged: isPlay ? (v) => designerState!.setRuntimeWidgetValue(id, v) : null,
+        isPlayMode: isPlay,
+        isSelected: isSelected,
+        cellSize: cs,
+        width: element.width,
+        height: element.height,
+        label: element.label,
+        labelHidden: element.labelHidden,
+      );
+      return definition.buildCanvasWidget(context, buildCtx);
     }
+    return const SizedBox.shrink();
   }
 
   Widget _buildSlider(String id, bool isPlay, double cs, bool showDebug) {

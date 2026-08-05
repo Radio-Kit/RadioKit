@@ -1,3 +1,5 @@
+import 'package:radiokit_widgets/radiokit_widgets.dart';
+
 /// Generates the complete `RADIOKIT.h` content (minus the JSON config block)
 /// from the designer's JSON configuration map.
 ///
@@ -277,6 +279,21 @@ class JsonArduinoGenerator {
       }
       if (!showLabel) {
         setupBuf.writeln('  $name.setLabelHidden(true);');
+      }
+    }
+
+    final definition = WidgetRegistry.instance.getById(type);
+    if (definition != null) {
+      final customCode = definition.generateCppCode(CodegenContext(
+        varName: name,
+        cppType: type,
+        variant: variant,
+        properties: props,
+        label: labelText,
+        pageIndex: pageIndex,
+      ));
+      if (customCode.isNotEmpty) {
+        setupBuf.write(customCode);
       }
     }
 

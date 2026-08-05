@@ -17,6 +17,9 @@
 #include "RadioKitConfig.h"
 #include "RadioKitProtocol.h"
 #include "connection/RadioKitTransport.h"
+#include "core/ICommandHandler.h"
+#include "core/TransportManager.h"
+#include "core/CommandDispatcher.h"
 
 class RadioKit_Widget;
 
@@ -197,6 +200,12 @@ private:
     uint8_t _shadowOutput[RADIOKIT_MAX_WIDGETS][RADIOKIT_TEXT_LEN + 1];
 
     uint8_t _txBuf[RK_MAX_PACKET_SIZE];
+
+    friend class ControlCommandHandler;
+    friend class FsCommandHandler;
+    friend class SettingsCommandHandler;
+    friend class OtaCommandHandler;
+    friend class PrintCommandHandler;
 
     static void _onPacket(uint8_t cmd, const uint8_t* payload, uint16_t payloadLen);
     static void _onFsPacket(uint8_t subCmd, const uint8_t* payload, uint16_t payloadLen);

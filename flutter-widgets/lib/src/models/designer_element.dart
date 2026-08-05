@@ -118,6 +118,10 @@ class DesignerElement {
   }
 
   static Map<String, dynamic> _defaultProperties(DesignerElementType type) {
+    final def = WidgetRegistry.instance.getByType(type);
+    if (def != null) {
+      return Map<String, dynamic>.from(def.defaultProperties);
+    }
     switch (type) {
       case DesignerElementType.button:
         return {
@@ -230,6 +234,10 @@ class DesignerElement {
   /// or `null` for free-form widgets.
   static double? aspectRatioFor(
       DesignerElementType type, Map<String, dynamic> properties) {
+    final def = WidgetRegistry.instance.getByType(type);
+    if (def != null) {
+      return def.aspectRatio(properties, 20, 20);
+    }
     switch (type) {
       case DesignerElementType.button:
         return RKButton.aspectRatio;
@@ -253,6 +261,10 @@ class DesignerElement {
   }
 
   static (int, int) defaultSize(DesignerElementType type) {
+    final def = WidgetRegistry.instance.getByType(type);
+    if (def != null) {
+      return def.defaultSize;
+    }
     switch (type) {
       case DesignerElementType.button:
         return (40, 40);

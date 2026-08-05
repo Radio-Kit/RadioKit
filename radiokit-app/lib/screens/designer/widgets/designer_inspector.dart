@@ -1214,6 +1214,53 @@ class _DesignerInspectorState extends State<DesignerInspector> {
   List<Widget> _buildBehaviorFields(RKTokens tokens, DesignerElement el) {
     final fields = <Widget>[];
 
+    final definition = WidgetRegistry.instance.getByType(el.type);
+    if (definition != null && definition.propertiesSchema.isNotEmpty) {
+      for (final schema in definition.propertiesSchema) {
+        final val = el.properties[schema.key];
+        if (schema is NumPropertySchema) {
+          fields.add(InspectorFieldBuilders.buildNumField(
+            tokens,
+            schema.label,
+            (val as num?)?.toInt() ?? 0,
+            (v) => widget.state.updateElementProperty(el.id, schema.key, v),
+            min: schema.min,
+            max: schema.max,
+          ));
+        } else if (schema is BoolPropertySchema) {
+          fields.add(InspectorFieldBuilders.buildBoolToggle(
+            tokens,
+            schema.label,
+            (val as bool?) ?? true,
+            (v) => widget.state.updateElementProperty(el.id, schema.key, v),
+          ));
+        } else if (schema is OptionPropertySchema) {
+          fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(
+            tokens,
+            schema.label,
+            (val as String?) ?? schema.options.first,
+            schema.options,
+            (v) => widget.state.updateElementProperty(el.id, schema.key, v),
+          ));
+        } else if (schema is IconPropertySchema) {
+          fields.add(IconFieldBuilder.buildIconSelectorField(
+            context,
+            schema.label,
+            val as String?,
+            (v) => widget.state.updateElementProperty(el.id, schema.key, v),
+          ));
+        } else if (schema is TextPropertySchema) {
+          fields.add(InspectorFieldBuilders.buildTextField(
+            tokens,
+            schema.label,
+            (val as String?) ?? '',
+            (v) => widget.state.updateElementProperty(el.id, schema.key, v),
+          ));
+        }
+      }
+      return fields;
+    }
+
     switch (el.type) {
       case DesignerElementType.button:
         fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(

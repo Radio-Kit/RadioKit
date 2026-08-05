@@ -17,6 +17,14 @@
 #define RADIOKIT_H
 
 #include "RadioKitClass.h"
+#include "core/ICommandHandler.h"
+#include "core/TransportManager.h"
+#include "core/CommandDispatcher.h"
+#include "handlers/ControlCommandHandler.h"
+#include "handlers/SettingsCommandHandler.h"
+#include "handlers/FsCommandHandler.h"
+#include "handlers/OtaCommandHandler.h"
+#include "handlers/PrintCommandHandler.h"
 #include "connection/RadioKitBLE.h"
 #include "connection/RadioKitSerial.h"
 #include "connection/RadioKitFS.h"
