@@ -3,9 +3,7 @@
 ## Purpose
 
 Serve firmware documentation and API reference through the app's REST API, enabling AI agents to discover and read documentation at runtime.
-
 ## Requirements
-
 ### Requirement: Docs index endpoint
 
 The system SHALL serve a JSON index of all available documentation at `GET /api/docs`.
@@ -104,10 +102,6 @@ The system SHALL generate and serve the Arduino `.h` file content for a specific
 - **WHEN** agent sends `GET /api/designs/abc123/header` and the design has `jsonContent: null` (file-mode entry)
 - **THEN** server responds with `{"error": "no_content", "message": "Design has no JSON content"}` and HTTP 400
 
-## Page Management (ADDED by multi-page-ui)
-
-## ADDED Requirements
-
 ### Requirement: GET /api/page endpoint
 The Remote Access API SHALL provide a GET /api/page endpoint returning the current active page index and page list.
 
@@ -136,3 +130,32 @@ The Remote Access follow mode SHALL map page-switch API paths to the control scr
 #### Scenario: Page switch follows in remote app
 - **WHEN** a remote app sends POST /api/page
 - **THEN** the follow mode navigates the local app to /control with the correct page
+
+### Requirement: Direct LAN accessibility over HTTP
+
+The Remote Access API server SHALL be accessible to any device on the local network (LAN) over HTTP on port 7007 without requiring USB ADB port forwarding.
+
+#### Scenario: LAN client accesses status endpoint directly
+
+- **WHEN** a client on the local network sends `GET http://<android-ip>:7007/api/status`
+- **THEN** server responds with `200 OK` and server status JSON containing version, uptime, port 7007, and localIp
+
+#### Scenario: Android manifest allows cleartext HTTP
+
+- **WHEN** Android app is compiled in release mode and starts Remote Access server
+- **THEN** Android OS Network Security Policy allows incoming unencrypted HTTP traffic on port 7007
+
+### Requirement: Native Android Wi-Fi and Multicast Lock
+
+The system SHALL acquire high-performance Wi-Fi lock and Multicast lock on Android while the Remote Access server is active.
+
+#### Scenario: Server start acquires Wi-Fi lock
+
+- **WHEN** Remote Access server is started on Android
+- **THEN** native MethodChannel acquires `WifiManager.WifiLock` (HIGH_PERF) and `WifiManager.MulticastLock` to prevent Wi-Fi chip power-saving sleep
+
+#### Scenario: Server stop releases Wi-Fi lock
+
+- **WHEN** Remote Access server is stopped on Android
+- **THEN** native MethodChannel releases `WifiLock` and `MulticastLock`
+

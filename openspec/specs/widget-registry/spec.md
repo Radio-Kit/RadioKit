@@ -14,6 +14,16 @@ The system SHALL provide a central `WidgetRegistry` where widgets register their
 - **WHEN** `CanvasElement` builds a widget for a given widget type ID
 - **THEN** it retrieves the matching `WidgetDefinition` from `WidgetRegistry` and executes its canvas builder callback.
 
+#### Scenario: Multi widget itemCount rendering
+- **WHEN** `MultiButtonWidgetDefinition` or `MultiSelectWidgetDefinition` builds a canvas widget
+- **THEN** it SHALL read `itemCount` from properties (defaulting to 3)
+- **AND** it SHALL generate or pad items up to `itemCount` (clamped between 2 and 8) so that the exact number of buttons specified by `itemCount` is rendered.
+
+#### Scenario: Multi widget orientation flipping
+- **WHEN** `MultiButtonWidgetDefinition` or `MultiSelectWidgetDefinition` is resized on the canvas
+- **THEN** it SHALL evaluate `orientation` as horizontal when `width >= height` and vertical when `height > width`
+- **AND** it SHALL allow free-form resizing without enforcing a rigid aspect ratio lock that blocks orientation flipping.
+
 ### Requirement: Backward Compatibility with Legacy Widget Enums
 The `WidgetRegistry` SHALL map legacy string type names and enum identifiers to corresponding registered `WidgetDefinition` instances.
 

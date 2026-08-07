@@ -35,6 +35,8 @@ class RemoteAccessService {
     String Function() currentRouteGetter = _defaultRoute,
     // ignore: avoid_unused_constructor_parameters
     dynamic connectDemo,
+    // ignore: avoid_unused_constructor_parameters
+    dynamic libraryService,
   });
 
   static String _defaultRoute() => '';

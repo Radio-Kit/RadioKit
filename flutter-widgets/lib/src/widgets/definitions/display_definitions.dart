@@ -10,6 +10,7 @@ import '../multiple/rk_multi_button.dart';
 import '../led/rk_led.dart';
 import '../display/rk_display.dart';
 import '../display/rk_serial_monitor.dart';
+import '../../theme/rk_theme.dart';
 
 class JoystickWidgetDefinition extends WidgetDefinition {
   @override
@@ -81,11 +82,7 @@ class MultiButtonWidgetDefinition extends WidgetDefinition {
   (int, int) get defaultSize => (30, 15);
 
   @override
-  double? aspectRatio(Map<String, dynamic> properties, int width, int height) {
-    final count = (properties['itemCount'] as num?)?.toInt() ?? 3;
-    final baseAr = (count * 0.67).clamp(0.5, 10.0);
-    return width >= height ? baseAr : -baseAr;
-  }
+  double? aspectRatio(Map<String, dynamic> properties, int width, int height) => null;
 
   @override
   Map<String, dynamic> get defaultProperties => {
@@ -104,16 +101,36 @@ class MultiButtonWidgetDefinition extends WidgetDefinition {
 
   @override
   Widget buildCanvasWidget(BuildContext context, WidgetBuildContext ctx) {
+    final itemCount = (ctx.properties['itemCount'] as num?)?.toInt() ?? 3;
+    final targetCount = itemCount.clamp(2, 8);
     final rawItems = (ctx.properties['items'] as List?) ?? [];
-    final toggleItems = rawItems.map((e) {
-      final map = e is Map ? e : {};
+    final toggleItems = List<RKToggleItem>.generate(targetCount, (i) {
+      if (i < rawItems.length) {
+        final map = rawItems[i] is Map ? rawItems[i] as Map : {};
+        return RKToggleItem(
+          onLabel: map['onLabel'] as String?,
+          offLabel: map['offLabel'] as String?,
+          onIcon: iconFromName(map['onIcon'] as String?),
+          offIcon: iconFromName(map['offIcon'] as String?),
+        );
+      }
       return RKToggleItem(
-        onLabel: map['onLabel'] as String?,
-        offLabel: map['offLabel'] as String?,
-        onIcon: iconFromName(map['onIcon'] as String?),
-        offIcon: iconFromName(map['offIcon'] as String?),
+        onLabel: String.fromCharCode(65 + i),
       );
-    }).toList();
+    });
+
+    final count = toggleItems.length;
+    final cs = ctx.cellSize;
+    final pixelW = ctx.width.toDouble() * cs;
+    final pixelH = ctx.height.toDouble() * cs;
+    final horizontal = ctx.width >= ctx.height;
+    const spacing = 6.0;
+    const padding = 8.0;
+    final buttonSize = horizontal
+        ? ((pixelW - padding * 2 - spacing * (count - 1)) / count)
+            .clamp(10.0, pixelH - padding * 2)
+        : ((pixelH - padding * 2 - spacing * (count - 1)) / count)
+            .clamp(10.0, pixelW - padding * 2);
 
     return RKMultiButton(
       items: toggleItems,
@@ -121,6 +138,9 @@ class MultiButtonWidgetDefinition extends WidgetDefinition {
       onChanged: ctx.isPlayMode && ctx.onChanged != null
           ? (v) => ctx.onChanged!(v)
           : (_) {},
+      buttonSize: buttonSize,
+      gap: spacing,
+      orientation: horizontal ? RKAxis.horizontal : RKAxis.vertical,
       label: (!ctx.labelHidden && ctx.label.isNotEmpty) ? ctx.label : null,
       showDebug: ctx.isPlayMode ? false : ctx.isSelected,
     );
@@ -144,11 +164,7 @@ class MultiSelectWidgetDefinition extends WidgetDefinition {
   (int, int) get defaultSize => (30, 15);
 
   @override
-  double? aspectRatio(Map<String, dynamic> properties, int width, int height) {
-    final count = (properties['itemCount'] as num?)?.toInt() ?? 3;
-    final baseAr = (count * 0.67).clamp(0.5, 10.0);
-    return width >= height ? baseAr : -baseAr;
-  }
+  double? aspectRatio(Map<String, dynamic> properties, int width, int height) => null;
 
   @override
   Map<String, dynamic> get defaultProperties => {
@@ -167,16 +183,36 @@ class MultiSelectWidgetDefinition extends WidgetDefinition {
 
   @override
   Widget buildCanvasWidget(BuildContext context, WidgetBuildContext ctx) {
+    final itemCount = (ctx.properties['itemCount'] as num?)?.toInt() ?? 3;
+    final targetCount = itemCount.clamp(2, 8);
     final rawItems = (ctx.properties['items'] as List?) ?? [];
-    final toggleItems = rawItems.map((e) {
-      final map = e is Map ? e : {};
+    final toggleItems = List<RKToggleItem>.generate(targetCount, (i) {
+      if (i < rawItems.length) {
+        final map = rawItems[i] is Map ? rawItems[i] as Map : {};
+        return RKToggleItem(
+          onLabel: map['onLabel'] as String?,
+          offLabel: map['offLabel'] as String?,
+          onIcon: iconFromName(map['onIcon'] as String?),
+          offIcon: iconFromName(map['offIcon'] as String?),
+        );
+      }
       return RKToggleItem(
-        onLabel: map['onLabel'] as String?,
-        offLabel: map['offLabel'] as String?,
-        onIcon: iconFromName(map['onIcon'] as String?),
-        offIcon: iconFromName(map['offIcon'] as String?),
+        onLabel: String.fromCharCode(65 + i),
       );
-    }).toList();
+    });
+
+    final count = toggleItems.length;
+    final cs = ctx.cellSize;
+    final pixelW = ctx.width.toDouble() * cs;
+    final pixelH = ctx.height.toDouble() * cs;
+    final horizontal = ctx.width >= ctx.height;
+    const spacing = 6.0;
+    const padding = 8.0;
+    final buttonSize = horizontal
+        ? ((pixelW - padding * 2 - spacing * (count - 1)) / count)
+            .clamp(10.0, pixelH - padding * 2)
+        : ((pixelH - padding * 2 - spacing * (count - 1)) / count)
+            .clamp(10.0, pixelW - padding * 2);
 
     return RKMultiSelect(
       items: toggleItems,
@@ -184,6 +220,9 @@ class MultiSelectWidgetDefinition extends WidgetDefinition {
       onChanged: ctx.isPlayMode && ctx.onChanged != null
           ? (v) => ctx.onChanged!(v)
           : (_) {},
+      buttonSize: buttonSize,
+      gap: spacing,
+      orientation: horizontal ? RKAxis.horizontal : RKAxis.vertical,
       label: (!ctx.labelHidden && ctx.label.isNotEmpty) ? ctx.label : null,
       showDebug: ctx.isPlayMode ? false : ctx.isSelected,
     );

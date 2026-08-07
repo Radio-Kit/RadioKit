@@ -802,6 +802,10 @@ class DeviceProvider extends ChangeNotifier {
       if (version >= 2 && data.containsKey('pages')) {
         // v2 format: pages[].widgets
         final pages = data['pages'] as List<dynamic>? ?? [];
+        _pageNames = pages
+            .map((p) => (p as Map<String, dynamic>?)?['name'] as String? ?? 'Page')
+            .toList();
+        _numPages = _pageNames.length;
         // Flatten all pages' widgets for demo rendering
         widgetsJson = [];
         _pageOrientations = [];

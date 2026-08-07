@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/api_log_entry.dart';
 import '../services/remote_access_service.dart'
@@ -20,6 +21,7 @@ import 'account_provider.dart';
 import 'flasher_provider.dart';
 import '../services/demo_transport.dart';
 import '../services/docs_service.dart';
+import '../services/library_service.dart';
 
 class RemoteAccessProvider extends ChangeNotifier {
   final SettingsProvider _settingsProvider;
@@ -143,6 +145,10 @@ class RemoteAccessProvider extends ChangeNotifier {
     final docsService = DocsService();
     await docsService.loadSkills();
 
+    // Initialize library service with bundled rk-arduino ZIP
+    final libraryService = LibraryService();
+    await libraryService.initialize();
+
     _service = RemoteAccessService(
       getActiveDevice: () => _multiDeviceProvider.primaryDevice ?? (_multiDeviceProvider.devices.isNotEmpty ? _multiDeviceProvider.devices.first : _idleDeviceProvider),
       bleProvider: _bleProvider,
@@ -164,6 +170,7 @@ class RemoteAccessProvider extends ChangeNotifier {
         _multiDeviceProvider.setFocusedDevice('DEMO_$demoId');
       },
       docsService: docsService,
+      libraryService: libraryService,
     );
 
     final error = await _service!.start();
@@ -179,6 +186,7 @@ class RemoteAccessProvider extends ChangeNotifier {
     _actualPort = _service!.actualPort;
     _localIp = _service!.localIp;
     _lastError = '';
+    await _acquireWifiLock();
     // Listen to _idleDeviceProvider so disconnects propagate to
     // ConnectionNotifier -> GoRouter redirect guard.
     _idleDeviceProvider.addListener(_onIdleDeviceChanged);
@@ -197,6 +205,7 @@ class RemoteAccessProvider extends ChangeNotifier {
     if (!_isRunning) return;
     _idleDeviceProvider.removeListener(_onIdleDeviceChanged);
     await _service?.stop();
+    await _releaseWifiLock();
     _service = null;
     _isRunning = false;
     _actualPort = 0;
@@ -208,6 +217,28 @@ class RemoteAccessProvider extends ChangeNotifier {
       durationMs: 0,
     ));
     notifyListeners();
+  }
+
+  static const _wifiLockChannel = MethodChannel('com.rambros3d.radiokit/wifi_lock');
+
+  Future<void> _acquireWifiLock() async {
+    try {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        await _wifiLockChannel.invokeMethod('acquireWifiLock');
+      }
+    } catch (e) {
+      debugPrint('RadioKit: Failed to acquire Wi-Fi lock: $e');
+    }
+  }
+
+  Future<void> _releaseWifiLock() async {
+    try {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        await _wifiLockChannel.invokeMethod('releaseWifiLock');
+      }
+    } catch (e) {
+      debugPrint('RadioKit: Failed to release Wi-Fi lock: $e');
+    }
   }
 
   Future<void> toggle() async {

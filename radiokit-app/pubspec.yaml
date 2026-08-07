@@ -82,6 +82,7 @@ flutter:
     - assets/demos/
     - assets/starter-templates/
     - assets/skills/
+    - assets/rk-arduino.zip
 
 flutter_gen:
   output: lib/gen/

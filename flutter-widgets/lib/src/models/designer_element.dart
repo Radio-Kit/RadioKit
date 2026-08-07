@@ -42,11 +42,7 @@ class DesignerElement {
     switch (type) {
       case DesignerElementType.multiButton:
       case DesignerElementType.multiSelect:
-        final count = (properties['itemCount'] as num?)?.toInt() ?? 3;
-        final baseAr = (count * 0.67).clamp(0.5, 10.0);
-        // Positive  → horizontal (height is primary, width  = height × ar)
-        // Negative  → vertical   (width  is primary, height = width  × |ar|)
-        return width >= height ? baseAr : -baseAr;
+        return null;
       default:
         return aspectRatioFor(type, properties);
     }

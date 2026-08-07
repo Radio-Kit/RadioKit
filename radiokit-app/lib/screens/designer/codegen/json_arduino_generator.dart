@@ -239,7 +239,7 @@ class JsonArduinoGenerator {
     final labelText = labelObj?['text'] as String? ?? '';
     final showLabel = labelObj?['show'] as bool? ?? true;
     final variant = w['variant'] as String?;
-    final x = (position.length >= 1 && position[0] is num)
+    final x = (position.isNotEmpty && position[0] is num)
         ? (position[0] as num).toInt()
         : 10;
     final y = (position.length >= 2 && position[1] is num)
@@ -362,9 +362,9 @@ class JsonArduinoGenerator {
       case 'slider': {
         final v = variant ?? props['variant'] as String?;
         if (v == 'gasPedal') {
-          _gasPedal(name, x, y, cppW, cppH, rotation, acList, comment, declBuf, setupBuf, labelText, showLabel);
+          _gasPedal(name, x, y, cppW, cppH, rotation, acList, comment, declBuf, setupBuf, labelText, showLabel, pageIndex: pageIndex);
         } else {
-          _slider(name, x, y, cppW, cppH, rotation, acList, comment, declBuf, setupBuf, labelText, showLabel);
+          _slider(name, x, y, cppW, cppH, rotation, acList, comment, declBuf, setupBuf, labelText, showLabel, pageIndex: pageIndex);
         }
         break;
       }
@@ -372,9 +372,9 @@ class JsonArduinoGenerator {
       case 'knob': {
         final v = variant ?? props['variant'] as String?;
         if (v == 'steeringWheel') {
-          _steeringWheel(name, x, y, cppW, cppH, rotation, props, acList, comment, declBuf, setupBuf, labelText, showLabel);
+          _steeringWheel(name, x, y, cppW, cppH, rotation, props, acList, comment, declBuf, setupBuf, labelText, showLabel, pageIndex: pageIndex);
         } else {
-          _knob(name, x, y, cppW, cppH, rotation, props, acList, comment, declBuf, setupBuf, labelText, showLabel);
+          _knob(name, x, y, cppW, cppH, rotation, props, acList, comment, declBuf, setupBuf, labelText, showLabel, pageIndex: pageIndex);
         }
         break;
       }
@@ -390,10 +390,10 @@ class JsonArduinoGenerator {
         final v = variant ?? props['variant'] as String?;
         if (v == 'multiSelect') {
           _buildMultiple('RK_MultipleSelect', name, x, y, cppW, cppH,
-              rotation, props, comment, declBuf, setupBuf, labelText, showLabel);
+              rotation, props, comment, declBuf, setupBuf, labelText, showLabel, pageIndex: pageIndex);
         } else {
           _buildMultiple('RK_MultipleButton', name, x, y, cppW, cppH,
-              rotation, props, comment, declBuf, setupBuf, labelText, showLabel);
+              rotation, props, comment, declBuf, setupBuf, labelText, showLabel, pageIndex: pageIndex);
         }
         break;
       }
@@ -442,8 +442,11 @@ class JsonArduinoGenerator {
 
   static void _slider(String name, int x, int y, int w, int h, int rot,
       List? ac, String comment, StringBuffer declBuf, StringBuffer setupBuf,
-      String labelText, bool showLabel) {
+      String labelText, bool showLabel, {int pageIndex = 0}) {
     declBuf.writeln('RK_Slider $name($x, $y, $h, $w, $rot);$comment');
+    if (pageIndex > 0) {
+      setupBuf.writeln('  $name.setPage($pageIndex);');
+    }
     if (labelText.isNotEmpty) {
       setupBuf.writeln('  $name.rk.label = "${_escapeC(labelText)}";');
     }
@@ -455,8 +458,11 @@ class JsonArduinoGenerator {
 
   static void _gasPedal(String name, int x, int y, int w, int h, int rot,
       List? ac, String comment, StringBuffer declBuf, StringBuffer setupBuf,
-      String labelText, bool showLabel) {
+      String labelText, bool showLabel, {int pageIndex = 0}) {
     declBuf.writeln('RK_GasPedal $name($x, $y, $h, $w, $rot);$comment');
+    if (pageIndex > 0) {
+      setupBuf.writeln('  $name.setPage($pageIndex);');
+    }
     if (labelText.isNotEmpty) {
       setupBuf.writeln('  $name.rk.label = "${_escapeC(labelText)}";');
     }
@@ -468,11 +474,14 @@ class JsonArduinoGenerator {
 
   static void _knob(String name, int x, int y, int w, int h, int rot,
       Map<String, dynamic> props, List? ac, String comment, StringBuffer declBuf, StringBuffer setupBuf,
-      String labelText, bool showLabel) {
+      String labelText, bool showLabel, {int pageIndex = 0}) {
     final minAngle = props['minAngle'] ?? -135;
     final maxAngle = props['maxAngle'] ?? 135;
     
     declBuf.writeln('RK_Knob $name($x, $y, $h, $w, $rot);$comment');
+    if (pageIndex > 0) {
+      setupBuf.writeln('  $name.setPage($pageIndex);');
+    }
     if (labelText.isNotEmpty) {
       setupBuf.writeln('  $name.rk.label = "${_escapeC(labelText)}";');
     }
@@ -494,11 +503,14 @@ class JsonArduinoGenerator {
 
   static void _steeringWheel(String name, int x, int y, int w, int h, int rot,
       Map<String, dynamic> props, List? ac, String comment, StringBuffer declBuf, StringBuffer setupBuf,
-      String labelText, bool showLabel) {
+      String labelText, bool showLabel, {int pageIndex = 0}) {
     final minAngle = props['minAngle'] ?? -135;
     final maxAngle = props['maxAngle'] ?? 135;
     
     declBuf.writeln('RK_Knob $name($x, $y, $h, $w, $rot);$comment');
+    if (pageIndex > 0) {
+      setupBuf.writeln('  $name.setPage($pageIndex);');
+    }
     if (labelText.isNotEmpty) {
       setupBuf.writeln('  $name.rk.label = "${_escapeC(labelText)}";');
     }
@@ -513,10 +525,13 @@ class JsonArduinoGenerator {
 
   static void _buildMultiple(String widgetType, String name, int x, int y,
       int w, int h, int rot, Map<String, dynamic> props, String comment, StringBuffer declBuf, StringBuffer setupBuf,
-      String labelText, bool showLabel) {
+      String labelText, bool showLabel, {int pageIndex = 0}) {
     final items = props['items'] as List? ?? [];
     
     declBuf.writeln('$widgetType $name($x, $y, $h, $w, $rot);$comment');
+    if (pageIndex > 0) {
+      setupBuf.writeln('  $name.setPage($pageIndex);');
+    }
     if (labelText.isNotEmpty) {
       setupBuf.writeln('  $name.rk.label = "${_escapeC(labelText)}";');
     }

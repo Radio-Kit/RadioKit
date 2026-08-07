@@ -396,6 +396,74 @@ void main() {
         expect(output, contains('secret.setHidden(true)'));
         expect(output, isNot(contains('rk.hidden')));
       });
+
+      test('sub-generators emit setPage(1) when on page 1', () {
+        final json = {
+          'version': 2,
+          'config': {'name': 'SubGenPageTest'},
+          'canvas': {'size': [200, 100]},
+          'pages': [
+            {
+              'name': 'Page0',
+              'widgets': [],
+            },
+            {
+              'name': 'Page1',
+              'widgets': [
+                {
+                  'type': 'slider',
+                  'name': 'slider_1',
+                  'position': [10, 10, 0],
+                  'size': [50, 10],
+                },
+                {
+                  'type': 'slider',
+                  'variant': 'gasPedal',
+                  'name': 'pedal_1',
+                  'position': [10, 25, 0],
+                  'size': [50, 10],
+                },
+                {
+                  'type': 'knob',
+                  'name': 'knob_1',
+                  'position': [10, 40, 0],
+                  'size': [30, 30],
+                },
+                {
+                  'type': 'knob',
+                  'variant': 'steeringWheel',
+                  'name': 'wheel_1',
+                  'position': [10, 70, 0],
+                  'size': [40, 40],
+                },
+                {
+                  'type': 'multiple',
+                  'variant': 'multiButton',
+                  'name': 'mbtn_1',
+                  'position': [60, 10, 0],
+                  'size': [60, 20],
+                },
+                {
+                  'type': 'multiple',
+                  'variant': 'multiSelect',
+                  'name': 'msel_1',
+                  'position': [60, 40, 0],
+                  'size': [60, 20],
+                },
+              ],
+            },
+          ],
+        };
+
+        final output = JsonArduinoGenerator.generate(json);
+
+        expect(output, contains('slider_1.setPage(1)'));
+        expect(output, contains('pedal_1.setPage(1)'));
+        expect(output, contains('knob_1.setPage(1)'));
+        expect(output, contains('wheel_1.setPage(1)'));
+        expect(output, contains('mbtn_1.setPage(1)'));
+        expect(output, contains('msel_1.setPage(1)'));
+      });
     });
 
     group('widget type coverage', () {
