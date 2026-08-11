@@ -193,147 +193,180 @@ class _SheetGridItem extends StatelessWidget {
   }
 
   Widget _buildPreview() {
-    // Use defaultSize aspect ratios for preview proportions so widgets
-    // fill the maximum available grid cell space in their expected shape.
-    final (defW, defH) = DesignerElement.defaultSize(variant.type);
-    final double aspect = defW / defH.clamp(1, 999);
-    final double baseWidth = aspect >= 1.0 ? 120.0 : 120.0 * aspect;
-    final double baseHeight = aspect >= 1.0 ? 120.0 / aspect : 120.0;
+    late final Widget rawPreview;
+    late final double previewW;
+    late final double previewH;
 
-    Widget rawPreview;
     switch (variant.type) {
       case DesignerElementType.button:
+        previewW = 60.0;
+        previewH = 60.0;
         rawPreview = RKButton(
           mode: variant.properties['variant'] == 'toggle'
               ? RKButtonMode.toggle
               : RKButtonMode.push,
           onText: variant.properties['onText'] ?? 'ON',
           offText: variant.properties['offText'] ?? 'OFF',
-          size: baseWidth,
+          size: previewW,
           onChanged: (_) {},
           showDebug: false,
         );
         break;
       case DesignerElementType.slideSwitch:
+        previewW = 80.0;
+        previewH = 40.0;
         rawPreview = RKSlideSwitch(
           value: false,
           onText: variant.properties['onText'] ?? 'ON',
           offText: variant.properties['offText'] ?? 'OFF',
-          width: baseWidth,
-          height: baseHeight,
+          width: previewW,
+          height: previewH,
           onChanged: (_) {},
           showDebug: false,
         );
         break;
       case DesignerElementType.rockerSwitch:
+        previewW = 40.0;
+        previewH = 80.0;
         rawPreview = RKRockerSwitch(
           value: false,
-          width: baseWidth,
-          height: baseHeight,
+          width: previewW,
+          height: previewH,
           onChanged: (_) {},
           showDebug: false,
         );
         break;
       case DesignerElementType.slider:
+        const thickness = 11.0;
+        const sliderH = thickness * 6.8;
+        previewH = sliderH;
+        previewW = sliderH * 3.0;
         rawPreview = RKSlider(
           value: 0.5,
           orientation: RKAxis.horizontal,
-          thickness: baseHeight,
-          length: baseWidth,
+          thickness: thickness,
+          length: previewW,
           onChanged: (_) {},
           showDebug: false,
         );
         break;
       case DesignerElementType.steeringWheel:
+        previewW = 80.0;
+        previewH = 80.0;
         rawPreview = RKSteeringWheel(
           value: 0.5,
-          size: baseWidth,
+          size: previewW,
           onChanged: (_) {},
           showDebug: false,
         );
         break;
       case DesignerElementType.knob:
+        previewW = 80.0;
+        previewH = 80.0;
         rawPreview = RKKnob(
           value: 0.5,
-          size: baseWidth,
+          size: previewW,
           onChanged: (_) {},
           showDebug: false,
         );
         break;
       case DesignerElementType.joystick:
+        previewW = 80.0;
+        previewH = 80.0;
         rawPreview = RKJoystick(
-          size: baseWidth,
+          size: previewW,
           onChanged: (_) {},
           showDebug: false,
         );
         break;
       case DesignerElementType.multiButton:
+        const buttonSize = 30.0;
+        const shellPadding = 2.4;
+        const gap = 6.0;
+        previewW = buttonSize * 3 + gap * 2 + shellPadding * 2;
+        previewH = buttonSize + shellPadding * 2;
         rawPreview = RKMultiButton(
           items: List.generate(
               3, (i) => RKToggleItem(onLabel: String.fromCharCode(65 + i))),
           selected: 0,
-          buttonSize: baseHeight,
+          buttonSize: buttonSize,
           orientation: RKAxis.horizontal,
           onChanged: (_) {},
           showDebug: false,
         );
         break;
       case DesignerElementType.multiSelect:
+        const buttonSize = 30.0;
+        const shellPadding = 2.4;
+        const gap = 6.0;
+        previewW = buttonSize * 3 + gap * 2 + shellPadding * 2;
+        previewH = buttonSize + shellPadding * 2;
         rawPreview = RKMultiSelect(
           items: List.generate(
               3, (i) => RKToggleItem(onLabel: String.fromCharCode(65 + i))),
           bitmask: 0,
-          buttonSize: baseHeight,
+          buttonSize: buttonSize,
           orientation: RKAxis.horizontal,
           onChanged: (_) {},
           showDebug: false,
         );
         break;
       case DesignerElementType.gasPedal:
+        const thickness = 10.0;
+        previewW = thickness * 8.0;
+        previewH = previewW * 3.0;
         rawPreview = RKGasPedal(
           value: 0.0,
           orientation: RKAxis.vertical,
-          thickness: baseWidth,
-          length: baseHeight,
+          thickness: thickness,
+          length: previewH,
           onChanged: (_) {},
           showDebug: false,
         );
         break;
       case DesignerElementType.led:
+        previewW = 40.0;
+        previewH = 40.0;
         rawPreview = RKLed(
           state: RKLEDState.on,
           shape: RKLEDShape.circle,
-          size: baseWidth,
+          size: previewW,
           showDebug: false,
         );
         break;
       case DesignerElementType.text:
+        previewW = 120.0;
+        previewH = 40.0;
         rawPreview = RKDisplay(
           text: 'Display',
           fontSize: 10,
-          width: baseWidth,
-          height: baseHeight,
+          width: previewW,
+          height: previewH,
           showDebug: false,
         );
         break;
       case DesignerElementType.serialMonitor:
+        previewW = 120.0;
+        previewH = 80.0;
         rawPreview = RKSerialMonitor(
           messages: const ['> Serial'],
           fontSize: 8,
-          width: baseWidth,
-          height: baseHeight,
+          width: previewW,
+          height: previewH,
           showDebug: false,
         );
         break;
     }
+
+    final double aspect = previewW / previewH;
 
     return AspectRatio(
       aspectRatio: aspect,
       child: FittedBox(
         fit: BoxFit.contain,
         child: SizedBox(
-          width: baseWidth,
-          height: baseHeight,
+          width: previewW,
+          height: previewH,
           child: rawPreview,
         ),
       ),
