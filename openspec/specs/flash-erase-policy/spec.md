@@ -1,4 +1,9 @@
-## ADDED Requirements
+# flash-erase-policy Specification
+
+## Purpose
+Enforce mandatory flash erase policy during firmware upload to clear stale ESP32 NVS settings and document the rationale.
+
+## Requirements
 
 ### Requirement: Mandatory Flash Erase on Firmware Upload
 The documentation and agent guidelines SHALL explicitly specify that all firmware upload procedures (via CLI, PlatformIO, OTA, or web/app flasher) include the flash erase option (`-erase`, `--erase-flash`, or `eraseAll: true`) unless the user explicitly requests preserving existing device settings.

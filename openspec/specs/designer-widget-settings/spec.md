@@ -1,4 +1,9 @@
-## ADDED Requirements
+# designer-widget-settings Specification
+
+## Purpose
+Specification for visual designer widget inspector settings including Slider AutoCenter position controls, MultiButton item label/icon configuration, and MultiButton variant mode.
+
+## Requirements
 
 ### Requirement: Slider AutoCenter Position Control
 The designer inspector SHALL allow users to select between `none`, `min`, `center`, and `max` auto-center positions for slider-based widgets.
