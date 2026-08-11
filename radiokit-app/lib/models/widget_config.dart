@@ -77,6 +77,9 @@ class WidgetConfig {
   /// Whether the widget is hidden in the UI (set via kStrMaskWidgetHidden bit).
   final bool hidden;
 
+  /// The page index this widget belongs to (0-indexed).
+  final int pageIndex;
+
   /// The float multiplier for width (scalewidth).
   double get widthF => width / 10.0;
 
@@ -110,6 +113,7 @@ class WidgetConfig {
     this.maxAngle = 135,
     this.labelHidden = false,
     this.hidden = false,
+    this.pageIndex = 0,
   });
 
   WidgetConfig copyWith({
@@ -132,6 +136,7 @@ class WidgetConfig {
     double? maxAngle,
     bool? labelHidden,
     bool? hidden,
+    int? pageIndex,
   }) {
     return WidgetConfig(
       typeId:   typeId   ?? this.typeId,
@@ -153,6 +158,7 @@ class WidgetConfig {
       maxAngle: maxAngle ?? this.maxAngle,
       labelHidden: labelHidden ?? this.labelHidden,
       hidden: hidden ?? this.hidden,
+      pageIndex: pageIndex ?? this.pageIndex,
     );
   }
 
@@ -312,7 +318,7 @@ class WidgetConfig {
 
   @override
   String toString() =>
-      'WidgetConfig(id=$widgetId, type=$typeName, label="$label", '
+      'WidgetConfig(id=$widgetId, page=$pageIndex, type=$typeName, label="$label", '
       'pos=($x,$y), scale=$widthF×$heightF, '
       'style=$style, variant=$variant, rot=$rotationDegrees°)';
 }
@@ -373,23 +379,53 @@ class RadioWidgetState {
   }
 }
 
-/// Converts a list of [WidgetConfig] + metadata to a full designer-format JSON map.
+/// Converts a list of [WidgetConfig] + metadata to a full designer-format JSON map (version 2).
 ///
 /// The output matches the schema used by [DesignerState.loadFromJson] and
-/// [DesignerElement.fromJson], so it can be used directly for rendering.
+/// [DesignerElement.fromJson], grouping widgets into `pages[]` arrays.
 Map<String, dynamic> widgetConfigsToDesignerJson({
   required List<WidgetConfig> widgets,
   required String name,
   required String description,
   required int orientation,
   required String theme,
+  List<String>? pageNames,
 }) {
   final isLandscape = orientation == kOrientationLandscape;
   final canvasW = isLandscape ? 200 : 100;
   final canvasH = isLandscape ? 100 : 200;
 
+  // Determine highest page index among widgets
+  int maxPageIndex = 0;
+  for (final w in widgets) {
+    if (w.pageIndex > maxPageIndex) {
+      maxPageIndex = w.pageIndex;
+    }
+  }
+  if (pageNames != null && pageNames.length - 1 > maxPageIndex) {
+    maxPageIndex = pageNames.length - 1;
+  }
+
+  final pagesJson = <Map<String, dynamic>>[];
+  for (int i = 0; i <= maxPageIndex; i++) {
+    final pageWidgets = widgets.where((w) => w.pageIndex == i).toList();
+    final pName = (pageNames != null && i < pageNames.length)
+        ? pageNames[i]
+        : (i == 0 ? 'Control' : 'Page ${i + 1}');
+    pagesJson.add({
+      'name': pName,
+      'orientation': isLandscape ? 'landscape' : 'portrait',
+      'widgets': pageWidgets
+          .map((w) => w.toDesignerJsonMap(canvasW, canvasH))
+          .toList(),
+    });
+  }
+
   return {
-    'version': 1,
+    'version': 2,
+    'appdata': <String, dynamic>{
+      'appVersion': '1.0.0',
+    },
     'config': <String, dynamic>{
       'name': name,
       'description': description,

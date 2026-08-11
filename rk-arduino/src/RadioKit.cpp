@@ -1187,10 +1187,6 @@ void RadioKitClass::_handleSetPage(const uint8_t* payload, uint16_t len) {
     uint8_t pktBuf[RK_MAX_PACKET_SIZE];
     uint16_t pktLen = rk_buildPacket(pktBuf, RK_CMD_PAGE_CHANGED, &page, 1);
     _sendPacket(pktBuf, pktLen);
-
-    // Send updated CONF_DATA and VAR_DATA for the new page
-    _handleGetConf();
-    _handleGetVars();
     _confDirty = false;  // page switch sends fresh CONF_DATA
 }
 

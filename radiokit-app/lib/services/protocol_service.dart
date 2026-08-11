@@ -380,7 +380,7 @@ class ProtocolService {
       // Detect v5: payload[3] is NUM_PAGES (must be >= 1), payload[4] is THEME_LEN
       // activePage (payload[2]) can be 0 on startup, so we check NUM_PAGES instead
       if (payload.length >= 5 && payload[3] >= 1 && payload[3] <= 32 &&
-          payload[4] >= 1 && 5 + payload[4] <= payload.length) {
+          payload[4] >= 0 && 5 + payload[4] <= payload.length) {
         activePage = payload[2];
         numPages = payload[3];
         offset = 4; // Skip to THEME_LEN at index 4

@@ -29,36 +29,56 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
     super.initState();
     RKDebugOverlay.enabled = widget.debugMode;
     _designerState = DesignerState();
+    _designerState.addListener(_onDesignerStateChanged);
+    widget.deviceProvider.addListener(_onDeviceProviderChanged);
     if (!_designerState.isPlayMode) {
       _designerState.togglePlayMode();
     }
     _designerState.onRuntimeValueChanged = _onWidgetValueChanged;
     _syncElementsFromJson();
+    final deviceActivePage = widget.deviceProvider.activePage;
+    if (_designerState.activePageIndex != deviceActivePage &&
+        deviceActivePage < _designerState.numPages) {
+      _designerState.setActivePage(deviceActivePage);
+    }
     _syncValues();
   }
 
-  @override
-  void didUpdateWidget(DeviceDesignerBridge oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.debugMode != widget.debugMode) {
-      RKDebugOverlay.enabled = widget.debugMode;
-    }
+  void _onDesignerStateChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _onDeviceProviderChanged() {
+    if (!mounted) return;
     final currentJson = widget.deviceProvider.deviceConfigJson;
     if (currentJson != _lastJson) {
       _syncElementsFromJson();
     }
-    // Sync active page from device — when the device switches pages
-    // (CMD_PAGE_SWITCH or CMD_PAGE_CHANGED), update the designer state
-    // so only the active page's widgets are rendered.
     final deviceActivePage = widget.deviceProvider.activePage;
-    if (_designerState.activePageIndex != deviceActivePage) {
+    if (_designerState.activePageIndex != deviceActivePage &&
+        deviceActivePage < _designerState.numPages) {
       _designerState.setActivePage(deviceActivePage);
     }
     _syncValues();
   }
 
   @override
+  void didUpdateWidget(DeviceDesignerBridge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.deviceProvider != widget.deviceProvider) {
+      oldWidget.deviceProvider.removeListener(_onDeviceProviderChanged);
+      widget.deviceProvider.addListener(_onDeviceProviderChanged);
+    }
+    if (oldWidget.debugMode != widget.debugMode) {
+      RKDebugOverlay.enabled = widget.debugMode;
+    }
+    _onDeviceProviderChanged();
+  }
+
+  @override
   void dispose() {
+    widget.deviceProvider.removeListener(_onDeviceProviderChanged);
+    _designerState.removeListener(_onDesignerStateChanged);
     _designerState.dispose();
     RKDebugOverlay.enabled = false;
     super.dispose();
@@ -73,12 +93,19 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
 
     _designerState.loadFromJson(json);
 
-    // Override the name/label on each element to store widgetId,
+    final deviceActivePage = widget.deviceProvider.activePage;
+    if (deviceActivePage < _designerState.numPages) {
+      _designerState.setActivePage(deviceActivePage);
+    }
+
+    // Override the name/label on each element to store widgetId across all pages,
     // so _syncValues and _onWidgetValueChanged can find the wire config.
-    for (final el in _designerState.elements) {
-      final wid = el.properties['widgetId'];
-      if (wid is int) {
-        _designerState.updateElementLabel(el.id, wid.toString());
+    for (final page in _designerState.pages) {
+      for (final el in page.elements) {
+        final wid = el.properties['widgetId'];
+        if (wid is int) {
+          el.label = wid.toString();
+        }
       }
     }
 

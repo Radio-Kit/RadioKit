@@ -12,6 +12,7 @@ import '../services/fs_protocol_service.dart';
 import '../services/ota_protocol_service.dart';
 import '../services/settings_protocol_service.dart';
 import '../services/debug_transport.dart';
+import '../services/demo_transport.dart';
 import '../services/demo_fs_transport.dart';
 import '../services/ble_service.dart';
 import '../services/websocket_service.dart';
@@ -862,12 +863,28 @@ class DeviceProvider extends ChangeNotifier {
       }
       final nameToId = <String, int>{};
       _widgets = [];
-      for (final w in widgetsJson) {
-        final parsed = _widgetConfigFromDesignerJson(w as Map<String, dynamic>);
-        _widgets.add(parsed);
-        final widgetName = w['name'] as String?;
-        if (widgetName != null && widgetName.isNotEmpty) {
-          nameToId[widgetName] = parsed.widgetId;
+      if (version >= 2 && data.containsKey('pages')) {
+        final pages = data['pages'] as List<dynamic>? ?? [];
+        for (int pIdx = 0; pIdx < pages.length; pIdx++) {
+          final pageObj = pages[pIdx] as Map<String, dynamic>?;
+          final pageWidgets = pageObj?['widgets'] as List<dynamic>? ?? [];
+          for (final w in pageWidgets) {
+            final parsed = _widgetConfigFromDesignerJson(w as Map<String, dynamic>, pageIndex: pIdx);
+            _widgets.add(parsed);
+            final widgetName = w['name'] as String?;
+            if (widgetName != null && widgetName.isNotEmpty) {
+              nameToId[widgetName] = parsed.widgetId;
+            }
+          }
+        }
+      } else {
+        for (final w in widgetsJson) {
+          final parsed = _widgetConfigFromDesignerJson(w as Map<String, dynamic>);
+          _widgets.add(parsed);
+          final widgetName = w['name'] as String?;
+          if (widgetName != null && widgetName.isNotEmpty) {
+            nameToId[widgetName] = parsed.widgetId;
+          }
         }
       }
 
@@ -903,10 +920,16 @@ class DeviceProvider extends ChangeNotifier {
         }
       }
 
-      // Cache the original designer JSON for fast UI rendering.
-      _deviceConfigJson = data;
-
       _connectionState = DeviceConnectionState.connected;
+      // Cache the original designer JSON for fast UI rendering.
+      _deviceConfigJson = widgetConfigsToDesignerJson(
+        widgets: _widgets,
+        name: _configName ?? demoId,
+        description: _description ?? 'Interactive Demo Mode',
+        orientation: _orientation,
+        theme: config['theme'] as String? ?? 'dragon',
+        pageNames: _pageNames,
+      );
       _log('CONFIG LOADED: "$_configName" with ${_widgets.length} widgets',
           level: ConsoleLogLevel.success);
     } catch (e) {
@@ -923,7 +946,7 @@ class DeviceProvider extends ChangeNotifier {
 
   /// Parses a [WidgetConfig] from the designer-format JSON used by the
   /// designer UI and stored in `assets/demos/*.json`.
-  WidgetConfig _widgetConfigFromDesignerJson(Map<String, dynamic> w) {
+  WidgetConfig _widgetConfigFromDesignerJson(Map<String, dynamic> w, {int pageIndex = 0}) {
     final typeStr = w['type'] as String? ?? '';
     final typeId = _typeNameToId(typeStr);
     final name = w['name'] as String? ?? '';
@@ -1015,6 +1038,8 @@ class DeviceProvider extends ChangeNotifier {
     if (offText.isNotEmpty) strMask |= kStrMaskOffText;
     if (content.isNotEmpty) strMask |= kStrMaskContent;
 
+    final pIndex = (w['pageIndex'] as num?)?.toInt() ?? pageIndex;
+
     return WidgetConfig(
       typeId: typeId,
       widgetId: widgetId,
@@ -1030,6 +1055,7 @@ class DeviceProvider extends ChangeNotifier {
       offText: offText,
       content: content,
       rotation: rotation,
+      pageIndex: pIndex,
     );
   }
 
@@ -1873,10 +1899,8 @@ class DeviceProvider extends ChangeNotifier {
 
 
   void _handleConfData(List<int> payload) {
-    // Discard stale CONF_DATA while waiting for PAGE_CHANGED response.
     if (_pageSwitchState == _PageSwitchState.pagePending) {
-      _log('Discarding stale CONF_DATA during PAGE_PENDING', level: ConsoleLogLevel.info);
-      return;
+      _pageSwitchState = _PageSwitchState.idle;
     }
     _log('MCU <- CONF_DATA (${payload.length} bytes)');
     debugPrint('RadioKit CONF_DATA raw hex: ${payload.take(64).map((b) => b.toRadixString(16).padLeft(2, "0")).join(" ")}${payload.length > 64 ? ' ...' : ''}');
@@ -1980,10 +2004,8 @@ class DeviceProvider extends ChangeNotifier {
   }
 
   void _handleVarUpdate(List<int> payload) {
-    // Discard stale VAR_UPDATE while waiting for PAGE_CHANGED response.
     if (_pageSwitchState == _PageSwitchState.pagePending) {
-      _log('Discarding stale VAR_UPDATE during PAGE_PENDING', level: ConsoleLogLevel.info);
-      return;
+      _pageSwitchState = _PageSwitchState.idle;
     }
     final result = ProtocolService.parseVarUpdate(payload, hasPagePrefix: false);
     if (result == null) return;
@@ -2190,10 +2212,19 @@ class DeviceProvider extends ChangeNotifier {
   /// Send CMD_SET_PAGE (0x20) to switch the MCU to a specific page.
   Future<void> sendSetPage(int pageIndex) async {
     if (!_transport.isConnected) return;
+    _activePage = pageIndex;
+    _pageSwitchState = _PageSwitchState.idle;
+    if (pageIndex < _pageOrientations.length) {
+      _orientation = _pageOrientations[pageIndex];
+    }
+    notifyListeners();
+    if (_transport is DemoTransport || _transport is DemoFsTransport) {
+      _log('DEMO -> SET_PAGE: switched to page $pageIndex', level: ConsoleLogLevel.info);
+      return;
+    }
     try {
       await _writePacket(ProtocolService.buildSetPage(pageIndex));
-      _pageSwitchState = _PageSwitchState.pagePending;
-      _log('APP -> SET_PAGE: page=$pageIndex (entering PAGE_PENDING)', level: ConsoleLogLevel.info);
+      _log('APP -> SET_PAGE: page=$pageIndex', level: ConsoleLogLevel.info);
     } catch (e) {
       _log('sendSetPage failed: $e', level: ConsoleLogLevel.error);
     }

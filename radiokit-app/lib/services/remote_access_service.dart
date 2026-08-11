@@ -880,7 +880,8 @@ class RemoteAccessService {
       if (target == null) {
         return _error('not_found', 'BLE device $id not found in scan results');
       }
-      _deviceProvider.setTransport(_bleProvider.bleService);
+      TransportService transport = BleTransport(_bleProvider.bleService);
+      _deviceProvider.setTransport(transport);
     } else if (type == 'serial') {
       target = _serialProvider.ports.where((p) => p.id == id).firstOrNull;
       if (target == null) {
@@ -926,28 +927,44 @@ class RemoteAccessService {
       if (!id.startsWith('ws://') && !id.startsWith('wss://')) {
         return _error('invalid_url', 'WiFi ID must be a WebSocket URL (ws:// or wss://)');
       }
-    target = DeviceInfo(
-      id: id,
-      name: Uri.tryParse(id)?.host ?? id,
-      rssi: 0,
-      hasFs: false,
-      currentTransport: TransportType.wifi,
-      transportAddress: id,
-    );
+      target = DeviceInfo(
+        id: id,
+        name: Uri.tryParse(id)?.host ?? id,
+        rssi: 0,
+        hasFs: false,
+        currentTransport: TransportType.wifi,
+        transportAddress: id,
+      );
       _deviceProvider.setTransport(WebSocketService());
     } else {
       return _error('invalid_type', "type must be 'ble', 'serial', or 'wifi'");
     }
 
     try {
-      await _deviceProvider.connectToDevice(target, baudRate: baudRate);
+      final multi = _getMulti();
+      if (multi != null) {
+        final transport = type == 'ble'
+            ? BleTransport(_bleProvider.bleService)
+            : type == 'serial'
+                ? _serialProvider.serialService
+                : WebSocketService();
+        final dp = await multi.connectDevice(
+          device: target,
+          transport: transport,
+          baudRate: baudRate,
+        );
+        multi.setFocusedDevice(dp.connectedDevice?.id ?? target.id);
+      } else {
+        await _deviceProvider.connectToDevice(target, baudRate: baudRate);
+      }
     } catch (e) {
       return _error('connection_failed', e.toString(), status: 500);
     }
 
-    if (!_deviceProvider.isConnected) {
+    final activeDp = _getMulti()?.primaryDevice ?? _deviceProvider;
+    if (!activeDp.isConnected) {
       return _error('connection_failed',
-          _deviceProvider.errorMessage ?? 'Connection failed',
+          activeDp.errorMessage ?? 'Connection failed',
           status: 500);
     }
 
@@ -3109,20 +3126,22 @@ class RemoteAccessService {
 
   /// Handle GET /api/page — returns current page index, total pages, and page names.
   Future<Response> _handleGetPage(Request request) async {
-    if (!_deviceProvider.isConnected) {
+    final dp = _getMulti()?.primaryDevice ?? _deviceProvider;
+    if (!dp.isConnected) {
       return _error('not_connected', 'Not connected to a device', status: 503);
     }
     return _json({
-      'activePage': _deviceProvider.activePage,
-      'numPages': _deviceProvider.numPages,
-      'pages': _deviceProvider.pageNames,
+      'activePage': dp.activePage,
+      'numPages': dp.numPages,
+      'pages': dp.pageNames,
     });
   }
 
   /// Handle POST /api/page — switch to a specific page.
   /// Body: { "page": 0 }
   Future<Response> _handleSetPage(Request request) async {
-    if (!_deviceProvider.isConnected) {
+    final dp = _getMulti()?.primaryDevice ?? _deviceProvider;
+    if (!dp.isConnected) {
       return _error('not_connected', 'Not connected to a device', status: 503);
     }
     final body = await _parseBody(request);
@@ -3130,13 +3149,13 @@ class RemoteAccessService {
     if (page == null) {
       return _error('invalid_params', 'page is required');
     }
-    if (page < 0 || page >= _deviceProvider.numPages) {
+    if (page < 0 || page >= dp.numPages) {
       return _error('invalid_page',
-          'page must be between 0 and ${_deviceProvider.numPages - 1}',
+          'page must be between 0 and ${dp.numPages - 1}',
           status: 400);
     }
     try {
-      await _deviceProvider.sendSetPage(page);
+      await dp.sendSetPage(page);
       return _json({
         'ok': true,
         'page': page,
@@ -3149,13 +3168,14 @@ class RemoteAccessService {
 
   /// Handle GET /api/pages — returns the page name list with metadata.
   Future<Response> _handleGetPages(Request request) async {
-    if (!_deviceProvider.isConnected) {
+    final dp = _getMulti()?.primaryDevice ?? _deviceProvider;
+    if (!dp.isConnected) {
       return _error('not_connected', 'Not connected to a device', status: 503);
     }
     return _json({
-      'pages': _deviceProvider.pageNames,
-      'numPages': _deviceProvider.numPages,
-      'activePage': _deviceProvider.activePage,
+      'pages': dp.pageNames,
+      'numPages': dp.numPages,
+      'activePage': dp.activePage,
     });
   }
 

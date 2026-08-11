@@ -406,6 +406,21 @@ void main() {
       expect(provider.getDevice('DEMO_WIDGETS_DEMO'), isNull);
       expect(provider.getDevice('DEMO_RC_CONTROLLER'), dp2);
     });
+
+    test('MULTI_PAGE_DEMO loads multiple pages and switches pages correctly', () async {
+      final dp = await provider.connectDemo('MULTI_PAGE_DEMO');
+      expect(dp.numPages, 2);
+      expect(dp.pageNames, ['Control', 'Settings']);
+      expect(dp.activePage, 0);
+      expect(dp.widgets.where((w) => w.pageIndex == 0).length, 3);
+      expect(dp.widgets.where((w) => w.pageIndex == 1).length, 2);
+
+      await dp.sendSetPage(1);
+      expect(dp.activePage, 1);
+
+      await dp.sendSetPage(0);
+      expect(dp.activePage, 0);
+    });
   });
 }
 
