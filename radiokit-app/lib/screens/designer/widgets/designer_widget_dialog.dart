@@ -196,123 +196,144 @@ class _SheetGridItem extends StatelessWidget {
     // Use defaultSize aspect ratios for preview proportions so widgets
     // always render in their expected shape. Scale up for visibility.
     final (defW, defH) = DesignerElement.defaultSize(variant.type);
-    final previewSize = 44.0;
+    final double scale = 2.0;
+    final double targetWidth = defW * scale;
+    final double targetHeight = defH * scale;
 
+    Widget rawPreview;
     switch (variant.type) {
       case DesignerElementType.button:
-        return RKButton(
+        rawPreview = RKButton(
           mode: variant.properties['variant'] == 'toggle'
               ? RKButtonMode.toggle
               : RKButtonMode.push,
           onText: variant.properties['onText'] ?? 'ON',
           offText: variant.properties['offText'] ?? 'OFF',
-          size: previewSize,
+          size: targetWidth,
           onChanged: (_) {},
           showDebug: false,
         );
+        break;
       case DesignerElementType.slideSwitch:
-        final aspect = defW / defH.clamp(1, 999);
-        final w = previewSize * (aspect > 1 ? 1.0 : aspect);
-        final h = previewSize / (aspect > 1 ? aspect : 1.0);
-        return RKSlideSwitch(
+        rawPreview = RKSlideSwitch(
           value: false,
           onText: variant.properties['onText'] ?? 'ON',
           offText: variant.properties['offText'] ?? 'OFF',
-          width: w.clamp(20, 60),
-          height: h.clamp(12, 30),
+          width: targetWidth,
+          height: targetHeight,
           onChanged: (_) {},
           showDebug: false,
         );
+        break;
       case DesignerElementType.rockerSwitch:
-        final aspect = defW / defH.clamp(1, 999);
-        final h = previewSize;
-        final w = h * aspect;
-        return RKRockerSwitch(
+        rawPreview = RKRockerSwitch(
           value: false,
-          width: w.clamp(14, 30),
-          height: h.clamp(30, 50),
+          width: targetWidth,
+          height: targetHeight,
           onChanged: (_) {},
           showDebug: false,
         );
+        break;
       case DesignerElementType.slider:
-        return RKSlider(
+        rawPreview = RKSlider(
           value: 0.5,
           orientation: RKAxis.horizontal,
-          thickness: 6,
-          length: 56,
+          thickness: targetHeight,
+          length: targetWidth,
           onChanged: (_) {},
           showDebug: false,
         );
+        break;
       case DesignerElementType.steeringWheel:
-        return RKSteeringWheel(
+        rawPreview = RKSteeringWheel(
           value: 0.5,
-          size: previewSize,
+          size: targetWidth,
           onChanged: (_) {},
           showDebug: false,
         );
+        break;
       case DesignerElementType.knob:
-        return RKKnob(
+        rawPreview = RKKnob(
           value: 0.5,
-          size: previewSize,
+          size: targetWidth,
           onChanged: (_) {},
           showDebug: false,
         );
+        break;
       case DesignerElementType.joystick:
-        return RKJoystick(
-          size: previewSize,
+        rawPreview = RKJoystick(
+          size: targetWidth,
           onChanged: (_) {},
           showDebug: false,
         );
+        break;
       case DesignerElementType.multiButton:
-        return RKMultiButton(
-          items: List.generate(3, (i) => RKToggleItem(onLabel: String.fromCharCode(65 + i))),
+        rawPreview = RKMultiButton(
+          items: List.generate(
+              3, (i) => RKToggleItem(onLabel: String.fromCharCode(65 + i))),
           selected: 0,
-          buttonSize: 14,
+          buttonSize: targetHeight,
           orientation: RKAxis.horizontal,
           onChanged: (_) {},
           showDebug: false,
         );
+        break;
       case DesignerElementType.multiSelect:
-        return RKMultiSelect(
-          items: List.generate(3, (i) => RKToggleItem(onLabel: String.fromCharCode(65 + i))),
+        rawPreview = RKMultiSelect(
+          items: List.generate(
+              3, (i) => RKToggleItem(onLabel: String.fromCharCode(65 + i))),
           bitmask: 0,
-          buttonSize: 14,
+          buttonSize: targetHeight,
           orientation: RKAxis.horizontal,
           onChanged: (_) {},
           showDebug: false,
         );
+        break;
       case DesignerElementType.gasPedal:
-        return RKGasPedal(
+        rawPreview = RKGasPedal(
           value: 0.0,
           orientation: RKAxis.vertical,
-          thickness: 5,
-          length: previewSize - 4,
+          thickness: targetWidth,
+          length: targetHeight,
           onChanged: (_) {},
           showDebug: false,
         );
+        break;
       case DesignerElementType.led:
-        return const RKLed(
+        rawPreview = RKLed(
           state: RKLEDState.on,
           shape: RKLEDShape.circle,
-          size: 24,
+          size: targetWidth,
           showDebug: false,
         );
+        break;
       case DesignerElementType.text:
-        return const RKDisplay(
+        rawPreview = RKDisplay(
           text: 'Display',
           fontSize: 9,
-          width: 56,
-          height: 20,
+          width: targetWidth,
+          height: targetHeight,
           showDebug: false,
         );
+        break;
       case DesignerElementType.serialMonitor:
-        return const RKSerialMonitor(
-          messages: ['> Serial'],
+        rawPreview = RKSerialMonitor(
+          messages: const ['> Serial'],
           fontSize: 7,
-          width: 56,
-          height: 30,
+          width: targetWidth,
+          height: targetHeight,
           showDebug: false,
         );
+        break;
     }
+
+    return FittedBox(
+      fit: BoxFit.contain,
+      child: SizedBox(
+        width: targetWidth,
+        height: targetHeight,
+        child: rawPreview,
+      ),
+    );
   }
 }
