@@ -17,9 +17,20 @@ class RKToggleItem {
     this.offIcon,
   });
 
-  String labelFor(bool selected) =>
-      (selected ? onLabel : offLabel) ?? onLabel ?? '';
-  IconData? iconFor(bool selected) => (selected ? onIcon : offIcon) ?? onIcon;
+  bool get isOffEmpty =>
+      (offIcon == null) && (offLabel == null || offLabel!.isEmpty);
+
+  String labelFor(bool selected) {
+    if (selected) return onLabel ?? '';
+    if (isOffEmpty) return onLabel ?? '';
+    return offLabel ?? '';
+  }
+
+  IconData? iconFor(bool selected) {
+    if (selected) return onIcon;
+    if (isOffEmpty) return onIcon;
+    return offIcon;
+  }
 }
 
 /// Radio-style multi-button group for RadioKit.

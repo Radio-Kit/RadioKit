@@ -237,9 +237,18 @@ class _RKButtonState extends State<RKButton> with SingleTickerProviderStateMixin
   }
 
   List<Widget> _buildContent(double t, Color activeColor, RKTokens tokens) {
-    final currentIcon = (t > 0.5 ? widget.onIcon : widget.offIcon) ?? Icons.power_settings_new_rounded;
-    final currentText = (t > 0.5 ? widget.onText : widget.offText);
-    final hasText = (widget.onText ?? widget.offText) != null;
+    final offIconEmpty = widget.offIcon == null;
+    final offTextEmpty = widget.offText == null || widget.offText!.isEmpty;
+    final fallbackOffToOn = offIconEmpty && offTextEmpty;
+
+    final effectiveOffIcon = fallbackOffToOn ? widget.onIcon : widget.offIcon;
+    final effectiveOffText = fallbackOffToOn ? widget.onText : widget.offText;
+
+    final currentIcon =
+        (t > 0.5 ? widget.onIcon : effectiveOffIcon) ?? Icons.power_settings_new_rounded;
+    final currentText = (t > 0.5 ? widget.onText : effectiveOffText);
+    final hasText = (widget.onText != null && widget.onText!.isNotEmpty) ||
+        (effectiveOffText != null && effectiveOffText.isNotEmpty);
 
     return [
       Icon(
