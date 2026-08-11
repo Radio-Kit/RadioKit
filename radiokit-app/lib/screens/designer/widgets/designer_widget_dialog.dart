@@ -194,11 +194,11 @@ class _SheetGridItem extends StatelessWidget {
 
   Widget _buildPreview() {
     // Use defaultSize aspect ratios for preview proportions so widgets
-    // always render in their expected shape. Scale up for visibility.
+    // fill the maximum available grid cell space in their expected shape.
     final (defW, defH) = DesignerElement.defaultSize(variant.type);
-    final double scale = 2.0;
-    final double targetWidth = defW * scale;
-    final double targetHeight = defH * scale;
+    final double aspect = defW / defH.clamp(1, 999);
+    final double baseWidth = aspect >= 1.0 ? 120.0 : 120.0 * aspect;
+    final double baseHeight = aspect >= 1.0 ? 120.0 / aspect : 120.0;
 
     Widget rawPreview;
     switch (variant.type) {
@@ -209,7 +209,7 @@ class _SheetGridItem extends StatelessWidget {
               : RKButtonMode.push,
           onText: variant.properties['onText'] ?? 'ON',
           offText: variant.properties['offText'] ?? 'OFF',
-          size: targetWidth,
+          size: baseWidth,
           onChanged: (_) {},
           showDebug: false,
         );
@@ -219,8 +219,8 @@ class _SheetGridItem extends StatelessWidget {
           value: false,
           onText: variant.properties['onText'] ?? 'ON',
           offText: variant.properties['offText'] ?? 'OFF',
-          width: targetWidth,
-          height: targetHeight,
+          width: baseWidth,
+          height: baseHeight,
           onChanged: (_) {},
           showDebug: false,
         );
@@ -228,8 +228,8 @@ class _SheetGridItem extends StatelessWidget {
       case DesignerElementType.rockerSwitch:
         rawPreview = RKRockerSwitch(
           value: false,
-          width: targetWidth,
-          height: targetHeight,
+          width: baseWidth,
+          height: baseHeight,
           onChanged: (_) {},
           showDebug: false,
         );
@@ -238,8 +238,8 @@ class _SheetGridItem extends StatelessWidget {
         rawPreview = RKSlider(
           value: 0.5,
           orientation: RKAxis.horizontal,
-          thickness: targetHeight,
-          length: targetWidth,
+          thickness: baseHeight,
+          length: baseWidth,
           onChanged: (_) {},
           showDebug: false,
         );
@@ -247,7 +247,7 @@ class _SheetGridItem extends StatelessWidget {
       case DesignerElementType.steeringWheel:
         rawPreview = RKSteeringWheel(
           value: 0.5,
-          size: targetWidth,
+          size: baseWidth,
           onChanged: (_) {},
           showDebug: false,
         );
@@ -255,14 +255,14 @@ class _SheetGridItem extends StatelessWidget {
       case DesignerElementType.knob:
         rawPreview = RKKnob(
           value: 0.5,
-          size: targetWidth,
+          size: baseWidth,
           onChanged: (_) {},
           showDebug: false,
         );
         break;
       case DesignerElementType.joystick:
         rawPreview = RKJoystick(
-          size: targetWidth,
+          size: baseWidth,
           onChanged: (_) {},
           showDebug: false,
         );
@@ -272,7 +272,7 @@ class _SheetGridItem extends StatelessWidget {
           items: List.generate(
               3, (i) => RKToggleItem(onLabel: String.fromCharCode(65 + i))),
           selected: 0,
-          buttonSize: targetHeight,
+          buttonSize: baseHeight,
           orientation: RKAxis.horizontal,
           onChanged: (_) {},
           showDebug: false,
@@ -283,7 +283,7 @@ class _SheetGridItem extends StatelessWidget {
           items: List.generate(
               3, (i) => RKToggleItem(onLabel: String.fromCharCode(65 + i))),
           bitmask: 0,
-          buttonSize: targetHeight,
+          buttonSize: baseHeight,
           orientation: RKAxis.horizontal,
           onChanged: (_) {},
           showDebug: false,
@@ -293,8 +293,8 @@ class _SheetGridItem extends StatelessWidget {
         rawPreview = RKGasPedal(
           value: 0.0,
           orientation: RKAxis.vertical,
-          thickness: targetWidth,
-          length: targetHeight,
+          thickness: baseWidth,
+          length: baseHeight,
           onChanged: (_) {},
           showDebug: false,
         );
@@ -303,36 +303,39 @@ class _SheetGridItem extends StatelessWidget {
         rawPreview = RKLed(
           state: RKLEDState.on,
           shape: RKLEDShape.circle,
-          size: targetWidth,
+          size: baseWidth,
           showDebug: false,
         );
         break;
       case DesignerElementType.text:
         rawPreview = RKDisplay(
           text: 'Display',
-          fontSize: 9,
-          width: targetWidth,
-          height: targetHeight,
+          fontSize: 10,
+          width: baseWidth,
+          height: baseHeight,
           showDebug: false,
         );
         break;
       case DesignerElementType.serialMonitor:
         rawPreview = RKSerialMonitor(
           messages: const ['> Serial'],
-          fontSize: 7,
-          width: targetWidth,
-          height: targetHeight,
+          fontSize: 8,
+          width: baseWidth,
+          height: baseHeight,
           showDebug: false,
         );
         break;
     }
 
-    return FittedBox(
-      fit: BoxFit.contain,
-      child: SizedBox(
-        width: targetWidth,
-        height: targetHeight,
-        child: rawPreview,
+    return AspectRatio(
+      aspectRatio: aspect,
+      child: FittedBox(
+        fit: BoxFit.contain,
+        child: SizedBox(
+          width: baseWidth,
+          height: baseHeight,
+          child: rawPreview,
+        ),
       ),
     );
   }
