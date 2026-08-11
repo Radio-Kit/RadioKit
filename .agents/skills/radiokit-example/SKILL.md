@@ -126,6 +126,7 @@ void loop() {
 5. **Config before `begin()`** — Set `RadioKit.config.*` fields before calling `RadioKit.begin()`.
 6. **Transport after `begin()`** — Call `startBLE()`, `startSerial()`, or `startWiFi()` after `begin()`.
 7. **Password is optional** — Set `RadioKit.config.password = "secret"` only if auth is needed.
+8. **Mandatory Flash Erase on Upload** — Upload code with the flash erase option (`pio run -t upload --erase` / `-erase` / `eraseAll: true`) unless previous NVS settings explicitly need to be preserved. Prevents stale device names and old configuration parameters from persisting across flashes.
 
 ## Transport Selection
 

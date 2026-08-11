@@ -496,12 +496,12 @@ if [ "$HAS_OTA" != "true" ]; then
   exit 1
 fi
 
-# 3. Upload firmware
+# 3. Upload firmware (eraseAll: true ensures stale NVS settings are cleared)
 echo "Uploading firmware..."
 FIRMWARE_B64=$(base64 -w0 "$FIRMWARE_PATH")
 RESULT=$(curl -s -X POST http://127.0.0.1:7007/api/ota/upload \
   -H 'Content-Type: application/json' \
-  -d "{\"data\": \"$FIRMWARE_B64\", \"eraseAll\": false}")
+  -d "{\"data\": \"$FIRMWARE_B64\", \"eraseAll\": true}")
 
 echo "$RESULT" | jq .
 

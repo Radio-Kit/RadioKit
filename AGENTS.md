@@ -12,6 +12,12 @@
 - **Action**: If you add/remove/update a function, update its corresponding `.mdx` file in the `website/src/content/docs/` folder. If you change a parameter type, update the signature in the documentation.
 - **Goal**: Ensure that the library remains "Plug-and-Play" for human users at all times.
 
+## 1.1 Firmware Flash Erase Policy
+
+- **Rule**: Every time code is uploaded to a target device (via PlatformIO, esptool, OTA, or flasher API), the upload MUST include the flash erase option (`-erase` / `--erase` / `eraseAll: true`) unless previous NVS settings explicitly need to be preserved.
+- **Rationale**: ESP32 NVS stores runtime parameters (device name, WiFi credentials, passwords) across flashes. Without an erase, stale NVS values override new sketch settings at boot, causing the device to advertise under an old BLE name or fail connection attempts.
+- **Action**: When running upload commands or invoking flasher APIs during development and testing, always specify the erase flash flag.
+
 ## 2. Using DeepWiki MCP and Github MCP for Research
 
 When working on tasks that require understanding external libraries or codebases, use the **DeepWiki MCP** and **Github MCP** tools before writing or modifying any code.

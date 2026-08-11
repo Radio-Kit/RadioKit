@@ -139,6 +139,6 @@ Template file: `rk-arduino/examples/WiFiCloudSwitch/partitions_ota_4MB.csv`
 1. **Test OTA locally first** -- Use Serial transport for initial development
 2. **Include version in UI** -- Show firmware version in the app's device info
 3. **Handle failures gracefully** -- OTA can fail mid-transfer (network drop, power loss). The device will remain on the old firmware.
-4. **Don't erase FS by default** -- Only erase if the update changes the data schema
+4. **Mandatory Flash Erase on Upload (`eraseAll: true`)** -- When uploading code updates during development or re-flashing devices, specify `eraseAll: true` (or `--erase`) to clear stale NVS config unless preserving existing device settings is explicitly required.
 5. **Use CRC verification** -- The library handles this automatically
 6. **Keep a serial fallback** -- If OTA fails completely, Serial can recover the device

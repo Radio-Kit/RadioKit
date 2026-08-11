@@ -276,6 +276,7 @@ RKNvs::eraseAll();          // Factory reset
 6. **String fields must be `const char*`** -- point to string literals, not dynamically allocated buffers.
 7. **Set `rk` fields directly** -- the library's shadow comparison detects changes and auto-pushes.
 8. **NVS overrides compile-time config** -- after first boot, NVS is the source of truth.
+9. **Mandatory Flash Erase on Upload** -- Every time code is uploaded to a target device (via PlatformIO, esptool, OTA, or app flasher), the upload MUST include the flash erase option (`-erase` / `eraseAll: true`) unless previous settings explicitly need to be preserved. This prevents stale NVS settings (such as old BLE advertised names or outdated WiFi credentials) from persisting and overriding new sketch code.
 
 ## Example Projects
 
