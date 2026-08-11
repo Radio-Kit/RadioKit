@@ -596,7 +596,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                 ),
                 SizedBox(width: 6),
                 Text(
-                  isPlay ? 'DONE' : 'TEST',
+                  isPlay ? 'DONE' : 'PREVIEW',
                   style: TextStyle(
                     color: isPlay ? tokens.success : tokens.primary,
                     fontSize: 11,
