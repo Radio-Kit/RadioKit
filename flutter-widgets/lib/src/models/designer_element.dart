@@ -300,6 +300,7 @@ class DesignerElement {
       {int currentWidth = 0, int currentHeight = 0}) {
     switch (type) {
       case DesignerElementType.button:
+        return (10, 10);
       case DesignerElementType.knob:
       case DesignerElementType.steeringWheel:
       case DesignerElementType.joystick:

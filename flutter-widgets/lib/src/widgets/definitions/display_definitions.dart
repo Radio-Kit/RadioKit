@@ -86,6 +86,7 @@ class MultiButtonWidgetDefinition extends WidgetDefinition {
 
   @override
   Map<String, dynamic> get defaultProperties => {
+        'variant': 'toggle',
         'itemCount': 3,
         'items': [
           {'onLabel': 'A', 'onIcon': null, 'offLabel': null, 'offIcon': null},
@@ -96,6 +97,11 @@ class MultiButtonWidgetDefinition extends WidgetDefinition {
 
   @override
   List<InspectorPropertySchema> get propertiesSchema => const [
+        OptionPropertySchema(
+          key: 'variant',
+          label: 'Button Mode',
+          options: ['toggle', 'select'],
+        ),
         NumPropertySchema(key: 'itemCount', label: 'Button Count', min: 2, max: 8),
       ];
 
@@ -168,6 +174,7 @@ class MultiSelectWidgetDefinition extends WidgetDefinition {
 
   @override
   Map<String, dynamic> get defaultProperties => {
+        'variant': 'toggle',
         'itemCount': 3,
         'items': [
           {'onLabel': 'A', 'onIcon': null, 'offLabel': null, 'offIcon': null},
@@ -178,6 +185,11 @@ class MultiSelectWidgetDefinition extends WidgetDefinition {
 
   @override
   List<InspectorPropertySchema> get propertiesSchema => const [
+        OptionPropertySchema(
+          key: 'variant',
+          label: 'Button Mode',
+          options: ['toggle', 'select'],
+        ),
         NumPropertySchema(key: 'itemCount', label: 'Item Count', min: 2, max: 8),
       ];
 

@@ -41,6 +41,11 @@ class SliderWidgetDefinition extends WidgetDefinition {
         NumPropertySchema(key: 'min', label: 'Minimum'),
         NumPropertySchema(key: 'max', label: 'Maximum'),
         NumPropertySchema(key: 'divisions', label: 'Divisions'),
+        OptionPropertySchema(
+          key: 'autoCenterPosition',
+          label: 'Auto Center',
+          options: ['none', 'min', 'center', 'max'],
+        ),
       ];
 
   @override
@@ -229,6 +234,11 @@ class GasPedalWidgetDefinition extends WidgetDefinition {
         NumPropertySchema(key: 'min', label: 'Minimum'),
         NumPropertySchema(key: 'max', label: 'Maximum'),
         NumPropertySchema(key: 'divisions', label: 'Divisions'),
+        OptionPropertySchema(
+          key: 'autoCenterPosition',
+          label: 'Auto Center',
+          options: ['none', 'min', 'center', 'max'],
+        ),
       ];
 
   @override

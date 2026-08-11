@@ -388,12 +388,12 @@ class JsonArduinoGenerator {
 
       case 'multiple': {
         final v = variant ?? props['variant'] as String?;
-        if (v == 'multiSelect') {
+        if (v == 'select' || v == 'multiSelect') {
           _buildMultiple('RK_MultipleSelect', name, x, y, cppW, cppH,
-              rotation, props, comment, declBuf, setupBuf, labelText, showLabel, pageIndex: pageIndex);
+              rotation, props, comment, declBuf, setupBuf, labelText, showLabel, pageIndex: pageIndex, variant: v);
         } else {
           _buildMultiple('RK_MultipleButton', name, x, y, cppW, cppH,
-              rotation, props, comment, declBuf, setupBuf, labelText, showLabel, pageIndex: pageIndex);
+              rotation, props, comment, declBuf, setupBuf, labelText, showLabel, pageIndex: pageIndex, variant: v);
         }
         break;
       }
@@ -525,13 +525,15 @@ class JsonArduinoGenerator {
 
   static void _buildMultiple(String widgetType, String name, int x, int y,
       int w, int h, int rot, Map<String, dynamic> props, String comment, StringBuffer declBuf, StringBuffer setupBuf,
-      String labelText, bool showLabel, {int pageIndex = 0}) {
+      String labelText, bool showLabel, {int pageIndex = 0, String? variant}) {
     final items = props['items'] as List? ?? [];
     
     declBuf.writeln('$widgetType $name($x, $y, $h, $w, $rot);$comment');
     if (pageIndex > 0) {
       setupBuf.writeln('  $name.setPage($pageIndex);');
     }
+    final mode = variant == 'push' ? 'RK_BUTTON_PUSH' : 'RK_BUTTON_TOGGLE';
+    setupBuf.writeln('  $name.setMode($mode);');
     if (labelText.isNotEmpty) {
       setupBuf.writeln('  $name.rk.label = "${_escapeC(labelText)}";');
     }

@@ -36,11 +36,11 @@ double _acPosition(List<dynamic>? ac) {
   }
 }
 
-/// Converts a numeric value back to a position label for the inspector UI.
-String _acPositionLabel(double value) {
-  if (value <= 0.0) return 'min';
-  if (value >= 1.0) return 'max';
-  return 'center';
+/// Converts an autoCenter array to its position label for the inspector UI ('none', 'min', 'center', 'max').
+String _acPositionLabel(List<dynamic>? ac) {
+  final pos = ac?[0] as String?;
+  if (pos == null) return 'none';
+  return pos;
 }
 
 /// Returns the spring type string from position [1].
@@ -1214,53 +1214,6 @@ class _DesignerInspectorState extends State<DesignerInspector> {
   List<Widget> _buildBehaviorFields(RKTokens tokens, DesignerElement el) {
     final fields = <Widget>[];
 
-    final definition = WidgetRegistry.instance.getByType(el.type);
-    if (definition != null && definition.propertiesSchema.isNotEmpty) {
-      for (final schema in definition.propertiesSchema) {
-        final val = el.properties[schema.key];
-        if (schema is NumPropertySchema) {
-          fields.add(InspectorFieldBuilders.buildNumField(
-            tokens,
-            schema.label,
-            (val as num?)?.toInt() ?? 0,
-            (v) => widget.state.updateElementProperty(el.id, schema.key, v),
-            min: schema.min,
-            max: schema.max,
-          ));
-        } else if (schema is BoolPropertySchema) {
-          fields.add(InspectorFieldBuilders.buildBoolToggle(
-            tokens,
-            schema.label,
-            (val as bool?) ?? true,
-            (v) => widget.state.updateElementProperty(el.id, schema.key, v),
-          ));
-        } else if (schema is OptionPropertySchema) {
-          fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(
-            tokens,
-            schema.label,
-            (val as String?) ?? schema.options.first,
-            schema.options,
-            (v) => widget.state.updateElementProperty(el.id, schema.key, v),
-          ));
-        } else if (schema is IconPropertySchema) {
-          fields.add(IconFieldBuilder.buildIconSelectorField(
-            context,
-            schema.label,
-            val as String?,
-            (v) => widget.state.updateElementProperty(el.id, schema.key, v),
-          ));
-        } else if (schema is TextPropertySchema) {
-          fields.add(InspectorFieldBuilders.buildTextField(
-            tokens,
-            schema.label,
-            (val as String?) ?? '',
-            (v) => widget.state.updateElementProperty(el.id, schema.key, v),
-          ));
-        }
-      }
-      return fields;
-    }
-
     switch (el.type) {
       case DesignerElementType.button:
         fields.add(InspectorFieldBuilders.buildCenterPinnedSelector(
@@ -1351,48 +1304,39 @@ class _DesignerInspectorState extends State<DesignerInspector> {
             ),
           ),
         ));
-        fields.add(InspectorFieldBuilders.buildBoolToggle(
-            tokens,
-            'AutoCenter',
-            _acEnabled(el.properties['autoCenter'] as List?),
-            (v) {
-              final pos = v ? 'center' : null;
-              _updateACArrayProp(widget.state, el.id,
-                  el.properties['autoCenter'] as List?, 0, pos);
-            }));
-        final autoCenterSlider = _acEnabled(el.properties['autoCenter'] as List?);
-        if (autoCenterSlider) {
-          final double centerVal = _acPosition(el.properties['autoCenter'] as List?);
-          String positionString = _acPositionLabel(centerVal);
-          fields.add(InspectorFieldBuilders.buildOptionSelector(
-            tokens,
-            'Position',
-            positionString,
-            ['min', 'center', 'max'],
-            (v) {
-              _updateACArrayProp(widget.state, el.id,
-                  el.properties['autoCenter'] as List?, 0, v);
-            },
-          ));
+        final acSliderList = el.properties['autoCenter'] as List?;
+        String positionStringSlider = _acPositionLabel(acSliderList);
+        fields.add(InspectorFieldBuilders.buildOptionSelector(
+          tokens,
+          'Auto Center',
+          positionStringSlider,
+          ['none', 'min', 'center', 'max'],
+          (v) {
+            final targetPos = v == 'none' ? null : v;
+            _updateACArrayProp(
+                widget.state, el.id, acSliderList, 0, targetPos);
+          },
+        ));
+        if (positionStringSlider != 'none') {
           fields.add(InspectorFieldBuilders.buildOptionSelector(
               tokens,
               'Spring',
-              _acType(el.properties['autoCenter'] as List?),
+              _acType(acSliderList),
               ['smooth', 'elastic', 'linear'],
               (v) => _updateACArrayProp(
                   widget.state,
                   el.id,
-                  el.properties['autoCenter'] as List?,
+                  acSliderList,
                   1,
                   v)));
           fields.add(InspectorFieldBuilders.buildNumField(
               tokens,
               'Dur. (ms)',
-              _acDuration(el.properties['autoCenter'] as List?, 300),
+              _acDuration(acSliderList, 300),
               (v) => _updateACArrayProp(
                   widget.state,
                   el.id,
-                  el.properties['autoCenter'] as List?,
+                  acSliderList,
                   2,
                   v)));
         }
@@ -1443,49 +1387,39 @@ class _DesignerInspectorState extends State<DesignerInspector> {
             (v) => widget.state.updateElementProperty(el.id, 'maxAngle', v),
             min: -360.0,
             max: 360.0));
-        fields.add(InspectorFieldBuilders.buildBoolToggle(
-            tokens,
-            'AutoCenter',
-            _acEnabled(el.properties['autoCenter'] as List?),
-            (v) {
-              final pos = v ? 'center' : null;
-              _updateACArrayProp(widget.state, el.id,
-                  el.properties['autoCenter'] as List?, 0, pos);
-            }));
-        final autoCenterKnob = _acEnabled(el.properties['autoCenter'] as List?);
-        if (autoCenterKnob) {
-          final double centerVal =
-              _acPosition(el.properties['autoCenter'] as List?);
-          String positionString = _acPositionLabel(centerVal);
-          fields.add(InspectorFieldBuilders.buildOptionSelector(
-            tokens,
-            'Position',
-            positionString,
-            ['min', 'center', 'max'],
-            (v) {
-              _updateACArrayProp(widget.state, el.id,
-                  el.properties['autoCenter'] as List?, 0, v);
-            },
-          ));
+        final acKnobList = el.properties['autoCenter'] as List?;
+        String positionStringKnob = _acPositionLabel(acKnobList);
+        fields.add(InspectorFieldBuilders.buildOptionSelector(
+          tokens,
+          'Auto Center',
+          positionStringKnob,
+          ['none', 'min', 'center', 'max'],
+          (v) {
+            final targetPos = v == 'none' ? null : v;
+            _updateACArrayProp(
+                widget.state, el.id, acKnobList, 0, targetPos);
+          },
+        ));
+        if (positionStringKnob != 'none') {
           fields.add(InspectorFieldBuilders.buildOptionSelector(
               tokens,
               'Spring',
-              _acType(el.properties['autoCenter'] as List?),
+              _acType(acKnobList),
               ['smooth', 'elastic', 'linear'],
               (v) => _updateACArrayProp(
                   widget.state,
                   el.id,
-                  el.properties['autoCenter'] as List?,
+                  acKnobList,
                   1,
                   v)));
           fields.add(InspectorFieldBuilders.buildNumField(
               tokens,
               'Dur. (ms)',
-              _acDuration(el.properties['autoCenter'] as List?, 500),
+              _acDuration(acKnobList, 500),
               (v) => _updateACArrayProp(
                   widget.state,
                   el.id,
-                  el.properties['autoCenter'] as List?,
+                  acKnobList,
                   2,
                   v)));
         }
@@ -1536,49 +1470,39 @@ class _DesignerInspectorState extends State<DesignerInspector> {
             (v) => widget.state.updateElementProperty(el.id, 'maxAngle', v),
             min: -360.0,
             max: 360.0));
-        fields.add(InspectorFieldBuilders.buildBoolToggle(
-            tokens,
-            'AutoCenter',
-            _acEnabled(el.properties['autoCenter'] as List?),
-            (v) {
-              final pos = v ? 'center' : null;
-              _updateACArrayProp(widget.state, el.id,
-                  el.properties['autoCenter'] as List?, 0, pos);
-            }));
-        final autoCenterSteering = _acEnabled(el.properties['autoCenter'] as List?);
-        if (autoCenterSteering) {
-          final double centerVal =
-              _acPosition(el.properties['autoCenter'] as List?);
-          String positionString = _acPositionLabel(centerVal);
-          fields.add(InspectorFieldBuilders.buildOptionSelector(
-            tokens,
-            'Position',
-            positionString,
-            ['min', 'center', 'max'],
-            (v) {
-              _updateACArrayProp(widget.state, el.id,
-                  el.properties['autoCenter'] as List?, 0, v);
-            },
-          ));
+        final acSteeringList = el.properties['autoCenter'] as List?;
+        String positionStringSteering = _acPositionLabel(acSteeringList);
+        fields.add(InspectorFieldBuilders.buildOptionSelector(
+          tokens,
+          'Auto Center',
+          positionStringSteering,
+          ['none', 'min', 'center', 'max'],
+          (v) {
+            final targetPos = v == 'none' ? null : v;
+            _updateACArrayProp(
+                widget.state, el.id, acSteeringList, 0, targetPos);
+          },
+        ));
+        if (positionStringSteering != 'none') {
           fields.add(InspectorFieldBuilders.buildOptionSelector(
               tokens,
               'Spring',
-              _acType(el.properties['autoCenter'] as List?),
+              _acType(acSteeringList),
               ['smooth', 'elastic', 'linear'],
               (v) => _updateACArrayProp(
                   widget.state,
                   el.id,
-                  el.properties['autoCenter'] as List?,
+                  acSteeringList,
                   1,
                   v)));
           fields.add(InspectorFieldBuilders.buildNumField(
               tokens,
               'Dur. (ms)',
-              _acDuration(el.properties['autoCenter'] as List?, 500),
+              _acDuration(acSteeringList, 500),
               (v) => _updateACArrayProp(
                   widget.state,
                   el.id,
-                  el.properties['autoCenter'] as List?,
+                  acSteeringList,
                   2,
                   v)));
         }
@@ -1653,13 +1577,19 @@ class _DesignerInspectorState extends State<DesignerInspector> {
         break;
 
       case DesignerElementType.multiButton:
+        fields.add(InspectorFieldBuilders.buildOptionSelector(
+          tokens,
+          'Button Mode',
+          (el.properties['variant'] as String?) ?? 'toggle',
+          ['toggle', 'select'],
+          (v) => widget.state.updateElementProperty(el.id, 'variant', v),
+        ));
         fields.add(InspectorFieldBuilders.buildBoolToggle(
             tokens,
             'Haptics',
             el.properties['haptic'] ?? true,
             (v) => widget.state.updateElementProperty(el.id, 'haptic', v)));
         fields.add(_buildMultiItemCountField(tokens, el));
-        fields.add(_buildMultiOrientationField(tokens, el));
         fields.add(_DesignerMultiItemEditor(
           elementId: el.id,
           items: _getMultiItems(el),
@@ -1670,13 +1600,19 @@ class _DesignerInspectorState extends State<DesignerInspector> {
         break;
 
       case DesignerElementType.multiSelect:
+        fields.add(InspectorFieldBuilders.buildOptionSelector(
+          tokens,
+          'Button Mode',
+          (el.properties['variant'] as String?) ?? 'select',
+          ['toggle', 'select'],
+          (v) => widget.state.updateElementProperty(el.id, 'variant', v),
+        ));
         fields.add(InspectorFieldBuilders.buildBoolToggle(
             tokens,
             'Haptics',
             el.properties['haptic'] ?? true,
             (v) => widget.state.updateElementProperty(el.id, 'haptic', v)));
         fields.add(_buildMultiItemCountField(tokens, el));
-        fields.add(_buildMultiOrientationField(tokens, el));
         fields.add(_DesignerMultiItemEditor(
           elementId: el.id,
           items: _getMultiItems(el),
@@ -1712,49 +1648,39 @@ class _DesignerInspectorState extends State<DesignerInspector> {
             ),
           ),
         ));
-        fields.add(InspectorFieldBuilders.buildBoolToggle(
-            tokens,
-            'AutoCenter',
-            _acEnabled(el.properties['autoCenter'] as List?),
-            (v) {
-              final pos = v ? 'center' : null;
-              _updateACArrayProp(widget.state, el.id,
-                  el.properties['autoCenter'] as List?, 0, pos);
-            }));
-        final autoCenterPedal = _acEnabled(el.properties['autoCenter'] as List?);
-        if (autoCenterPedal) {
-          final double centerVal =
-              _acPosition(el.properties['autoCenter'] as List?);
-          String positionString = _acPositionLabel(centerVal);
-          fields.add(InspectorFieldBuilders.buildOptionSelector(
-            tokens,
-            'Position',
-            positionString,
-            ['min', 'center', 'max'],
-            (v) {
-              _updateACArrayProp(widget.state, el.id,
-                  el.properties['autoCenter'] as List?, 0, v);
-            },
-          ));
+        final acPedalList = el.properties['autoCenter'] as List?;
+        String positionStringPedal = _acPositionLabel(acPedalList);
+        fields.add(InspectorFieldBuilders.buildOptionSelector(
+          tokens,
+          'Auto Center',
+          positionStringPedal,
+          ['none', 'min', 'center', 'max'],
+          (v) {
+            final targetPos = v == 'none' ? null : v;
+            _updateACArrayProp(
+                widget.state, el.id, acPedalList, 0, targetPos);
+          },
+        ));
+        if (positionStringPedal != 'none') {
           fields.add(InspectorFieldBuilders.buildOptionSelector(
               tokens,
               'Spring',
-              _acType(el.properties['autoCenter'] as List?),
+              _acType(acPedalList),
               ['smooth', 'elastic', 'linear'],
               (v) => _updateACArrayProp(
                   widget.state,
                   el.id,
-                  el.properties['autoCenter'] as List?,
+                  acPedalList,
                   1,
                   v)));
           fields.add(InspectorFieldBuilders.buildNumField(
               tokens,
               'Dur. (ms)',
-              _acDuration(el.properties['autoCenter'] as List?, 300),
+              _acDuration(acPedalList, 300),
               (v) => _updateACArrayProp(
                   widget.state,
                   el.id,
-                  el.properties['autoCenter'] as List?,
+                  acPedalList,
                   2,
                   v)));
         }
@@ -1992,7 +1918,7 @@ class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
             final offLabel = item['offLabel'] as String?;
             final offIconName = item['offIcon'] as String?;
 
-            final showOn = onLabel != null || onIconName != null;
+            const showOn = true;
             final showOff = widget.showOffState;
 
             if (!showOn && !showOff) return const SizedBox.shrink();
@@ -2012,9 +1938,9 @@ class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
                     ),
                   ),
                   if (showOn) ...[
-                    SizedBox(height: 6),
-                    _buildCompactStateRow(
-                      context,
+                    const SizedBox(height: 6),
+                    _ItemStateRowWidget(
+                      key: ValueKey('item_${i}_on'),
                       label: 'ON',
                       textValue: onLabel ?? '',
                       iconName: onIconName,
@@ -2024,12 +1950,13 @@ class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
                         ...item,
                         'onIcon': (v == null || v.isEmpty) ? null : v
                       }),
+                      tokens: widget.tokens,
                     ),
                   ],
                   if (showOff) ...[
-                    SizedBox(height: 6),
-                    _buildCompactStateRow(
-                      context,
+                    const SizedBox(height: 6),
+                    _ItemStateRowWidget(
+                      key: ValueKey('item_${i}_off'),
                       label: 'OFF',
                       textValue: offLabel ?? '',
                       iconName: offIconName,
@@ -2039,6 +1966,7 @@ class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
                         ...item,
                         'offIcon': (v == null || v.isEmpty) ? null : v
                       }),
+                      tokens: widget.tokens,
                     ),
                   ],
                 ],
@@ -2049,21 +1977,64 @@ class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
       ),
     );
   }
+}
 
-  Widget _buildCompactStateRow(
-    BuildContext context, {
-    required String label,
-    required String textValue,
-    required String? iconName,
-    required ValueChanged<String> onTextChanged,
-    required ValueChanged<String?> onIconChanged,
-  }) {
+class _ItemStateRowWidget extends StatefulWidget {
+  final String label;
+  final String textValue;
+  final String? iconName;
+  final ValueChanged<String> onTextChanged;
+  final ValueChanged<String?> onIconChanged;
+  final RKTokens tokens;
+
+  const _ItemStateRowWidget({
+    super.key,
+    required this.label,
+    required this.textValue,
+    required this.iconName,
+    required this.onTextChanged,
+    required this.onIconChanged,
+    required this.tokens,
+  });
+
+  @override
+  State<_ItemStateRowWidget> createState() => _ItemStateRowWidgetState();
+}
+
+class _ItemStateRowWidgetState extends State<_ItemStateRowWidget> {
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.textValue);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ItemStateRowWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.textValue != _controller.text &&
+        widget.textValue != oldWidget.textValue) {
+      _controller.text = widget.textValue;
+      _controller.selection =
+          TextSelection.collapsed(offset: _controller.text.length);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Row(
       children: [
         SizedBox(
           width: 24,
           child: Text(
-            label,
+            widget.label,
             style: TextStyle(
               color: widget.tokens.onSurface.withValues(alpha: 0.38),
               fontSize: 9,
@@ -2083,8 +2054,7 @@ class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
               borderRadius: BorderRadius.circular(2),
             ),
             child: TextField(
-              controller: TextEditingController(text: textValue)
-                ..selection = TextSelection.collapsed(offset: textValue.length),
+              controller: _controller,
               style: TextStyle(
                 color: widget.tokens.onSurface.withValues(alpha: 0.88),
                 fontSize: 11,
@@ -2092,7 +2062,7 @@ class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
               ),
               decoration: InputDecoration(
                 contentPadding:
-                    EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 border: InputBorder.none,
                 isDense: true,
                 hintText: 'Text',
@@ -2101,17 +2071,17 @@ class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
                   fontSize: 11,
                 ),
               ),
-              onChanged: onTextChanged,
+              onChanged: widget.onTextChanged,
             ),
           ),
         ),
-        SizedBox(width: 8),
+        const SizedBox(width: 8),
         // Icon picker
         GestureDetector(
           onTap: () => IconFieldBuilder.openIconPickerDialog(
             context,
-            currentIconName: iconName,
-            onChanged: onIconChanged,
+            currentIconName: widget.iconName,
+            onChanged: widget.onIconChanged,
           ),
           child: Container(
             height: 28,
@@ -2124,23 +2094,24 @@ class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                if (iconName != null && kDesignerIcons.containsKey(iconName))
+                if (widget.iconName != null &&
+                    kDesignerIcons.containsKey(widget.iconName))
                   Padding(
                     padding: const EdgeInsets.only(right: 4),
                     child: Icon(
-                      kDesignerIcons[iconName]!,
+                      kDesignerIcons[widget.iconName]!,
                       color: widget.tokens.primary,
                       size: 14,
                     ),
                   )
                 else
                   Padding(
-                    padding: EdgeInsets.only(right: 4),
+                    padding: const EdgeInsets.only(right: 4),
                     child: Text(
-                      '—',
+                      '--',
                       style: TextStyle(
                         color: widget.tokens.onSurface.withValues(alpha: 0.38),
-                        fontSize: 11,
+                        fontSize: 10,
                         fontFamily: 'monospace',
                       ),
                     ),

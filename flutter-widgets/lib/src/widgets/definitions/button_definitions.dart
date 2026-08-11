@@ -22,7 +22,7 @@ class ButtonWidgetDefinition extends WidgetDefinition {
   IconData get icon => Icons.touch_app;
 
   @override
-  (int, int) get defaultSize => (20, 20);
+  (int, int) get defaultSize => (10, 10);
 
   @override
   double? aspectRatio(Map<String, dynamic> properties, int width, int height) => 1.0;
