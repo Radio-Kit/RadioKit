@@ -48,6 +48,7 @@ RK_MultipleSelect::RK_MultipleSelect(uint8_t x, uint8_t y, uint8_t height, uint8
 }
 
 uint16_t RadioKit_Multiple::serializeStrings(uint8_t* buf) const {
+    const char* lblStr = (rk.label && rk.label[0] != '\0') ? rk.label : _label;
     uint8_t mask = 0;
     // Bit 0 reserved — label is always present.
     if (_labelHidden)           mask |= RK_STR_LABEL_HIDDEN;
@@ -99,7 +100,7 @@ uint16_t RadioKit_Multiple::serializeStrings(uint8_t* buf) const {
     };
 
     // Label is always serialized (no mask bit).
-    _writeStr(_label, RADIOKIT_MAX_LABEL);
+    _writeStr(lblStr, RADIOKIT_MAX_LABEL);
     if (mask & RK_STR_ICON)    _writeStr(_icon,     RADIOKIT_MAX_ICON);
     if (mask & RK_STR_ONTEXT)  _writeStr(_onText,   RADIOKIT_MAX_LABEL);
     if (mask & RK_STR_OFFTEXT) _writeStr(_offText,  RADIOKIT_MAX_LABEL);

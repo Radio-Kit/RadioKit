@@ -415,6 +415,16 @@ class DocsService {
       'path': '/api/designs/<id>',
       'description': 'Delete a design',
     },
+    {
+      'method': 'GET',
+      'path': '/api/library/version',
+      'description': 'Get Arduino library version',
+    },
+    {
+      'method': 'GET',
+      'path': '/api/library/download',
+      'description': 'Download Arduino library as ZIP archive',
+    },
   ];
 }
 

@@ -27,6 +27,31 @@ void RK_Slider::serializeInput(uint8_t* buf) const {
     buf[0] = (uint8_t)(int8_t)rk.value; // two's complement, safe cast
 }
 
+uint8_t RK_Slider::variant() const {
+    uint8_t alt = (_variant & RK_SHAPE_ALT);
+    return alt | RK_VARIANT(rk.centering, rk.detents);
+}
+
+uint16_t RK_Slider::serializeStrings(uint8_t* buf) const {
+    const char* lbl = (rk.label && rk.label[0] != '\0') ? rk.label : _label;
+    uint8_t mask = 0;
+    if (_labelHidden) mask |= RK_STR_LABEL_HIDDEN;
+    if (_hidden)      mask |= RK_STR_WIDGET_HIDDEN;
+
+    uint16_t out = 0;
+    buf[out++] = mask;
+
+    auto _writeStr = [&](const char* s, size_t maxLen) {
+        uint8_t len = s ? (uint8_t)strnlen(s, maxLen < 255 ? maxLen : 255) : 0;
+        buf[out++] = len;
+        if (len > 0) memcpy(&buf[out], s, len);
+        out += len;
+    };
+
+    _writeStr(lbl, RADIOKIT_MAX_LABEL);
+    return out;
+}
+
 // ── GasPedal ────────────────────────────────────────────────────────────────
 RK_GasPedal::RK_GasPedal(uint8_t x, uint8_t y, uint8_t height, uint8_t width, int16_t rotation)
     : RK_Slider(x, y, height, width, rotation)

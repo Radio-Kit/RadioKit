@@ -1270,6 +1270,13 @@ uint16_t RadioKitClass::_buildConfPayload(uint8_t* buf, uint16_t bufSize) {
     }
     memcpy(&buf[out], themeStr, themeLen); out += themeLen;
 
+    // Per-page orientations (1 byte per page: 0=landscape, 1=portrait)
+    if (_numPages > 1) {
+        for (uint8_t i = 0; i < _numPages; i++) {
+            buf[out++] = _pageOrientations[i];
+        }
+    }
+
     for (uint8_t i = 0; i < _widgetCount; i++) {
         RadioKit_Widget* w = _widgets[i];
         if (w->page() != _activePage) continue;

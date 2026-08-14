@@ -33,6 +33,26 @@ uint8_t RK_Text::outputSize() const {
   return RADIOKIT_TEXT_LEN;
 }
 
+uint16_t RK_Text::serializeStrings(uint8_t* buf) const {
+    const char* lbl = (rk.label && rk.label[0] != '\0') ? rk.label : _label;
+    uint8_t mask = 0;
+    if (_labelHidden) mask |= RK_STR_LABEL_HIDDEN;
+    if (_hidden)      mask |= RK_STR_WIDGET_HIDDEN;
+
+    uint16_t out = 0;
+    buf[out++] = mask;
+
+    auto _writeStr = [&](const char* s, size_t maxLen) {
+        uint8_t len = s ? (uint8_t)strnlen(s, maxLen < 255 ? maxLen : 255) : 0;
+        buf[out++] = len;
+        if (len > 0) memcpy(&buf[out], s, len);
+        out += len;
+    };
+
+    _writeStr(lbl, RADIOKIT_MAX_LABEL);
+    return out;
+}
+
 // RK_Serial
 RK_Serial::RK_Serial(uint8_t x, uint8_t y, uint8_t height, uint8_t width) : RK_Text(x, y, height, width) {}
 

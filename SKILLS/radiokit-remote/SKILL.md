@@ -620,6 +620,13 @@ All endpoints return standard error format:
 | OTA upload | POST | `/api/ota/upload` |
 | OTA progress | GET | `/api/ota/progress` |
 
+### Library
+
+| Operation | Method | Endpoint |
+|-----------|--------|----------|
+| Library version | GET | `/api/library/version` |
+| Library download | GET | `/api/library/download` |
+
 ### Console & Log
 
 | Operation | Method | Endpoint |

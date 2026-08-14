@@ -162,6 +162,7 @@ private:
     uint8_t _activePage = 0;
     uint8_t _numPages   = 1;
     const char* const* _pageNames = nullptr;
+    uint8_t _pageOrientations[RADIOKIT_MAX_PAGES] = {0}; // 0=landscape, 1=portrait
 
     // ── Visibility dirty flag ────────────────────────────────
     bool _confDirty = false;
@@ -175,6 +176,11 @@ public:
     uint8_t getNumPages() const { return _numPages; }
     void setNumPages(uint8_t n) { _numPages = n; }
     void setPageNames(const char* const* names) { _pageNames = names; }
+    void setPageOrientations(const uint8_t* orientations) {
+        for (uint8_t i = 0; i < _numPages && i < RADIOKIT_MAX_PAGES; i++) {
+            _pageOrientations[i] = orientations[i];
+        }
+    }
 
     /// Mark CONF_DATA as needing rebuild (called by Widget on hidden/labelHidden change).
     static void markConfDirty();

@@ -36,6 +36,7 @@ public:
     void serializeInput(uint8_t*)           const override {}
     void serializeOutput(uint8_t* buf)         const override;
     void deserializeInput(const uint8_t*)            override {}
+    uint16_t serializeStrings(uint8_t* buf)    const override;
 
     /// Returns the current value text for serialization (content field).
     const char* getContent() const override { return rk.content; }

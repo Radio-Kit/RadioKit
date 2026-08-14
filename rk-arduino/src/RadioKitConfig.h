@@ -139,6 +139,7 @@
 //  Widget limits
 // ─────────────────────────────────────────────
 #define RADIOKIT_MAX_WIDGETS 16
+#define RADIOKIT_MAX_PAGES    8  ///< Maximum number of pages
 #define RADIOKIT_MAX_LABEL   32  ///< Widget label, onText, offText max chars
 #define RADIOKIT_MAX_ICON    24  ///< Icon string max chars
 #define RADIOKIT_MAX_NAME    32  ///< Device name max chars

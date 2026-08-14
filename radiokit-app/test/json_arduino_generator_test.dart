@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:radiokit/screens/designer/codegen/json_arduino_generator.dart';
 
@@ -31,7 +33,7 @@ void main() {
 
         final output = JsonArduinoGenerator.generate(json);
 
-        expect(output, contains('#ifndef RADIOKIT_H'));
+        expect(output, contains('#ifndef RADIOKIT_GENERATED_H'));
         expect(output, contains('#define RK_ENABLE_BLE'));
         expect(output, contains('#include <RadioKitLib.h>'));
         expect(output, contains('RK_PushButton btn_1'));
@@ -249,6 +251,37 @@ void main() {
         expect(output, contains('static const char* rk_pageNames[]'));
         expect(output, contains('"Control"'));
         expect(output, contains('"Settings"'));
+      });
+
+      test('emits rk_pageOrientations and setPageOrientations', () {
+        final output = JsonArduinoGenerator.generate(multiPageJson);
+
+        expect(output, contains('static const uint8_t rk_pageOrientations[]'));
+        expect(output, contains('RadioKit.setPageOrientations(rk_pageOrientations)'));
+        // Both pages are landscape (0)
+        expect(output, contains('// Control'));
+        expect(output, contains('// Settings'));
+      });
+
+      test('emits portrait orientation as 1 in rk_pageOrientations', () {
+        final json = Map<String, dynamic>.from(multiPageJson);
+        json['pages'] = [
+          {
+            'name': 'Landscape',
+            'orientation': 'landscape',
+            'widgets': [],
+          },
+          {
+            'name': 'Portrait',
+            'orientation': 'portrait',
+            'widgets': [],
+          },
+        ];
+        final output = JsonArduinoGenerator.generate(json);
+
+        expect(output, contains('static const uint8_t rk_pageOrientations[]'));
+        expect(output, contains('0,  // Landscape'));
+        expect(output, contains('1,  // Portrait'));
       });
 
       test('emits page-grouped widget declarations', () {
@@ -551,6 +584,43 @@ void main() {
         final output = JsonArduinoGenerator.generate(
             makeJson('multiple', 'ms1', variant: 'multiSelect'));
         expect(output, contains('RK_MultipleSelect ms1'));
+      });
+
+      test('rc_controller.json generates matching RADIOKIT.h', () {
+        final file = File('assets/demos/rc_controller.json');
+        final json = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+        final output = JsonArduinoGenerator.generate(json);
+
+        expect(output, contains('RK_GasPedal gas(23, 57, 54, 25, 0);'));
+        expect(output, contains('gas.rk.label = "gas";'));
+        expect(output, contains('gas.rk.centering = RK_SPRING_MIN;'));
+
+        expect(output, contains('RK_Knob steering(162, 57, 55, 0, 0);'));
+        expect(output, contains('steering.rk.label = "steering";'));
+        expect(output, contains('steering.rk.variant = 1;     // steeringWheel'));
+        expect(output, contains('steering.rk.centering = RK_SPRING_CENTER;'));
+        expect(output, contains('steering.rk.startAngle = -135;'));
+        expect(output, contains('steering.rk.endAngle = 135;'));
+        expect(output, contains('steering.rk.centerIcon = "renault";'));
+
+        expect(output, contains('RK_MultipleSelect lights(94, 58, 22, 0, 0);'));
+        expect(output, contains('lights.rk.label = "lights";'));
+        expect(output, contains('lights.rk.items[0] = {"Head", "lightbulb", 0};'));
+        expect(output, contains('lights.rk.items[1] = {"Fog", "cloud", 1};'));
+        expect(output, contains('lights.rk.items[2] = {"Hazard", "warning", 2};'));
+        expect(output, contains('lights.rk.items[3] = {"Cabin", "home", 3};'));
+        expect(output, contains('lights.rk.itemCount = 4;'));
+
+        expect(output, contains('RK_Text telemetry(97, 10, 20, 87);'));
+        expect(output, contains('telemetry.rk.label = "telemetry";'));
+        expect(output, contains('telemetry.rk.content = "Display";'));
+
+        expect(output, contains('RK_MultipleButton multi_button_1(51, 58, 0, 19, 0);'));
+        expect(output, contains('multi_button_1.setLabelHidden(true);'));
+        expect(output, contains('multi_button_1.rk.items[0] = {"D", 0};'));
+        expect(output, contains('multi_button_1.rk.items[1] = {"P", 1};'));
+        expect(output, contains('multi_button_1.rk.items[2] = {"R", 2};'));
+        expect(output, contains('multi_button_1.rk.itemCount = 3;'));
       });
     });
   });

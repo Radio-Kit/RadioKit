@@ -67,6 +67,9 @@ class WidgetConfig {
   /// Maximum sweep angle (present if kStrMaskExtra is set for Knob).
   final double maxAngle;
 
+  /// Center icon string (present if kStrMaskExtra is set for Knob).
+  final String centerIcon;
+
   /// Rotation as stored on the wire (int16, degrees ÷ 2).
   /// Multiply by 2 to get display degrees.
   final int rotation;
@@ -111,6 +114,7 @@ class WidgetConfig {
     this.rotation = 0,
     this.minAngle = -135,
     this.maxAngle = 135,
+    this.centerIcon = '',
     this.labelHidden = false,
     this.hidden = false,
     this.pageIndex = 0,
@@ -134,6 +138,7 @@ class WidgetConfig {
     int? rotation,
     double? minAngle,
     double? maxAngle,
+    String? centerIcon,
     bool? labelHidden,
     bool? hidden,
     int? pageIndex,
@@ -156,6 +161,7 @@ class WidgetConfig {
       rotation: rotation ?? this.rotation,
       minAngle: minAngle ?? this.minAngle,
       maxAngle: maxAngle ?? this.maxAngle,
+      centerIcon: centerIcon ?? this.centerIcon,
       labelHidden: labelHidden ?? this.labelHidden,
       hidden: hidden ?? this.hidden,
       pageIndex: pageIndex ?? this.pageIndex,
@@ -309,10 +315,12 @@ class WidgetConfig {
   /// Maps a protocol centering mode to the designer autoCenter list format.
   static List<dynamic> _acListForCentering(int centerMode) {
     switch (centerMode) {
-      case kCenterMin:  return ['min', 'smooth', 300];
-      case kCenterMid:  return ['center', 'smooth', 300];
-      case kCenterMax:  return ['max', 'smooth', 300];
-      default:          return [null, 'smooth', 300];
+      case kCenterMin:    return ['min', 'smooth', 300];
+      case kCenterMid:    return ['center', 'smooth', 300];
+      case kCenterMax:    return ['max', 'smooth', 300];
+      case kCenterTop:    return ['top', 'smooth', 300];
+      case kCenterBottom: return ['bottom', 'smooth', 300];
+      default:            return [null, 'smooth', 300];
     }
   }
 

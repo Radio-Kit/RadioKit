@@ -31,5 +31,21 @@ void RK_LED::serializeInput(uint8_t* buf) const {
 }
 
 uint16_t RK_LED::serializeStrings(uint8_t* buf) const {
-    return RadioKit_Widget::serializeStrings(buf);
+    const char* lbl = (rk.label && rk.label[0] != '\0') ? rk.label : _label;
+    uint8_t mask = 0;
+    if (_labelHidden) mask |= RK_STR_LABEL_HIDDEN;
+    if (_hidden)      mask |= RK_STR_WIDGET_HIDDEN;
+
+    uint16_t out = 0;
+    buf[out++] = mask;
+
+    auto _writeStr = [&](const char* s, size_t maxLen) {
+        uint8_t len = s ? (uint8_t)strnlen(s, maxLen < 255 ? maxLen : 255) : 0;
+        buf[out++] = len;
+        if (len > 0) memcpy(&buf[out], s, len);
+        out += len;
+    };
+
+    _writeStr(lbl, RADIOKIT_MAX_LABEL);
+    return out;
 }

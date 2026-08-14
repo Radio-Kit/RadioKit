@@ -31,6 +31,8 @@ public:
     void serializeInput(uint8_t* buf)          const override;
     void serializeOutput(uint8_t*)           const override {}
     void deserializeInput(const uint8_t* buf)      override;
+    uint8_t variant() const override { return rk.centering; }
+    uint16_t serializeStrings(uint8_t* buf) const override;
 
     RK_JoystickFields rk;
 

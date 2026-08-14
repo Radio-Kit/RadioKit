@@ -15,6 +15,7 @@ class ParsedConf {
   final int orientation;
   final int activePage;
   final int numPages;
+  final List<int> pageOrientations;
   final List<WidgetConfig> widgets;
   const ParsedConf({
     required this.name,
@@ -23,6 +24,7 @@ class ParsedConf {
     required this.orientation,
     this.activePage = 0,
     this.numPages = 1,
+    this.pageOrientations = const [],
     required this.widgets,
   });
 }
@@ -436,6 +438,18 @@ class ProtocolService {
         allowMalformed: true);
     offset += themeLen;
 
+    // Parse per-page orientations (1 byte per page when numPages > 1)
+    final pageOrientations = <int>[];
+    if (numPages > 1) {
+      for (int i = 0; i < numPages; i++) {
+        if (offset >= payload.length) {
+          debugPrint('RadioKit CONF_DATA: truncated at page orientation $i');
+          break;
+        }
+        pageOrientations.add(payload[offset++]);
+      }
+    }
+
     final widgets = <WidgetConfig>[];
 
     for (int i = 0; i < numWidgets; i++) {
@@ -465,7 +479,7 @@ class ProtocolService {
       }
       final strMask = payload[offset++];
 
-      String label = '', icon = '', onText = '', offText = '', content = '';
+      String label = '', icon = '', onText = '', offText = '', content = '', centerIcon = '';
       double minAngle = -135, maxAngle = 135;
 
       String readStr() {
@@ -492,15 +506,23 @@ class ProtocolService {
       if ((strMask & kStrMaskExtra) != 0) {
         if (offset < payload.length) {
           final extraLen = payload[offset++];
-          if (extraLen >= 4 && typeId == kWidgetKnob) {
-            final miRaw = payload[offset] | (payload[offset + 1] << 8);
-            minAngle = (miRaw >= 0x8000 ? miRaw - 0x10000 : miRaw).toDouble();
-            final maRaw = payload[offset + 2] | (payload[offset + 3] << 8);
-            maxAngle = (maRaw >= 0x8000 ? maRaw - 0x10000 : maRaw).toDouble();
-            offset += extraLen;
-          } else {
-            offset += extraLen;
+          final extraEnd = offset + extraLen;
+          if (extraLen >= 5 && typeId == kWidgetKnob) {
+            final iconLen = payload[offset++];
+            if (iconLen > 0 && offset + iconLen <= extraEnd) {
+              centerIcon = utf8.decode(payload.sublist(offset, offset + iconLen),
+                  allowMalformed: true);
+              offset += iconLen;
+            }
+            if (offset + 4 <= extraEnd) {
+              final miRaw = payload[offset] | (payload[offset + 1] << 8);
+              minAngle = (miRaw >= 0x8000 ? miRaw - 0x10000 : miRaw).toDouble();
+              offset += 2;
+              final maRaw = payload[offset] | (payload[offset + 1] << 8);
+              maxAngle = (maRaw >= 0x8000 ? maRaw - 0x10000 : maRaw).toDouble();
+            }
           }
+          offset = extraEnd;
         }
       }
 
@@ -525,6 +547,7 @@ class ProtocolService {
         content:     content,
         minAngle:    minAngle,
         maxAngle:    maxAngle,
+        centerIcon:  centerIcon,
         labelHidden: labelHidden,
         hidden: widgetHidden,
       ));
@@ -540,6 +563,7 @@ class ProtocolService {
       orientation: orientation,
       activePage: activePage,
       numPages: numPages,
+      pageOrientations: pageOrientations,
       widgets: widgets,
     );
   }

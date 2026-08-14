@@ -357,10 +357,13 @@ const int kVarUpdateMaxRetries = 5;
 // Theme is now string-based (e.g. "default", "retro")
 
 // ── Self-centering modes (Slider / Knob variant bits [1:0]) ────────────────────
-const int kCenterNone  = 0; ///< No spring return
-const int kCenterMin   = 1; ///< Springs to −100
-const int kCenterMid   = 2; ///< Springs to 0
-const int kCenterMax   = 3; ///< Springs to +100
+const int kCenterNone   = 0; ///< No spring return
+const int kCenterMid    = 1; ///< Springs to 0 (center)
+const int kCenterCenter = 1; ///< Alias for kCenterMid
+const int kCenterMin    = 2; ///< Springs to −100
+const int kCenterMax    = 3; ///< Springs to +100
+const int kCenterTop    = 4; ///< Springs to −100 (Vertical)
+const int kCenterBottom = 5; ///< Springs to +100 (Vertical)
 
 /// Extract centering mode from variant byte (bits [1:0]).
 int variantCentering(int variant) => variant & 0x03;

@@ -72,11 +72,7 @@ class ButtonWidgetDefinition extends WidgetDefinition {
   }
 
   @override
-  String generateCppCode(CodegenContext ctx) {
-    final mode = ctx.properties['variant'] == 'toggle' ? 'RK_BUTTON_TOGGLE' : 'RK_BUTTON_PUSH';
-    final label = ctx.label.isNotEmpty ? '  ${ctx.varName}.rk.label = "${ctx.label}";\n' : '';
-    return '  ${ctx.varName}.setMode($mode);\n$label';
-  }
+  String generateCppCode(CodegenContext ctx) => '';
 }
 
 class SlideSwitchWidgetDefinition extends WidgetDefinition {

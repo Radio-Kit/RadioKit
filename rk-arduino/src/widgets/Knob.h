@@ -38,6 +38,7 @@ public:
     void serializeInput(uint8_t* buf)          const override;
     void serializeOutput(uint8_t*)             const override {}
     void deserializeInput(const uint8_t* buf)        override;
+    uint8_t variant() const override;
     uint16_t serializeStrings(uint8_t* buf)    const override;
 
     RK_KnobFields rk;
@@ -45,6 +46,12 @@ public:
 protected:
     float defaultAspect() const override { return 1.0f; }
     RK_KnobFields _shadow;
+};
+
+// ── SteeringWheel ──────────────────────────────────────────────────────────
+class RK_SteeringWheel : public RK_Knob {
+public:
+    RK_SteeringWheel(uint8_t x, uint8_t y, uint8_t height, uint8_t width = 0, int16_t rotation = 0);
 };
 
 #endif // RADIOKIT_WIDGET_KNOB_H

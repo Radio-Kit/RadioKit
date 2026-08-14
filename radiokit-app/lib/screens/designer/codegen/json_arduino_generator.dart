@@ -17,8 +17,8 @@ class JsonArduinoGenerator {
     buf.writeln('//__RadioKit_Generated_Code__');
     buf.writeln('//__Might_Be_Overwritten_');
     buf.writeln();
-    buf.writeln('#ifndef RADIOKIT_H');
-    buf.writeln('#define RADIOKIT_H');
+    buf.writeln('#ifndef RADIOKIT_GENERATED_H');
+    buf.writeln('#define RADIOKIT_GENERATED_H');
     buf.writeln();
 
     // ─── Transport defines ───
@@ -62,6 +62,18 @@ class JsonArduinoGenerator {
         final page = pages[i] as Map<String, dynamic>? ?? {};
         final pageName = page['name'] as String? ?? 'Page ${i + 1}';
         buf.writeln('  "${_escapeC(pageName)}",');
+      }
+      buf.writeln('};');
+      buf.writeln();
+
+      // Per-page orientations (0=landscape, 1=portrait)
+      buf.writeln('static const uint8_t rk_pageOrientations[] = {');
+      for (int i = 0; i < pages.length; i++) {
+        final page = pages[i] as Map<String, dynamic>? ?? {};
+        final orientation = page['orientation'] as String? ?? 'global';
+        // 'global' uses the canvas orientation, default to landscape (0)
+        final isPortrait = orientation == 'portrait';
+        buf.writeln('  ${isPortrait ? 1 : 0},  // ${page['name'] ?? 'Page ${i + 1}'}');
       }
       buf.writeln('};');
       buf.writeln();
@@ -138,6 +150,7 @@ class JsonArduinoGenerator {
     if (isMultiPage) {
       buf.writeln('  RadioKit.setNumPages(RK_NUM_PAGES);');
       buf.writeln('  RadioKit.setPageNames(rk_pageNames);');
+      buf.writeln('  RadioKit.setPageOrientations(rk_pageOrientations);');
       buf.writeln();
     }
 
@@ -162,7 +175,7 @@ class JsonArduinoGenerator {
 
     buf.writeln('}');
     buf.writeln();
-    buf.writeln('#endif // RADIOKIT_H');
+    buf.writeln('#endif // RADIOKIT_GENERATED_H');
     buf.writeln();
 
     return buf.toString();
@@ -302,17 +315,17 @@ class JsonArduinoGenerator {
         final mode = props['variant'] ?? 'push';
         final widgetType =
             mode == 'toggle' ? 'RK_ToggleButton' : 'RK_PushButton';
-        final onText = props['onText'] ?? 'ON';
-        final offText = props['offText'] ?? 'OFF';
-        final iconName = props['onIcon'] as String? ?? '';
+        final onText = (props['onText'] as String?) ?? 'ON';
+        final offText = (props['offText'] as String?) ?? 'OFF';
+        final iconName = props['onIcon'] as String? ?? props['icon'] as String? ?? '';
         
         declBuf.writeln('$widgetType $name($x, $y, $cppH, $cppW, $rotation);$comment');
         
         writeLabelAndHidden();
-        if (onText != 'ON') {
+        if (onText.isNotEmpty) {
           setupBuf.writeln('  $name.rk.onText = "${_escapeC(onText)}";');
         }
-        if (offText != 'OFF') {
+        if (offText.isNotEmpty) {
           setupBuf.writeln('  $name.rk.offText = "${_escapeC(offText)}";');
         }
         if (iconName.isNotEmpty) {
@@ -322,17 +335,17 @@ class JsonArduinoGenerator {
       }
 
       case 'slideSwitch': {
-        final onText = props['onText'] ?? 'ON';
-        final offText = props['offText'] ?? 'OFF';
+        final onText = (props['onText'] as String?) ?? 'ON';
+        final offText = (props['offText'] as String?) ?? 'OFF';
         final iconName = props['icon'] as String? ?? '';
         
         declBuf.writeln('RK_SlideSwitch $name($x, $y, $cppH, $cppW, $rotation);$comment');
         
         writeLabelAndHidden();
-        if (onText != 'ON') {
+        if (onText.isNotEmpty) {
           setupBuf.writeln('  $name.rk.onText = "${_escapeC(onText)}";');
         }
-        if (offText != 'OFF') {
+        if (offText.isNotEmpty) {
           setupBuf.writeln('  $name.rk.offText = "${_escapeC(offText)}";');
         }
         if (iconName.isNotEmpty) {
@@ -344,6 +357,8 @@ class JsonArduinoGenerator {
       case 'switch': {
         final v = variant ?? props['variant'] as String?;
         final isRocker = v == 'rockerSwitch';
+        final onText = props['onText'] as String? ?? '';
+        final offText = props['offText'] as String? ?? '';
         final iconName = props['icon'] as String? ?? '';
         
         if (isRocker) {
@@ -353,6 +368,12 @@ class JsonArduinoGenerator {
         }
         
         writeLabelAndHidden();
+        if (onText.isNotEmpty) {
+          setupBuf.writeln('  $name.rk.onText = "${_escapeC(onText)}";');
+        }
+        if (offText.isNotEmpty) {
+          setupBuf.writeln('  $name.rk.offText = "${_escapeC(offText)}";');
+        }
         if (iconName.isNotEmpty) {
           setupBuf.writeln('  $name.rk.icon = "$iconName";');
         }
@@ -362,9 +383,9 @@ class JsonArduinoGenerator {
       case 'slider': {
         final v = variant ?? props['variant'] as String?;
         if (v == 'gasPedal') {
-          _gasPedal(name, x, y, cppW, cppH, rotation, acList, comment, declBuf, setupBuf, labelText, showLabel, pageIndex: pageIndex);
+          _gasPedal(name, x, y, cppW, cppH, rotation, props, acList, comment, declBuf, setupBuf, labelText, showLabel, pageIndex: pageIndex);
         } else {
-          _slider(name, x, y, cppW, cppH, rotation, acList, comment, declBuf, setupBuf, labelText, showLabel, pageIndex: pageIndex);
+          _slider(name, x, y, cppW, cppH, rotation, props, acList, comment, declBuf, setupBuf, labelText, showLabel, pageIndex: pageIndex);
         }
         break;
       }
@@ -403,11 +424,19 @@ class JsonArduinoGenerator {
         final colorVal = (color is num) ? color.toInt() : 0x00FF00;
         final colorHex =
             colorVal.toRadixString(16).padLeft(6, '0');
+        final shapeStr = (props['shape'] as String?) ?? '';
             
         declBuf.writeln('RK_LED $name($x, $y, $cppH, $cppW, $rotation);$comment');
         
         writeLabelAndHidden();
         setupBuf.writeln('  $name.rk.color = 0x$colorHex;');
+        if (shapeStr == 'square') {
+          setupBuf.writeln('  $name.rk.shape = RK_LED_SHAPE_SQUARE;');
+        } else if (shapeStr == 'diamond') {
+          setupBuf.writeln('  $name.rk.shape = RK_LED_SHAPE_DIAMOND;');
+        } else if (shapeStr == 'star') {
+          setupBuf.writeln('  $name.rk.shape = RK_LED_SHAPE_STAR;');
+        }
         break;
       }
 
@@ -441,8 +470,9 @@ class JsonArduinoGenerator {
   // ── Sub-generators for widget variants ────────────────────────────────────
 
   static void _slider(String name, int x, int y, int w, int h, int rot,
-      List? ac, String comment, StringBuffer declBuf, StringBuffer setupBuf,
+      Map<String, dynamic> props, List? ac, String comment, StringBuffer declBuf, StringBuffer setupBuf,
       String labelText, bool showLabel, {int pageIndex = 0}) {
+    final detents = props['detents'] ?? props['divisions'] ?? 0;
     declBuf.writeln('RK_Slider $name($x, $y, $h, $w, $rot);$comment');
     if (pageIndex > 0) {
       setupBuf.writeln('  $name.setPage($pageIndex);');
@@ -454,11 +484,15 @@ class JsonArduinoGenerator {
       setupBuf.writeln('  $name.setLabelHidden(true);');
     }
     setupBuf.writeln('  $name.rk.centering = ${_centeringEnum(ac)};');
+    if (detents is num && detents > 0) {
+      setupBuf.writeln('  $name.rk.detents = ${detents.toInt()};');
+    }
   }
 
   static void _gasPedal(String name, int x, int y, int w, int h, int rot,
-      List? ac, String comment, StringBuffer declBuf, StringBuffer setupBuf,
+      Map<String, dynamic> props, List? ac, String comment, StringBuffer declBuf, StringBuffer setupBuf,
       String labelText, bool showLabel, {int pageIndex = 0}) {
+    final detents = props['detents'] ?? props['divisions'] ?? 0;
     declBuf.writeln('RK_GasPedal $name($x, $y, $h, $w, $rot);$comment');
     if (pageIndex > 0) {
       setupBuf.writeln('  $name.setPage($pageIndex);');
@@ -470,13 +504,17 @@ class JsonArduinoGenerator {
       setupBuf.writeln('  $name.setLabelHidden(true);');
     }
     setupBuf.writeln('  $name.rk.centering = ${_centeringEnum(ac)};');
+    if (detents is num && detents > 0) {
+      setupBuf.writeln('  $name.rk.detents = ${detents.toInt()};');
+    }
   }
 
   static void _knob(String name, int x, int y, int w, int h, int rot,
       Map<String, dynamic> props, List? ac, String comment, StringBuffer declBuf, StringBuffer setupBuf,
       String labelText, bool showLabel, {int pageIndex = 0}) {
-    final minAngle = props['minAngle'] ?? -135;
-    final maxAngle = props['maxAngle'] ?? 135;
+    final startAngle = props['startAngle'] ?? props['minAngle'] ?? -135;
+    final endAngle = props['endAngle'] ?? props['maxAngle'] ?? 135;
+    final detents = props['detents'] ?? props['divisions'] ?? 0;
     
     declBuf.writeln('RK_Knob $name($x, $y, $h, $w, $rot);$comment');
     if (pageIndex > 0) {
@@ -489,8 +527,11 @@ class JsonArduinoGenerator {
       setupBuf.writeln('  $name.setLabelHidden(true);');
     }
     setupBuf.writeln('  $name.rk.centering = ${_centeringEnum(ac)};');
-    setupBuf.writeln('  $name.rk.startAngle = $minAngle;');
-    setupBuf.writeln('  $name.rk.endAngle = $maxAngle;');
+    setupBuf.writeln('  $name.rk.startAngle = $startAngle;');
+    setupBuf.writeln('  $name.rk.endAngle = $endAngle;');
+    if (detents is num && detents > 0) {
+      setupBuf.writeln('  $name.rk.detents = ${detents.toInt()};');
+    }
     final iconName = props['icon'] as String? ?? '';
     if (iconName.isNotEmpty) {
       setupBuf.writeln('  $name.rk.icon = "$iconName";');
@@ -504,8 +545,9 @@ class JsonArduinoGenerator {
   static void _steeringWheel(String name, int x, int y, int w, int h, int rot,
       Map<String, dynamic> props, List? ac, String comment, StringBuffer declBuf, StringBuffer setupBuf,
       String labelText, bool showLabel, {int pageIndex = 0}) {
-    final minAngle = props['minAngle'] ?? -135;
-    final maxAngle = props['maxAngle'] ?? 135;
+    final startAngle = props['startAngle'] ?? props['minAngle'] ?? -150;
+    final endAngle = props['endAngle'] ?? props['maxAngle'] ?? 150;
+    final detents = props['detents'] ?? props['divisions'] ?? 0;
     
     declBuf.writeln('RK_Knob $name($x, $y, $h, $w, $rot);$comment');
     if (pageIndex > 0) {
@@ -518,9 +560,21 @@ class JsonArduinoGenerator {
       setupBuf.writeln('  $name.setLabelHidden(true);');
     }
     setupBuf.writeln('  $name.rk.variant = 1;     // steeringWheel');
-    setupBuf.writeln('  $name.rk.centering = ${_centeringEnum(ac)};');
-    setupBuf.writeln('  $name.rk.startAngle = $minAngle;');
-    setupBuf.writeln('  $name.rk.endAngle = $maxAngle;');
+    final acEffective = (ac != null && ac.isNotEmpty) ? ac : ['center', 'smooth', 500];
+    setupBuf.writeln('  $name.rk.centering = ${_centeringEnum(acEffective)};');
+    setupBuf.writeln('  $name.rk.startAngle = $startAngle;');
+    setupBuf.writeln('  $name.rk.endAngle = $endAngle;');
+    if (detents is num && detents > 0) {
+      setupBuf.writeln('  $name.rk.detents = ${detents.toInt()};');
+    }
+    final iconName = props['icon'] as String? ?? '';
+    if (iconName.isNotEmpty) {
+      setupBuf.writeln('  $name.rk.icon = "$iconName";');
+    }
+    final centerIcon = props['centerIcon'] as String? ?? '';
+    if (centerIcon.isNotEmpty) {
+      setupBuf.writeln('  $name.rk.centerIcon = "$centerIcon";');
+    }
   }
 
   static void _buildMultiple(String widgetType, String name, int x, int y,
@@ -532,8 +586,6 @@ class JsonArduinoGenerator {
     if (pageIndex > 0) {
       setupBuf.writeln('  $name.setPage($pageIndex);');
     }
-    final mode = variant == 'push' ? 'RK_BUTTON_PUSH' : 'RK_BUTTON_TOGGLE';
-    setupBuf.writeln('  $name.setMode($mode);');
     if (labelText.isNotEmpty) {
       setupBuf.writeln('  $name.rk.label = "${_escapeC(labelText)}";');
     }
@@ -544,10 +596,10 @@ class JsonArduinoGenerator {
     for (int i = 0; i < items.length; i++) {
       final item = items[i];
       if (item is! Map) continue;
-      final label = item['onLabel'] as String? ?? String.fromCharCode(65 + i);
-      final icon = item['onIcon'] as String?;
-      final iconPart = (icon != null && icon.isNotEmpty) ? ', "$icon"' : '';
-      setupBuf.writeln('  $name.rk.items[$i] = {"$label"$iconPart, $i};');
+      final label = item['onLabel'] as String? ?? item['label'] as String? ?? item['text'] as String? ?? String.fromCharCode(65 + i);
+      final icon = item['onIcon'] as String? ?? item['icon'] as String?;
+      final iconPart = (icon != null && icon.isNotEmpty) ? '"$icon"' : 'nullptr';
+      setupBuf.writeln('  $name.rk.items[$i] = {"${_escapeC(label)}", $iconPart, $i};');
     }
     if (items.isNotEmpty) {
       setupBuf.writeln('  $name.rk.itemCount = ${items.length};');
@@ -582,16 +634,19 @@ class JsonArduinoGenerator {
     if (ac == null || ac.isEmpty) return 'RK_SPRING_NONE';
     final pos = ac[0];
     if (pos is! String) return 'RK_SPRING_NONE';
-    final type = (ac.length >= 2 && ac[1] is String)
-        ? ac[1] as String
-        : 'smooth';
-    switch (type) {
-      case 'elastic':
-        return 'RK_SPRING_ELASTIC';
-      case 'linear':
-        return 'RK_SPRING_LINEAR';
-      default:
+    switch (pos) {
+      case 'min':
+        return 'RK_SPRING_MIN';
+      case 'max':
+        return 'RK_SPRING_MAX';
+      case 'top':
+        return 'RK_SPRING_TOP';
+      case 'bottom':
+        return 'RK_SPRING_BOTTOM';
+      case 'center':
         return 'RK_SPRING_CENTER';
+      default:
+        return 'RK_SPRING_NONE';
     }
   }
 }

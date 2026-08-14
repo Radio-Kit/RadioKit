@@ -1,4 +1,9 @@
-## ADDED Requirements
+# widget-sheet-preview-scaling Specification
+
+## Purpose
+Specification for scaling widget previews in the Add Widget bottom sheet grid according to their canonical default aspect ratio.
+
+## Requirements
 
 ### Requirement: Default Aspect Ratio Preview Scaling
 The "Add Widget" bottom sheet grid SHALL display widget preview instances scaled to their canonical default aspect ratio `(defW : defH)` derived from `DesignerElement.defaultSize(type)`.

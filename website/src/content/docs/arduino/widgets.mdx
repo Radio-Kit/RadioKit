@@ -288,13 +288,13 @@ RK_Knob vol(140, 40, 10);
 vol.rk.label   = "Vol";
 vol.rk.icon    = "volume-2";
 
-// Steering wheel (auto-centering knob variant)
-RK_Knob steering(85, 60, 30);
+// Steering wheel (using RK_SteeringWheel class or RK_Knob variant)
+RK_SteeringWheel steering(85, 60, 30);
+// Or: RK_Knob steering(85, 60, 30); steering.rk.variant = 1;
 steering.rk.label      = "Steering";
 steering.rk.startAngle = -150;
 steering.rk.endAngle   = 150;
 steering.rk.centering  = RK_SPRING_CENTER;
-steering.rk.variant    = 1;  // steeringWheel
 
 void loop() {
     RadioKit.update();

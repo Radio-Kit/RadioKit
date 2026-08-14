@@ -31,8 +31,32 @@ void RK_Knob::serializeInput(uint8_t* buf) const {
     buf[0] = (uint8_t)(int8_t)rk.value;
 }
 
+uint8_t RK_Knob::variant() const {
+    uint8_t alt = (rk.variant != 0) ? RK_SHAPE_ALT : 0;
+    return alt | RK_VARIANT(rk.centering, rk.detents);
+}
+
 uint16_t RK_Knob::serializeStrings(uint8_t* buf) const {
-    uint16_t len = RadioKit_Widget::serializeStrings(buf);
+    const char* lbl = (rk.label && rk.label[0] != '\0') ? rk.label : _label;
+    const char* icn = (rk.icon && rk.icon[0] != '\0') ? rk.icon : _icon;
+
+    uint8_t mask = 0;
+    if (_labelHidden) mask |= RK_STR_LABEL_HIDDEN;
+    if (_hidden)      mask |= RK_STR_WIDGET_HIDDEN;
+    if (icn && icn[0] != '\0') mask |= RK_STR_ICON;
+
+    uint16_t len = 0;
+    buf[len++] = mask;
+
+    auto _writeStr = [&](const char* s, size_t maxLen) {
+        uint8_t strLen = s ? (uint8_t)strnlen(s, maxLen < 255 ? maxLen : 255) : 0;
+        buf[len++] = strLen;
+        if (strLen > 0) memcpy(&buf[len], s, strLen);
+        len += strLen;
+    };
+
+    _writeStr(lbl, RADIOKIT_MAX_LABEL);
+    if (mask & RK_STR_ICON) _writeStr(icn, RADIOKIT_MAX_ICON);
 
     buf[0] |= RK_STR_EXTRA;
 
@@ -57,4 +81,13 @@ uint16_t RK_Knob::serializeStrings(uint8_t* buf) const {
     buf[len++] = (uint8_t)((rk.endAngle >> 8) & 0xFF);
 
     return len;
+}
+
+// ── SteeringWheel ──────────────────────────────────────────────────────────
+RK_SteeringWheel::RK_SteeringWheel(uint8_t x, uint8_t y, uint8_t height, uint8_t width, int16_t rotation)
+    : RK_Knob(x, y, height, width, rotation)
+{
+    rk.centering = RK_SPRING_CENTER;
+    rk.variant = 1;
+    _shadow = rk;
 }

@@ -1931,9 +1931,12 @@ class DeviceProvider extends ChangeNotifier {
     );
     _numPages = conf.numPages;
     _activePage = conf.activePage;
-    // Populate per-page orientations from the device's global orientation
-    // (real devices don't send per-page orientation overrides)
-    _pageOrientations = List.filled(_numPages, conf.orientation);
+    // Use per-page orientations from device if available, fallback to global
+    if (conf.pageOrientations.isNotEmpty && conf.pageOrientations.length == _numPages) {
+      _pageOrientations = List<int>.from(conf.pageOrientations);
+    } else {
+      _pageOrientations = List.filled(_numPages, conf.orientation);
+    }
 
     // Apply the skin provided by the device
     _themePresetProvider?.setTheme(conf.theme);

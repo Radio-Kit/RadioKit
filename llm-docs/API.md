@@ -1525,7 +1525,34 @@ Returns the current OTA upload progress. Returns `active: false` when no upload 
 
 ---
 
-## 13. Session / Route
+## 13. Library
+
+### `GET /api/library/version`
+
+Returns the version of the bundled Arduino library.
+
+**Response `200`:**
+
+```json
+{
+  "version": "2.0.0"
+}
+```
+
+### `GET /api/library/download`
+
+Downloads the complete Arduino library as a ZIP archive.
+
+**Response `200`:**
+
+- Content-Type: `application/zip`
+- Content-Disposition: `attachment; filename="rk-arduino.zip"`
+
+The ZIP contains the full `rk-arduino/` directory tree including `src/`, `library.json`, `library.properties`, and all widget implementations.
+
+---
+
+## 14. Session / Route
 
 ### `GET /api/session/route`
 
@@ -1590,7 +1617,7 @@ When follow mode is enabled, API requests trigger automatic navigation to the ma
 
 ---
 
-## 14. Flasher (ESP32 Serial Flashing)
+## 15. Flasher (ESP32 Serial Flashing)
 
 The flasher API exposes ESP32 firmware flashing via `flutter_esptool` over the app's local serial port. All serial operations run in the app process — no raw serial access is exposed over HTTP.
 
@@ -1840,7 +1867,7 @@ Start the flashing operation. Fire-and-forget — poll `GET /api/flasher/status`
 
 ---
 
-## 15. Cloud Relay (Cloud Auth)
+## 16. Cloud Relay (Cloud Auth)
 
 Cloud relay endpoints manage the Ed25519 challenge-response authentication flow with the Rust relay server. The relay acts as a bridge between the app and the ESP32 device over the internet.
 
@@ -2025,7 +2052,7 @@ Disconnect from the relay. Clears the cached device list and closes the WebSocke
 
 ---
 
-## 16. Cloud Account Management
+## 17. Cloud Account Management
 
 Cloud accounts store Ed25519 identity (keypair) and relay connection info. The app generates a keypair on first launch and stores it in platform secure storage. Accounts allow multiple relay configurations to be saved and switched.
 
@@ -2173,7 +2200,7 @@ Delete a cloud account.
 
 ---
 
-## 17. Multi-Device API
+## 18. Multi-Device API
 
 Every device-specific endpoint (widgets, FS, transport, NVS, OTA, console) has a per-device variant that targets a specific device by its map key ID. The map key is the original BLE address / serial port path / WebSocket URL used when connecting — it does **not** change after connection.
 
@@ -2552,7 +2579,7 @@ All per-device endpoints return standard error responses. The `not_found` error 
 
 ---
 
-## 18. Error Reference
+## 19. Error Reference
 
 
 | `error` | Meaning |
