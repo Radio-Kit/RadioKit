@@ -13,6 +13,7 @@ import 'screens/home_screen.dart';
 import 'screens/designer/designer_screen.dart';
 import 'screens/home/designs_tab.dart';
 import 'theme/app_theme.dart';
+import 'widgets/back_button_dispatcher.dart';
 
 class ConnectionNotifier extends ChangeNotifier {
   final MultiDeviceProvider _multiDeviceProvider;
@@ -47,10 +48,14 @@ class ConnectionNotifier extends ChangeNotifier {
   }
 }
 
-GoRouter createRouter(ConnectionNotifier connectionNotifier) {
+GoRouter createRouter(
+  ConnectionNotifier connectionNotifier, {
+  ModalRouteTracker? modalTracker,
+}) {
   return GoRouter(
     initialLocation: '/models',
     refreshListenable: connectionNotifier,
+    observers: [if (modalTracker != null) modalTracker],
     redirect: (context, state) {
       final isConnected = connectionNotifier.isConnected;
       final matchedPath = state.matchedLocation;

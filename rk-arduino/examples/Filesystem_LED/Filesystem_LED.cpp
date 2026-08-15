@@ -37,14 +37,21 @@ void setup() {
         Serial.println("FS: mounted");
 #endif
 
-        // Seed a demo file the first time the sketch boots.
+        // Seed a demo tree the first time the sketch boots — a nested folder
+        // with files so recursive folder delete can be exercised end-to-end.
         if (!LittleFS.exists("/demo/README.txt")) {
             LittleFS.mkdir("/demo");
+            LittleFS.mkdir("/demo/sub");
             File f = LittleFS.open("/demo/README.txt", "w");
             if (f) {
                 f.print("Hello from RadioKit bulk-FS!\n");
                 f.print("Edit this file from the app.\n");
                 f.close();
+            }
+            File g = LittleFS.open("/demo/sub/file.txt", "w");
+            if (g) {
+                g.print("Nested file for recursive-delete testing.\n");
+                g.close();
             }
         }
     }

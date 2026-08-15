@@ -419,6 +419,7 @@ lib/screens/devtools/filesystem/
 - For every long operation, set a `_progress` double (0..1) and render it in a status bar with a `LinearProgressIndicator` + status text.
 - After any mutation (upload, delete, mkdir, rename), call `_refresh()` to re-list the current directory.
 - `formatFs()` is a destructive action — always wrap in a typed-name confirmation dialog (the device name from `DeviceProvider.connectedDevice`).
+- **Folder delete sends the RECURSIVE flag**: `DeviceFsService.delete(path, recursive: true)` is used for directories and multi-select. The firmware (`handleDelete` in `RadioKitFsHandlers.cpp`) walks the tree with a depth cap (`RK_FS_MAX_DELETE_DEPTH`, 32) when the flag is set; with `recursive: false`, only files and empty directories are removed (a non-empty dir returns `NOT_FOUND`). Keep this semantics in sync between `FsProtocolService.buildDelete`, the firmware handler, and `demo_fs_transport.dart`.
 
 ### 9.5 Path utilities
 
@@ -581,6 +582,13 @@ The `.github/workflows/release.yml` has a `flatpak` job that runs after the Andr
 - **Problem**: When follow mode navigates to `/dev-tools/esp32-fs` during an ongoing FS operation (e.g., an HTTP API write), the screen's `initState` -> `_initialRefresh` -> `_refresh()` starts its own `listDir()` and `getInfo()` calls that collide with the ongoing transfer.
 - **Fix**: `FilesystemExplorerScreen._initialRefresh()` checks `DeviceProvider.isFsBusy` and defers with a 600ms retry if the transport is busy. The `_initTriggered` flag is NOT set during retries, so the chain keeps trying until the FS is idle.
 - **Getter**: `DeviceProvider.isFsBusy` exposes the private `_fsBusy` flag (set by `_ProviderAdapter` around every `sendFs` call).
+
+### 12.5 System back button dismisses modals first
+
+- **Problem**: On real Android 13+ devices, Flutter registers `OnBackInvokedCallback` (predictive back). With go_router's per-branch shell Navigators, a back gesture can dispatch to the go_router delegate instead of the Navigator owning an open bottom sheet/dialog, exiting the app (flutter/flutter#145290). Emulators and widget tests don't reproduce it — only physical devices.
+- **Fix**: `lib/widgets/back_button_dispatcher.dart` provides `ModalRouteTracker` (a `NavigatorObserver` recording `PopupRoute` subclasses across root + branch Navigators, registered in `createRouter`'s `observers:`) and `RadioKitBackDispatcher` (a `RootBackButtonDispatcher` that pops the tracked top modal via its owning navigator and returns `true`, otherwise delegates to `super.didPopRoute()`).
+- **Wiring constraint**: `MaterialApp.router(routerConfig:)` rejects a custom `backButtonDispatcher` — the app must use the delegate form (`routerDelegate:` + `routeInformationProvider:` + `routeInformationParser:` + `backButtonDispatcher:`) as done in `app.dart`.
+- **Testing**: `test/back_dispatcher_test.dart` covers modal-pop, delegation (page pop), root-exit (returns false), and swipe-dismiss stack consistency. `didPopRoute` is public, so tests call it directly.
 
 ## 13. BLE Filesystem Write Reliability
 

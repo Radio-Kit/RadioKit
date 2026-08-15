@@ -8,6 +8,7 @@
 
 #include "RadioKitFsHandlers.h"
 #include "RadioKitFS.h"
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -173,6 +174,61 @@ bool chdir(const char* path) {
     memcpy(s_cwd, path, len + 1);
     return true;
 }
+
+// ── Recursive delete helper ─────────────────────────────────────────────────
+
+/// Maximum recursion depth for directory-tree deletes. LittleFS paths are
+/// bounded (128 chars in the path buffer), so realistic trees are shallow;
+/// this cap protects the main-loop stack from pathological payloads.
+#define RK_FS_MAX_DELETE_DEPTH 32
+
+/// Recursively delete a directory tree at [path] (files, subfolders, and the
+/// directory itself). Returns true when [path] is fully removed; a regular
+/// file is removed the same way. Depth-capped at [RK_FS_MAX_DELETE_DEPTH].
+/// Mirrors the handleList() iteration pattern: the directory stays open while
+/// entries are closed and visited one at a time.
+#if RK_FS_HAS_LITTLEFS
+static bool deleteRecursive(const char* path, int depth) {
+    if (depth > RK_FS_MAX_DELETE_DEPTH) return false;
+
+    File dir = LittleFS.open(path, "r");
+    if (!dir) return false;
+    if (!dir.isDirectory()) {
+        dir.close();
+        return LittleFS.remove(path);
+    }
+
+    bool ok = true;
+    char child[160];
+    File entry = dir.openNextFile();
+    while (entry) {
+        size_t n = snprintf(child, sizeof(child), "%s/%s", path, entry.name());
+        if (n >= sizeof(child)) {
+            entry.close();
+            ok = false;
+            break;
+        }
+        if (entry.isDirectory()) {
+            entry.close();
+            if (!deleteRecursive(child, depth + 1)) {
+                ok = false;
+                break;
+            }
+        } else {
+            entry.close();
+            if (!LittleFS.remove(child)) {
+                ok = false;
+                break;
+            }
+        }
+        entry = dir.openNextFile();
+    }
+    dir.close();
+
+    if (!ok) return false;
+    return LittleFS.rmdir(path);
+}
+#endif // RK_FS_HAS_LITTLEFS
 
 // ── Handlers ────────────────────────────────────────────────────────────────
 
@@ -345,14 +401,22 @@ void handleDelete(const uint8_t* payload, uint16_t len) {
     char path[128];
     uint16_t pathLen = 0;
     readString(payload, len, offset, path, sizeof(path), pathLen);
-    if (offset < len) offset++; // skip RECURSIVE flag (1 byte)
+
+    bool recursive = false;
+    if (offset < len) recursive = (payload[offset++] != 0);
 
     char resolved[160];
     resolvePath(path, resolved, sizeof(resolved));
 
-    // Try as file first; if that fails, try directory.
-    bool ok = LittleFS.remove(resolved);
-    if (!ok) ok = LittleFS.rmdir(resolved);
+    // With the RECURSIVE flag, remove the whole tree (files + subfolders).
+    // Without it, keep current semantics: files and empty directories are
+    // removed; non-empty directories are left in place.
+    bool ok;
+    if (recursive) {
+        ok = deleteRecursive(resolved, 0);
+    } else {
+        ok = LittleFS.remove(resolved) || LittleFS.rmdir(resolved);
+    }
 
     sendError(RK_FS_RESP_DELETE_ACK, ok ? RK_FS_ERR_OK : RK_FS_ERR_NOT_FOUND);
 #else

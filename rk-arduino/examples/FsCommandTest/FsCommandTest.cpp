@@ -1,19 +1,23 @@
 /**
  * FsCommandTest — RadioKit Example
  *
- * Integration test for the REPLACE (0x0D) and CRC32 (0x0E) filesystem
- * commands. Runs on-device against LittleFS and prints pass/fail for
- * each test case to the Serial monitor.
+ * Integration test for the REPLACE (0x0D), CRC32 (0x0E), and DELETE (0x04)
+ * filesystem commands. Runs on-device against LittleFS and prints pass/fail
+ * for each test case to the Serial monitor.
  *
  * Tests:
- *   1. REPLACE with valid CRC32    → file content is replaced
- *   2. REPLACE with invalid CRC32  → file is NOT modified (CRC gate)
- *   3. REPLACE on non-existent dir → returns NOT_FOUND
- *   4. CRC32 on existing file      → returns correct checksum + size
- *   5. CRC32 on non-existent file  → returns STATUS=0x01 (not found)
- *   6. CRC32 on empty file         → returns CRC32=0x00000000
- *   7. REPLACE aborts active upload → upload state is cleaned up
- *   8. CRC32 on file >512 KB       → returns STATUS=0x01 (too large)
+ *   1. REPLACE with valid CRC32        → file content is replaced
+ *   2. REPLACE with invalid CRC32      → file is NOT modified (CRC gate)
+ *   3. REPLACE on non-existent dir     → returns NOT_FOUND
+ *   4. CRC32 on existing file          → returns correct checksum + size
+ *   5. CRC32 on non-existent file      → returns STATUS=0x01 (not found)
+ *   6. CRC32 on empty file             → returns CRC32=0x00000000
+ *   7. REPLACE aborts active upload    → upload state is cleaned up
+ *   8. CRC32 on file >512 KB           → returns STATUS=0x01 (too large)
+ *   9. DELETE recursive on a tree      → files + subfolders removed
+ *   10. DELETE recursive on a file     → file removed
+ *   11. DELETE non-recursive on a non-empty dir → NOT_FOUND, untouched
+ *   12. DELETE recursive on an empty dir → removed
  *
  * Upload to the device and open the Serial monitor at 115200 baud.
  */
@@ -146,6 +150,14 @@ static uint16_t buildCrc32Payload(uint8_t* buf, const char* path) {
     return appendPath(buf, path);
 }
 
+/// Build a DELETE payload: [PATH_LEN][PATH][RECURSIVE(1)]
+static uint16_t buildDeletePayload(uint8_t* buf, const char* path,
+                                   bool recursive) {
+    uint16_t off = appendPath(buf, path);
+    buf[off++] = recursive ? 0x01 : 0x00;
+    return off;
+}
+
 // Read a file from LittleFS into [outBuf]. Returns actual bytes read.
 #if RK_FS_HAS_LITTLEFS
 static size_t readFileContent(const char* path, uint8_t* outBuf, size_t outCap) {
@@ -270,8 +282,8 @@ static void testCrc32Existing() {
 
     File f = LittleFS.open(path, "w");
     f.print(content);
-    size_t expectedSize = f.size();
     f.close();
+    size_t expectedSize = strlen(content);
 
     uint8_t payload[128];
     uint16_t payloadLen = buildCrc32Payload(payload, path);
@@ -423,42 +435,123 @@ static void testCrc32LargeFile() {
     PASS();
 }
 
+// Seed a nested directory tree for delete tests.
+static void seedTree(const char* root) {
+    LittleFS.mkdir(root);
+    LittleFS.mkdir(String(root) + "/sub");
+    LittleFS.mkdir(String(root) + "/sub/deep");
+
+    File a = LittleFS.open(String(root) + "/a.txt", "w");
+    if (a) { a.print("alpha"); a.close(); }
+    File b = LittleFS.open(String(root) + "/sub/b.txt", "w");
+    if (b) { b.print("beta"); b.close(); }
+    File c = LittleFS.open(String(root) + "/sub/deep/c.txt", "w");
+    if (c) { c.print("gamma"); c.close(); }
+}
+
+// Test 9: FS_DELETE recursive=1 on a nested tree → whole tree removed
+static void testDeleteRecursiveTree() {
+    TEST("DELETE recursive on nested tree");
+
+    const char* root = "/test_tree";
+    seedTree(root);
+    ASSERT_EQ((int)LittleFS.exists(String(root) + "/sub/deep/c.txt"), 1,
+              "deep file seeded");
+
+    uint8_t payload[128];
+    uint16_t payloadLen = buildDeletePayload(payload, root, true);
+
+    s_respCaptured = false;
+    RKFs::dispatch(RK_FS_CMD_DELETE, payload, payloadLen);
+
+    ASSERT_EQ(s_respSubCmd, RK_FS_RESP_DELETE_ACK, "response sub-cmd");
+    ASSERT_EQ(s_respLen, 1, "response payload length");
+    ASSERT_EQ(s_respPayload[0], RK_FS_ERR_OK, "error code");
+
+    // Every node must be gone, including the root itself.
+    ASSERT_EQ((int)LittleFS.exists(root), 0, "root removed");
+    ASSERT_EQ((int)LittleFS.exists(String(root) + "/a.txt"), 0, "file removed");
+    ASSERT_EQ((int)LittleFS.exists(String(root) + "/sub/b.txt"), 0,
+              "nested file removed");
+    ASSERT_EQ((int)LittleFS.exists(String(root) + "/sub/deep/c.txt"), 0,
+              "deep file removed");
+    PASS();
+}
+
+// Test 10: FS_DELETE recursive=1 on a file → file removed
+static void testDeleteRecursiveFile() {
+    TEST("DELETE recursive on a file");
+
+    const char* path = "/test_delete_file.txt";
+    File f = LittleFS.open(path, "w");
+    f.print("delete me");
+    f.close();
+
+    uint8_t payload[128];
+    uint16_t payloadLen = buildDeletePayload(payload, path, true);
+
+    s_respCaptured = false;
+    RKFs::dispatch(RK_FS_CMD_DELETE, payload, payloadLen);
+
+    ASSERT_EQ(s_respSubCmd, RK_FS_RESP_DELETE_ACK, "response sub-cmd");
+    ASSERT_EQ(s_respPayload[0], RK_FS_ERR_OK, "error code");
+    ASSERT_EQ((int)LittleFS.exists(path), 0, "file removed");
+    PASS();
+}
+
+// Test 11: FS_DELETE recursive=0 on a non-empty dir → NOT_FOUND, untouched
+static void testDeleteNonRecursiveNonEmptyDir() {
+    TEST("DELETE non-recursive on non-empty dir");
+
+    const char* root = "/test_nonrec";
+    seedTree(root);
+
+    uint8_t payload[128];
+    uint16_t payloadLen = buildDeletePayload(payload, root, false);
+
+    s_respCaptured = false;
+    RKFs::dispatch(RK_FS_CMD_DELETE, payload, payloadLen);
+
+    ASSERT_EQ(s_respSubCmd, RK_FS_RESP_DELETE_ACK, "response sub-cmd");
+    ASSERT_EQ(s_respPayload[0], RK_FS_ERR_NOT_FOUND, "error code");
+
+    // Tree must be untouched.
+    ASSERT_EQ((int)LittleFS.exists(String(root) + "/sub/deep/c.txt"), 1,
+              "tree still present");
+
+    // Cleanup with a recursive delete.
+    payloadLen = buildDeletePayload(payload, root, true);
+    s_respCaptured = false;
+    RKFs::dispatch(RK_FS_CMD_DELETE, payload, payloadLen);
+    ASSERT_EQ(s_respPayload[0], RK_FS_ERR_OK, "cleanup delete");
+    PASS();
+}
+
+// Test 12: FS_DELETE recursive=1 on an empty dir → removed
+static void testDeleteRecursiveEmptyDir() {
+    TEST("DELETE recursive on empty dir");
+
+    const char* dir = "/test_empty_dir";
+    LittleFS.mkdir(dir);
+    ASSERT_EQ((int)LittleFS.exists(dir), 1, "dir created");
+
+    uint8_t payload[128];
+    uint16_t payloadLen = buildDeletePayload(payload, dir, true);
+
+    s_respCaptured = false;
+    RKFs::dispatch(RK_FS_CMD_DELETE, payload, payloadLen);
+
+    ASSERT_EQ(s_respSubCmd, RK_FS_RESP_DELETE_ACK, "response sub-cmd");
+    ASSERT_EQ(s_respPayload[0], RK_FS_ERR_OK, "error code");
+    ASSERT_EQ((int)LittleFS.exists(dir), 0, "dir removed");
+    PASS();
+}
+
 #endif // RK_FS_HAS_LITTLEFS
 
-// ── Setup & Loop ───────────────────────────────────────────────────────────
+// ── Test runner ─────────────────────────────────────────────────────────────
 
-void setup() {
-    Serial.begin(115200);
-    delay(2000);
-
-    Serial.println();
-    Serial.println("============================================");
-    Serial.println("  FS Command Test — REPLACE + CRC32");
-    Serial.println("============================================");
-    Serial.println();
-
-#if RK_FS_HAS_LITTLEFS
-    // Mount LittleFS (format if first boot)
-#if RK_ARCH_DETECTED == RK_ARCH_ESP32
-    LittleFS.begin(true);  // format on fail
-    Serial.printf("LittleFS: total=%u, used=%u\n",
-                  (unsigned)LittleFS.totalBytes(),
-                  (unsigned)LittleFS.usedBytes());
-#else
-    // RP2040: begin() has no bool arg; format manually if needed
-    LittleFS.begin();
-    Serial.println("LittleFS: mounted");
-#endif
-#else
-    Serial.println("SKIP: LittleFS not available on this platform");
-    Serial.println("ALL TESTS SKIPPED");
-    return;
-#endif
-
-    // Register the capture sender so RKFs::dispatch sends responses to us
-    RKFs::setSender(captureSender);
-
-    // Run tests
+static void runAllTests() {
 #if RK_FS_HAS_LITTLEFS
     testReplaceValidCrc();
     testReplaceInvalidCrc();
@@ -468,6 +561,10 @@ void setup() {
     testCrc32EmptyFile();
     testReplaceAbortsUpload();
     testCrc32LargeFile();
+    testDeleteRecursiveTree();
+    testDeleteRecursiveFile();
+    testDeleteNonRecursiveNonEmptyDir();
+    testDeleteRecursiveEmptyDir();
 #endif
 
     // Summary
@@ -483,11 +580,60 @@ void setup() {
     } else {
         Serial.printf("SOME TESTS FAILED (%d)\n", s_testsFailed);
     }
+    Serial.println();
+}
+
+// ── Setup & Loop ───────────────────────────────────────────────────────────
+
+void setup() {
+    Serial.begin(115200);
+    delay(2000);
 
     Serial.println();
-    Serial.println("Test complete. Reset the board to re-run.");
+    Serial.println("============================================");
+    Serial.println("  FS Command Test — REPLACE + CRC32 + DELETE");
+    Serial.println("============================================");
+    Serial.println();
+
+#if RK_FS_HAS_LITTLEFS
+    // Mount via RKFs::begin() so the handlers' s_mounted flag is set — the
+    // FS handlers return NO_FS until this is done.
+    if (!RKFs::begin()) {
+        Serial.println("RKFs::begin() failed — FS commands will return NO_FS");
+    } else {
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
+        Serial.printf("LittleFS: total=%u, used=%u\n",
+                      (unsigned)LittleFS.totalBytes(),
+                      (unsigned)LittleFS.usedBytes());
+#else
+        Serial.println("LittleFS: mounted");
+#endif
+    }
+#else
+    Serial.println("SKIP: LittleFS not available on this platform");
+    Serial.println("ALL TESTS SKIPPED");
+    return;
+#endif
+
+    // Register the capture sender so RKFs::dispatch sends responses to us
+    RKFs::setSender(captureSender);
+
+    Serial.println("Send 'r' to run the test suite (runs on the host's timing,");
+    Serial.println("so the CDC output is not lost at boot).");
 }
 
 void loop() {
-    delay(1000);
+    if (Serial.available()) {
+        char c = (char)Serial.read();
+        if (c == 'r' || c == 'R') {
+            // Reset counters, then run the suite once.
+            s_testsPassed = 0;
+            s_testsFailed = 0;
+            s_testIndex = 0;
+            Serial.println("Running tests...");
+            runAllTests();
+            Serial.println("Test complete. Send 'r' to run again.");
+        }
+    }
+    delay(50);
 }

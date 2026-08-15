@@ -413,7 +413,7 @@ Maximum payload size: **16 380 bytes** (16 384 - 4-byte header).
 | `0x01` | `FS_LIST` | `[u8 path_len][path...]` | List entries in a directory |
 | `0x02` | `FS_READ` | `[u8 path_len][path...][u32 offset][u16 max_bytes]` | Read up to 65 535 bytes from offset |
 | `0x03` | `FS_WRITE` | `[u8 path_len][path...][u32 offset][bytes...]` | Write a file chunk |
-| `0x04` | `FS_DELETE` | `[u8 path_len][path...][u8 recursive]` | Delete a file or directory |
+| `0x04` | `FS_DELETE` | `[u8 path_len][path...][u8 recursive]` | Delete a file or directory (recursive flag removes whole tree) |
 | `0x05` | `FS_INFO` | (empty) | Get FS usage / free space |
 | `0x06` | `FS_MKDIR` | `[u8 path_len][path...]` | Create a directory |
 | `0x07` | `FS_RENAME` | `[u8 old_len][old...][u8 new_len][new...]` | Rename / move |
@@ -422,6 +422,8 @@ Maximum payload size: **16 380 bytes** (16 384 - 4-byte header).
 | `0x0A` | `FS_UPLOAD_END` | `[u8 path_len][path...][u32 size]` | Finalize a multi-frame write |
 | `0x0B` | `FS_PING` | (empty) | Capability probe |
 | `0x0C` | `FS_FORMAT` | (empty) | Re-format the default FS (destructive) |
+
+`FS_DELETE` with `recursive = 1` removes a directory tree (files and subfolders at any depth, capped at 32 levels). With `recursive = 0`, only files and **empty** directories are removed — a non-empty directory is left in place and the device responds `NOT_FOUND`.
 
 ### Sub-Commands (Arduino -> App)
 

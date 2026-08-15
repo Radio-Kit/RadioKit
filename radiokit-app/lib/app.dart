@@ -21,6 +21,7 @@ import 'providers/account_provider.dart';
 import 'providers/flasher_provider.dart';
 import 'router.dart';
 import 'theme/app_theme.dart';
+import 'widgets/back_button_dispatcher.dart';
 
 class RadioKitApp extends StatefulWidget {
   const RadioKitApp({super.key});
@@ -46,6 +47,8 @@ class _RadioKitAppState extends State<RadioKitApp> {
   late final AccountProvider _accountProvider;
   late final FlasherProvider _flasherProvider;
   late final ConnectionNotifier _connectionNotifier;
+  late final ModalRouteTracker _modalTracker;
+  late final RadioKitBackDispatcher _backDispatcher;
   late final GoRouter _router;
 
   @override
@@ -104,7 +107,12 @@ class _RadioKitAppState extends State<RadioKitApp> {
       flasherProvider: _flasherProvider,
     );
     _connectionNotifier = ConnectionNotifier(_multiDeviceProvider, _remoteAccessProvider);
-    _router = createRouter(_connectionNotifier);
+    // Tracks modals across the root + shell-branch Navigators so the system
+    // back button dismisses an open sheet/dialog before go_router can exit
+    // the app (flutter/flutter#145290 predictive-back workaround).
+    _modalTracker = ModalRouteTracker();
+    _backDispatcher = RadioKitBackDispatcher(tracker: _modalTracker);
+    _router = createRouter(_connectionNotifier, modalTracker: _modalTracker);
   }
 
   @override
@@ -148,7 +156,13 @@ class _RadioKitAppState extends State<RadioKitApp> {
               theme: AppTheme.fromTokens(themePresetProvider.tokens, Brightness.light),
               darkTheme: AppTheme.fromTokens(themePresetProvider.tokens, Brightness.dark),
               themeMode: themeProvider.themeMode,
-              routerConfig: _router,
+              // Delegate-based form (not `routerConfig:`) so the custom
+              // backButtonDispatcher can intercept the system back button
+              // before go_router's delegate exits the app (#145290 fix).
+              routerDelegate: _router.routerDelegate,
+              routeInformationProvider: _router.routeInformationProvider,
+              routeInformationParser: _router.routeInformationParser,
+              backButtonDispatcher: _backDispatcher,
               builder: (context, child) {
                 return ConnectionListener(
                   child: _FollowModeWrapper(
