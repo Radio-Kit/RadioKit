@@ -5,19 +5,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Manages runtime application settings that cannot be configured via compile-time macros.
 class SettingsProvider with ChangeNotifier {
   static const _storageKey = 'radiokit_settings';
-  static const _defaultShowDemo = true;
   static const _defaultUseFullscreen = false;
   static const _defaultEnableRemoteAccess = false;
   static const _defaultFollowRemoteAccess = false;
   static const _defaultOverrideTheme = false;
 
-  bool _showDemo = _defaultShowDemo;
   bool _useFullscreen = _defaultUseFullscreen;
   bool _enableRemoteAccess = _defaultEnableRemoteAccess;
   bool _followRemoteAccess = _defaultFollowRemoteAccess;
   bool _overrideTheme = _defaultOverrideTheme;
 
-  bool get showDemo => _showDemo;
   bool get useFullscreen => _useFullscreen;
   bool get enableRemoteAccess => _enableRemoteAccess;
   bool get followRemoteAccess => _followRemoteAccess;
@@ -25,14 +22,6 @@ class SettingsProvider with ChangeNotifier {
 
   SettingsProvider() {
     _loadSettings();
-  }
-
-  Future<void> setShowDemo(bool value) async {
-    if (_showDemo != value) {
-      _showDemo = value;
-      notifyListeners();
-      await _persist();
-    }
   }
 
   Future<void> setUseFullscreen(bool value) async {
@@ -73,7 +62,6 @@ class SettingsProvider with ChangeNotifier {
       final data = prefs.getString(_storageKey);
       if (data != null) {
         final decoded = Map<String, dynamic>.from(jsonDecode(data));
-        _showDemo = decoded['showDemo'] ?? _defaultShowDemo;
         _useFullscreen = decoded['useFullscreen'] ?? _defaultUseFullscreen;
         _enableRemoteAccess = decoded['enableRemoteAccess'] ?? _defaultEnableRemoteAccess;
         _followRemoteAccess = decoded['followRemoteAccess'] ?? _defaultFollowRemoteAccess;
@@ -89,7 +77,6 @@ class SettingsProvider with ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       final data = jsonEncode({
-        'showDemo': _showDemo,
         'useFullscreen': _useFullscreen,
         'enableRemoteAccess': _enableRemoteAccess,
         'followRemoteAccess': _followRemoteAccess,

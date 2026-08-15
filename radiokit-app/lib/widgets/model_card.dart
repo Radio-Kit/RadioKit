@@ -11,7 +11,6 @@ import '../theme/app_theme.dart';
 ///
 /// Used by:
 /// - `_PairedModelCard` (models_tab.dart) — paired device connections
-/// - `_InteractiveDemoSection` (models_tab.dart) — demo model tiles
 /// - `_DesignCard` (designs_tab.dart) — saved design project cards
 class ModelCard extends StatelessWidget {
   /// Leading widget (e.g. icon container). Shown on the left with 16px gap.

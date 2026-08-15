@@ -14,7 +14,14 @@ import 'responsive_grid.dart';
 /// Section that loads bundled starter-template JSON files and displays them
 /// as tappable cards below the user's saved designs.
 class StarterTemplatesSection extends StatefulWidget {
-  const StarterTemplatesSection({super.key});
+  final bool showHeader;
+  final String? headerLabel;
+
+  const StarterTemplatesSection({
+    super.key,
+    this.showHeader = true,
+    this.headerLabel,
+  });
 
   @override
   State<StarterTemplatesSection> createState() =>
@@ -112,15 +119,15 @@ class _StarterTemplatesSectionState extends State<StarterTemplatesSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // -- Section header
-        Padding(
-          padding: const EdgeInsets.only(top: 24, bottom: 12),
-          child: Row(children: [
-            Container(width: 8, height: 8, color: tokens.primary),
-            const SizedBox(width: 12),
-            Text('STARTER TEMPLATES', style: GoogleFonts.martianMono(color: tokens.onSurface.withValues(alpha: 0.45), fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1.5)),
-          ]),
-        ),
+        if (widget.showHeader)
+          Padding(
+            padding: const EdgeInsets.only(top: 24, bottom: 12),
+            child: Row(children: [
+              Container(width: 8, height: 8, color: tokens.primary),
+              const SizedBox(width: 12),
+              Text(widget.headerLabel ?? 'STARTER TEMPLATES', style: GoogleFonts.martianMono(color: tokens.onSurface.withValues(alpha: 0.45), fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1.5)),
+            ]),
+          ),
         // ── Template cards ──────────────────────────────────────────────
         _TemplateGrid(
           templates: _templates,

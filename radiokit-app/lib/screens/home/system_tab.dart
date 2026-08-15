@@ -307,7 +307,6 @@ class _SystemTabState extends State<SystemTab> {
   }
 
   Widget _buildApplicationCard(BuildContext context, ThemeProvider themeProvider) {
-    final tokens = context.tokens;
     final themePresetProvider = context.watch<ThemePresetProvider>();
     return Container(
       decoration: BoxDecoration(
@@ -353,19 +352,6 @@ class _SystemTabState extends State<SystemTab> {
                           child: Text(p.toUpperCase()),
                         ))
                     .toList(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            _buildSettingRow(context,
-              Icons.devices_rounded,
-              'ENABLE_DEMO',
-              'Show Demo examples',
-              Consumer<SettingsProvider>(
-                builder: (context, settings, _) => Switch(
-                  value: settings.showDemo,
-                  onChanged: (v) => settings.setShowDemo(v),
-                  activeThumbColor: tokens.primary,
-                ),
               ),
             ),
           ],

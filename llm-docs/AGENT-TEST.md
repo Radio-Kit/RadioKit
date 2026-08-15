@@ -562,7 +562,7 @@ curl -s http://$APP_IP:7007/api/settings
 # Update a setting
 curl -s -X PUT http://$APP_IP:7007/api/settings \
     -H 'Content-Type: application/json' \
-    -d '{"showDemo":true, "enableDevTools":true}'
+    -d '{"useFullscreen":true, "enableDevTools":true}'
 ```
 
 ### Disconnect & Cleanup

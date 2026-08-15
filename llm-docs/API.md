@@ -89,7 +89,6 @@ Returns all current app settings.
 
 ```json
 {
-  "showDemo": true,
   "useFullscreen": false,
   "enableDevTools": true,
   "enableRemoteAccess": true,
@@ -105,7 +104,7 @@ Update one or more settings. Only include the fields you want to change.
 
 ```json
 {
-  "showDemo": false,
+  "useFullscreen": true,
   "enableDevTools": true
 }
 ```

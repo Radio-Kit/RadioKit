@@ -747,7 +747,6 @@ class RemoteAccessService {
 
   Future<Response> _handleSettings(Request request) async {
     return _json({
-      'showDemo': _settingsProvider.showDemo,
       'useFullscreen': _settingsProvider.useFullscreen,
       'enableRemoteAccess': _settingsProvider.enableRemoteAccess,
       'followRemoteAccess': _settingsProvider.followRemoteAccess,
@@ -756,9 +755,6 @@ class RemoteAccessService {
 
   Future<Response> _handleSettingsUpdate(Request request) async {
     final body = await _parseBody(request);
-    if (body.containsKey('showDemo')) {
-      await _settingsProvider.setShowDemo(body['showDemo'] as bool);
-    }
     if (body.containsKey('useFullscreen')) {
       await _settingsProvider.setUseFullscreen(body['useFullscreen'] as bool);
     }

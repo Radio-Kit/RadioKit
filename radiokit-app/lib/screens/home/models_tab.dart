@@ -8,7 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../providers/device_provider.dart';
 import '../../providers/multi_device_provider.dart';
 import '../../providers/history_provider.dart';
-import '../../providers/settings_provider.dart';
+import 'starter_templates_section.dart';
 import '../../providers/ble_provider.dart';
 import '../../providers/serial_provider.dart';
 import '../device_config/device_config.dart';
@@ -25,7 +25,6 @@ import '../../widgets/model_card.dart';
 import '../../services/websocket_service.dart';
 import '../../services/cloud_identity.dart';
 import '../../models/tab_index.dart';
-import '../../screens/device_config/device_settings_dialog.dart';
 import 'pair_sheet.dart';
 import '../../services/ble_transport.dart';
 
@@ -130,22 +129,7 @@ class _ModelsTabState extends State<ModelsTab> {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: _PairedModelsList(),
         ),
-        const SizedBox(height: 32),
-        Consumer<SettingsProvider>(
-          builder: (context, settings, _) {
-            if (!settings.showDemo) return const SizedBox.shrink();
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                children: [
-                  _buildSectionTag(context, 'INTERACTIVE_DEMO'),
-                  _InteractiveDemoSection(),
-                  const SizedBox(height: 32),
-                ],
-              ),
-            );
-          },
-        ),
+        _buildStarterTemplatesSection(context),
       ],
     );
   }
@@ -161,23 +145,28 @@ class _ModelsTabState extends State<ModelsTab> {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: _PairedModelsList(),
         ),
-        const SizedBox(height: 32),
-        Consumer<SettingsProvider>(
-          builder: (context, settings, _) {
-            if (!settings.showDemo) return const SizedBox.shrink();
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                children: [
-                  _buildSectionTag(context, 'INTERACTIVE_DEMO'),
-                  _InteractiveDemoSection(),
-                  const SizedBox(height: 32),
-                ],
-              ),
-            );
-          },
-        ),
+        _buildStarterTemplatesSection(context),
       ],
+    );
+  }
+
+  Widget _buildStarterTemplatesSection(BuildContext context) {
+    return Consumer<HistoryProvider>(
+      builder: (context, history, _) {
+        if (history.pairedDevices.isNotEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 16),
+              _buildSectionTag(context, 'STARTER_TEMPLATES'),
+              const StarterTemplatesSection(showHeader: false),
+              const SizedBox(height: 32),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -1716,90 +1705,8 @@ void _confirmRemoveDevice(BuildContext context, PairedDevice device) {
   );
 }
 
-// -- Interactive Demo Section --------------------------------------------------
-
-class _InteractiveDemoSection extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final useWide = MediaQuery.of(context).size.width > 600;
-
-    final demos = [
-      _DemoTile(icon: Icons.widgets_rounded, title: 'WIDGETS_DEMO', subtitle: 'Explore all available widget types', onTap: () async {
-        final multiDevice = context.read<MultiDeviceProvider>();
-        await multiDevice.connectDemo('WIDGETS_DEMO');
-        if (context.mounted) context.go('/control/DEMO_WIDGETS_DEMO');
-      }),
-      _DemoTile(icon: Icons.sports_esports_rounded, title: 'RC_CONTROLLER', subtitle: 'Simulated remote control interface', onTap: () async {
-        final multiDevice = context.read<MultiDeviceProvider>();
-        await multiDevice.connectDemo('RC_CONTROLLER');
-        if (context.mounted) context.go('/control/DEMO_RC_CONTROLLER');
-      }),
-      _DemoTile(icon: Icons.dashboard_rounded, title: 'IOT_DASHBOARD', subtitle: 'IoT monitoring and control panel', onTap: () async {
-        final multiDevice = context.read<MultiDeviceProvider>();
-        await multiDevice.connectDemo('IOT_DASHBOARD');
-        if (context.mounted) context.go('/control/DEMO_IOT_DASHBOARD');
-      }),
-      _DemoTile(icon: Icons.tab_rounded, title: 'MULTI_PAGE', subtitle: 'Multi-page demo with Control and Settings', onTap: () async {
-        final multiDevice = context.read<MultiDeviceProvider>();
-        await multiDevice.connectDemo('MULTI_PAGE_DEMO');
-        if (context.mounted) context.go('/control/DEMO_MULTI_PAGE_DEMO');
-      }),
-    ];
-
-    if (useWide)
-      return _buildLandscapeGrid(context, demos);
-    else
-      return Column(children: demos.map((demo) => _buildCard(context, demo)).toList());
-  }
-
-  Widget _buildCard(BuildContext context, _DemoTile demo) {
-    final tokens = context.tokens;
-    return ModelCard(
-      leading: ModelCard.standardLeading(context: context, icon: demo.icon),
-      title: ModelCard.standardTitle(demo.title),
-      subtitle: ModelCard.standardSubtitle(context, demo.subtitle.toUpperCase()),
-      trailing: PopupMenuButton<String>(
-        icon: Icon(Icons.more_vert_rounded, size: 18, color: tokens.onSurface.withValues(alpha: 0.5)),
-        offset: const Offset(-120, 0),
-        color: tokens.base300,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        itemBuilder: (context) => [_menuItem('CONNECT'), _menuItem('REMOVE')],
-        onSelected: (value) {
-          if (value == 'CONNECT') demo.onTap();
-        },
-      ),
-      onTap: demo.onTap,
-    );
-  }
-
-  Widget _buildLandscapeGrid(BuildContext context, List<_DemoTile> demos) {
-    final rows = <Widget>[];
-    for (int i = 0; i < demos.length; i += 2) {
-      rows.add(Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(child: _buildCard(context, demos[i])),
-          const SizedBox(width: 12),
-          if (i + 1 < demos.length) Expanded(child: _buildCard(context, demos[i + 1]))
-          else const Expanded(child: SizedBox.shrink()),
-        ],
-      ));
-    }
-    return Column(children: rows);
-  }
-}
-
-
 PopupMenuItem<String> _menuItem(String label) {
   return PopupMenuItem<String>(value: label, height: 32, child: Text(label, style: const TextStyle(fontSize: 11, fontFamily: 'monospace', fontWeight: FontWeight.w600)));
-}
-
-class _DemoTile {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-  const _DemoTile({required this.icon, required this.title, required this.subtitle, required this.onTap});
 }
 
 class _DeviceIconWidget extends StatelessWidget {
