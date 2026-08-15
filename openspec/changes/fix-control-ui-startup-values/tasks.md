@@ -26,5 +26,5 @@
 ## Hardware verification
 
 - [x] Rebuild + flash MIKRO_V2 with NVS erase, re-upload FS bundle (`build_fs.py --board MIKRO_V2 --vehicle ScaniaV8 --hardware truck`).
-- [ ] Connect tablet, open control UI: pedals rest at min, steering centered at startup.
-- [ ] Verify steering with autoCenter none stays where released (no auto-centering).
+- [x] Connect tablet, open control UI: pedals rest at min, steering centered at startup.
+- [x] Verify steering with autoCenter none stays where released (no auto-centering).
