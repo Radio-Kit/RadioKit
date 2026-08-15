@@ -55,6 +55,11 @@ public:
     void onSubscribe(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo, uint16_t subValue) override {
         // Serial-only to avoid spamming the print buffer on every BLE connect
         Serial.printf("BLE: Widget char subscribed (subValue=%d)\n", subValue);
+        if (subValue != 0) {
+            // Push CONF_DATA + VAR_DATA as soon as a client subscribes so the
+            // app can render without waiting for GET_CONF/GET_VARS round-trips.
+            RadioKit.pushConfigAndVars();
+        }
     }
 };
 

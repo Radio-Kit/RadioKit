@@ -104,6 +104,14 @@ public:
     void pushUpdate(uint8_t widgetId);
     void pushMetaUpdate(uint8_t widgetId);
 
+    /**
+     * Push the full CONF_DATA + VAR_DATA frames proactively (e.g. when a BLE
+     * client subscribes after connecting) so clients receive the config and
+     * live values without a request round-trip. Same frames as GET_CONF/
+     * GET_VARS responses.
+     */
+    void pushConfigAndVars();
+
     // ── NVS config editing ───────────────────────────────────────
     void setConfig(const char* name, const char* description,
                    const char* devicePassword = nullptr,

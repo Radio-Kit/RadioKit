@@ -1037,6 +1037,14 @@ void RadioKitClass::_handleGetConf() {
     _sendPacket(totalLen);
 }
 
+void RadioKitClass::pushConfigAndVars() {
+    // Proactive push (e.g. on BLE client subscribe): identical frames to the
+    // GET_CONF / GET_VARS responses, sent without waiting for a request so a
+    // freshly-connected client can render immediately.
+    _handleGetConf();
+    _handleGetVars();
+}
+
 void RadioKitClass::_handleGetVars() {
     uint16_t payloadLen = _buildVarPayload(&_txBuf[RK_HEADER_SIZE],
                                            RK_MAX_PACKET_SIZE - RK_HEADER_SIZE - RK_CRC_SIZE);

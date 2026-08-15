@@ -55,7 +55,7 @@ Minimum packet size: **6 bytes** (no payload).
 
 ### CONF_DATA (Configuration)
 
-Sent in response to `GET_CONF`. Contains widget configuration for the UI.
+Contains widget configuration for the UI. Sent in response to `GET_CONF`, and also **pushed unsolicited by the firmware on BLE subscribe** (when a client enables notifications on the widget characteristic) so the app can render the UI without waiting for a request round-trip. Unsolicited CONF_DATA is identical in format and the app handles it idempotently.
 
 #### Global Header
 

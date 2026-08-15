@@ -83,6 +83,11 @@ class DeviceProvider extends ChangeNotifier {
   Timer?                   _telemetryTimer;
   Timer?                   _confTimeoutTimer;
   final DebugLogSink?            _debugSink;
+  /// True once a CONF_DATA has been parsed during the current connection.
+  /// The firmware may push CONF_DATA on BLE subscribe before _requestConfig()
+  /// sets up its wait, so the handshake must short-circuit when the config
+  /// already arrived.
+  bool _configReceived = false;
   Completer<void>? _confCompleter;
   Completer<int>? _setConfCompleter;
   Completer<Map<String, int>>? _bleInfoCompleter;
@@ -724,6 +729,7 @@ class DeviceProvider extends ChangeNotifier {
 
   Future<void> connectToDevice(DeviceInfo device, {int baudRate = 115200}) async {
     _connectionState = DeviceConnectionState.connecting;
+    _configReceived = false;
     _connectedDevice = device;
     _errorMessage    = null;
     _configName      = null;
@@ -755,7 +761,10 @@ class DeviceProvider extends ChangeNotifier {
       return;
     }
 
-    await Future.delayed(const Duration(milliseconds: 5000));
+    // No fixed settle delay: BLE connect() already completes MTU negotiation,
+    // service discovery and notify subscription, and push-capable firmware
+    // sends CONF_DATA on subscribe. _requestConfig() waits a short window for
+    // that push (BLE) or requests immediately (other transports).
     if (_connectionState == DeviceConnectionState.disconnected) return;
 
     await _requestConfig();
@@ -1124,28 +1133,46 @@ class DeviceProvider extends ChangeNotifier {
   }
 
   Future<void> _requestConfig() async {
+    // The firmware pushes CONF_DATA on BLE subscribe, which is parsed during
+    // transport.connect() — before this method runs. Skip the handshake when
+    // the config already arrived.
+    if (_configReceived) {
+      _log('CONF_DATA already received (device push) — skipping handshake');
+      return;
+    }
+
     _log('ESTABLISHING HANDSHAKE (Protocol v$kProtocolVersion)...');
     _connectionState = DeviceConnectionState.fetchingConfig;
     notifyListeners();
 
+    // Push-capable firmware (BLE) sends CONF_DATA on client subscribe, so the
+    // first attempt waits for that push instead of requesting; if it does not
+    // arrive within kPushWaitTimeout we fall back to GET_CONF.
+    final waitForPush = _connectedDevice?.currentTransport == TransportType.ble;
+
     for (int attempt = 0; attempt < 3; attempt++) {
       _confCompleter = Completer<void>();
+      final isPushWait = waitForPush && attempt == 0;
 
-      try {
-        final pkt = ProtocolService.buildGetConf();
-        final hex = pkt.map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase()).join(' ');
-        _log('APP -> GET_CONF (attempt ${attempt + 1}/3) bytes: $hex');
-        await _writePacket(pkt);
-      } catch (e) {
-        _log('FAILED TO SEND GET_CONF: $e', level: ConsoleLogLevel.error);
-        _errorMessage    = 'Failed to send GET_CONF: $e';
-        _connectionState = DeviceConnectionState.error;
-        notifyListeners();
-        return;
+      if (!isPushWait) {
+        try {
+          final pkt = ProtocolService.buildGetConf();
+          final hex = pkt.map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase()).join(' ');
+          _log('APP -> GET_CONF (attempt ${attempt + 1}/3) bytes: $hex');
+          await _writePacket(pkt);
+        } catch (e) {
+          _log('FAILED TO SEND GET_CONF: $e', level: ConsoleLogLevel.error);
+          _errorMessage    = 'Failed to send GET_CONF: $e';
+          _connectionState = DeviceConnectionState.error;
+          notifyListeners();
+          return;
+        }
+      } else {
+        _log('WAITING for pushed CONF_DATA (BLE subscribe, ${kPushWaitTimeout.inSeconds}s)...');
       }
 
       _confTimeoutTimer?.cancel();
-      _confTimeoutTimer = Timer(kConfTimeout, () {
+      _confTimeoutTimer = Timer(isPushWait ? kPushWaitTimeout : kConfTimeout, () {
         if (_confCompleter != null && !_confCompleter!.isCompleted) {
           _confCompleter!.completeError(
               TimeoutException('CONF_DATA timeout (attempt ${attempt + 1})'));
@@ -1162,12 +1189,14 @@ class DeviceProvider extends ChangeNotifier {
       } on TimeoutException catch (_) {
         _confTimeoutTimer?.cancel();
         _confTimeoutTimer = null;
-        _log('TIMEOUT: Device did not respond to GET_CONF.',
+        _log(isPushWait
+            ? 'PUSH TIMEOUT: no CONF_DATA within ${kPushWaitTimeout.inSeconds}s — falling back to GET_CONF.'
+            : 'TIMEOUT: Device did not respond to GET_CONF.',
             level: ConsoleLogLevel.warning);
         if (_connectionState == DeviceConnectionState.disconnected) return;
         if (attempt < 2) continue;
 
-        _errorMessage = 'Device did not respond to GET_CONF after 3 attempts.';
+        _errorMessage = 'Device did not respond with CONF_DATA after 3 attempts.';
         _connectionState = DeviceConnectionState.error;
         await _transport.disconnect(); // Hardened cleanup
         notifyListeners();
@@ -1925,6 +1954,7 @@ class DeviceProvider extends ChangeNotifier {
       return;
     }
     _log('RECEIVED CONFIG: ${_connectedDevice?.name ?? conf.name} with ${conf.widgets.length} widgets', level: ConsoleLogLevel.success);
+    _configReceived = true;
     // Name/desc may come from device info (v4) or embedded in CONF_DATA (v3 fallback)
     final fallbackName = _connectedDevice?.name ?? 'RadioKit Device';
     _configName      = conf.name.isNotEmpty ? conf.name : _configName ?? fallbackName;

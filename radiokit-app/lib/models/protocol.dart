@@ -349,6 +349,9 @@ const Duration kPingInterval    = Duration(seconds: 1);
 const Duration kTelemetryInterval = Duration(seconds: 5);
 // Increased to 8 s to handle slow USB CDC enumeration on some boards
 const Duration kConfTimeout     = Duration(seconds: 8);
+/// How long the app waits for the firmware's proactive CONF_DATA push (BLE
+/// subscribe) before falling back to a GET_CONF request.
+const Duration kPushWaitTimeout = Duration(seconds: 3);
 
 // VAR_UPDATE reliability (v3)
 const int kVarUpdateTimeoutMs  = 200;
