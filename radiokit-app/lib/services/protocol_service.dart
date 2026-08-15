@@ -602,13 +602,14 @@ class ProtocolService {
         }
         offset += 5;
       } else {
-        // Generic 1-byte or N-byte values (Switch, Slider, etc.)
+        // Generic 1-byte or N-byte values (Switch, Slider, Joystick, etc.)
         if (offset + sz <= payload.length) {
-          final val = payload[offset]; // For now we assume 1-byte for most
           if (outSz > 0) {
+            final val = payload[offset];
             state = state.copyWithOutput(widget.widgetId, val);
           } else {
-            state = state.copyWithInput(widget.widgetId, [val]);
+            final vals = payload.sublist(offset, offset + sz);
+            state = state.copyWithInput(widget.widgetId, vals);
           }
         }
         offset += sz;

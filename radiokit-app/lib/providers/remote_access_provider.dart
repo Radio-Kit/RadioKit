@@ -31,6 +31,7 @@ class RemoteAccessProvider extends ChangeNotifier {
   /// isConnected checks and return 503 for this idle provider.
   late final DeviceProvider _idleDeviceProvider = DeviceProvider(
     transport: DemoTransport(),
+    designsProvider: _designsProvider,
   );
   final BleProvider _bleProvider;
   final SerialProvider _serialProvider;

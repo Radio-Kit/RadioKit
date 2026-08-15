@@ -75,6 +75,7 @@ class _RadioKitAppState extends State<RadioKitApp> {
       console: _consoleProvider,
       themePresetProvider: _themePresetProvider,
       historyProvider: _historyProvider,
+      designsProvider: _designsProvider,
     );
 
     // Multi-device provider
@@ -82,6 +83,7 @@ class _RadioKitAppState extends State<RadioKitApp> {
       debugSink: _debugProvider,
       themePresetProvider: _themePresetProvider,
       historyProvider: _historyProvider,
+      designsProvider: _designsProvider,
     );
 
     _flasherProvider = FlasherProvider();

@@ -129,7 +129,6 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
 
     for (final el in _designerState.elements) {
       final widgetId = el.properties['widgetId'] as int? ?? 0;
-      if (widgetId == 0) continue;
       final config = _widgetConfigForElement(el);
       if (config.typeId == 0) continue;
 
@@ -168,13 +167,14 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
         dynamic normalized;
         if (config.typeId == kWidgetSlider || config.typeId == kWidgetKnob) {
           // Map protocol [-100..100] → widget [min..max]
-          final protocolT = (inValues[0] + 100) / 200.0; // 0..1
+          final rawVal = inValues[0].toSigned(8);
+          final protocolT = ((rawVal + 100) / 200.0).clamp(0.0, 1.0); // 0..1
           final wMin = (el.properties['min'] as num?)?.toDouble() ?? 0;
           final wMax = (el.properties['max'] as num?)?.toDouble() ?? 100;
           normalized = wMin + protocolT * (wMax - wMin);
         } else if (config.typeId == kWidgetJoystick) {
-          final rawX = inValues.isNotEmpty ? inValues[0] : 0;
-          final rawY = inValues.length > 1 ? inValues[1] : 0;
+          final rawX = inValues.isNotEmpty ? inValues[0].toSigned(8) : 0;
+          final rawY = inValues.length > 1 ? inValues[1].toSigned(8) : 0;
           normalized = RKJoystickValue(x: rawX / 100.0, y: rawY / 100.0);
         } else if (config.typeId == kWidgetButton ||
             config.typeId == kWidgetSwitch ||

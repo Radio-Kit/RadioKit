@@ -525,7 +525,7 @@ temp.rk.content = "25.5";
 3. **Configure before `begin()`** — `config` fields are read-only after `begin()`.
 4. **Use consistent buffer lifetimes** — Text content via `rk.content` must point to persistent storage (`static` variables or string literals). Stack-local buffers will dangle.
 5. **Keep `loop()` fast** — Defer heavy work to timers or state machines.
-6. **Max 16 widgets** — Plan your UI to fit within `RADIOKIT_MAX_WIDGETS`.
+6. **Max 32 widgets** — Plan your UI to fit within `RADIOKIT_MAX_WIDGETS`.
 
 ## See Also
 

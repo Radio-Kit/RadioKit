@@ -119,14 +119,16 @@ class KnobWidgetDefinition extends WidgetDefinition {
   @override
   Widget buildCanvasWidget(BuildContext context, WidgetBuildContext ctx) {
     final acList = ctx.properties['autoCenter'] as List?;
+    final wMin = (ctx.properties['min'] as num?)?.toDouble() ?? 0;
+    final wMax = (ctx.properties['max'] as num?)?.toDouble() ?? 100;
     return RKKnob(
       centerIcon: iconFromName(ctx.properties['centerIcon'] as String?),
-      value: ctx.runtimeValue as double? ?? 0.5,
+      value: ctx.runtimeValue as double? ?? ((wMin + wMax) / 2),
       onChanged: ctx.isPlayMode && ctx.onChanged != null
           ? (v) => ctx.onChanged!(v)
           : (_) {},
-      min: (ctx.properties['min'] as num?)?.toDouble() ?? 0,
-      max: (ctx.properties['max'] as num?)?.toDouble() ?? 100,
+      min: wMin,
+      max: wMax,
       minAngle: (ctx.properties['minAngle'] as num?)?.toDouble() ?? -135,
       maxAngle: (ctx.properties['maxAngle'] as num?)?.toDouble() ?? 135,
       autoCenter: acEnabled(acList),
@@ -183,14 +185,16 @@ class SteeringWheelWidgetDefinition extends WidgetDefinition {
   @override
   Widget buildCanvasWidget(BuildContext context, WidgetBuildContext ctx) {
     final acList = ctx.properties['autoCenter'] as List?;
+    final wMin = (ctx.properties['min'] as num?)?.toDouble() ?? 0;
+    final wMax = (ctx.properties['max'] as num?)?.toDouble() ?? 100;
     return RKSteeringWheel(
       centerIcon: iconFromName(ctx.properties['centerIcon'] as String?),
-      value: ctx.runtimeValue as double? ?? 0.5,
+      value: ctx.runtimeValue as double? ?? ((wMin + wMax) / 2),
       onChanged: ctx.isPlayMode && ctx.onChanged != null
           ? (v) => ctx.onChanged!(v)
           : (_) {},
-      min: (ctx.properties['min'] as num?)?.toDouble() ?? 0,
-      max: (ctx.properties['max'] as num?)?.toDouble() ?? 100,
+      min: wMin,
+      max: wMax,
       minAngle: (ctx.properties['minAngle'] as num?)?.toDouble() ?? -135,
       maxAngle: (ctx.properties['maxAngle'] as num?)?.toDouble() ?? 135,
       autoCenter: acEnabled(acList),
@@ -247,14 +251,16 @@ class GasPedalWidgetDefinition extends WidgetDefinition {
     final pixelW = ctx.width.toDouble() * ctx.cellSize;
     final pixelH = ctx.height.toDouble() * ctx.cellSize;
     final acList = ctx.properties['autoCenter'] as List?;
+    final wMin = (ctx.properties['min'] as num?)?.toDouble() ?? 0;
+    final wMax = (ctx.properties['max'] as num?)?.toDouble() ?? 100;
 
     return RKGasPedal(
-      value: ctx.runtimeValue as double? ?? 0.0,
+      value: ctx.runtimeValue as double? ?? wMin,
       onChanged: ctx.isPlayMode && ctx.onChanged != null
           ? (v) => ctx.onChanged!(v)
           : (_) {},
-      min: (ctx.properties['min'] as num?)?.toDouble() ?? 0,
-      max: (ctx.properties['max'] as num?)?.toDouble() ?? 100,
+      min: wMin,
+      max: wMax,
       orientation: vertical ? RKAxis.vertical : RKAxis.horizontal,
       thickness: vertical ? pixelW / 8 : pixelH / 8,
       length: vertical ? pixelH : pixelW,

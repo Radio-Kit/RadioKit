@@ -405,7 +405,7 @@ const int kStrMaskExtra        = 0x80;  ///< Widget-specific binary config
 String widgetTypeName(int typeId) {
   switch (typeId) {
     case kWidgetButton:      return 'Button';
-    case kWidgetSwitch:      return 'Switch';
+    case kWidgetSwitch:      return 'Toggle Button';
     case kWidgetSlider:      return 'Slider';
     case kWidgetJoystick:    return 'Joystick';
     case kWidgetLed:         return 'LED';
@@ -413,6 +413,7 @@ String widgetTypeName(int typeId) {
     case kWidgetMultiple:    return 'Multiple';
     case kWidgetSlideSwitch: return 'SlideSwitch';
     case kWidgetKnob:        return 'Knob';
+    case kWidgetTelemetry:   return 'Telemetry';
     default:                 return 'Unknown';
   }
 }

@@ -6,6 +6,7 @@ import 'device_provider.dart';
 import 'console_provider.dart';
 import 'theme_preset_provider.dart';
 import 'history_provider.dart';
+import 'designs_provider.dart';
 import '../services/transport_service.dart';
 import '../services/debug_transport.dart';
 
@@ -27,14 +28,17 @@ class MultiDeviceProvider extends ChangeNotifier {
   final DebugLogSink? _debugSink;
   final ThemePresetProvider? _themePresetProvider;
   final HistoryProvider? _historyProvider;
+  final DesignsProvider? _designsProvider;
 
   MultiDeviceProvider({
     DebugLogSink? debugSink,
     ThemePresetProvider? themePresetProvider,
     HistoryProvider? historyProvider,
+    DesignsProvider? designsProvider,
   })  : _debugSink = debugSink,
         _themePresetProvider = themePresetProvider,
-        _historyProvider = historyProvider;
+        _historyProvider = historyProvider,
+        _designsProvider = designsProvider;
 
   // -- Getters ---------------------------------------------------------------
 
@@ -174,6 +178,7 @@ class MultiDeviceProvider extends ChangeNotifier {
       console: deviceConsole,
       themePresetProvider: _themePresetProvider,
       historyProvider: _historyProvider,
+      designsProvider: _designsProvider,
     );
 
     deviceProvider.addListener(notifyListeners);
@@ -215,6 +220,7 @@ class MultiDeviceProvider extends ChangeNotifier {
       console: deviceConsole,
       themePresetProvider: _themePresetProvider,
       historyProvider: _historyProvider,
+      designsProvider: _designsProvider,
     );
 
     deviceProvider.addListener(notifyListeners);

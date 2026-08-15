@@ -452,7 +452,8 @@ class RemoteAccessService {
       case kWidgetSlideSwitch:
         return 'slideSwitch';
       case kWidgetSwitch:
-        return 'switch';
+        // 0x02 is RK_TYPE_TOGGLE_BUTTON on the wire.
+        return 'button';
       case kWidgetSlider:
         return 'slider';
       case kWidgetKnob:
@@ -465,6 +466,8 @@ class RemoteAccessService {
         return 'text';
       case kWidgetMultiple:
         return 'multiple';
+      case kWidgetTelemetry:
+        return 'telemetry';
       default:
         return 'unknown';
     }

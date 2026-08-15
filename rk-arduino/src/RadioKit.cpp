@@ -15,6 +15,9 @@
 #include <Update.h>
 #include <esp_ota_ops.h>
 #endif
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
+#include <esp_mac.h>
+#endif
 
 // ── Debug logging (enabled by default for debugging) ────────────────────
 // Set to 1 to enable verbose debug output
@@ -176,19 +179,22 @@ void RadioKitClass::begin() {
         // ── Generate device UID if missing ─────────────────────────────
         char uidBuf[17];
         if (!RKNvs::readString(RK_NVS_KEY_DEVICE_UID, uidBuf, sizeof(uidBuf))) {
+            char uidHex[17];
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
+            uint8_t mac[6];
+            esp_read_mac(mac, ESP_MAC_WIFI_STA);
+            snprintf(uidHex, sizeof(uidHex), "%02x%02x%02x%02x%02x%02x",
+                     mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+#else
             uint8_t uid[8];
             for (int i = 0; i < 8; i++) {
-#if RK_ARCH_DETECTED == RK_ARCH_ESP32
-                uid[i] = esp_random() & 0xFF;
-#else
                 uid[i] = (uint8_t)(millis() ^ (i * 37)) & 0xFF;  // simple fallback
-#endif
             }
-            char uidHex[17];
             for (int i = 0; i < 8; i++) {
                 sprintf(&uidHex[i*2], "%02x", uid[i]);
             }
             uidHex[16] = '\0';
+#endif
             RKNvs::writeString(RK_NVS_KEY_DEVICE_UID, uidHex);
             RKNvs::commit();
         }

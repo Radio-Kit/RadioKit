@@ -394,7 +394,7 @@ Passed as `rk.centering` field:
 
 | Constant | Value | Description |
 |----------|-------|-------------|
-| `RADIOKIT_MAX_WIDGETS` | 16 | Maximum number of widgets |
+| `RADIOKIT_MAX_WIDGETS` | 32 | Maximum number of widgets |
 | `RADIOKIT_MAX_LABEL` | 32 | Max chars for label, onText, offText |
 | `RADIOKIT_MAX_ICON` | 24 | Max chars for icon name |
 | `RADIOKIT_MAX_NAME` | 32 | Max chars for device name |
@@ -479,7 +479,7 @@ void setup() {
 5. **Keep `loop()` fast** — Defer heavy work to timers or state machines.
 6. **Check `isConnected()`** — Before sending critical updates.
 7. **Use `setConfig()` for runtime changes** — Name, description, passwords can be changed at runtime via NVS.
-8. **Max 16 widgets** — `RADIOKIT_MAX_WIDGETS` is 16. Plan your UI accordingly.
+8. **Max 32 widgets** — `RADIOKIT_MAX_WIDGETS` is 32. Plan your UI accordingly.
 
 ## See Also
 

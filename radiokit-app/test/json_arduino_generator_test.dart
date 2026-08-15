@@ -617,9 +617,9 @@ void main() {
 
         expect(output, contains('RK_MultipleButton multi_button_1(51, 58, 0, 19, 0);'));
         expect(output, contains('multi_button_1.setLabelHidden(true);'));
-        expect(output, contains('multi_button_1.rk.items[0] = {"D", 0};'));
-        expect(output, contains('multi_button_1.rk.items[1] = {"P", 1};'));
-        expect(output, contains('multi_button_1.rk.items[2] = {"R", 2};'));
+        expect(output, contains('multi_button_1.rk.items[0] = {"D", nullptr, 0};'));
+        expect(output, contains('multi_button_1.rk.items[1] = {"P", nullptr, 1};'));
+        expect(output, contains('multi_button_1.rk.items[2] = {"R", nullptr, 2};'));
         expect(output, contains('multi_button_1.rk.itemCount = 3;'));
       });
     });

@@ -237,6 +237,10 @@ class _RKButtonState extends State<RKButton> with SingleTickerProviderStateMixin
   }
 
   List<Widget> _buildContent(double t, Color activeColor, RKTokens tokens) {
+    // OFF state fields are optional overrides: when BOTH the OFF icon and the
+    // OFF text are undefined, the ON state icon/text are used for the OFF
+    // state. No default icon or label is ever injected — a button renders
+    // exactly the icon and/or text defined for the current state.
     final offIconEmpty = widget.offIcon == null;
     final offTextEmpty = widget.offText == null || widget.offText!.isEmpty;
     final fallbackOffToOn = offIconEmpty && offTextEmpty;
@@ -244,39 +248,55 @@ class _RKButtonState extends State<RKButton> with SingleTickerProviderStateMixin
     final effectiveOffIcon = fallbackOffToOn ? widget.onIcon : widget.offIcon;
     final effectiveOffText = fallbackOffToOn ? widget.onText : widget.offText;
 
-    final currentIcon =
-        (t > 0.5 ? widget.onIcon : effectiveOffIcon) ?? Icons.power_settings_new_rounded;
+    final currentIcon = (t > 0.5 ? widget.onIcon : effectiveOffIcon);
     final currentText = (t > 0.5 ? widget.onText : effectiveOffText);
-    final hasText = (widget.onText != null && widget.onText!.isNotEmpty) ||
-        (effectiveOffText != null && effectiveOffText.isNotEmpty);
+    final hasIcon = currentIcon != null;
+    final hasText = currentText != null && currentText!.isNotEmpty;
 
-    return [
-      Icon(
-        currentIcon,
-        size: widget.size * (hasText ? 0.25 : 0.35),
-        color: Color.lerp(
-          tokens.onSurface.withValues(alpha: 0.4),
-          tokens.primary,
-          t,
+    final color = Color.lerp(
+      tokens.onSurface.withValues(alpha: 0.4),
+      tokens.primary,
+      t,
+    );
+    final textStyle = TextStyle(
+      color: color,
+      fontSize: widget.size * (hasIcon ? 0.08 : 0.13),
+      letterSpacing: 1.2,
+      fontWeight: FontWeight.bold,
+    );
+
+    if (hasIcon && hasText) {
+      return [
+        Icon(
+          currentIcon,
+          size: widget.size * 0.25,
+          color: color,
         ),
-      ),
-      if (hasText) ...[
         SizedBox(height: widget.size * 0.05),
         Text(
-          (currentText ?? '').toUpperCase(),
-          style: TextStyle(
-            color: Color.lerp(
-              tokens.onSurface.withValues(alpha: 0.4),
-              tokens.primary,
-              t,
-            ),
-            fontSize: widget.size * 0.08,
-            letterSpacing: 1.2,
-            fontWeight: FontWeight.bold,
-          ),
+          currentText!.toUpperCase(),
+          style: textStyle,
         ),
-      ],
-    ];
+      ];
+    }
+    if (hasIcon) {
+      return [
+        Icon(
+          currentIcon,
+          size: widget.size * 0.35,
+          color: color,
+        ),
+      ];
+    }
+    if (hasText) {
+      return [
+        Text(
+          currentText!.toUpperCase(),
+          style: textStyle,
+        ),
+      ];
+    }
+    return const [];
   }
 
   void _handleDown() {

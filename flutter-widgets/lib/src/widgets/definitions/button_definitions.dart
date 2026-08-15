@@ -57,8 +57,8 @@ class ButtonWidgetDefinition extends WidgetDefinition {
       mode: ctx.properties['variant'] == 'toggle'
           ? RKButtonMode.toggle
           : RKButtonMode.push,
-      onText: ctx.properties['onText'] ?? 'ON',
-      offText: ctx.properties['offText'] ?? 'OFF',
+      onText: ctx.properties['onText'] ?? '',
+      offText: ctx.properties['offText'] ?? '',
       onIcon: iconFromName(ctx.properties['onIcon'] as String?),
       offIcon: iconFromName(ctx.properties['offIcon'] as String?),
       enableHapticFeedback: ctx.properties['haptic'] ?? true,

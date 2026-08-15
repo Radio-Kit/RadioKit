@@ -22,20 +22,6 @@ bool isCppIdentifier(String name) {
 bool _acEnabled(List<dynamic>? ac) =>
     (ac?[0] as String?) != null;
 
-/// Converts the position label to its numeric value for widget constructors.
-double _acPosition(List<dynamic>? ac) {
-  final pos = ac?[0] as String?;
-  switch (pos) {
-    case 'min':
-      return 0.0;
-    case 'max':
-      return 1.0;
-    case 'center':
-    default:
-      return 0.5;
-  }
-}
-
 /// Converts an autoCenter array to its position label for the inspector UI ('none', 'min', 'center', 'max').
 String _acPositionLabel(List<dynamic>? ac) {
   final pos = ac?[0] as String?;
@@ -1769,36 +1755,6 @@ class _DesignerInspectorState extends State<DesignerInspector> {
     });
   }
 
-  /// Orientation selector for multiButton / multiSelect.
-  /// Orientation is inferred from dimensions (w >= h → horizontal).
-  /// Switching adjusts the other dimension to maintain proportions:
-  ///   → horizontal: keep width, recalculate height = width / (count × 0.67)
-  ///   → vertical:   keep height, recalculate width  = height / (count × 0.67)
-  Widget _buildMultiOrientationField(RKTokens tokens, DesignerElement el) {
-    final current = el.width >= el.height ? 'horizontal' : 'vertical';
-    return InspectorFieldBuilders.buildButtonGroup(
-      tokens,
-      'Direction',
-      current,
-      ['horizontal', 'vertical'],
-      (v) {
-        if (v == 'vertical') {
-          // Switch to vertical: Keep height, assign it to height, and width to height / (count * ratio)
-          // Wait, requirement: "When switching from horizontal to vertical, preserve the height as width and vice versa"
-          // So new height = old width, new width = old height
-          widget.state
-              .updateElementSize(el.id, width: el.height, height: el.width);
-        } else {
-          // Switch to horizontal:
-          // new width = old height, new height = old width
-          widget.state
-              .updateElementSize(el.id, width: el.height, height: el.width);
-        }
-      },
-      labels: ['H', 'V'],
-    );
-  }
-
   /// Keeps the `items` list in sync with count and resizes to maintain
   /// the correct fixed aspect ratio for the new count.
   Widget _buildMultiItemCountField(RKTokens tokens, DesignerElement el) {
@@ -1920,8 +1876,6 @@ class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
 
             const showOn = true;
             final showOff = widget.showOffState;
-
-            if (!showOn && !showOff) return const SizedBox.shrink();
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),

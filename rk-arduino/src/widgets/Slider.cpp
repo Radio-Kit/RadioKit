@@ -58,6 +58,7 @@ RK_GasPedal::RK_GasPedal(uint8_t x, uint8_t y, uint8_t height, uint8_t width, in
 {
     rk.centering = RK_SPRING_CENTER;
     rk.detents = 0;
+    rk.value = -100;
     _variant = RK_SHAPE_ALT | RK_VARIANT(rk.centering, rk.detents);
     _shadow = rk;
 }

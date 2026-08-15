@@ -212,9 +212,6 @@ class WidgetConfig {
 
     // ── Auto-center ───────────────────────────────────────────────────────
     props['autoCenter'] = _acListForCentering(variantCentering(variant));
-    if (props['autoCenter'][0] == null) {
-      props.remove('autoCenter');
-    }
 
     // ── Variant / mode ────────────────────────────────────────────────────
     final (String? topVariant, String? propVariant) = _resolveVariants();
@@ -251,6 +248,9 @@ class WidgetConfig {
   static String _wireTypeToDesignerTypeName(int typeId) {
     switch (typeId) {
       case kWidgetButton:      return 'button';
+      // Wire type 0x02 is a toggle button (RK_TYPE_TOGGLE_BUTTON), not the
+      // legacy 'switch' the constant name suggests — it must render as a button.
+      case kWidgetSwitch:      return 'button';
       case kWidgetSlideSwitch: return 'switch';
       case kWidgetSlider:      return 'slider';
       case kWidgetKnob:        return 'knob';
@@ -258,6 +258,7 @@ class WidgetConfig {
       case kWidgetLed:         return 'led';
       case kWidgetText:        return 'text';
       case kWidgetMultiple:    return 'multiple';
+      case kWidgetTelemetry:   return 'telemetry';
       default:                 return 'button';
     }
   }
@@ -268,10 +269,32 @@ class WidgetConfig {
       'widgetId': widgetId,
     };
 
-    if (onText.isNotEmpty) p['onText'] = onText;
-    if (offText.isNotEmpty) p['offText'] = offText;
+    // Text-capable widgets (button / toggle-button / slide-switch) always
+    // carry onText/offText, including empty strings — the designer's own
+    // toJson emits them explicitly, and DesignerElement.fromJson seeds
+    // defaults for missing keys ("ON"/"OFF"). Omitting empty text here would
+    // make an icon-only button silently render default labels after load.
+    final supportsText = typeId == kWidgetButton ||
+        typeId == kWidgetSwitch ||
+        typeId == kWidgetSlideSwitch;
+    if (supportsText) {
+      p['onText'] = onText;
+      p['offText'] = offText;
+    } else {
+      if (onText.isNotEmpty) p['onText'] = onText;
+      if (offText.isNotEmpty) p['offText'] = offText;
+    }
     p['minAngle'] = minAngle;
     p['maxAngle'] = maxAngle;
+
+    // The wire carries a single icon string for button/switch-style widgets;
+    // map it to the designer's onIcon field (the off-state falls back to the
+    // on-state icon when offIcon is unset). Knobs carry their center icon in
+    // the EXTRA block instead.
+    if (icon.isNotEmpty) p['onIcon'] = icon;
+    if (typeId == kWidgetKnob && centerIcon.isNotEmpty) {
+      p['centerIcon'] = centerIcon;
+    }
 
     final detents = variantDetents(variant);
     if (detents > 1) p['divisions'] = detents;
@@ -297,6 +320,9 @@ class WidgetConfig {
       case kWidgetButton:
         if (variant == 1) return (null, 'toggle');
         return (null, 'push');
+      case kWidgetSwitch:
+        // 0x02 is RK_TYPE_TOGGLE_BUTTON on the wire: always a latching toggle.
+        return (null, 'toggle');
       case kWidgetSlider:
         if (variantIsAlternateShape(variant)) return ('gasPedal', null);
         return (null, null);
@@ -356,6 +382,15 @@ class RadioWidgetState {
       if (w.hasInput) {
         if (w.typeId == kWidgetJoystick) {
           inputs[w.widgetId] = [0, 0];
+        } else if (w.typeId == kWidgetSlider || w.typeId == kWidgetKnob) {
+          final center = variantCentering(w.variant);
+          if (center == kCenterMin || center == kCenterTop) {
+            inputs[w.widgetId] = [-100];
+          } else if (center == kCenterMax || center == kCenterBottom) {
+            inputs[w.widgetId] = [100];
+          } else {
+            inputs[w.widgetId] = [0];
+          }
         } else {
           inputs[w.widgetId] = [0];
         }
@@ -398,14 +433,29 @@ Map<String, dynamic> widgetConfigsToDesignerJson({
   required int orientation,
   required String theme,
   List<String>? pageNames,
+  int? numPages,
+  Map<String, dynamic>? features,
+  bool? enableControlUI,
+  bool? showPageBar,
+  bool? showControlPageBar,
 }) {
   final isLandscape = orientation == kOrientationLandscape;
   final canvasW = isLandscape ? 200 : 100;
   final canvasH = isLandscape ? 100 : 200;
 
-  // Determine highest page index among widgets
+  // Split telemetry widgets out of the page widget lists. Telemetry widgets
+  // are display-only (no canvas position) and are serialized as a top-level
+  // `telemetry[]` array in the v2 schema.
+  final telemetryWidgets = widgets
+      .where((w) => WidgetConfig._wireTypeToDesignerTypeName(w.typeId) == 'telemetry')
+      .toList();
+  final uiWidgets = widgets
+      .where((w) => WidgetConfig._wireTypeToDesignerTypeName(w.typeId) != 'telemetry')
+      .toList();
+
+  // Determine highest page index among UI widgets
   int maxPageIndex = 0;
-  for (final w in widgets) {
+  for (final w in uiWidgets) {
     if (w.pageIndex > maxPageIndex) {
       maxPageIndex = w.pageIndex;
     }
@@ -413,10 +463,19 @@ Map<String, dynamic> widgetConfigsToDesignerJson({
   if (pageNames != null && pageNames.length - 1 > maxPageIndex) {
     maxPageIndex = pageNames.length - 1;
   }
+  // The device may report more pages than appear in the (active-page-only)
+  // CONF_DATA widget list — e.g. pageNames from PAGES_DATA or the v5 header's
+  // numPages field. Prefer the highest of all sources so a multi-page device
+  // never reconstructs as a flat single-page config.
+  if (numPages != null && numPages - 1 > maxPageIndex) {
+    maxPageIndex = numPages - 1;
+  }
+
+  final isMultiPage = maxPageIndex > 0 || (pageNames?.length ?? 1) > 1;
 
   final pagesJson = <Map<String, dynamic>>[];
   for (int i = 0; i <= maxPageIndex; i++) {
-    final pageWidgets = widgets.where((w) => w.pageIndex == i).toList();
+    final pageWidgets = uiWidgets.where((w) => w.pageIndex == i).toList();
     final pName = (pageNames != null && i < pageNames.length)
         ? pageNames[i]
         : (i == 0 ? 'Control' : 'Page ${i + 1}');
@@ -429,7 +488,7 @@ Map<String, dynamic> widgetConfigsToDesignerJson({
     });
   }
 
-  return {
+  final result = <String, dynamic>{
     'version': 2,
     'appdata': <String, dynamic>{
       'appVersion': '1.0.0',
@@ -441,13 +500,65 @@ Map<String, dynamic> widgetConfigsToDesignerJson({
       'transport': 'BLE',
       'theme': theme.isNotEmpty ? theme : 'dragon',
       'password': '',
-    },      'canvas': <String, dynamic>{
+    },
+    'canvas': <String, dynamic>{
       'size': [canvasW, canvasH],
       'grid': 'none',
       'skin': theme.isNotEmpty ? theme : 'dragon',
+      if (showPageBar != null) 'showPageBar': showPageBar,
+      if (showControlPageBar != null) 'showControlPageBar': showControlPageBar,
     },
-    'widgets': widgets
-        .map((w) => w.toDesignerJsonMap(canvasW, canvasH))
-        .toList(),
   };
+
+  if (enableControlUI != null) result['enableControlUI'] = enableControlUI;
+  if (features != null) result['features'] = features;
+
+  // Telemetry widgets are reconstructed as {label, icon} entries; unit is not
+  // carried on the wire.
+  if (telemetryWidgets.isNotEmpty) {
+    result['telemetry'] = telemetryWidgets.map((w) {
+      return <String, dynamic>{
+        'label': w.label.isEmpty ? 'telemetry_${w.widgetId}' : w.label,
+        if (w.icon.isNotEmpty) 'icon': w.icon,
+      };
+    }).toList();
+  }
+
+  if (isMultiPage) {
+    result['pages'] = pagesJson;
+  } else {
+    result['widgets'] = uiWidgets
+        .map((w) => w.toDesignerJsonMap(canvasW, canvasH))
+        .toList();
+  }
+
+  return result;
+}
+
+/// Extracts the designer-only metadata (features, enableControlUI, page-bar
+/// flags) from a saved design JSON map.
+///
+/// A live device connection reconstructs the config JSON from the wire, which
+/// does not carry these app/designer-only fields. When a saved design matches
+/// the connected device, its metadata is merged into the reconstruction so
+/// flags like `canvas.showControlPageBar` survive a BLE/serial connect.
+/// Returns `null` when the source is not a map or carries none of the fields.
+Map<String, dynamic>? designMetadataFromJson(Map<String, dynamic>? designJson) {
+  if (designJson == null) return null;
+  final canvas = designJson['canvas'];
+  final canvasMap = canvas is Map<String, dynamic> ? canvas : null;
+  final result = <String, dynamic>{};
+  final features = designJson['features'];
+  if (features is Map<String, dynamic>) result['features'] = features;
+  final enableControlUI = designJson['enableControlUI'];
+  if (enableControlUI is bool) result['enableControlUI'] = enableControlUI;
+  if (canvasMap != null) {
+    final showPageBar = canvasMap['showPageBar'];
+    if (showPageBar is bool) result['showPageBar'] = showPageBar;
+    final showControlPageBar = canvasMap['showControlPageBar'];
+    if (showControlPageBar is bool) {
+      result['showControlPageBar'] = showControlPageBar;
+    }
+  }
+  return result.isEmpty ? null : result;
 }

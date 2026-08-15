@@ -401,7 +401,9 @@ class DesignerElement {
       ..remove('haptic');
 
     // For multi-button/multi-select items, fill empty items (no label, no icon)
-    // with a default 'power' icon so they are never blank in saved output.
+    // with a default 'power' icon so they are never blank in saved output, and
+    // normalize itemCount to the items array length (matches codegen which
+    // emits items.length).
     if (baseProps.containsKey('items') && baseProps['items'] is List) {
       final items = (baseProps['items'] as List).map((item) {
         if (item is! Map) return item;
@@ -416,6 +418,7 @@ class DesignerElement {
         return m;
       }).toList();
       baseProps['items'] = items;
+      baseProps['itemCount'] = items.length;
     }
 
     // Serialize autoCenter as [position, type, duration] array.
@@ -718,6 +721,13 @@ class DesignerElement {
 
     if (parsedType == DesignerElementType.multiButton ||
         parsedType == DesignerElementType.multiSelect) {
+      // Normalize stale itemCount to the actual items array length. Codegen
+      // already emits items.length, so a higher itemCount (e.g. legacy designs
+      // with itemCount=5 but 3 items) must not drive layout/serialization.
+      final rawItems = seeded['items'];
+      if (rawItems is List && rawItems.isNotEmpty) {
+        seeded['itemCount'] = rawItems.length;
+      }
       final count = (seeded['itemCount'] as num?)?.toInt() ?? 3;
       final ratio = (count * 0.67).clamp(0.5, 10.0);
       if (rawWidthJson != null && rawHeightJson == null) {

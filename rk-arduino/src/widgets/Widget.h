@@ -11,6 +11,10 @@
 #include "../RadioKitConfig.h"
 #include "../RadioKitClass.h"
 
+// Visual shape flags (variant byte bit 7).
+#define RK_SHAPE_STANDARD 0x00
+#define RK_SHAPE_ALT      0x80
+
 class RadioKit_Widget {
 public:
     RadioKit_Widget();
@@ -33,7 +37,7 @@ public:
     int16_t     rotation() const { return _rotation; }
     bool        enabled()  const { return _enabled; }
     uint8_t     style()    const { return _style; }
-    uint8_t     variant()  const { return _variant; }
+    virtual uint8_t variant() const { return _variant; }
     const char* label()    const { return _label; }
     const char* icon()     const { return _icon; }
     const char* onText()   const { return _onText; }

@@ -184,7 +184,7 @@ class _ControlScreenState extends State<ControlScreen> {
       listenable: deviceProvider,
       builder: (context, _) {
         // Re-apply orientation when it changes (e.g., on page switch)
-        if (_lastOrientation != deviceProvider!.orientation) {
+        if (_lastOrientation != deviceProvider.orientation) {
           _lastOrientation = deviceProvider.orientation;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) _applyCanvasOrientation();

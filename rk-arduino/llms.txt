@@ -443,7 +443,7 @@ RadioKit.printf("val: %d", 42);
 ## Limits
 
 ```
-RADIOKIT_MAX_WIDGETS  = 16
+RADIOKIT_MAX_WIDGETS  = 32
 RADIOKIT_MAX_LABEL    = 32 chars
 RADIOKIT_MAX_ICON     = 24 chars
 RADIOKIT_MAX_NAME     = 32 chars

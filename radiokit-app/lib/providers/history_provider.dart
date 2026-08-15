@@ -165,8 +165,10 @@ class HistoryProvider extends ChangeNotifier {
       if (data != null) {
         final List<dynamic> decoded = jsonDecode(data);
         _pairedDevices = decoded.map((e) => PairedDevice.fromJson(e)).toList();
+        _deduplicateEntries();
         _pairedDevices.sort((a, b) => b.lastConnected.compareTo(a.lastConnected));
         notifyListeners();
+        await _persist();
       }
     } catch (e) {
       debugPrint('RadioKit: Failed to load history: $e');
@@ -175,39 +177,98 @@ class HistoryProvider extends ChangeNotifier {
     }
   }
 
+  /// Deduplicate existing entries by merging ones that share the same address or name/type.
+  void _deduplicateEntries() {
+    final unique = <PairedDevice>[];
+    for (final device in _pairedDevices) {
+      final matchIdx = unique.indexWhere((u) {
+        if (u.uid == device.uid) return true;
+        if (u.bleAddress != null && device.bleAddress != null && u.bleAddress == device.bleAddress) return true;
+        if (u.serialAddress != null && device.serialAddress != null && u.serialAddress == device.serialAddress) return true;
+        if (u.wifiAddress != null && device.wifiAddress != null && u.wifiAddress == device.wifiAddress) return true;
+        if (u.name.isNotEmpty && u.name == device.name && u.type == device.type && u.type != 'demo') return true;
+        return false;
+      });
+
+      if (matchIdx == -1) {
+        unique.add(device);
+      } else {
+        // Merge into the more recent entry
+        final existing = unique[matchIdx];
+        unique[matchIdx] = PairedDevice(
+          uid: existing.uid,
+          name: existing.name.isNotEmpty ? existing.name : device.name,
+          type: existing.type,
+          configName: existing.configName ?? device.configName,
+          description: existing.description ?? device.description,
+          preferredTransport: existing.preferredTransport ?? device.preferredTransport,
+          deviceIcon: existing.deviceIcon ?? device.deviceIcon,
+          bleAddress: existing.bleAddress ?? device.bleAddress,
+          wifiAddress: existing.wifiAddress ?? device.wifiAddress,
+          cloudAddress: existing.cloudAddress ?? device.cloudAddress,
+          serialAddress: existing.serialAddress ?? device.serialAddress,
+          cloudAccount: existing.cloudAccount ?? device.cloudAccount,
+          lastUsedTransport: existing.lastUsedTransport ?? device.lastUsedTransport,
+          lastConnected: existing.lastConnected.isAfter(device.lastConnected) ? existing.lastConnected : device.lastConnected,
+        );
+      }
+    }
+    _pairedDevices = unique;
+  }
+
   /// Save or update a device in history.
   ///
-  /// Uses [DeviceInfo.id] as the UID for matching. If a device with the same
-  /// UID already exists, the entry is merged (transport address fields are
-  /// updated while preserving addresses from other transports).
+  /// Matches by UID, transport address (BLE/Serial/WiFi/Cloud), or name+type,
+  /// and merges multi-transport connection addresses while removing stale duplicates.
   Future<void> saveDevice(DeviceInfo device, String type, {String? configName, String? description, String? cloudAccount}) async {
     await _ready.future;
     final uid = device.id;  // DeviceInfo.id is the UID after connection
     final now = DateTime.now();
     final transportStr = _transportTypeToString(device.currentTransport);
 
-    // Find existing entry by UID
-    final index = _pairedDevices.indexWhere((d) => d.uid == uid);
+    final curBle = device.currentTransport == TransportType.ble
+        ? (device.bleAddress ?? device.transportAddress)
+        : device.bleAddress;
+    final curWifi = device.currentTransport == TransportType.wifi
+        ? device.transportAddress
+        : device.wifiAddress;
+    final curSerial = device.currentTransport == TransportType.serial
+        ? device.transportAddress
+        : null;
+    final curCloud = device.currentTransport == TransportType.cloud
+        ? device.transportAddress
+        : null;
+
+    // Find existing entry by UID or transport address or name/config
+    final index = _pairedDevices.indexWhere((d) {
+      if (d.uid == uid) return true;
+      if (curBle != null && curBle.isNotEmpty && d.bleAddress == curBle) return true;
+      if (curSerial != null && curSerial.isNotEmpty && d.serialAddress == curSerial) return true;
+      if (curWifi != null && curWifi.isNotEmpty && d.wifiAddress == curWifi) return true;
+      if (curCloud != null && curCloud.isNotEmpty && d.cloudAddress == curCloud) return true;
+      if (d.name.isNotEmpty && d.name == device.displayName && d.type == type && type != 'demo') {
+        if (configName == null || d.configName == null || d.configName == configName) {
+          return true;
+        }
+      }
+      return false;
+    });
 
     if (index != -1) {
-      // Merge: keep existing transport addresses, update current transport's address
+      // Merge: keep existing transport addresses, update current transport's address and UID
       final existing = _pairedDevices[index];
       _pairedDevices[index] = PairedDevice(
-        uid: existing.uid,
-        name: device.displayName,
+        uid: uid,
+        name: device.displayName.isNotEmpty ? device.displayName : existing.name,
         type: type,
         configName: configName ?? existing.configName,
         description: description ?? existing.description,
         preferredTransport: device.preferredTransport ?? existing.preferredTransport,
         deviceIcon: device.deviceIcon ?? existing.deviceIcon,
-        bleAddress: device.currentTransport == TransportType.ble
-            ? (device.bleAddress ?? device.transportAddress) : existing.bleAddress,
-        wifiAddress: device.currentTransport == TransportType.wifi
-            ? device.transportAddress : existing.wifiAddress,
-        cloudAddress: device.currentTransport == TransportType.cloud
-            ? device.transportAddress : existing.cloudAddress,
-        serialAddress: device.currentTransport == TransportType.serial
-            ? device.transportAddress : existing.serialAddress,
+        bleAddress: curBle ?? existing.bleAddress,
+        wifiAddress: curWifi ?? existing.wifiAddress,
+        cloudAddress: curCloud ?? existing.cloudAddress,
+        serialAddress: curSerial ?? existing.serialAddress,
         cloudAccount: cloudAccount ?? existing.cloudAccount,
         lastUsedTransport: transportStr,
         lastConnected: now,
@@ -224,14 +285,10 @@ class HistoryProvider extends ChangeNotifier {
           description: description,
           preferredTransport: device.preferredTransport,
           deviceIcon: device.deviceIcon,
-          bleAddress: device.currentTransport == TransportType.ble
-              ? (device.bleAddress ?? device.transportAddress) : null,
-          wifiAddress: device.currentTransport == TransportType.wifi
-              ? device.transportAddress : null,
-          cloudAddress: device.currentTransport == TransportType.cloud
-              ? device.transportAddress : null,
-          serialAddress: device.currentTransport == TransportType.serial
-              ? device.transportAddress : null,
+          bleAddress: curBle,
+          wifiAddress: curWifi,
+          cloudAddress: curCloud,
+          serialAddress: curSerial,
           cloudAccount: cloudAccount,
           lastUsedTransport: transportStr,
           lastConnected: now,
@@ -239,6 +296,7 @@ class HistoryProvider extends ChangeNotifier {
       );
     }
 
+    _deduplicateEntries();
     _pairedDevices.sort((a, b) => b.lastConnected.compareTo(a.lastConnected));
     notifyListeners();
     await _persist();

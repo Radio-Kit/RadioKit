@@ -21,6 +21,7 @@ import '../providers/console_provider.dart';
 import '../providers/theme_preset_provider.dart';
 import '../providers/debug_provider.dart';
 import '../providers/history_provider.dart';
+import '../providers/designs_provider.dart';
 
 import '../models/console_entry.dart';
 import '../models/fs_entry.dart';
@@ -218,13 +219,17 @@ class DeviceProvider extends ChangeNotifier {
     ConsoleProvider? console,
     ThemePresetProvider? themePresetProvider,
     HistoryProvider? historyProvider,
+    DesignsProvider? designsProvider,
   })  : _debugSink = debugSink,
         _console = console,
         _themePresetProvider = themePresetProvider,
+        _designsProvider = designsProvider,
         _transport = transport {
     this.historyProvider = historyProvider;
     setTransport(transport);
   }
+
+  final DesignsProvider? _designsProvider;
 
   void _log(String message, {ConsoleLogLevel level = ConsoleLogLevel.info}) {
     _console?.log(message, level: level);
@@ -765,6 +770,10 @@ class DeviceProvider extends ChangeNotifier {
     // Request chip info — will be fetched on first display
     unawaited(_requestChipInfo());
 
+    // Request page names so the reconstructed live config can emit a top-level
+    // pages[] array (PAGES_DATA arrives after CONF_DATA).
+    unawaited(sendGetPages());
+
     // Cache cloud account for fallback reconnect consideration
     // Note: actual fetch happens in _handleSettingsDeviceInfoData after UID is set
     // to avoid racing with _requestDeviceInfo()
@@ -929,6 +938,10 @@ class DeviceProvider extends ChangeNotifier {
         orientation: _orientation,
         theme: config['theme'] as String? ?? 'dragon',
         pageNames: _pageNames,
+        features: data['features'] as Map<String, dynamic>?,
+        enableControlUI: data['enableControlUI'] as bool?,
+        showPageBar: canvas['showPageBar'] as bool?,
+        showControlPageBar: canvas['showControlPageBar'] as bool?,
       );
       _log('CONFIG LOADED: "$_configName" with ${_widgets.length} widgets',
           level: ConsoleLogLevel.success);
@@ -1916,18 +1929,41 @@ class DeviceProvider extends ChangeNotifier {
     final fallbackName = _connectedDevice?.name ?? 'RadioKit Device';
     _configName      = conf.name.isNotEmpty ? conf.name : _configName ?? fallbackName;
     _description     = conf.description.isNotEmpty ? conf.description : _description;
-    _widgets         = conf.widgets;
+    // The wire only carries the active page's widgets (page gating), so stamp
+    // them with the active page index — otherwise every widget is grouped
+    // under page 0 and a switched page shows under the wrong page name.
+    _widgets = conf.widgets
+        .map((w) => w.pageIndex == conf.activePage
+            ? w
+            : w.copyWith(pageIndex: conf.activePage))
+        .toList();
     _orientation     = conf.orientation;
     _widgetState     = RadioWidgetState.initial(conf.widgets);
     _connectionState = DeviceConnectionState.connected;
 
     // Convert to designer-format JSON and cache for fast UI rendering.
+    // CONF_DATA does not carry `features`/`enableControlUI`/page-bar flags on
+    // the wire; so the reconstruction inherits them from (1) a saved design
+    // matching the device config name (source of truth), falling back to
+    // (2) any previously reconstructed values from this session.
+    final designSeed = _designSeedForConfig(_configName ?? fallbackName);
+    final prev = _deviceConfigJson;
     _deviceConfigJson = widgetConfigsToDesignerJson(
-      widgets: conf.widgets,
+      widgets: _widgets,
       name: _configName ?? fallbackName,
       description: _description ?? '',
       orientation: conf.orientation,
       theme: conf.theme,
+      pageNames: _pageNames,
+      numPages: conf.numPages,
+      features: (designSeed?['features'] as Map<String, dynamic>?) ??
+          prev?['features'] as Map<String, dynamic>?,
+      enableControlUI: (designSeed?['enableControlUI'] as bool?) ??
+          prev?['enableControlUI'] as bool?,
+      showPageBar: (designSeed?['showPageBar'] as bool?) ??
+          (prev?['canvas'] as Map?)?['showPageBar'] as bool?,
+      showControlPageBar: (designSeed?['showControlPageBar'] as bool?) ??
+          (prev?['canvas'] as Map?)?['showControlPageBar'] as bool?,
     );
     _numPages = conf.numPages;
     _activePage = conf.activePage;
@@ -1952,6 +1988,27 @@ class DeviceProvider extends ChangeNotifier {
     final completer = _confCompleter;
     if (completer != null && !completer.isCompleted) {
       completer.complete();
+    }
+  }
+
+  /// Finds the most recent saved design whose name matches [configName] and
+  /// extracts its designer-only metadata (features, enableControlUI, page-bar
+  /// flags) for merging into the live wire reconstruction.
+  Map<String, dynamic>? _designSeedForConfig(String configName) {
+    final designs = _designsProvider;
+    if (designs == null || configName.isEmpty) return null;
+    SavedDesign? match;
+    for (final d in designs.designs) {
+      if (d.name == configName && (d.jsonContent?.isNotEmpty ?? false)) {
+        if (match == null || d.timestamp > match.timestamp) match = d;
+      }
+    }
+    if (match?.jsonContent == null) return null;
+    try {
+      final json = jsonDecode(match!.jsonContent!) as Map<String, dynamic>;
+      return designMetadataFromJson(json);
+    } catch (_) {
+      return null;
     }
   }
 
@@ -2195,6 +2252,26 @@ class DeviceProvider extends ChangeNotifier {
         level: ConsoleLogLevel.info);
     _pageNames = names;
     _numPages = names.length;
+    // Rebuild the cached designer JSON so the live config carries the real
+    // page names (PAGES_DATA arrives after CONF_DATA).
+    if (_widgets.isNotEmpty && _deviceConfigJson != null) {
+      _deviceConfigJson = widgetConfigsToDesignerJson(
+        widgets: _widgets,
+        name: _configName ?? (_connectedDevice?.name ?? 'RadioKit Device'),
+        description: _description ?? '',
+        orientation: _orientation,
+        theme: (_deviceConfigJson!['config'] as Map?)?['theme'] as String? ??
+            'dragon',
+        pageNames: _pageNames,
+        numPages: _numPages,
+        features: _deviceConfigJson?['features'] as Map<String, dynamic>?,
+        enableControlUI: _deviceConfigJson?['enableControlUI'] as bool?,
+        showPageBar:
+            (_deviceConfigJson?['canvas'] as Map?)?['showPageBar'] as bool?,
+        showControlPageBar: (_deviceConfigJson?['canvas'] as Map?)?[
+            'showControlPageBar'] as bool?,
+      );
+    }
     notifyListeners();
   }
 
