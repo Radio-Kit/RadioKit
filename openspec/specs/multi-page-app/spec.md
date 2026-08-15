@@ -1,4 +1,8 @@
-## ADDED Requirements
+## Purpose
+
+Multi-page support in the Flutter companion app: page-aware widget rendering, page switching, reconnect sync, canvas resize, and follow-mode sync for devices with multiple control pages.
+
+## Requirements
 
 ### Requirement: Page switcher widget in control mode
 The Flutter app SHALL display a page switcher with centered chevrons, dot indicators, and page name in play/control mode.
@@ -24,6 +28,23 @@ The Flutter app SHALL convert wire widget configurations into version 2 JSON for
 - **WHEN** the active page is switched to page 1
 - **THEN** only page 1's widgets are rendered on the control canvas
 - **AND** page 0's widgets are not visible
+
+#### Scenario: Multi-page config reconstructed with pages array
+- **WHEN** the device reports 2 pages and the app reconstructs the config via `widgetConfigsToDesignerJson`
+- **THEN** the output contains a top-level `pages[]` array with one entry per page
+- **AND** each page entry contains its `name` and its widgets grouped by `pageIndex`
+- **AND** the output does not emit a flat `widgets[]` list
+
+#### Scenario: Single-page config retains flat widgets
+- **WHEN** the device reports a single page
+- **THEN** the output emits the flat `widgets[]` list for backward compatibility
+
+### Requirement: Reconstructed config preserves device features
+The Flutter app SHALL preserve top-level device metadata (`features` and `enableControlUI`) in the reconstructed designer JSON when the connected device reports them.
+
+#### Scenario: Features preserved in reconstruction
+- **WHEN** the device reports `features: {"ota": true, "filesystem": true}` and `enableControlUI: true`
+- **THEN** the reconstructed config includes `features` and `enableControlUI`
 
 ### Requirement: Page sync on reconnect
 The Flutter app SHALL sync its active page with the MCU on connection by reading ACTIVE_PAGE from CONF_DATA header.
