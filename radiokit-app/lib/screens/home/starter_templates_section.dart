@@ -16,11 +16,13 @@ import 'responsive_grid.dart';
 class StarterTemplatesSection extends StatefulWidget {
   final bool showHeader;
   final String? headerLabel;
+  final bool openInPreview;
 
   const StarterTemplatesSection({
     super.key,
     this.showHeader = true,
     this.headerLabel,
+    this.openInPreview = false,
   });
 
   @override
@@ -100,6 +102,7 @@ class _StarterTemplatesSectionState extends State<StarterTemplatesSection> {
       context.push('/designer', extra: {
         'templateJson': template.jsonContent,
         'templateName': name,
+        'initialPlayMode': widget.openInPreview,
       });
     }
   }

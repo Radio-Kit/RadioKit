@@ -161,7 +161,10 @@ class _ModelsTabState extends State<ModelsTab> {
             children: [
               const SizedBox(height: 16),
               _buildSectionTag(context, 'STARTER_TEMPLATES'),
-              const StarterTemplatesSection(showHeader: false),
+              const StarterTemplatesSection(
+                showHeader: false,
+                openInPreview: true,
+              ),
               const SizedBox(height: 32),
             ],
           ),

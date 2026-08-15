@@ -136,6 +136,7 @@ GoRouter createRouter(
             designId: id,
             templateJson: extra?['templateJson'] as String?,
             templateName: extra?['templateName'] as String?,
+            initialPlayMode: extra?['initialPlayMode'] as bool? ?? false,
           );
         },
       ),

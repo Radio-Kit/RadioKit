@@ -26,7 +26,14 @@ class DesignerScreen extends StatefulWidget {
   final String? designId;
   final String? templateJson;
   final String? templateName;
-  const DesignerScreen({super.key, this.designId, this.templateJson, this.templateName});
+  final bool initialPlayMode;
+  const DesignerScreen({
+    super.key,
+    this.designId,
+    this.templateJson,
+    this.templateName,
+    this.initialPlayMode = false,
+  });
 
   @override
   State<DesignerScreen> createState() => _DesignerScreenState();
@@ -107,6 +114,10 @@ class _DesignerScreenState extends State<DesignerScreen> {
     // Apply template name if provided.
     if (widget.templateName != null && widget.templateName!.isNotEmpty) {
       _state.setModelName(widget.templateName!);
+    }
+
+    if (widget.initialPlayMode && !_state.isPlayMode) {
+      _state.togglePlayMode();
     }
 
     _isInitializing = false;
