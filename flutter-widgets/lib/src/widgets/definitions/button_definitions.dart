@@ -54,6 +54,7 @@ class ButtonWidgetDefinition extends WidgetDefinition {
   @override
   Widget buildCanvasWidget(BuildContext context, WidgetBuildContext ctx) {
     return RKButton(
+      value: ctx.runtimeValue is bool ? (ctx.runtimeValue as bool) : (ctx.runtimeValue == 1),
       mode: ctx.properties['variant'] == 'toggle'
           ? RKButtonMode.toggle
           : RKButtonMode.push,
