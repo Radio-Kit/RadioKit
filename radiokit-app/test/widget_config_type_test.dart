@@ -1,6 +1,8 @@
+import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:radiokit/models/widget_config.dart';
 import 'package:radiokit/models/protocol.dart';
+import 'package:radiokit/services/protocol_service.dart';
 
 void main() {
   group('WidgetConfig wire type mapping', () {
@@ -34,6 +36,42 @@ void main() {
       expect(json['type'], 'button');
       expect(json['properties']['onIcon'], 'bell-ringing');
       expect(json['properties']['offIcon'], 'bell');
+    });
+
+    test('parseConfData correctly parses button and switch offIcon from EXTRA payload', () {
+      // Build mock CONF_DATA payload (v5 format) with 1 button having onIcon and offIcon
+      final bytes = <int>[
+        0x00, // orientation
+        0x01, // numWidgets = 1
+        0x00, // activePage = 0
+        0x01, // numPages = 1
+        0x06, ...'dragon'.codeUnits, // theme
+        // Widget descriptor
+        0x01, // typeId = kWidgetButton
+        0x00, // widgetId = 0
+        10, 20, 0, 20, // x, y, width, height
+        0x00, 0x00, // rotation = 0
+        0x00, // style
+        0x00, // variant
+        kStrMaskIcon | kStrMaskExtra, // strMask: icon + extra
+        // Strings
+        11, ...'horn_button'.codeUnits, // label
+        12, ...'bell-ringing'.codeUnits, // icon (onIcon)
+        // Extra payload: [extraLen][offIconLen][offIconBytes]
+        5, 4, ...'bell'.codeUnits,
+      ];
+
+      final parsed = ProtocolService.parseConfData(Uint8List.fromList(bytes));
+      expect(parsed, isNotNull);
+      expect(parsed!.widgets.length, 1);
+      final btn = parsed.widgets.first;
+      expect(btn.label, 'horn_button');
+      expect(btn.icon, 'bell-ringing');
+      expect(btn.offIcon, 'bell');
+
+      final designerJson = btn.toDesignerJsonMap(200, 100);
+      expect(designerJson['properties']['onIcon'], 'bell-ringing');
+      expect(designerJson['properties']['offIcon'], 'bell');
     });
 
     test('multiple typeId 0x07 preserves itemMask in toDesignerJsonMap', () {
