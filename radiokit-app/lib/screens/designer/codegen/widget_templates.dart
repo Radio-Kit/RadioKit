@@ -31,27 +31,42 @@ final Map<DesignerElementType, WidgetTemplate> templates = {
     final widgetType = mode == 'toggle' ? 'RK_ToggleButton' : 'RK_PushButton';
     final onText = el.properties['onText'] ?? 'ON';
     final offText = el.properties['offText'] ?? 'OFF';
+    final onIcon = el.properties['onIcon'] as String? ?? el.properties['icon'] as String?;
+    final offIcon = el.properties['offIcon'] as String?;
     final (w, h) = _cppSize(el);
-    return '''
-$widgetType ${_widgetName(el)}(${el.x}, ${el.y}, $h, $w, ${el.rotation});${_comment(el)}
-  ${_widgetName(el)}.rk.onText = "${_escape(onText)}";
-  ${_widgetName(el)}.rk.offText = "${_escape(offText)}";''';
+    final buf = StringBuffer();
+    buf.writeln('$widgetType ${_widgetName(el)}(${el.x}, ${el.y}, $h, $w, ${el.rotation});${_comment(el)}');
+    if (onText.toString().isNotEmpty) buf.writeln('  ${_widgetName(el)}.rk.onText = "${_escape(onText)}";');
+    if (offText.toString().isNotEmpty) buf.writeln('  ${_widgetName(el)}.rk.offText = "${_escape(offText)}";');
+    if (onIcon != null && onIcon.isNotEmpty) buf.writeln('  ${_widgetName(el)}.rk.icon = "$onIcon";');
+    if (offIcon != null && offIcon.isNotEmpty) buf.writeln('  ${_widgetName(el)}.rk.offIcon = "$offIcon";');
+    return buf.toString().trimRight();
   },
 
   DesignerElementType.slideSwitch: (el, pin) {
     final onText = el.properties['onText'] ?? 'ON';
     final offText = el.properties['offText'] ?? 'OFF';
+    final onIcon = el.properties['onIcon'] as String? ?? el.properties['icon'] as String?;
+    final offIcon = el.properties['offIcon'] as String?;
     final (w, h) = _cppSize(el);
-    return '''
-RK_SlideSwitch ${_widgetName(el)}(${el.x}, ${el.y}, $h, $w, ${el.rotation});${_comment(el)}
-  ${_widgetName(el)}.rk.onText = "${_escape(onText)}";
-  ${_widgetName(el)}.rk.offText = "${_escape(offText)}";''';
+    final buf = StringBuffer();
+    buf.writeln('RK_SlideSwitch ${_widgetName(el)}(${el.x}, ${el.y}, $h, $w, ${el.rotation});${_comment(el)}');
+    if (onText.toString().isNotEmpty) buf.writeln('  ${_widgetName(el)}.rk.onText = "${_escape(onText)}";');
+    if (offText.toString().isNotEmpty) buf.writeln('  ${_widgetName(el)}.rk.offText = "${_escape(offText)}";');
+    if (onIcon != null && onIcon.isNotEmpty) buf.writeln('  ${_widgetName(el)}.rk.icon = "$onIcon";');
+    if (offIcon != null && offIcon.isNotEmpty) buf.writeln('  ${_widgetName(el)}.rk.offIcon = "$offIcon";');
+    return buf.toString().trimRight();
   },
 
   DesignerElementType.rockerSwitch: (el, pin) {
     final (w, h) = _cppSize(el);
-    return '''
-RK_RockerSwitch ${_widgetName(el)}(${el.x}, ${el.y}, $h, $w, ${el.rotation});${_comment(el)}''';
+    final onIcon = el.properties['onIcon'] as String? ?? el.properties['icon'] as String?;
+    final offIcon = el.properties['offIcon'] as String?;
+    final buf = StringBuffer();
+    buf.writeln('RK_RockerSwitch ${_widgetName(el)}(${el.x}, ${el.y}, $h, $w, ${el.rotation});${_comment(el)}');
+    if (onIcon != null && onIcon.isNotEmpty) buf.writeln('  ${_widgetName(el)}.rk.icon = "$onIcon";');
+    if (offIcon != null && offIcon.isNotEmpty) buf.writeln('  ${_widgetName(el)}.rk.offIcon = "$offIcon";');
+    return buf.toString().trimRight();
   },
 
   DesignerElementType.slider: (el, pin) {

@@ -47,7 +47,11 @@ struct RK_ButtonFields {
     uint8_t     x, y;
     uint8_t     height, width;
     int16_t     rotation;
-    const char* icon, *onText, *offText, *label;
+    const char* icon;       ///< ON state icon (or default icon)
+    const char* offIcon;    ///< OFF state icon (optional override)
+    const char* onText;
+    const char* offText;
+    const char* label;
     bool        active;     ///< Transport active flag
     bool        state;      ///< Push/toggle state
 };
@@ -61,7 +65,8 @@ struct RK_ButtonFields {
 | Write state | `btn.rk.state = true;` |
 | Set onText | `btn.rk.onText = "ON";` |
 | Set offText | `btn.rk.offText = "OFF";` |
-| Set icon | `btn.rk.icon = "power";` |
+| Set icon (ON state) | `btn.rk.icon = "bell-ringing";` |
+| Set offIcon (OFF state) | `btn.rk.offIcon = "bell";` |
 
 **Examples:**
 
@@ -73,10 +78,11 @@ fire.rk.icon    = "flame";
 fire.rk.onText  = "ON";
 fire.rk.offText = "OFF";
 
-// Toggle button
+// Toggle button with dual icons
 RK_ToggleButton power(20, 80, 20);
 power.rk.label   = "Power";
 power.rk.icon    = "power";
+power.rk.offIcon = "power-off";
 
 // Usage in loop()
 void loop() {
@@ -171,7 +177,11 @@ struct RK_SlideSwitchFields {
     uint8_t     x, y;
     uint8_t     height, width;
     int16_t     rotation;
-    const char* icon, *onText, *offText, *label;
+    const char* icon;       ///< ON state icon
+    const char* offIcon;    ///< OFF state icon
+    const char* onText;
+    const char* offText;
+    const char* label;
     uint8_t     variant;       ///< 0=Slide Switch, 1=Rocker Switch
     bool        labelHidden;
     bool        active;
@@ -186,6 +196,7 @@ struct RK_SlideSwitchFields {
 | Read state | `bool s = sw.rk.state;` |
 | Set state | `sw.rk.state = true;` |
 | Set text | `sw.rk.onText = "ON"; sw.rk.offText = "OFF";` |
+| Set icons | `sw.rk.icon = "arrow-right"; sw.rk.offIcon = "arrow-left";` |
 | Hide label | `sw.rk.labelHidden = true;` |
 
 **Example:**
@@ -194,6 +205,7 @@ struct RK_SlideSwitchFields {
 RK_SlideSwitch headlights(50, 60, 15);
 headlights.rk.label    = "Headlights";
 headlights.rk.icon     = "sun";
+headlights.rk.offIcon  = "moon";
 headlights.rk.onText   = "ON";
 headlights.rk.offText  = "OFF";
 

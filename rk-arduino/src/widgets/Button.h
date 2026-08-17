@@ -19,7 +19,8 @@ struct RK_ButtonFields {
     int16_t     rotation = 0;
 
     // Strings (pointers to base class buffers, set after construction)
-    const char* icon    = nullptr;
+    const char* icon    = nullptr; // onIcon
+    const char* offIcon = nullptr; // offIcon
     const char* onText  = nullptr;
     const char* offText = nullptr;
     const char* label   = nullptr;

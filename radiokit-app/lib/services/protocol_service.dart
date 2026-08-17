@@ -479,7 +479,7 @@ class ProtocolService {
       }
       final strMask = payload[offset++];
 
-      String label = '', icon = '', onText = '', offText = '', content = '', centerIcon = '';
+      String label = '', icon = '', offIcon = '', onText = '', offText = '', content = '', centerIcon = '';
       double minAngle = -135, maxAngle = 135;
       int itemMask = 0xFF;
 
@@ -524,6 +524,17 @@ class ProtocolService {
             }
           } else if (extraLen >= 1 && typeId == kWidgetMultiple) {
             itemMask = payload[offset++];
+          } else if (extraLen >= 1 &&
+              (typeId == kWidgetButton ||
+                  typeId == kWidgetSwitch ||
+                  typeId == kWidgetSlideSwitch)) {
+            final offIconLen = payload[offset++];
+            if (offIconLen > 0 && offset + offIconLen <= extraEnd) {
+              offIcon = utf8.decode(
+                  payload.sublist(offset, offset + offIconLen),
+                  allowMalformed: true);
+              offset += offIconLen;
+            }
           }
           offset = extraEnd;
         }
@@ -545,6 +556,7 @@ class ProtocolService {
         strMask:     strMask,
         label:       label,
         icon:        icon,
+        offIcon:     offIcon,
         onText:      onText,
         offText:     offText,
         content:     content,
@@ -737,20 +749,33 @@ class ProtocolService {
     double minAngle = w.minAngle;
     double maxAngle = w.maxAngle;
     int itemMask = w.itemMask;
+    String offIcon = w.offIcon;
     if ((strMask & kStrMaskExtra) != 0) {
       if (current < payload.length) {
         final extraLen = payload[current++];
+        final extraEnd = current + extraLen;
         if (extraLen >= 4 && w.typeId == kWidgetKnob) {
           final miRaw = payload[current] | (payload[current + 1] << 8);
           minAngle = (miRaw >= 0x8000 ? miRaw - 0x10000 : miRaw).toDouble();
           final maRaw = payload[current + 2] | (payload[current + 3] << 8);
           maxAngle = (maRaw >= 0x8000 ? maRaw - 0x10000 : maRaw).toDouble();
-          current += extraLen;
+          current = extraEnd;
         } else if (extraLen >= 1 && w.typeId == kWidgetMultiple) {
           itemMask = payload[current++];
-          current += (extraLen - 1);
+          current = extraEnd;
+        } else if (extraLen >= 1 &&
+            (w.typeId == kWidgetButton ||
+                w.typeId == kWidgetSwitch ||
+                w.typeId == kWidgetSlideSwitch)) {
+          final offIconLen = payload[current++];
+          if (offIconLen > 0 && current + offIconLen <= extraEnd) {
+            offIcon = utf8.decode(
+                payload.sublist(current, current + offIconLen),
+                allowMalformed: true);
+          }
+          current = extraEnd;
         } else {
-          current += extraLen;
+          current = extraEnd;
         }
       }
     }
@@ -761,6 +786,7 @@ class ProtocolService {
     final updated = w.copyWith(
       label: label,
       icon: icon,
+      offIcon: offIcon,
       onText: onText,
       offText: offText,
       content: content,

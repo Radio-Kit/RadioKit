@@ -30,6 +30,7 @@ uint16_t RadioKit_Button::serializeStrings(uint8_t* buf) const {
     const char* icn = (rk.icon && rk.icon[0] != '\0') ? rk.icon : _icon;
     const char* ont = (rk.onText && rk.onText[0] != '\0') ? rk.onText : _onText;
     const char* oft = (rk.offText && rk.offText[0] != '\0') ? rk.offText : _offText;
+    const char* offIcn = (rk.offIcon && rk.offIcon[0] != '\0') ? rk.offIcon : nullptr;
 
     uint8_t mask = 0;
     if (_labelHidden) mask |= RK_STR_LABEL_HIDDEN;
@@ -37,6 +38,7 @@ uint16_t RadioKit_Button::serializeStrings(uint8_t* buf) const {
     if (icn && icn[0] != '\0') mask |= RK_STR_ICON;
     if (ont && ont[0] != '\0') mask |= RK_STR_ONTEXT;
     if (oft && oft[0] != '\0') mask |= RK_STR_OFFTEXT;
+    if (offIcn)       mask |= RK_STR_EXTRA;
 
     uint16_t out = 0;
     buf[out++] = mask;
@@ -52,6 +54,13 @@ uint16_t RadioKit_Button::serializeStrings(uint8_t* buf) const {
     if (mask & RK_STR_ICON)    _writeStr(icn, RADIOKIT_MAX_ICON);
     if (mask & RK_STR_ONTEXT)  _writeStr(ont, RADIOKIT_MAX_LABEL);
     if (mask & RK_STR_OFFTEXT) _writeStr(oft, RADIOKIT_MAX_LABEL);
+    if (mask & RK_STR_EXTRA) {
+        uint8_t offIconLen = (uint8_t)strnlen(offIcn, RADIOKIT_MAX_ICON);
+        buf[out++] = 1 + offIconLen;
+        buf[out++] = offIconLen;
+        if (offIconLen > 0) memcpy(&buf[out], offIcn, offIconLen);
+        out += offIconLen;
+    }
 
     return out;
 }

@@ -27,9 +27,13 @@ void main() {
         width: 0,
         height: 20,
         label: 'start_button',
+        icon: 'bell-ringing',
+        offIcon: 'bell',
       );
       final json = config.toDesignerJsonMap(200, 100);
       expect(json['type'], 'button');
+      expect(json['properties']['onIcon'], 'bell-ringing');
+      expect(json['properties']['offIcon'], 'bell');
     });
 
     test('multiple typeId 0x07 preserves itemMask in toDesignerJsonMap', () {

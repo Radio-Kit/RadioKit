@@ -16,7 +16,8 @@ struct RK_SlideSwitchFields {
     uint8_t     height = 10;
     uint8_t     width = 0;
     int16_t     rotation = 0;
-    const char* icon  = nullptr;
+    const char* icon  = nullptr; // onIcon
+    const char* offIcon = nullptr; // offIcon
     uint8_t     variant = 0;     // 0=Slide Switch (default), 1=Rocker Switch
     const char* onText = nullptr;
     const char* offText = nullptr;

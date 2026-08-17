@@ -67,6 +67,9 @@ class WidgetConfig {
   /// Maximum sweep angle (present if kStrMaskExtra is set for Knob).
   final double maxAngle;
 
+  /// Off-state icon string (present if kStrMaskExtra is set for Button/Switch).
+  final String offIcon;
+
   /// Center icon string (present if kStrMaskExtra is set for Knob).
   final String centerIcon;
 
@@ -111,6 +114,7 @@ class WidgetConfig {
     this.strMask = 0,
     this.label   = '',
     this.icon    = '',
+    this.offIcon = '',
     this.onText  = '',
     this.offText = '',
     this.content = '',
@@ -136,6 +140,7 @@ class WidgetConfig {
     int? strMask,
     String? label,
     String? icon,
+    String? offIcon,
     String? onText,
     String? offText,
     String? content,
@@ -160,6 +165,7 @@ class WidgetConfig {
       strMask:  strMask  ?? this.strMask,
       label:    label    ?? this.label,
       icon:     icon     ?? this.icon,
+      offIcon:  offIcon  ?? this.offIcon,
       onText:   onText   ?? this.onText,
       offText:  offText  ?? this.offText,
       content:  content  ?? this.content,
@@ -293,11 +299,11 @@ class WidgetConfig {
     p['minAngle'] = minAngle;
     p['maxAngle'] = maxAngle;
 
-    // The wire carries a single icon string for button/switch-style widgets;
-    // map it to the designer's onIcon field (the off-state falls back to the
-    // on-state icon when offIcon is unset). Knobs carry their center icon in
-    // the EXTRA block instead.
+    // The wire carries a primary icon string for button/switch-style widgets;
+    // map it to the designer's onIcon field, and offIcon if present in the EXTRA block.
+    // Knobs carry their center icon in the EXTRA block instead.
     if (icon.isNotEmpty) p['onIcon'] = icon;
+    if (offIcon.isNotEmpty) p['offIcon'] = offIcon;
     if (typeId == kWidgetKnob && centerIcon.isNotEmpty) {
       p['centerIcon'] = centerIcon;
     }

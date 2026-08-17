@@ -317,7 +317,8 @@ class JsonArduinoGenerator {
             mode == 'toggle' ? 'RK_ToggleButton' : 'RK_PushButton';
         final onText = (props['onText'] as String?) ?? 'ON';
         final offText = (props['offText'] as String?) ?? 'OFF';
-        final iconName = props['onIcon'] as String? ?? props['icon'] as String? ?? '';
+        final onIconName = props['onIcon'] as String? ?? props['icon'] as String? ?? '';
+        final offIconName = props['offIcon'] as String? ?? '';
         
         declBuf.writeln('$widgetType $name($x, $y, $cppH, $cppW, $rotation);$comment');
         
@@ -328,8 +329,11 @@ class JsonArduinoGenerator {
         if (offText.isNotEmpty) {
           setupBuf.writeln('  $name.rk.offText = "${_escapeC(offText)}";');
         }
-        if (iconName.isNotEmpty) {
-          setupBuf.writeln('  $name.rk.icon = "$iconName";');
+        if (onIconName.isNotEmpty) {
+          setupBuf.writeln('  $name.rk.icon = "$onIconName";');
+        }
+        if (offIconName.isNotEmpty) {
+          setupBuf.writeln('  $name.rk.offIcon = "$offIconName";');
         }
         break;
       }
@@ -337,7 +341,8 @@ class JsonArduinoGenerator {
       case 'slideSwitch': {
         final onText = (props['onText'] as String?) ?? 'ON';
         final offText = (props['offText'] as String?) ?? 'OFF';
-        final iconName = props['icon'] as String? ?? '';
+        final onIconName = props['onIcon'] as String? ?? props['icon'] as String? ?? '';
+        final offIconName = props['offIcon'] as String? ?? '';
         
         declBuf.writeln('RK_SlideSwitch $name($x, $y, $cppH, $cppW, $rotation);$comment');
         
@@ -348,8 +353,11 @@ class JsonArduinoGenerator {
         if (offText.isNotEmpty) {
           setupBuf.writeln('  $name.rk.offText = "${_escapeC(offText)}";');
         }
-        if (iconName.isNotEmpty) {
-          setupBuf.writeln('  $name.rk.icon = "$iconName";');
+        if (onIconName.isNotEmpty) {
+          setupBuf.writeln('  $name.rk.icon = "$onIconName";');
+        }
+        if (offIconName.isNotEmpty) {
+          setupBuf.writeln('  $name.rk.offIcon = "$offIconName";');
         }
         break;
       }
@@ -359,7 +367,8 @@ class JsonArduinoGenerator {
         final isRocker = v == 'rockerSwitch';
         final onText = props['onText'] as String? ?? '';
         final offText = props['offText'] as String? ?? '';
-        final iconName = props['icon'] as String? ?? '';
+        final onIconName = props['onIcon'] as String? ?? props['icon'] as String? ?? '';
+        final offIconName = props['offIcon'] as String? ?? '';
         
         if (isRocker) {
           declBuf.writeln('RK_RockerSwitch $name($x, $y, $cppH, $cppW, $rotation);$comment');
@@ -374,8 +383,11 @@ class JsonArduinoGenerator {
         if (offText.isNotEmpty) {
           setupBuf.writeln('  $name.rk.offText = "${_escapeC(offText)}";');
         }
-        if (iconName.isNotEmpty) {
-          setupBuf.writeln('  $name.rk.icon = "$iconName";');
+        if (onIconName.isNotEmpty) {
+          setupBuf.writeln('  $name.rk.icon = "$onIconName";');
+        }
+        if (offIconName.isNotEmpty) {
+          setupBuf.writeln('  $name.rk.offIcon = "$offIconName";');
         }
         break;
       }

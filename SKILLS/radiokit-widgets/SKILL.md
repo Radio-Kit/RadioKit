@@ -46,7 +46,8 @@ RK_PushButton btn(20, 60, 20, 40, 90);  // with rotation
 | rk Field | Type | Range | Description |
 |----------|------|-------|-------------|
 | `state` | `bool` | true/false | Current press state |
-| `icon` | `const char*` | max 24 chars | Icon name |
+| `icon` | `const char*` | max 24 chars | ON state icon (or default icon) |
+| `offIcon` | `const char*` | max 24 chars | OFF state icon (optional override) |
 | `onText` | `const char*` | max 32 chars | Text when active |
 | `offText` | `const char*` | max 32 chars | Text when inactive |
 | `label` | `const char*` | max 32 chars | Display label |
@@ -152,6 +153,8 @@ RK_SlideSwitch slide(20, 60, 15);
 | rk Field | Type | Range | Description |
 |----------|------|-------|-------------|
 | `state` | `bool` | true/false | Switch position |
+| `icon` | `const char*` | max 24 chars | ON state icon |
+| `offIcon` | `const char*` | max 24 chars | OFF state icon |
 | `onText` | `const char*` | max 32 chars | ON label |
 | `offText` | `const char*` | max 32 chars | OFF label |
 | `label` | `const char*` | max 32 chars | Display label |

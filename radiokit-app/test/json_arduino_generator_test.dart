@@ -586,6 +586,44 @@ void main() {
         expect(output, contains('RK_MultipleSelect ms1'));
       });
 
+      test('button and switch emit rk.icon and rk.offIcon when configured', () {
+        final json = {
+          'version': 1,
+          'config': {'name': 'Test'},
+          'canvas': {'size': [200, 100]},
+          'widgets': [
+            {
+              'type': 'button',
+              'name': 'horn_btn',
+              'label': {'text': 'Horn', 'show': false},
+              'position': [50, 50, 0],
+              'size': [null, 20],
+              'properties': {
+                'onIcon': 'bell-ringing',
+                'offIcon': 'bell',
+              },
+            },
+            {
+              'type': 'slideSwitch',
+              'name': 'dir_sw',
+              'label': {'text': 'Dir', 'show': false},
+              'position': [80, 50, 0],
+              'size': [30, 15],
+              'properties': {
+                'onIcon': 'arrow-right',
+                'offIcon': 'arrow-left',
+              },
+            },
+          ],
+        };
+
+        final output = JsonArduinoGenerator.generate(json);
+        expect(output, contains('horn_btn.rk.icon = "bell-ringing";'));
+        expect(output, contains('horn_btn.rk.offIcon = "bell";'));
+        expect(output, contains('dir_sw.rk.icon = "arrow-right";'));
+        expect(output, contains('dir_sw.rk.offIcon = "arrow-left";'));
+      });
+
       test('rc_controller.json generates matching RADIOKIT.h', () {
         final file = File('assets/demos/rc_controller.json');
         final json = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
