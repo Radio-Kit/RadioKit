@@ -69,22 +69,35 @@ void main() {
       expect(template.widgetCount, 0);
     });
 
-    test('handles portrait canvas size', () {
+    test('handles multi-page template widget count', () {
       final json = {
-        'canvas': {'size': [100, 200]},
-        'widgets': [
-          {'type': 'joystick'},
+        'config': {'name': 'FULL_RC', 'type': 'RC'},
+        'canvas': {'size': [200, 100], 'skin': 'dragon'},
+        'pages': [
+          {
+            'name': 'Truck',
+            'widgets': [
+              {'type': 'knob'},
+              {'type': 'slider'},
+            ],
+          },
+          {
+            'name': 'Loco',
+            'widgets': [
+              {'type': 'switch'},
+            ],
+          },
         ],
       };
 
       final template = StarterTemplate.fromParsed(
-        assetPath: 'starter-templates/Portrait.json',
+        assetPath: 'starter-templates/FULL_RC.json',
         json: json,
         jsonContent: '{}',
       );
 
-      expect(template.canvasSize, [100, 200]);
-      expect(template.widgetCount, 1);
+      expect(template.name, 'FULL_RC');
+      expect(template.widgetCount, 3);
     });
   });
 

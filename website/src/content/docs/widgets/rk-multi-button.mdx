@@ -12,6 +12,7 @@ RKMultiButton({
   required List<RKToggleItem> items,
   required int selected,
   required ValueChanged<int> onChanged,
+  int itemMask = 0xFF,
   double buttonSize = 64.0,
   double spacing = 8.0,
   double padding = 12.0,
@@ -30,6 +31,7 @@ RKMultiButton({
 | `items` | List of `RKToggleItem` (labels and icons) to display. |
 | `selected` | Index of the currently active button. |
 | `onChanged` | Called with the new selected index when a button is tapped. |
+| `itemMask` | 8-bit visibility bitmap (bit i: 1=visible, 0=hidden). Defaults to `0xFF`. |
 | `buttonSize` | Size (width and height) of each individual button. |
 | `spacing` | Distance between buttons in the group. |
 | `padding` | Inner padding of the group container. |

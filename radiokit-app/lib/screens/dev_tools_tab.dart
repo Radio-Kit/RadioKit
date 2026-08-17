@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/radiokit_app_bar.dart';
 
@@ -43,21 +43,21 @@ class DevToolsTab extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           _ToolCard(
-            icon: LucideIcons.cable,
+            icon: PhosphorIconsFill.plug,
             title: 'USB Serial Monitor',
             subtitle: 'Monitor and send serial data over USB',
             onTap: () => context.push('/dev-tools/usb-serial'),
           ),
           const SizedBox(height: 12),
           _ToolCard(
-            icon: LucideIcons.hardDrive,
+            icon: PhosphorIconsFill.hardDrive,
             title: 'Filesystem Explorer',
             subtitle: 'Browse, upload, rename, and format the device partition',
             onTap: () => context.push('/dev-tools/esp32-fs'),
           ),
           const SizedBox(height: 12),
           _ToolCard(
-            icon: LucideIcons.zap,
+            icon: PhosphorIconsFill.lightning,
             title: 'Firmware Flasher',
             subtitle: 'Flash firmware to MCU via USB',
             onTap: () => context.push('/dev-tools/firmware-flasher'),
@@ -133,7 +133,7 @@ class _ToolCard extends StatelessWidget {
                 ),
               ),
               Icon(
-                LucideIcons.chevronRight,
+                PhosphorIconsFill.caretRight,
                 size: 18,
                 color: context.tokens.onSurface.withValues(alpha: 0.3),
               ),

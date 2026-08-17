@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 
 class InspectorFieldBuilders {
@@ -366,7 +366,7 @@ class InspectorFieldBuilders {
                   onTap: onReset,
                   child: Padding(
                     padding: const EdgeInsets.only(right: 8),
-                    child: Icon(LucideIcons.rotateCcw,
+                    child: Icon(PhosphorIconsFill.arrowCounterClockwise,
                         size: 12, color: tokens.onSurface.withValues(alpha: 0.38)),
                   ),
                 ),
@@ -973,7 +973,7 @@ class IconFieldBuilder {
                             fontFamily: 'monospace'),
                       ),
                     ),
-                  Icon(LucideIcons.chevronDown,
+                  Icon(PhosphorIconsFill.caretDown,
                       color: tokens.onSurface.withValues(alpha: 0.38), size: 12),
                 ],
               ),
@@ -1048,7 +1048,7 @@ class _DesignerIconPickerState extends State<_DesignerIconPicker> {
           hintText: 'Search icons...',
           hintStyle: TextStyle(color: tokens.onSurface.withValues(alpha: 0.38)),
           prefixIcon:
-              Icon(LucideIcons.search, size: 16, color: tokens.onSurface.withValues(alpha: 0.38)),
+              Icon(PhosphorIconsFill.magnifyingGlass, size: 16, color: tokens.onSurface.withValues(alpha: 0.38)),
           border: InputBorder.none,
           isDense: true,
         ),

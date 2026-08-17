@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
@@ -94,7 +94,7 @@ class DesignsTab extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(LucideIcons.palette, size: 64, color: context.tokens.onSurface.withValues(alpha: 0.5)),
+                  Icon(PhosphorIconsFill.palette, size: 64, color: context.tokens.onSurface.withValues(alpha: 0.5)),
                   const SizedBox(height: 16),
                   Text(
                     'No designs saved',
@@ -393,7 +393,7 @@ class _DesignCardState extends State<_DesignCard> {
                       ),
                       child: Center(
                         child: _loaded
-                            ? Icon(LucideIcons.palette, size: 32, color: tokens.onSurface.withValues(alpha: 0.2))
+                            ? Icon(PhosphorIconsFill.palette, size: 32, color: tokens.onSurface.withValues(alpha: 0.2))
                             : SizedBox(
                                 width: 20, height: 20,
                                 child: CircularProgressIndicator(strokeWidth: 2, color: tokens.onSurface.withValues(alpha: 0.3)),
@@ -446,7 +446,7 @@ class _DesignCardState extends State<_DesignCard> {
                         splashRadius: 16,
                         iconSize: 16,
                         icon: Icon(
-                          LucideIcons.ellipsisVertical,
+                          PhosphorIconsFill.dotsThreeVertical,
                           size: 16,
                           color: tokens.onSurface.withValues(alpha: 0.38),
                         ),
@@ -461,7 +461,7 @@ class _DesignCardState extends State<_DesignCard> {
                             value: 'open',
                             child: Row(
                               children: [
-                                Icon(LucideIcons.folderOpen, size: 14, color: tokens.onSurface.withValues(alpha: 0.7)),
+                                Icon(PhosphorIconsFill.folderOpen, size: 14, color: tokens.onSurface.withValues(alpha: 0.7)),
                                 const SizedBox(width: 10),
                                 Text('Open', style: TextStyle(fontSize: 13, color: tokens.onSurface)),
                               ],
@@ -471,7 +471,7 @@ class _DesignCardState extends State<_DesignCard> {
                             value: 'rename',
                             child: Row(
                               children: [
-                                Icon(LucideIcons.pencil, size: 14, color: tokens.onSurface.withValues(alpha: 0.7)),
+                                Icon(PhosphorIconsFill.pencil, size: 14, color: tokens.onSurface.withValues(alpha: 0.7)),
                                 const SizedBox(width: 10),
                                 Text('Rename', style: TextStyle(fontSize: 13, color: tokens.onSurface)),
                               ],
@@ -481,7 +481,7 @@ class _DesignCardState extends State<_DesignCard> {
                             value: 'delete',
                             child: Row(
                               children: [
-                                Icon(LucideIcons.trash2, size: 14, color: tokens.error),
+                                Icon(PhosphorIconsFill.trash, size: 14, color: tokens.error),
                                 const SizedBox(width: 10),
                                 Text('Delete', style: TextStyle(fontSize: 13, color: tokens.error)),
                               ],

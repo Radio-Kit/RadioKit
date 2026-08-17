@@ -175,12 +175,14 @@ String _buildMultiple(String widgetType, DesignerElement el, List<Map<String, dy
 
   for (int i = 0; i < items.length; i++) {
     final item = items[i];
-    final label = item['onLabel'] as String? ?? String.fromCharCode(65 + i);
-    final icon = item['onIcon'] as String?;
-    if (icon != null && icon.isNotEmpty) {
-      buf.writeln('  ${_widgetName(el)}.rk.items[$i] = {"$label", "$icon", 255};');
+    final rawLabel = item['onLabel'] as String? ?? item['label'] as String? ?? item['text'] as String?;
+    final icon = item['onIcon'] as String? ?? item['icon'] as String?;
+    final hasIcon = icon != null && icon.isNotEmpty;
+    final label = rawLabel ?? (hasIcon ? '' : String.fromCharCode(65 + i));
+    if (hasIcon) {
+      buf.writeln('  ${_widgetName(el)}.rk.items[$i] = {"${_escapeC(label)}", "$icon", 255};');
     } else {
-      buf.writeln('  ${_widgetName(el)}.rk.items[$i] = {"$label", nullptr, 255};');
+      buf.writeln('  ${_widgetName(el)}.rk.items[$i] = {"${_escapeC(label)}", nullptr, 255};');
     }
   }
 

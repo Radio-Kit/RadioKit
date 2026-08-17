@@ -29,6 +29,7 @@ RK_MultipleButton::RK_MultipleButton(uint8_t x, uint8_t y, uint8_t height, uint8
     rk.rotation = rotation;
     rk.variant = 0; // Index-based (Radio)
     rk.value = 0;
+    rk.itemMask = 0xFF;
     rk.itemCount = 0;
     memset(rk.items, 0, sizeof(rk.items));
     _initFromFields(rk, RK_TYPE_MULTIPLE);
@@ -42,6 +43,7 @@ RK_MultipleSelect::RK_MultipleSelect(uint8_t x, uint8_t y, uint8_t height, uint8
     rk.rotation = rotation;
     rk.variant = 1; // Bitmask-based (Checkboxes)
     rk.value = 0;
+    rk.itemMask = 0xFF;
     rk.itemCount = 0;
     memset(rk.items, 0, sizeof(rk.items));
     _initFromFields(rk, RK_TYPE_MULTIPLE);
@@ -88,6 +90,9 @@ uint16_t RadioKit_Multiple::serializeStrings(uint8_t* buf) const {
     }
     if (itemsStr[0] != '\0') mask |= RK_STR_CONTENT;
 
+    // Set EXTRA flag for itemMask
+    mask |= RK_STR_EXTRA;
+
     uint16_t out = 0;
     buf[out++] = mask;
 
@@ -105,6 +110,10 @@ uint16_t RadioKit_Multiple::serializeStrings(uint8_t* buf) const {
     if (mask & RK_STR_ONTEXT)  _writeStr(_onText,   RADIOKIT_MAX_LABEL);
     if (mask & RK_STR_OFFTEXT) _writeStr(_offText,  RADIOKIT_MAX_LABEL);
     if (mask & RK_STR_CONTENT) _writeStr(itemsStr,  sizeof(itemsStr) - 1);
+
+    // Extra block: 1 byte len + 1 byte itemMask
+    buf[out++] = 1;
+    buf[out++] = rk.itemMask;
 
     return out;
 }

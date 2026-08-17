@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 
 /// Page bar shown below the top toolbar in the designer.
@@ -39,7 +39,7 @@ class DesignerPageBar extends StatelessWidget {
                       const SizedBox(width: 8),
                       // Left chevron
                       _ChevronButton(
-                        icon: LucideIcons.chevronLeft,
+                        icon: PhosphorIconsFill.caretLeft,
                         onPressed: activeIndex > 0
                             ? () => state.setActivePage(activeIndex - 1)
                             : null,
@@ -107,7 +107,7 @@ class DesignerPageBar extends StatelessWidget {
           children: [
             ListTile(
               leading: Icon(
-                LucideIcons.pencil,
+                PhosphorIconsFill.pencil,
                 color: tokens.onSurface.withValues(alpha: 0.7),
               ),
               title: Text(
@@ -124,7 +124,7 @@ class DesignerPageBar extends StatelessWidget {
             ),
             ListTile(
               leading: Icon(
-                LucideIcons.copy,
+                PhosphorIconsFill.copy,
                 color: tokens.onSurface.withValues(alpha: 0.7),
               ),
               title: Text(
@@ -142,7 +142,7 @@ class DesignerPageBar extends StatelessWidget {
             if (state.numPages > 1)
               ListTile(
                 leading: Icon(
-                  LucideIcons.trash2,
+                  PhosphorIconsFill.trash,
                   color: tokens.error,
                 ),
                 title: Text(
@@ -362,7 +362,7 @@ class _TabButton extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    LucideIcons.rotateCw,
+                    PhosphorIconsFill.arrowClockwise,
                     size: 8,
                     color: tokens.onPrimary,
                   ),
@@ -440,7 +440,7 @@ class _ToggleButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(4),
         ),
         child: Icon(
-          LucideIcons.panelTopOpen,
+          PhosphorIconsFill.caretDown,
           size: 14,
           color: tokens.primary,
         ),
@@ -474,7 +474,7 @@ class _AddPageButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(4),
         ),
         child: Icon(
-          LucideIcons.plus,
+          PhosphorIconsFill.plus,
           size: 14,
           color: tokens.primary,
         ),

@@ -70,6 +70,9 @@ class WidgetConfig {
   /// Center icon string (present if kStrMaskExtra is set for Knob).
   final String centerIcon;
 
+  /// Item visibility bitmask (present if kStrMaskExtra is set for Multiple).
+  final int itemMask;
+
   /// Rotation as stored on the wire (int16, degrees ÷ 2).
   /// Multiply by 2 to get display degrees.
   final int rotation;
@@ -115,6 +118,7 @@ class WidgetConfig {
     this.minAngle = -135,
     this.maxAngle = 135,
     this.centerIcon = '',
+    this.itemMask = 0xFF,
     this.labelHidden = false,
     this.hidden = false,
     this.pageIndex = 0,
@@ -139,6 +143,7 @@ class WidgetConfig {
     double? minAngle,
     double? maxAngle,
     String? centerIcon,
+    int? itemMask,
     bool? labelHidden,
     bool? hidden,
     int? pageIndex,
@@ -162,6 +167,7 @@ class WidgetConfig {
       minAngle: minAngle ?? this.minAngle,
       maxAngle: maxAngle ?? this.maxAngle,
       centerIcon: centerIcon ?? this.centerIcon,
+      itemMask: itemMask ?? this.itemMask,
       labelHidden: labelHidden ?? this.labelHidden,
       hidden: hidden ?? this.hidden,
       pageIndex: pageIndex ?? this.pageIndex,
@@ -300,6 +306,7 @@ class WidgetConfig {
     if (detents > 1) p['divisions'] = detents;
 
     if (typeId == kWidgetMultiple) {
+      p['itemMask'] = itemMask;
       final items = multipleItems;
       p['itemCount'] = items.length;
       p['items'] = items.map((m) => <String, dynamic>{

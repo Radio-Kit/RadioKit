@@ -178,15 +178,24 @@ multi.rk.itemCount = 3;
 multi.rk.items[0].label = "Low";
 multi.rk.items[1].label = "Med";
 multi.rk.items[2].label = "High";
+
+// Dynamic item visibility (bitmask: bit i: 1=visible, 0=hidden)
+multi.setItemMask(0b00000011); // Show first 2 items only
 ```
 
 | rk Field | Type | Range | Description |
 |----------|------|-------|-------------|
 | `value` | `uint8_t` | 0-7 | Selected item index |
 | `variant` | `uint8_t` | 0-2 | `RK_SEGMENTS(0)`, `RK_GRID(1)`, `RK_WHEEL(2)` |
+| `itemMask` | `uint8_t` | 0-255 | Item visibility bitmap (1=visible, 0=hidden) |
 | `itemCount` | `uint8_t` | 0-8 | Number of items |
 | `items[n].label` | `const char*` | max 32 chars | Item label |
 | `items[n].icon` | `const char*` | max 24 chars | Item icon |
+
+**Visibility Methods:**
+- `multi.setItemMask(mask)`: Set 8-bit visibility bitmap (auto-marks dirty for CONF_DATA push).
+- `multi.setItemVisible(index, bool)` / `multi.setItemHidden(index, bool)`: Toggle individual item.
+- `multi.isItemVisible(index)`: Query visibility of item index.
 
 ### RK_MultipleSelect
 
@@ -199,9 +208,12 @@ multi.rk.items[0].label = "Red";
 multi.rk.items[1].label = "Green";
 multi.rk.items[2].label = "Blue";
 multi.rk.items[3].label = "White";
+
+// Hide unconfigured items dynamically
+multi.setItemMask(0b00000111); // Show Red, Green, Blue
 ```
 
-`rk.value` is a bitmask: bit 0 = item 0 selected, bit 1 = item 1, etc.
+`rk.value` is a bitmask: bit 0 = item 0 selected, bit 1 = item 1, etc. Visibility can be controlled via `multi.setItemMask(mask)` or `multi.setItemVisible(idx, bool)`.
 
 ## Output Widgets
 

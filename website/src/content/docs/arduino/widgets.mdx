@@ -116,6 +116,7 @@ struct RK_MultipleFields {
     bool        active;
     uint8_t     value;            ///< Bitmask (bit 0 = item 0, ...)
     uint8_t     variant;          ///< 0=Segments, 1=Grid, 2=Wheel
+    uint8_t     itemMask;         ///< Item visibility bitmap (bit i: 1=visible, 0=hidden)
     RK_Item     items[8];         ///< Item pool
     uint8_t     itemCount;
 };
@@ -135,6 +136,9 @@ struct RK_Item {
 | Check item | `bool active = (multi.rk.value & (1 << i)) != 0;` |
 | Set items | `multi.rk.items[0] = {"WiFi", "wifi", 0};` |
 | Set item count | `multi.rk.itemCount = 3;` |
+| Set item visibility mask | `multi.setItemMask(0x0B);` |
+| Hide / show item | `multi.setItemHidden(2, true);` / `multi.setItemVisible(0, true);` |
+| Query item visibility | `bool visible = multi.isItemVisible(0);` |
 
 **Example:**
 
@@ -145,6 +149,7 @@ toolbar.rk.items[0] = {"D", "drive_eta", 0};
 toolbar.rk.items[1] = {"P", "local_parking", 1};
 toolbar.rk.items[2] = {"R", "settings_backup_restore", 2};
 toolbar.rk.itemCount = 3;
+toolbar.setItemMask(0b00000111); // All 3 items visible
 
 void loop() {
     RadioKit.update();

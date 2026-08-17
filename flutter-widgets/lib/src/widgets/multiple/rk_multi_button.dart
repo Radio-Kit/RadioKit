@@ -44,6 +44,7 @@ class RKMultiButton extends StatelessWidget {
     required this.items,
     required this.selected,
     required this.onChanged,
+    this.itemMask = 0xFF,
     this.buttonSize = 24.0,
     this.gap = 8.0,
     this.enableHapticFeedback = true,
@@ -57,6 +58,7 @@ class RKMultiButton extends StatelessWidget {
   final List<RKToggleItem> items;
   final int selected;
   final ValueChanged<int> onChanged;
+  final int itemMask;
   final double buttonSize;
   final double gap;
   final bool enableHapticFeedback;
@@ -69,16 +71,26 @@ class RKMultiButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = RKTheme.of(context);
-    final int count = items.length;
+    final visibleIndices = <int>[];
+    for (int i = 0; i < items.length; i++) {
+      if (i >= 8 || (itemMask & (1 << i)) != 0) {
+        visibleIndices.add(i);
+      }
+    }
+    final int count = visibleIndices.length;
     final bool isHorizontal = orientation == RKAxis.horizontal;
 
     final double shellPadding = (buttonSize * 0.08).clamp(2.0, 10.0);
     final double cw = isHorizontal
-        ? buttonSize * count + gap * (count - 1) + shellPadding * 2
+        ? (count > 0 ? buttonSize * count + gap * (count - 1) : 0) + shellPadding * 2
         : buttonSize + shellPadding * 2;
     final double ch = isHorizontal
         ? buttonSize + shellPadding * 2
-        : buttonSize * count + gap * (count - 1) + shellPadding * 2;
+        : (count > 0 ? buttonSize * count + gap * (count - 1) : 0) + shellPadding * 2;
+
+    if (count == 0) {
+      return const SizedBox.shrink();
+    }
 
     return RKRotatedWrapper(
       rotation: rotation,
@@ -109,29 +121,30 @@ class RKMultiButton extends StatelessWidget {
           onPointerDown: (_) => onActiveChanged?.call(true),
           onPointerUp: (_) => onActiveChanged?.call(false),
           onPointerCancel: (_) => onActiveChanged?.call(false),
-          child: _buildAxis(count, tokens, isHorizontal),
+          child: _buildAxis(visibleIndices, tokens, isHorizontal),
         ),
       ),
     );
   }
 
-  Widget _buildAxis(int count, RKTokens tokens, bool isHorizontal) {
+  Widget _buildAxis(List<int> visibleIndices, RKTokens tokens, bool isHorizontal) {
     final children = <Widget>[];
-    for (int i = 0; i < count; i++) {
-      if (i > 0) {
+    for (int k = 0; k < visibleIndices.length; k++) {
+      if (k > 0) {
         children
             .add(isHorizontal ? SizedBox(width: gap) : SizedBox(height: gap));
       }
+      final originalIndex = visibleIndices[k];
       children.add(Expanded(
         child: _ToggleButton(
-          item: items[i],
-          selected: i == selected,
+          item: items[originalIndex],
+          selected: originalIndex == selected,
           buttonSize: buttonSize,
           onTap: () {
             if (enableHapticFeedback) {
               HapticFeedback.lightImpact();
             }
-            onChanged(i);
+            onChanged(originalIndex);
           },
           tokens: tokens,
         ),
@@ -162,6 +175,7 @@ class RKMultiSelect extends StatelessWidget {
     required this.items,
     required this.bitmask,
     required this.onChanged,
+    this.itemMask = 0xFF,
     this.buttonSize = 24.0,
     this.gap = 8.0,
     this.enableHapticFeedback = true,
@@ -175,6 +189,7 @@ class RKMultiSelect extends StatelessWidget {
   final List<RKToggleItem> items;
   final int bitmask;
   final ValueChanged<int> onChanged;
+  final int itemMask;
   final double buttonSize;
   final double gap;
   final bool enableHapticFeedback;
@@ -187,16 +202,26 @@ class RKMultiSelect extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = RKTheme.of(context);
-    final int count = items.length;
+    final visibleIndices = <int>[];
+    for (int i = 0; i < items.length; i++) {
+      if (i >= 8 || (itemMask & (1 << i)) != 0) {
+        visibleIndices.add(i);
+      }
+    }
+    final int count = visibleIndices.length;
     final bool isHorizontal = orientation == RKAxis.horizontal;
 
     final double shellPadding = (buttonSize * 0.08).clamp(2.0, 10.0);
     final double cw = isHorizontal
-        ? buttonSize * count + gap * (count - 1) + shellPadding * 2
+        ? (count > 0 ? buttonSize * count + gap * (count - 1) : 0) + shellPadding * 2
         : buttonSize + shellPadding * 2;
     final double ch = isHorizontal
         ? buttonSize + shellPadding * 2
-        : buttonSize * count + gap * (count - 1) + shellPadding * 2;
+        : (count > 0 ? buttonSize * count + gap * (count - 1) : 0) + shellPadding * 2;
+
+    if (count == 0) {
+      return const SizedBox.shrink();
+    }
 
     return RKRotatedWrapper(
       rotation: rotation,
@@ -227,30 +252,31 @@ class RKMultiSelect extends StatelessWidget {
           onPointerDown: (_) => onActiveChanged?.call(true),
           onPointerUp: (_) => onActiveChanged?.call(false),
           onPointerCancel: (_) => onActiveChanged?.call(false),
-          child: _buildAxis(count, tokens, isHorizontal),
+          child: _buildAxis(visibleIndices, tokens, isHorizontal),
         ),
       ),
     );
   }
 
-  Widget _buildAxis(int count, RKTokens tokens, bool isHorizontal) {
+  Widget _buildAxis(List<int> visibleIndices, RKTokens tokens, bool isHorizontal) {
     final children = <Widget>[];
-    for (int i = 0; i < count; i++) {
-      if (i > 0) {
+    for (int k = 0; k < visibleIndices.length; k++) {
+      if (k > 0) {
         children
             .add(isHorizontal ? SizedBox(width: gap) : SizedBox(height: gap));
       }
-      final isSelected = ((bitmask >> i) & 1) == 1;
+      final originalIndex = visibleIndices[k];
+      final isSelected = ((bitmask >> originalIndex) & 1) == 1;
       children.add(Expanded(
         child: _ToggleButton(
-          item: items[i],
+          item: items[originalIndex],
           selected: isSelected,
           buttonSize: buttonSize,
           onTap: () {
             if (enableHapticFeedback) {
               HapticFeedback.selectionClick();
             }
-            onChanged(bitmask ^ (1 << i));
+            onChanged(bitmask ^ (1 << originalIndex));
           },
           tokens: tokens,
         ),

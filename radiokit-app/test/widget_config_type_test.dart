@@ -32,6 +32,24 @@ void main() {
       expect(json['type'], 'button');
     });
 
+    test('multiple typeId 0x07 preserves itemMask in toDesignerJsonMap', () {
+      const config = WidgetConfig(
+        typeId: kWidgetMultiple,
+        widgetId: 3,
+        x: 10,
+        y: 10,
+        width: 0,
+        height: 20,
+        label: 'truck_light',
+        content: 'Head:light|Beam:high|Fog:cloud|Hazard:alert',
+        itemMask: 0x0B,
+      );
+      final json = config.toDesignerJsonMap(200, 100);
+      expect(json['type'], 'multiple');
+      expect(json['properties']['itemMask'], 0x0B);
+      expect(json['properties']['itemCount'], 4);
+    });
+
     test('widgetTypeName display for telemetry', () {
       expect(widgetTypeName(kWidgetTelemetry), 'Telemetry');
       expect(widgetTypeName(kWidgetButton), 'Button');

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 import 'inspector_field_builders.dart';
 
@@ -158,7 +158,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
       padding: const EdgeInsets.all(20),
       child: Row(
         children: [
-          Icon(LucideIcons.list, color: tokens.primary, size: 20),
+          Icon(PhosphorIconsFill.list, color: tokens.primary, size: 20),
           SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -176,7 +176,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
             icon:
-                Icon(LucideIcons.chevronRight, color: tokens.onSurface.withValues(alpha: 0.88)),
+                Icon(PhosphorIconsFill.caretRight, color: tokens.onSurface.withValues(alpha: 0.88)),
             onPressed: () => widget.state.setInspectorVisible(false),
             tooltip: 'Close',
           ),
@@ -238,7 +238,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                           child: Padding(
                             padding: EdgeInsets.all(4),
                             child: Icon(
-                              LucideIcons.alertCircle,
+                              PhosphorIconsFill.warningCircle,
                               size: 14,
                               color: tokens.error,
                             ),
@@ -268,7 +268,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                 borderRadius: BorderRadius.circular(2),
               ),
               child: Icon(
-                el.labelHidden ? LucideIcons.eyeOff : LucideIcons.eye,
+                el.labelHidden ? PhosphorIconsFill.eyeSlash : PhosphorIconsFill.eye,
                 size: 14,
                 color:
                     el.labelHidden ? tokens.onSurface.withValues(alpha: 0.38) : tokens.primary,
@@ -315,7 +315,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      el.hidden ? LucideIcons.eyeOff : LucideIcons.eye,
+                      el.hidden ? PhosphorIconsFill.eyeSlash : PhosphorIconsFill.eye,
                       size: 14,
                       color: el.hidden
                           ? tokens.primary
@@ -479,7 +479,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                 },
                 child: Padding(
                   padding: const EdgeInsets.only(left: 8),
-                  child: Icon(LucideIcons.rotateCcw,
+                  child: Icon(PhosphorIconsFill.arrowCounterClockwise,
                       size: 12, color: tokens.onSurface.withValues(alpha: 0.38)),
                 ),
               ),
@@ -925,7 +925,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(LucideIcons.plus, size: 12, color: tokens.primary),
+                        Icon(PhosphorIconsFill.plus, size: 12, color: tokens.primary),
                         const SizedBox(width: 4),
                         Text(
                           'Add',
@@ -1014,7 +1014,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(LucideIcons.gripVertical, color: tokens.primary, size: 14),
+                                    Icon(PhosphorIconsFill.dotsSixVertical, color: tokens.primary, size: 14),
                                     const SizedBox(width: 6),
                                     Text(label.isNotEmpty ? label : 'Slot ${i + 1}',
                                       style: TextStyle(color: tokens.onSurface, fontSize: 11, fontFamily: 'monospace')),
@@ -1035,7 +1035,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                             });
                           },
                           child: Icon(
-                            LucideIcons.gripVertical,
+                            PhosphorIconsFill.dotsSixVertical,
                             color: _draggingIndex == i
                                 ? tokens.primary
                                 : tokens.onSurface.withValues(alpha: 0.38),
@@ -1084,7 +1084,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                             ),
                           ),
                         Icon(
-                          LucideIcons.chevronDown,
+                          PhosphorIconsFill.caretDown,
                           color: tokens.onSurface.withValues(alpha: 0.38),
                           size: 10,
                         ),
@@ -1177,7 +1177,7 @@ class _DesignerInspectorState extends State<DesignerInspector> {
                       borderRadius: BorderRadius.circular(2),
                     ),
                     child: Icon(
-                      LucideIcons.x,
+                      PhosphorIconsFill.x,
                       color: tokens.onSurface.withValues(alpha: 0.5),
                       size: 14,
                     ),
@@ -1853,7 +1853,7 @@ class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
         children: [
           Row(
             children: [
-              Icon(LucideIcons.list, color: widget.tokens.primary, size: 12),
+              Icon(PhosphorIconsFill.list, color: widget.tokens.primary, size: 12),
               SizedBox(width: 6),
               Text(
                 'ITEMS',
@@ -2071,7 +2071,7 @@ class _ItemStateRowWidgetState extends State<_ItemStateRowWidget> {
                     ),
                   ),
                 Icon(
-                  LucideIcons.chevronDown,
+                  PhosphorIconsFill.caretDown,
                   color: widget.tokens.onSurface.withValues(alpha: 0.38),
                   size: 10,
                 ),

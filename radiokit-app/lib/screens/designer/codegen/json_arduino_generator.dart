@@ -596,9 +596,11 @@ class JsonArduinoGenerator {
     for (int i = 0; i < items.length; i++) {
       final item = items[i];
       if (item is! Map) continue;
-      final label = item['onLabel'] as String? ?? item['label'] as String? ?? item['text'] as String? ?? String.fromCharCode(65 + i);
+      final rawLabel = item['onLabel'] as String? ?? item['label'] as String? ?? item['text'] as String?;
       final icon = item['onIcon'] as String? ?? item['icon'] as String?;
-      final iconPart = (icon != null && icon.isNotEmpty) ? '"$icon"' : 'nullptr';
+      final hasIcon = icon != null && icon.isNotEmpty;
+      final label = rawLabel ?? (hasIcon ? '' : String.fromCharCode(65 + i));
+      final iconPart = hasIcon ? '"$icon"' : 'nullptr';
       setupBuf.writeln('  $name.rk.items[$i] = {"${_escapeC(label)}", $iconPart, $i};');
     }
     if (items.isNotEmpty) {

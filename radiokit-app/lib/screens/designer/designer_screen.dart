@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 import 'package:re_editor/re_editor.dart';
 import 'package:re_highlight/languages/json.dart' show langJson;
@@ -263,7 +263,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Icon(
-                                  LucideIcons.panelTopClose,
+                                  PhosphorIconsFill.caretUp,
                                   size: 14,
                                   color: tokens.primary,
                                 ),
@@ -291,7 +291,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                             },
                             backgroundColor: tokens.primary,
                             foregroundColor: tokens.onPrimary,
-                            child: Icon(LucideIcons.plus),
+                            child: Icon(PhosphorIconsFill.plus),
                           ),
                         ),
                       if (!_state.isPlayMode)
@@ -302,7 +302,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                             onPressed: () => _showSourceCode(context, tokens),
                             backgroundColor: tokens.base200,
                             foregroundColor: tokens.onSurface.withValues(alpha: 0.7),
-                            child: Icon(LucideIcons.code),
+                            child: Icon(PhosphorIconsFill.code),
                           ),
                         ),
                     ],
@@ -339,7 +339,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
           children: [
             IconButton(
               icon:
-                  Icon(LucideIcons.arrowLeft, color: tokens.primary, size: 20),
+                  Icon(PhosphorIconsFill.arrowLeft, color: tokens.primary, size: 20),
               onPressed: () => _handleBack(context),
             ),
             SizedBox(width: 8),
@@ -373,7 +373,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                   ],
                   SizedBox(width: 8),
                   IconButton(
-                    icon: Icon(LucideIcons.pencil,
+                    icon: Icon(PhosphorIconsFill.pencil,
                         size: 16, color: tokens.primary),
                     onPressed: () => _editProjectName(context),
                     tooltip: 'Edit Project Name',
@@ -455,13 +455,13 @@ class _DesignerScreenState extends State<DesignerScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             _IconButton(
-              icon: LucideIcons.undo,
+              icon: PhosphorIconsFill.arrowArcLeft,
               onPressed: _state.canUndo ? () => _state.undo() : null,
               tokens: tokens,
             ),
             SizedBox(width: 4),
             _IconButton(
-              icon: LucideIcons.redo,
+              icon: PhosphorIconsFill.arrowArcRight,
               onPressed: _state.canRedo ? () => _state.redo() : null,
               tokens: tokens,
             ),
@@ -496,7 +496,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(LucideIcons.save, color: tokens.primary, size: 14),
+            Icon(PhosphorIconsFill.floppyDisk, color: tokens.primary, size: 14),
             SizedBox(width: 6),
             Text(
               'SAVE',
@@ -528,7 +528,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(LucideIcons.save, color: tokens.onSurface.withValues(alpha: 0.54), size: 14),
+            Icon(PhosphorIconsFill.floppyDisk, color: tokens.onSurface.withValues(alpha: 0.54), size: 14),
             SizedBox(width: 6),
             Text(
               'SAVE AS',
@@ -559,7 +559,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(LucideIcons.chevronLeft, color: tokens.primary, size: 18),
+            Icon(PhosphorIconsFill.caretLeft, color: tokens.primary, size: 18),
             SizedBox(height: 4),
             RotatedBox(
               quarterTurns: 3,
@@ -601,7 +601,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  isPlay ? LucideIcons.square : LucideIcons.play,
+                  isPlay ? PhosphorIconsFill.square : PhosphorIconsFill.play,
                   color: isPlay ? tokens.success : tokens.primary,
                   size: 14,
                 ),
@@ -898,7 +898,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                     ),
                     child: Row(
                       children: [
-                        Icon(LucideIcons.code, color: tokens.primary, size: 20),
+                        Icon(PhosphorIconsFill.code, color: tokens.primary, size: 20),
                         SizedBox(width: 10),
                         Text(
                           'CODE VIEWER',
@@ -967,7 +967,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(LucideIcons.share2,
+                                Icon(PhosphorIconsFill.shareNetwork,
                                     color: tokens.onSurface.withValues(alpha: 0.7), size: 14),
                                 SizedBox(width: 6),
                                 Text(
@@ -1006,7 +1006,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(LucideIcons.download,
+                                Icon(PhosphorIconsFill.download,
                                     color: tokens.onSurface.withValues(alpha: 0.7), size: 14),
                                 SizedBox(width: 6),
                                 Text(
@@ -1051,7 +1051,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                             children: [
                               // Pane header
                               _buildPaneHeader(
-                                icon: LucideIcons.fileJson,
+                                icon: PhosphorIconsFill.fileJs,
                                 label: 'UI CONFIG (JSON)',
                                 tokens: tokens,
                                 onCopy: () {
@@ -1096,7 +1096,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                             children: [
                               // Pane header
                               _buildPaneHeader(
-                                icon: LucideIcons.microchip,
+                                icon: PhosphorIconsFill.cpu,
                                 label: 'ARDUINO CODE',
                                 tokens: tokens,
                                 onCopy: () {
@@ -1185,7 +1185,7 @@ Widget _buildPaneHeader({
                 borderRadius: BorderRadius.circular(2),
               ),
               child:
-                  Icon(LucideIcons.download, color: tokens.primary, size: 13),
+                  Icon(PhosphorIconsFill.download, color: tokens.primary, size: 13),
             ),
           )
         ],

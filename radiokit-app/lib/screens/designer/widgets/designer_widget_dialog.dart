@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 
 /// Content widget for the "Add Widget" bottom sheet.
@@ -9,23 +9,23 @@ class DesignerWidgetSheet extends StatelessWidget {
   const DesignerWidgetSheet({super.key, required this.state});
 
   static const _controlVariants = [
-    _SheetVariant('Push Button', LucideIcons.square, DesignerElementType.button, {'variant': 'push'}),
-    _SheetVariant('Toggle Button', LucideIcons.toggleLeft, DesignerElementType.button, {'variant': 'toggle'}),
-    _SheetVariant('Slide Switch', LucideIcons.toggleLeft, DesignerElementType.slideSwitch, <String, dynamic>{}),
-    _SheetVariant('Rocker Switch', LucideIcons.arrowUpDown, DesignerElementType.rockerSwitch, <String, dynamic>{}),
-    _SheetVariant('Multiple Button', LucideIcons.radio, DesignerElementType.multiButton, <String, dynamic>{}),
-    _SheetVariant('Multiple Select', LucideIcons.badgeCheck, DesignerElementType.multiSelect, <String, dynamic>{}),
-    _SheetVariant('Linear Slider', LucideIcons.slidersHorizontal, DesignerElementType.slider, <String, dynamic>{}),
-    _SheetVariant('Gas Pedal', LucideIcons.gauge, DesignerElementType.gasPedal, <String, dynamic>{}),
-    _SheetVariant('Rotary Knob', LucideIcons.cog, DesignerElementType.knob, <String, dynamic>{}),
-    _SheetVariant('Steering Wheel', LucideIcons.rotateCw, DesignerElementType.steeringWheel, <String, dynamic>{}),
-    _SheetVariant('Joystick', LucideIcons.gamepad2, DesignerElementType.joystick, <String, dynamic>{}),
+    _SheetVariant('Push Button', PhosphorIconsFill.square, DesignerElementType.button, {'variant': 'push'}),
+    _SheetVariant('Toggle Button', PhosphorIconsFill.toggleLeft, DesignerElementType.button, {'variant': 'toggle'}),
+    _SheetVariant('Slide Switch', PhosphorIconsFill.toggleLeft, DesignerElementType.slideSwitch, <String, dynamic>{}),
+    _SheetVariant('Rocker Switch', PhosphorIconsFill.arrowsDownUp, DesignerElementType.rockerSwitch, <String, dynamic>{}),
+    _SheetVariant('Multiple Button', PhosphorIconsFill.radio, DesignerElementType.multiButton, <String, dynamic>{}),
+    _SheetVariant('Multiple Select', PhosphorIconsFill.sealCheck, DesignerElementType.multiSelect, <String, dynamic>{}),
+    _SheetVariant('Linear Slider', PhosphorIconsFill.slidersHorizontal, DesignerElementType.slider, <String, dynamic>{}),
+    _SheetVariant('Gas Pedal', PhosphorIconsFill.gauge, DesignerElementType.gasPedal, <String, dynamic>{}),
+    _SheetVariant('Rotary Knob', PhosphorIconsFill.gear, DesignerElementType.knob, <String, dynamic>{}),
+    _SheetVariant('Steering Wheel', PhosphorIconsFill.arrowClockwise, DesignerElementType.steeringWheel, <String, dynamic>{}),
+    _SheetVariant('Joystick', PhosphorIconsFill.gameController, DesignerElementType.joystick, <String, dynamic>{}),
   ];
 
   static const _indicatorVariants = [
-    _SheetVariant('Text Display', LucideIcons.monitor, DesignerElementType.text, <String, dynamic>{}),
-    _SheetVariant('Serial Monitor', LucideIcons.terminal, DesignerElementType.serialMonitor, <String, dynamic>{}),
-    _SheetVariant('LED', LucideIcons.circle, DesignerElementType.led, <String, dynamic>{}),
+    _SheetVariant('Text Display', PhosphorIconsFill.monitor, DesignerElementType.text, <String, dynamic>{}),
+    _SheetVariant('Serial Monitor', PhosphorIconsFill.terminal, DesignerElementType.serialMonitor, <String, dynamic>{}),
+    _SheetVariant('LED', PhosphorIconsFill.circle, DesignerElementType.led, <String, dynamic>{}),
   ];
 
   @override
@@ -45,7 +45,7 @@ class DesignerWidgetSheet extends StatelessWidget {
               // Title row
               Row(
                 children: [
-                  Icon(LucideIcons.palette, color: tokens.primary, size: 20),
+                  Icon(PhosphorIconsFill.palette, color: tokens.primary, size: 20),
                   const SizedBox(width: 10),
                   const Text(
                     'ADD WIDGET',
@@ -66,7 +66,7 @@ class DesignerWidgetSheet extends StatelessWidget {
                         color: const Color(0xFF222222),
                         borderRadius: BorderRadius.circular(2),
                       ),
-                      child: const Icon(LucideIcons.x, color: Color(0xFF888888), size: 16),
+                      child: const Icon(PhosphorIconsFill.x, color: Color(0xFF888888), size: 16),
                     ),
                   ),
                 ],

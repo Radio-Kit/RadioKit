@@ -25,6 +25,7 @@ struct RK_MultipleFields {
     bool        active = true;
     uint8_t     value = 0;                    // Selection mask
     uint8_t     variant = 0;                  // 0=Segments, 1=Grid, 2=Wheel
+    uint8_t     itemMask = 0xFF;              // Item visibility bitmap (bit i: 1=visible, 0=hidden)
     RK_Item     items[RADIOKIT_MAX_ITEMS];    // Item pool
     uint8_t     itemCount = 0;
 };
@@ -38,6 +39,29 @@ public:
     void serializeInput(uint8_t* buf)          const override;
     void serializeOutput(uint8_t*)           const override {}
     void deserializeInput(const uint8_t* buf)      override;
+
+    void setItemMask(uint8_t mask) {
+        rk.itemMask = mask;
+        RadioKitClass::markConfDirty();
+    }
+    uint8_t itemMask() const { return rk.itemMask; }
+    void setItemVisible(uint8_t index, bool visible) {
+        if (index < 8) {
+            if (visible) {
+                rk.itemMask |= (1 << index);
+            } else {
+                rk.itemMask &= ~(1 << index);
+            }
+            RadioKitClass::markConfDirty();
+        }
+    }
+    void setItemHidden(uint8_t index, bool hidden) {
+        setItemVisible(index, !hidden);
+    }
+    bool isItemVisible(uint8_t index) const {
+        if (index >= 8) return false;
+        return (rk.itemMask & (1 << index)) != 0;
+    }
 
     RK_MultipleFields rk;
 

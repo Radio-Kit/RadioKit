@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 import '../../models/starter_template.dart';
 import 'design_preview.dart';
@@ -247,7 +247,7 @@ class _TemplateCard extends StatelessWidget {
                         ),
                       ),
                       child: Center(
-                        child: Icon(LucideIcons.layoutTemplate, size: 32, color: tokens.onSurface.withValues(alpha: 0.2)),
+                        child: Icon(PhosphorIconsFill.squaresFour, size: 32, color: tokens.onSurface.withValues(alpha: 0.2)),
                       ),
                     ),
             ),

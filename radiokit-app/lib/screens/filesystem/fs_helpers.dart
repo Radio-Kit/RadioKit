@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 /// Human-readable byte size. Uses binary (KiB, MiB) units.
 String formatBytes(int bytes) {
@@ -50,12 +50,12 @@ List<String> pathSegments(String path) {
 /// Picks an M3-appropriate icon and accent color for a file or directory.
 ({IconData icon, Color color}) fileVisual(String name, {required bool isDir}) {
   if (isDir) {
-    return (icon: LucideIcons.folder, color: const Color(0xFFFFB74D));
+    return (icon: PhosphorIconsFill.folder, color: const Color(0xFFFFB74D));
   }
   final ext = fileExtension(name);
   switch (ext) {
     case 'json':
-      return (icon: LucideIcons.fileJson2, color: const Color(0xFFFFCA28));
+      return (icon: PhosphorIconsFill.fileJs, color: const Color(0xFFFFCA28));
     case 'html':
     case 'htm':
     case 'xml':
@@ -67,47 +67,47 @@ List<String> pathSegments(String path) {
     case 'c':
     case 'h':
     case 'py':
-      return (icon: LucideIcons.fileCode2, color: const Color(0xFF64B5F6));
+      return (icon: PhosphorIconsFill.fileCode, color: const Color(0xFF64B5F6));
     case 'md':
     case 'txt':
     case 'log':
-      return (icon: LucideIcons.fileText, color: const Color(0xFFB0BEC5));
+      return (icon: PhosphorIconsFill.fileText, color: const Color(0xFFB0BEC5));
     case 'png':
     case 'jpg':
     case 'jpeg':
     case 'gif':
     case 'svg':
     case 'webp':
-      return (icon: LucideIcons.fileImage, color: const Color(0xFFBA68C8));
+      return (icon: PhosphorIconsFill.fileImage, color: const Color(0xFFBA68C8));
     case 'mp3':
     case 'wav':
     case 'ogg':
     case 'flac':
-      return (icon: LucideIcons.fileMusic, color: const Color(0xFFF06292));
+      return (icon: PhosphorIconsFill.fileAudio, color: const Color(0xFFF06292));
     case 'mp4':
     case 'mov':
     case 'avi':
     case 'mkv':
-      return (icon: LucideIcons.fileVideo, color: const Color(0xFF9575CD));
+      return (icon: PhosphorIconsFill.fileVideo, color: const Color(0xFF9575CD));
     case 'zip':
     case 'gz':
     case 'tar':
     case '7z':
     case 'rar':
-      return (icon: LucideIcons.fileArchive, color: const Color(0xFFA1887F));
+      return (icon: PhosphorIconsFill.fileArchive, color: const Color(0xFFA1887F));
     case 'bin':
     case 'hex':
     case 'elf':
-      return (icon: LucideIcons.binary, color: const Color(0xFF90A4AE));
+      return (icon: PhosphorIconsFill.binary, color: const Color(0xFF90A4AE));
     case 'csv':
     case 'tsv':
     case 'xls':
     case 'xlsx':
-      return (icon: LucideIcons.fileSpreadsheet, color: const Color(0xFF81C784));
+      return (icon: PhosphorIconsFill.fileXls, color: const Color(0xFF81C784));
     case 'pdf':
-      return (icon: LucideIcons.fileText, color: const Color(0xFFEF5350));
+      return (icon: PhosphorIconsFill.fileText, color: const Color(0xFFEF5350));
     default:
-      return (icon: LucideIcons.file, color: const Color(0xFF90A4AE));
+      return (icon: PhosphorIconsFill.file, color: const Color(0xFF90A4AE));
   }
 }
 

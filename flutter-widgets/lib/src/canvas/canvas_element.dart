@@ -144,6 +144,9 @@ class CanvasElement extends StatelessWidget {
         offIcon: iconFromName(raw?['offIcon'] as String?),
       );
     });
+    final itemMask = isPlay
+        ? ((element.properties['itemMask'] as num?)?.toInt() ?? 0xFF)
+        : 0xFF;
     return RKMultiButton(
       items: items,
       selected: isPlay
@@ -151,6 +154,7 @@ class CanvasElement extends StatelessWidget {
           : 0,
       onChanged:
           isPlay ? (v) => designerState!.setRuntimeWidgetValue(id, v) : (_) {},
+      itemMask: itemMask,
       buttonSize: buttonSize,
       enableHapticFeedback: element.properties['haptic'] ?? true,
       orientation: horizontal ? RKAxis.horizontal : RKAxis.vertical,
@@ -188,6 +192,9 @@ class CanvasElement extends StatelessWidget {
         offIcon: iconFromName(raw?['offIcon'] as String?),
       );
     });
+    final itemMask = isPlay
+        ? ((element.properties['itemMask'] as num?)?.toInt() ?? 0xFF)
+        : 0xFF;
     return RKMultiSelect(
       items: items,
       bitmask: isPlay
@@ -195,6 +202,7 @@ class CanvasElement extends StatelessWidget {
           : 0,
       onChanged:
           isPlay ? (v) => designerState!.setRuntimeWidgetValue(id, v) : (_) {},
+      itemMask: itemMask,
       buttonSize: buttonSize,
       enableHapticFeedback: element.properties['haptic'] ?? true,
       orientation: horizontal ? RKAxis.horizontal : RKAxis.vertical,

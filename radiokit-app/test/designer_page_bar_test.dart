@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 import 'package:radiokit/screens/designer/widgets/designer_page_bar.dart';
 
@@ -149,7 +149,7 @@ void main() {
       expect(state.showPageBar, isTrue);
 
       // Find the toggle button by its Lucide icon
-      final toggleFinder = find.byIcon(LucideIcons.panelTopOpen);
+      final toggleFinder = find.byIcon(PhosphorIconsFill.caretDown);
       expect(toggleFinder, findsOneWidget, reason: 'Toggle button should be visible');
 
       await tester.tap(toggleFinder);
@@ -201,8 +201,8 @@ void main() {
 
       expect(state.numPages, equals(1));
 
-      // Find and tap the + button (LucideIcons.plus)
-      await tester.tap(find.byIcon(LucideIcons.plus));
+      // Find and tap the + button (PhosphorIconsFill.plus)
+      await tester.tap(find.byIcon(PhosphorIconsFill.plus));
       await tester.pump();
 
       // Should have 2 pages now
@@ -314,7 +314,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Find the rotate icon
-      expect(find.byIcon(LucideIcons.rotateCw), findsOneWidget);
+      expect(find.byIcon(PhosphorIconsFill.arrowClockwise), findsOneWidget);
     });
 
     testWidgets('shows badge when page has portrait override', (tester) async {
@@ -335,7 +335,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(LucideIcons.rotateCw), findsOneWidget);
+      expect(find.byIcon(PhosphorIconsFill.arrowClockwise), findsOneWidget);
     });
 
     testWidgets('hides badge when page has global override', (tester) async {
@@ -356,7 +356,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(LucideIcons.rotateCw), findsNothing);
+      expect(find.byIcon(PhosphorIconsFill.arrowClockwise), findsNothing);
     });
 
     testWidgets('hides badge when override is null', (tester) async {
@@ -377,7 +377,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(LucideIcons.rotateCw), findsNothing);
+      expect(find.byIcon(PhosphorIconsFill.arrowClockwise), findsNothing);
     });
   });
 }

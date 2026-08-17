@@ -389,4 +389,72 @@ void main() {
     final pedal = tester.widget<RKGasPedal>(find.byType(RKGasPedal));
     expect(pedal.value, equals(0.0));
   });
+
+  testWidgets('RKMultiSelect filters visible items and preserves bit contracts with itemMask', (tester) async {
+    int changedBitmask = 0;
+    final items = List.generate(8, (i) => RKToggleItem(onLabel: 'Btn$i'));
+
+    // itemMask 0x0B = 0b00001011 (items 0, 1, 3 visible; item 2 hidden)
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RKTheme(
+          tokens: RKTokens.dragon,
+          child: Scaffold(
+            body: Center(
+              child: RKMultiSelect(
+                items: items,
+                bitmask: 0x01, // Item 0 selected
+                itemMask: 0x0B,
+                onChanged: (val) => changedBitmask = val,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Visible buttons: BTN0, BTN1, BTN3. Hidden: BTN2, BTN4..BTN7.
+    expect(find.text('BTN0'), findsOneWidget);
+    expect(find.text('BTN1'), findsOneWidget);
+    expect(find.text('BTN3'), findsOneWidget);
+    expect(find.text('BTN2'), findsNothing);
+    expect(find.text('BTN4'), findsNothing);
+
+    // Tap BTN3 (index 3). Should toggle bit 3 (0x08). Since bitmask was 0x01, new val is 0x01 ^ 0x08 = 0x09.
+    await tester.tap(find.text('BTN3'));
+    expect(changedBitmask, equals(0x09));
+  });
+
+  testWidgets('RKMultiButton filters visible items and returns original index with itemMask', (tester) async {
+    int changedIndex = -1;
+    final items = List.generate(8, (i) => RKToggleItem(onLabel: 'L$i'));
+
+    // itemMask 0x0A = 0b00001010 (items 1, 3 visible)
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RKTheme(
+          tokens: RKTokens.dragon,
+          child: Scaffold(
+            body: Center(
+              child: RKMultiButton(
+                items: items,
+                selected: 1,
+                itemMask: 0x0A,
+                onChanged: (val) => changedIndex = val,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('L1'), findsOneWidget);
+    expect(find.text('L3'), findsOneWidget);
+    expect(find.text('L0'), findsNothing);
+    expect(find.text('L2'), findsNothing);
+
+    // Tap L3 (index 3). Should return original index 3.
+    await tester.tap(find.text('L3'));
+    expect(changedIndex, equals(3));
+  });
 }

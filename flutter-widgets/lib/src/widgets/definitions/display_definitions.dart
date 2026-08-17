@@ -138,12 +138,17 @@ class MultiButtonWidgetDefinition extends WidgetDefinition {
         : ((pixelH - padding * 2 - spacing * (count - 1)) / count)
             .clamp(10.0, pixelW - padding * 2);
 
+    final itemMask = ctx.isPlayMode
+        ? ((ctx.properties['itemMask'] as num?)?.toInt() ?? 0xFF)
+        : 0xFF;
+
     return RKMultiButton(
       items: toggleItems,
       selected: ctx.isPlayMode ? (ctx.runtimeValue as int? ?? -1) : -1,
       onChanged: ctx.isPlayMode && ctx.onChanged != null
           ? (v) => ctx.onChanged!(v)
           : (_) {},
+      itemMask: itemMask,
       buttonSize: buttonSize,
       gap: spacing,
       orientation: horizontal ? RKAxis.horizontal : RKAxis.vertical,
@@ -226,12 +231,17 @@ class MultiSelectWidgetDefinition extends WidgetDefinition {
         : ((pixelH - padding * 2 - spacing * (count - 1)) / count)
             .clamp(10.0, pixelW - padding * 2);
 
+    final itemMask = ctx.isPlayMode
+        ? ((ctx.properties['itemMask'] as num?)?.toInt() ?? 0xFF)
+        : 0xFF;
+
     return RKMultiSelect(
       items: toggleItems,
       bitmask: ctx.isPlayMode ? (ctx.runtimeValue as int? ?? 0) : 0,
       onChanged: ctx.isPlayMode && ctx.onChanged != null
           ? (v) => ctx.onChanged!(v)
           : (_) {},
+      itemMask: itemMask,
       buttonSize: buttonSize,
       gap: spacing,
       orientation: horizontal ? RKAxis.horizontal : RKAxis.vertical,

@@ -481,6 +481,7 @@ class ProtocolService {
 
       String label = '', icon = '', onText = '', offText = '', content = '', centerIcon = '';
       double minAngle = -135, maxAngle = 135;
+      int itemMask = 0xFF;
 
       String readStr() {
         if (offset >= payload.length) return '';
@@ -521,6 +522,8 @@ class ProtocolService {
               final maRaw = payload[offset] | (payload[offset + 1] << 8);
               maxAngle = (maRaw >= 0x8000 ? maRaw - 0x10000 : maRaw).toDouble();
             }
+          } else if (extraLen >= 1 && typeId == kWidgetMultiple) {
+            itemMask = payload[offset++];
           }
           offset = extraEnd;
         }
@@ -548,6 +551,7 @@ class ProtocolService {
         minAngle:    minAngle,
         maxAngle:    maxAngle,
         centerIcon:  centerIcon,
+        itemMask:    itemMask,
         labelHidden: labelHidden,
         hidden: widgetHidden,
       ));
@@ -732,6 +736,7 @@ class ProtocolService {
 
     double minAngle = w.minAngle;
     double maxAngle = w.maxAngle;
+    int itemMask = w.itemMask;
     if ((strMask & kStrMaskExtra) != 0) {
       if (current < payload.length) {
         final extraLen = payload[current++];
@@ -741,6 +746,9 @@ class ProtocolService {
           final maRaw = payload[current + 2] | (payload[current + 3] << 8);
           maxAngle = (maRaw >= 0x8000 ? maRaw - 0x10000 : maRaw).toDouble();
           current += extraLen;
+        } else if (extraLen >= 1 && w.typeId == kWidgetMultiple) {
+          itemMask = payload[current++];
+          current += (extraLen - 1);
         } else {
           current += extraLen;
         }
@@ -759,6 +767,7 @@ class ProtocolService {
       strMask: strMask,
       minAngle: minAngle,
       maxAngle: maxAngle,
+      itemMask: itemMask,
       labelHidden: labelHidden,
       hidden: widgetHidden,
     );

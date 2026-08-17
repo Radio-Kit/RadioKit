@@ -66,7 +66,14 @@ class StarterTemplate {
       type: (json['config']?['type'] as String?) ?? '',
       transport: enabled.join(' + '),
       canvasSize: canvasSize,
-      widgetCount: (json['widgets'] as List?)?.length ?? 0,
+      widgetCount: (json['widgets'] as List?)?.length ??
+          ((json['pages'] as List?)?.fold<int>(
+                  0,
+                  (sum, page) =>
+                      sum +
+                      ((page is Map ? page['widgets'] as List? : null)?.length ??
+                          0)) ??
+              0),
       skin: (json['canvas']?['skin'] as String?) ?? 'dragon',
       jsonContent: jsonContent,
     );
