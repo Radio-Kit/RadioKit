@@ -1521,14 +1521,22 @@ class _PairedModelsListState extends State<_PairedModelsList> {
     _updateStatus(device.uid, 'scanning', message: 'Checking transports...');
     final available = await _checkAllAvailabilities(device: device, ble: ble, serial: serial);
 
+    // Pass 1: Try detected available transports first (fast path)
+    for (final attempt in attempts) {
+      if (!mounted) return;
+      if (available.contains(attempt.type) || attempt.type == TransportType.cloud) {
+        final ok = await _tryConnect(device: device, label: attempt.label, type: attempt.type, address: attempt.address, makeService: attempt.makeService, multiDevice: multiDevice, console: console);
+        if (ok) return;
+      }
+    }
+
+    // Pass 2: Fallback — if pre-scan missed advertising or connection, attempt direct connect
     for (final attempt in attempts) {
       if (!mounted) return;
       if (!available.contains(attempt.type) && attempt.type != TransportType.cloud) {
-        console.log('  ${attempt.label} unreachable, skipping...', level: ConsoleLogLevel.info);
-        continue;
+        final ok = await _tryConnect(device: device, label: attempt.label, type: attempt.type, address: attempt.address, makeService: attempt.makeService, multiDevice: multiDevice, console: console);
+        if (ok) return;
       }
-      final ok = await _tryConnect(device: device, label: attempt.label, type: attempt.type, address: attempt.address, makeService: attempt.makeService, multiDevice: multiDevice, console: console);
-      if (ok) return;
     }
 
     if (!mounted) return;

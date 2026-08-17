@@ -354,8 +354,10 @@ void RadioKitBLE::sendPacket(const uint8_t* buf, uint16_t len) {
 void RadioKitBLE::update() {
     if (_needRestartAdv) {
         _needRestartAdv = false;
-        delay(500);
-        NimBLEDevice::getAdvertising()->start();
+        NimBLEAdvertising* pAdv = NimBLEDevice::getAdvertising();
+        if (pAdv && !pAdv->isAdvertising()) {
+            pAdv->start();
+        }
     }
 
     // Process any pending FS frames that were deferred from the NimBLE host
@@ -458,12 +460,16 @@ void RadioKitBLE::_onDisconnect() {
     _hasPendingOta = false;
     _connHandle = 0xFFFF;
     _negotiatedMtu = RK_BLE_MTU;
-    _needRestartAdv = true;
     rk_rxReset();
     rk_fsRxReset();
     rk_otaRxReset();
     RadioKit.print("BLE: Client disconnected\n");
     Serial.println("BLE: Client disconnected");
+
+    NimBLEAdvertising* pAdv = NimBLEDevice::getAdvertising();
+    if (pAdv) {
+        pAdv->start();
+    }
 }
 
 void RadioKitBLE::setFsCallback(RK_FsPacketCallback cb) {
