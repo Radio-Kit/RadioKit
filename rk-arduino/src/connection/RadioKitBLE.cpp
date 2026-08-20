@@ -30,6 +30,11 @@
 
 RadioKitBLE RadioKitBLEInstance;
 
+// ── TX contention diagnostics ──
+uint16_t RadioKitBLE::s_pendingDrops = 0;
+uint32_t RadioKitBLE::s_lastDiagLog = 0;
+uint8_t  RadioKitBLE::s_txQueueMaxDepth = 0;
+
 // ── Static Callback Instances (Avoids heap allocation/fragmentation) ──
 class RKServerCallbacks : public NimBLEServerCallbacks {
 public:
@@ -126,10 +131,13 @@ RadioKitBLE::RadioKitBLE()
     , _printPacketCallback(nullptr)
     , _connected(false), _sending(false), _needRestartAdv(false)
     , _negotiatedMtu(RK_BLE_MTU), _connHandle(0xFFFF)
-    , _connIntervalMs(12), _pendingLen(0)
+    , _connIntervalMs(12), _pendingHead(0), _pendingTail(0), _pendingCount(0)
     , _pendingFsSubCmd(0), _pendingFsLen(0), _hasPendingFs(false)
     , _pendingOtaSubCmd(0), _pendingOtaLen(0), _hasPendingOta(false)
-{}
+    , _txTaskHandle(nullptr), _txSemaphore(nullptr), _txTaskRunning(false)
+{
+    portMUX_INITIALIZE(&_txMux);
+}
 
 void RadioKitBLE::begin(const char* deviceName, RK_PacketCallback cb) {
     _packetCallback   = cb;
@@ -245,6 +253,23 @@ void RadioKitBLE::begin(const char* deviceName, RK_PacketCallback cb) {
     
     RadioKit.print("BLE: System ready.\n");
     Serial.println("BLE: System ready.");
+
+    // Create the non-blocking TX task and semaphore
+    _txSemaphore = xSemaphoreCreateBinary();
+    if (_txSemaphore) {
+        xTaskCreatePinnedToCore(
+            ble_tx_task,     // Entry point
+            "ble_tx",        // Task name
+            4096,            // Stack size (4KB — enough for sendPacket locals)
+            this,            // Parameter = this instance
+            configMAX_PRIORITIES - 4,  // Below NimBLE host task, allows main loop to run
+            &_txTaskHandle,
+            0                // Core 0 (protocol core)
+        );
+        _txTaskRunning = true;
+        RadioKit.print("BLE: TX task started\n");
+        Serial.println("BLE: TX task started");
+    }
 }
 
 /// Select the characteristic matching the frame's protocol by start byte.
@@ -258,96 +283,130 @@ NimBLECharacteristic* RadioKitBLE::_charForBuf(const uint8_t* buf) const {
 }
 
 void RadioKitBLE::sendPacket(const uint8_t* buf, uint16_t len) {
-    if (!_connected) {
+    if (!_connected || !_txSemaphore) {
         return;
     }
 
-    NimBLECharacteristic* target = _charForBuf(buf);
-    if (!target) {
-        Serial.printf("BLE: Cannot send (no char for protocol 0x%02X)\n", buf ? buf[0] : 0);
-        return;
+    // Non-blocking enqueue: copy frame into ring buffer slot and signal TX task.
+    // The main loop() returns immediately — no BLE blocking.
+    if (_pendingCount < kPendingRingSize && len <= RK_MAX_PACKET_SIZE) {
+        PendingFrame& slot = _pendingRing[_pendingHead];
+        memcpy(slot.data, buf, len);
+        slot.len = len;
+        _pendingHead = (_pendingHead + 1) % kPendingRingSize;
+
+        portENTER_CRITICAL(&_txMux);
+        _pendingCount++;
+        if (_pendingCount > s_txQueueMaxDepth) s_txQueueMaxDepth = _pendingCount;
+        portEXIT_CRITICAL(&_txMux);
+
+        // Signal TX task to wake and drain
+        xSemaphoreGive(_txSemaphore);
+    } else {
+        // Ring buffer full — drop and count
+        s_pendingDrops++;
     }
-    
-    // Re-entrancy guard: if sendPacket is already in progress (e.g., an
-    // incoming BLE write is processed during a delay() in the send loop
-    // and triggers an outgoing ACK frame), queue the frame in [_pendingBuf]
-    // for delivery after the current send completes, rather than dropping it.
-    if (_sending) {
-        uint16_t cap = sizeof(_pendingBuf);
-        if (len <= cap) {
-            memcpy(_pendingBuf, buf, len);
-            _pendingLen = len;
+}
+
+// ── Non-blocking TX task ──────────────────────────────────────────────────
+// Runs on core 0 (protocol core), blocks on semaphore when idle.
+// Drains the ring buffer one frame at a time, sending via BLE notify.
+
+void RadioKitBLE::ble_tx_task(void* pvParameters) {
+    RadioKitBLE* self = static_cast<RadioKitBLE*>(pvParameters);
+    while (self->_txTaskRunning) {
+        // Block until frames are enqueued (zero CPU when idle)
+        if (xSemaphoreTake(self->_txSemaphore, pdMS_TO_TICKS(100)) == pdTRUE) {
+            self->_drainTxQueue();
         }
-        return;
     }
-    _sending = true;
+    vTaskDelete(nullptr);
+}
 
-    // Copy the frame to the dedicated send buffer so handler callbacks
-    // (e.g. handleRead writing to rk_fsTxBuf) cannot corrupt in-flight
-    // data during delay() yields between notifications.
-    const uint8_t* safeBuf = buf;
-    if (len <= sizeof(_sendBuf)) {
-        memcpy(_sendBuf, buf, len);
-        safeBuf = _sendBuf;
-    }
+void RadioKitBLE::_drainTxQueue() {
+    // Batch multiple frames into a single BLE write to reduce notify() calls.
+    // With MTU 498, we can fit ~40 small VAR_UPDATE frames per batch.
+    // The firmware's _onWidgetWrite() handles concatenated packets via rk_rxFeedByte().
+    static const int kMaxBatchFrames = 8;
+    static const uint16_t kBatchBufSize = RK_MAX_PACKET_SIZE * kMaxBatchFrames;
+    uint8_t batchBuf[kBatchBufSize];
 
-    uint16_t mtu = _negotiatedMtu;
-    if (mtu < 23) mtu = 23;
-    mtu -= 3;
+    while (_pendingCount > 0 && _connected) {
+        // Accumulate frames into a batch up to MTU limit
+        uint16_t batchLen = 0;
+        int batchCount = 0;
+        NimBLECharacteristic* target = nullptr;
 
-    uint16_t offset = 0;
-    unsigned long sendStart = millis();
-    const unsigned long SEND_TIMEOUT_MS = 30000;
-    
-    while (offset < len) {
-        uint16_t chunk = len - offset;
-        if (chunk > mtu) chunk = mtu;
-        
+        while (_pendingCount > 0 && batchCount < kMaxBatchFrames && _connected) {
+            PendingFrame frame;
+            portENTER_CRITICAL(&_txMux);
+            frame = _pendingRing[_pendingTail];
+            _pendingTail = (_pendingTail + 1) % kPendingRingSize;
+            _pendingCount--;
+            portEXIT_CRITICAL(&_txMux);
+
+            NimBLECharacteristic* frameTarget = _charForBuf(frame.data);
+            if (!frameTarget) continue;
+
+            // All frames in a batch must target the same characteristic
+            if (target == nullptr) {
+                target = frameTarget;
+            } else if (frameTarget != target) {
+                // Different characteristic — put frame back and break batch
+                // (Re-enqueue by writing to head — safe because we own the critical section)
+                _pendingHead = (_pendingHead + kPendingRingSize - 1) % kPendingRingSize;
+                _pendingRing[_pendingHead] = frame;
+                portENTER_CRITICAL(&_txMux);
+                _pendingCount++;
+                portEXIT_CRITICAL(&_txMux);
+                break;
+            }
+
+            // Check if frame fits in batch
+            uint16_t mtu = _negotiatedMtu;
+            if (mtu < 23) mtu = 23;
+            mtu -= 3;
+
+            if (batchLen + frame.len <= mtu) {
+                memcpy(batchBuf + batchLen, frame.data, frame.len);
+                batchLen += frame.len;
+                batchCount++;
+            } else {
+                // Frame won't fit — put it back and break batch
+                _pendingHead = (_pendingHead + kPendingRingSize - 1) % kPendingRingSize;
+                _pendingRing[_pendingHead] = frame;
+                portENTER_CRITICAL(&_txMux);
+                _pendingCount++;
+                portEXIT_CRITICAL(&_txMux);
+                break;
+            }
+        }
+
+        if (!target || batchLen == 0) continue;
+
+        // Send the entire batch in one BLE notify (reduces per-frame 48ms blocking)
+        unsigned long sendStart = millis();
         bool success = false;
-        int backoff = 10;
-        for (int retry = 0; retry < 10 && !success; retry++) {
-            if (millis() - sendStart >= SEND_TIMEOUT_MS) {
-                Serial.printf("BLE: sendPacket timeout (%ums) at offset %u/%u\n",
-                    SEND_TIMEOUT_MS, offset, len);
-                _sending = false;
-                return;
-            }
-            if (!_connected) {
-                Serial.printf("BLE: sendPacket aborted (disconnected) at offset %u/%u\n",
-                    offset, len);
-                _sending = false;
-                return;
-            }
-            
-            success = target->notify(safeBuf + offset, chunk);
-            if (!success) {
-                delay(backoff);
-                if (backoff < 250) backoff += 10;
-            }
+        for (int retry = 0; retry <= 1 && !success; retry++) {
+            if (millis() - sendStart >= 50) break;
+            if (!_connected) break;
+            success = target->notify(batchBuf, batchLen);
+            if (!success) yield();
         }
-        
         if (!success) {
-            Serial.printf("BLE: sendPacket abort — notify failed after 10 retries at offset %u/%u\n",
-                offset, len);
-            _sending = false;
-            return;
-        }
-        
-        offset += chunk;
-        
-        if (offset < len) {
-            delay(5);
+            s_pendingDrops += batchCount;
         }
     }
-    
-    _sending = false;
 
-    // Deliver any frame that was queued while we were sending.
-    if (_pendingLen > 0) {
-        uint16_t qLen = _pendingLen;
-        _pendingLen = 0;
-        sendPacket(_pendingBuf, qLen);
-        return;
+    // Diagnostic: log drops and queue depth every 10 seconds
+    uint32_t now = millis();
+    if ((s_pendingDrops > 0 || s_txQueueMaxDepth > 2) &&
+        (now - s_lastDiagLog >= 10000)) {
+        s_lastDiagLog = now;
+        Serial.printf("BLE: diag — drops=%u maxQueueDepth=%u\n",
+            s_pendingDrops, s_txQueueMaxDepth);
+        s_pendingDrops = 0;
+        s_txQueueMaxDepth = 0;
     }
 }
 
@@ -456,6 +515,12 @@ void RadioKitBLE::_onMTUChange(uint16_t MTU, NimBLEConnInfo& connInfo) {
 void RadioKitBLE::_onDisconnect() {
     _connected = false;
     _sending = false;
+    _pendingHead = 0;
+    _pendingTail = 0;
+    _pendingCount = 0;
+    s_pendingDrops = 0;  // clean slate for new connection
+    s_lastDiagLog = 0;
+    s_txQueueMaxDepth = 0;
     _hasPendingFs = false;
     _hasPendingOta = false;
     _connHandle = 0xFFFF;
@@ -593,7 +658,7 @@ RadioKitBLE::RadioKitBLE()
     , _otaPacketCallback(nullptr), _settingsPacketCallback(nullptr), _printPacketCallback(nullptr)
     , _connected(false), _sending(false), _needRestartAdv(false)
     , _negotiatedMtu(20), _connHandle(0xFFFF)
-    , _connIntervalMs(0), _pendingLen(0)
+    , _connIntervalMs(0), _pendingHead(0), _pendingTail(0), _pendingCount(0)
     , _pendingFsSubCmd(0), _pendingFsLen(0), _hasPendingFs(false)
     , _pendingOtaSubCmd(0), _pendingOtaLen(0), _hasPendingOta(false)
 {}

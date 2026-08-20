@@ -29,7 +29,8 @@ RadioKitSerialTransport RadioKitSerialInstance;
 
 RadioKitSerialTransport::RadioKitSerialTransport()
     : _stream(nullptr), _cb(nullptr), _fsCb(nullptr), _otaCb(nullptr), _settingsCb(nullptr)
-    , _lastPacketMs(0), _lastByteMs(0), _everReceived(false)
+    , _lastPacketMs(0), _lastByteMs(0), _everReceived(false), _bleActive(false)
+    , _txHead(0), _txTail(0), _txCount(0), _txDropCount(0)
 {}
 
 void RadioKitSerialTransport::begin(Stream& stream, RK_PacketCallback cb) {
@@ -75,15 +76,46 @@ void RadioKitSerialTransport::update() {
     // endpoint when no data is pending to send. Android's USB Host API
     // cannot reliably recover from this stall. By periodically writing a
     // null byte, we keep the endpoint active and prevent STALL.
-    static unsigned long _lastKeepaliveMs = 0;
-    if (millis() - _lastKeepaliveMs > 250) {
-        _lastKeepaliveMs = millis();
-        if (_stream->availableForWrite()) {
-            _stream->write(static_cast<uint8_t>(0x00));
+    // Skip when BLE is primary — the keepalive is only needed for USB-only.
+    if (!_bleActive) {
+        static unsigned long _lastKeepaliveMs = 0;
+        if (millis() - _lastKeepaliveMs > 250) {
+            _lastKeepaliveMs = millis();
+            if (_stream->availableForWrite()) {
+                _stream->write(static_cast<uint8_t>(0x00));
+            }
         }
     }
 #endif
     // --- End keepalive ---
+
+    // ── Drain TX ring buffer (non-blocking) ──
+    // Writes as many queued frames as the USB CDC FIFO can accept,
+    // then returns immediately. Main loop is never blocked.
+    while (_txCount > 0) {
+        uint16_t avail = _stream->availableForWrite();
+        if (avail == 0) break;  // FIFO full — try next update() iteration
+
+        TxPendingFrame& frame = _txRing[_txTail];
+        uint16_t toWrite = (frame.len < avail) ? frame.len : avail;
+        _stream->write(frame.data, toWrite);
+
+        // Advance tail — at 2MHz baud, the entire frame drains in <4ms
+        // so we treat each frame as fully consumed per iteration.
+        _txTail = (_txTail + 1) % kTxRingSize;
+        _txCount--;
+    }
+
+    // Diagnostic: log drops every 10 seconds
+    if (_txDropCount > 0) {
+        static uint32_t s_lastSerialDiagMs = 0;
+        uint32_t now = millis();
+        if (now - s_lastSerialDiagMs >= 10000) {
+            Serial.printf("SERIAL: diag — drops=%u\n", _txDropCount);
+            _txDropCount = 0;
+            s_lastSerialDiagMs = now;
+        }
+    }
 
     uint8_t        cmd;
     const uint8_t* payload;
@@ -156,7 +188,16 @@ void RadioKitSerialTransport::sendPacket(const uint8_t* buf, uint16_t len) {
         return;
     }
 #endif
-    _stream->write(buf, len);
+    // Non-blocking enqueue: copy frame into ring buffer.
+    // update() drains the ring buffer to _stream without blocking the main loop.
+    if (_txCount < kTxRingSize && len <= RK_MAX_PACKET_SIZE) {
+        memcpy(_txRing[_txHead].data, buf, len);
+        _txRing[_txHead].len = len;
+        _txHead = (_txHead + 1) % kTxRingSize;
+        _txCount++;
+    } else {
+        _txDropCount++;
+    }
 }
 
 bool RadioKitSerialTransport::isConnected() const {

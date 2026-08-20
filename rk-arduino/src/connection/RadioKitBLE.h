@@ -17,6 +17,7 @@
 #include <Arduino.h>
 #include <stdint.h>
 #include "RadioKitTransport.h"
+#include "../RadioKitProtocol.h"
 
 class NimBLEServer;
 class NimBLECharacteristic;
@@ -94,12 +95,33 @@ private:
     static const uint16_t kSendBufSize = 16388;
     uint8_t               _sendBuf[kSendBufSize];
 
-    // Pending-send buffer: when sendPacket is re-entered (e.g. an incoming
-    // BLE write is processed during a delay() in the send loop), the
-    // outgoing frame is queued here and sent after the current send completes.
-    static const uint16_t kPendingBufSize = 16388;
-    uint8_t               _pendingBuf[kPendingBufSize];
-    uint16_t              _pendingLen;
+    // Pending-send ring buffer: when sendPacket is re-entered (e.g. an
+    // incoming BLE write is processed during a delay() in the send loop
+    // and triggers an outgoing ACK frame), the outgoing frame is enqueued
+    // to the next free ring slot instead of overwriting a single buffer.
+    // 8 slots × 768 bytes = 6KB — prevents silent frame drops under load.
+    struct PendingFrame {
+        uint8_t  data[RK_MAX_PACKET_SIZE];
+        uint16_t len;
+    };
+    static const uint8_t kPendingRingSize = 8;
+    PendingFrame         _pendingRing[kPendingRingSize];
+    uint8_t              _pendingHead;    // next write slot
+    uint8_t              _pendingTail;    // next read slot
+    uint8_t              _pendingCount;   // frames currently queued
+
+    // TX contention diagnostics: incremented when the ring buffer is full
+    // and a frame cannot be enqueued. Logged every 10 seconds.
+    static uint16_t      s_pendingDrops;
+    static uint32_t      s_lastDiagLog;
+
+    // Non-blocking TX task: main loop enqueues frames and returns immediately.
+    // A dedicated FreeRTOS task drains the queue and sends via BLE notify.
+    TaskHandle_t         _txTaskHandle;
+    SemaphoreHandle_t    _txSemaphore;   // Signaled when frames are enqueued
+    volatile bool        _txTaskRunning;
+    static uint8_t       s_txQueueMaxDepth;  // High-water mark for diagnostics
+    portMUX_TYPE         _txMux;         // Spinlock for _pendingCount atomicity
 
     // Deferred FS frame: the NimBLE host task buffers complete FS frames
     // here instead of calling _fsPacketCallback inline, preventing LittleFS
@@ -125,6 +147,10 @@ private:
     NimBLECharacteristic* _charForBuf(const uint8_t* buf) const;
 
     void _processPendingOta();
+
+    // Non-blocking TX task entry point
+    static void ble_tx_task(void* pvParameters);
+    void _drainTxQueue();
 };
 
 extern RadioKitBLE RadioKitBLEInstance;

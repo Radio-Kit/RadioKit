@@ -269,6 +269,8 @@ void RadioKitClass::startBLE(const char* deviceName) {
     _transport->setSettingsCallback(_onSetPktW<RK_SOURCE_BLE>);
     // Print stream callback — 0xEE frames over BLE are sent via _charPrint notify
     // No incoming 0xEE handler needed (unidirectional)
+    // Tell serial transport to skip USB keepalive when BLE is active
+    RadioKitSerialInstance.setBleActive(true);
 #else
     RadioKit.print("BLE: Transport not available on this platform\n");
     Serial.println("BLE: Transport not available on this platform");
@@ -516,6 +518,9 @@ void RadioKitClass::_printByte(uint8_t b) {
 
 /// Flush buffered print data: frame any complete lines or all data
 /// as 0xEE packets and send via _sendToAllTransports().
+/// When the primary transport is BLE, at most 2 lines are flushed per
+/// invocation to prevent boot message floods from saturating the BLE pipe
+/// and starving command ACKs.
 void RadioKitClass::_flushPrintBuffer() {
     if (_printTail == _printHead) return;  // nothing to send
 
@@ -523,6 +528,12 @@ void RadioKitClass::_flushPrintBuffer() {
     // This preserves boot-time messages until a client connects
     // (the flush-on-connect edge trigger in update() will drain them).
     if (!isConnected()) return;
+
+    // Rate-limit on BLE: max 2 lines per update() iteration.
+    // Serial/WiFi paths flush at full speed (no limit).
+    const bool bleLimited = (_transport != nullptr);
+    uint8_t linesSent = 0;
+    static const uint8_t kMaxLinesPerFlush = 2;
 
     // Use a temp buffer to build the frame payload
     uint8_t payload[RK_PRINT_MAX_PAYLOAD];
@@ -539,6 +550,12 @@ void RadioKitClass::_flushPrintBuffer() {
                 _sendToAllTransports(rk_printTxBuf(), frameLen);
             }
             idx = 0;
+            linesSent++;
+            // On BLE, stop after kMaxLinesPerFlush — remaining lines stay
+            // in the circular buffer and flush on the next update() call.
+            if (bleLimited && linesSent >= kMaxLinesPerFlush) {
+                break;
+            }
         }
     }
 
@@ -1124,9 +1141,9 @@ void RadioKitClass::_handleSetInput(const uint8_t* payload, uint16_t len) {
         RK_DEBUG_PRINT("[DBG]   widget[%d]: sz=%d, val=%d\n", i, sz, payload[offset]);
         offset += sz;
     }
-    uint8_t seq = 0;
-    uint16_t pkt = rk_buildPacket(_txBuf, RK_CMD_ACK, &seq, 1);
-    _sendPacket(pkt);
+    // ACK removed — shadow comparison provides reliability.
+    // Sending an ACK per SET_INPUT added ~10 frames/sec of overhead,
+    // causing TX ring buffer overflow and growing lag.
 }
 
 void RadioKitClass::_handleAck(const uint8_t* payload, uint16_t len) {
@@ -1165,10 +1182,6 @@ void RadioKitClass::_handleVarUpdate(const uint8_t* payload, uint16_t len) {
         // (No deserializeOutput method exists in the base Widget interface)
         RK_DEBUG_PRINT("[DBG]   output: len=%d (ignored, no deserializeOutput)\n", outSz);
     }
-
-    // Ack back to sender
-    uint16_t pkt = rk_buildAck(_txBuf, seq);
-    _sendPacket(pkt);
 }
 
 // ── Page management ──────────────────────────────────────────────────────
@@ -1221,6 +1234,13 @@ void RadioKitClass::_handleGetPages() {
 }
 
 void RadioKitClass::markConfDirty() {
+    // Rate-limit to once per second during normal operation.
+    // Without this, UiLogger::log() calling setHidden(false) on serial monitors
+    // triggers CONF_DATA bursts that flood the TX ring buffer.
+    static uint32_t lastMark = 0;
+    uint32_t now = millis();
+    if (now - lastMark < 1000) return;
+    lastMark = now;
     if (s_instance) s_instance->_confDirty = true;
 }
 

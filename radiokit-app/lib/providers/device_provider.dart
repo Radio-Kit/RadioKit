@@ -123,6 +123,17 @@ class DeviceProvider extends ChangeNotifier {
   final Map<int, _PendingUpdate> _pendingUpdates = {};
   int _nextSeq = 0;
 
+  // Debounced notify: coalesce multiple notifyListeners() per event-loop tick
+  bool _notifyDirty = false;
+  void _scheduleNotifyListeners() {
+    if (_notifyDirty) return;  // Already scheduled
+    _notifyDirty = true;
+    scheduleMicrotask(() {
+      _notifyDirty = false;
+      notifyListeners();
+    });
+  }
+
   // ── FS (bulk protocol) ────────────────────────────────────────────────
   /// Active FS request per sub-cmd. The device may also send unsolic­ited
   /// FS frames (e.g. an upload begin from a server-side tool) — those
@@ -187,11 +198,13 @@ class DeviceProvider extends ChangeNotifier {
   Future<void> prefetchFsTree() async {
     if (_connectedDevice == null || !_connectedDevice!.hasFs) return;
     if (!_transport.isConnected) return;
+    if (_fsTreeCache != null && _fsTreeCache!.containsKey('/')) return;
     // Brief delay: if the user tapped OPEN_CONTROLLER, let that render
     // before we consume BLE bandwidth with FS operations.
     await Future.delayed(const Duration(milliseconds: 500));
-    if (_connectedDevice == null) return;
+    if (_connectedDevice == null || !_connectedDevice!.hasFs) return;
     if (!_transport.isConnected) return;
+    if (_fsTreeCache != null && _fsTreeCache!.containsKey('/')) return;
     try {
       setFsBusy(true);
       final resp = await sendFs(FsProtocolService.buildList('/'),
@@ -1168,7 +1181,7 @@ class DeviceProvider extends ChangeNotifier {
           return;
         }
       } else {
-        _log('WAITING for pushed CONF_DATA (BLE subscribe, ${kPushWaitTimeout.inSeconds}s)...');
+        _log('WAITING for pushed CONF_DATA (BLE subscribe, ${kPushWaitTimeout.inMilliseconds}ms)...');
       }
 
       _confTimeoutTimer?.cancel();
@@ -1190,7 +1203,7 @@ class DeviceProvider extends ChangeNotifier {
         _confTimeoutTimer?.cancel();
         _confTimeoutTimer = null;
         _log(isPushWait
-            ? 'PUSH TIMEOUT: no CONF_DATA within ${kPushWaitTimeout.inSeconds}s — falling back to GET_CONF.'
+            ? 'PUSH TIMEOUT: no CONF_DATA within ${kPushWaitTimeout.inMilliseconds}ms — falling back to GET_CONF.'
             : 'TIMEOUT: Device did not respond to GET_CONF.',
             level: ConsoleLogLevel.warning);
         if (_connectionState == DeviceConnectionState.disconnected) return;
@@ -2075,22 +2088,19 @@ class DeviceProvider extends ChangeNotifier {
           typeId: 0, widgetId: widgetId, x: 0, y: 0, width: 0, height: 0),
     );
 
-    RadioWidgetState next = current;
     // 0x05 SET_INPUT forces a jump for an Input widget
+    // Mutate in-place instead of copyWithInput() to avoid heap allocation.
     if (!widget.hasOutput) {
       // Sign-extend int8_t values for Slider and Knob
       final cooked = (widget.typeId == kWidgetSlider ||
                       widget.typeId == kWidgetKnob)
           ? values.map(_signedByte).toList()
           : values;
-      next = current.copyWithInput(widgetId, cooked);
+      current.inputValues[widgetId] = cooked;
       _log('MCU <- SET_INPUT (wid:$widgetId, seq:$seq, override:$cooked)');
     }
 
-    _widgetState = next;
     notifyListeners();
-
-    _writePacket(ProtocolService.buildAck(seq)).catchError((_){});
   }
 
   void _handleVarUpdate(List<int> payload) {
@@ -2112,12 +2122,12 @@ class DeviceProvider extends ChangeNotifier {
 
     // 0x09 VAR_UPDATE handles Outputs. Inputs sent over 0x09 are echoes/bounces
     // and must be strictly ignored to prevent UI overwrite jitter.
-    RadioWidgetState next = current;
+    // Mutate in-place instead of copyWithOutput() to avoid heap allocation.
     if (widget.hasOutput) {
       if (widget.typeId == kWidgetLed && values.length >= 5) {
         // v3: [STATE, R, G, B, OPACITY]
-        next = current.copyWithOutput(widgetId, List<int>.from(values.take(5)));
-      } else if (widget.typeId == kWidgetText) {
+        current.outputValues[widgetId] = List<int>.from(values.take(5));
+      } else if (widget.typeId == kWidgetText || widget.typeId == kWidgetTelemetry) {
         // [LEN(1)] [CHARS...]
         if (values.isNotEmpty) {
           final len = values[0];
@@ -2126,29 +2136,29 @@ class DeviceProvider extends ChangeNotifier {
           final end = (1 + min(len, textLen)).clamp(0, values.length).toInt();
           
           final text = utf8Decode(values.sublist(1, end));
-          debugPrint('RadioKit: VAR_UPDATE Text wid=$widgetId len=$len actual=$textLen text="$text"');
-          next = current.copyWithOutput(widgetId, text);
+          current.outputValues[widgetId] = text;
+          if (widget.typeId == kWidgetTelemetry) {
+            _telemetryValues[widgetId] = text;
+          }
         } else {
-          debugPrint('RadioKit: VAR_UPDATE Text wid=$widgetId received with NO payload');
-          next = current.copyWithOutput(widgetId, '');
+          current.outputValues[widgetId] = '';
+          if (widget.typeId == kWidgetTelemetry) {
+            _telemetryValues[widgetId] = '';
+          }
         }
       } else {
-        next = current.copyWithOutput(
-            widgetId, values.isNotEmpty ? values[0] : 0);
+        current.outputValues[widgetId] = values.isNotEmpty ? values[0] : 0;
       }
     } else {
       // It's an input bounce. Discard it.
       _log('MCU <- VAR_UPDATE (IGNORED BOUNCE for Input wid:$widgetId)');
     }
 
-    _widgetState = next;
-    notifyListeners();
+    _scheduleNotifyListeners();
 
     if (widget.hasOutput) {
         _log('MCU <- VAR_UPDATE (wid:$widgetId, seq:$seq)');
     }
-
-    _writePacket(ProtocolService.buildAck(seq)).catchError((_) {});
   }
 
   void _handleMetaData(List<int> payload) {
@@ -2171,8 +2181,6 @@ class DeviceProvider extends ChangeNotifier {
       _log('MCU <- META_UPDATE (wid:$widgetId, label:"${updatedWidget.label}")');
       notifyListeners();
     }
-
-    _writePacket(ProtocolService.buildAck(seq)).catchError((_) {});
   }
 
   /// Handle incoming 0xEE print data — log to console with PRINT level.
@@ -2774,39 +2782,44 @@ class DeviceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── VAR_UPDATE with retry (app → device) ──────────────────────────────────────
+  // ── Direct VAR_UPDATE (write-without-response, no ACK timeout stall) ─────────
+  // Batching: accumulate packets and flush them all in one BLE write.
+  // With 48ms connection interval, only one BLE write per connection event.
+  // Packing multiple VAR_UPDATE packets into one write achieves 50Hz+ effective rate.
 
-  Future<void> _sendVarUpdate(int widgetId, List<int> values) async {
+  final List<Uint8List> _pendingWriteBatch = [];
+  Timer? _flushTimer;
+
+  void _enqueueVarUpdate(int widgetId, List<int> values) {
     final seq = _nextSeq++ & 0xFF;
     final pkt = ProtocolService.buildVarUpdate(widgetId, seq, values);
+    _pendingWriteBatch.add(pkt);
+    _flushTimer ??= Timer(const Duration(milliseconds: 8), _flushWriteBatch);
+  }
 
-    final entry = _PendingUpdate(
-        widgetId: widgetId, seq: seq, values: values);
-    _pendingUpdates[seq] = entry;
-
-    Future<void> trySend() async {
-      if (!_transport.isConnected) {
-        _pendingUpdates.remove(seq);
-        return;
-      }
-      try { await _writePacket(pkt); } catch (_) {}
-
-      if (!_pendingUpdates.containsKey(seq)) return;
-
-      if (entry.retries >= kVarUpdateMaxRetries) {
-        _pendingUpdates.remove(seq);
-        try { await _writePacket(ProtocolService.buildGetVars()); } catch (_) {}
-        return;
-      }
-
-      entry.retries++;
-      entry.timer = Timer(
-        const Duration(milliseconds: kVarUpdateTimeoutMs),
-        trySend,
-      );
+  Future<void> _flushWriteBatch() async {
+    _flushTimer = null;
+    if (_pendingWriteBatch.isEmpty || !_transport.isConnected) return;
+    // Concatenate all pending packets into one BLE write
+    int totalLen = 0;
+    for (final p in _pendingWriteBatch) {
+      totalLen += p.length;
     }
+    final combined = Uint8List(totalLen);
+    int offset = 0;
+    for (final p in _pendingWriteBatch) {
+      combined.setRange(offset, offset + p.length, p);
+      offset += p.length;
+    }
+    _pendingWriteBatch.clear();
+    try {
+      await _writePacket(combined);
+    } catch (_) {}
+  }
 
-    await trySend();
+  Future<void> _sendVarUpdate(int widgetId, List<int> values) async {
+    if (!_transport.isConnected) return;
+    _enqueueVarUpdate(widgetId, values);
   }
 
   void _cancelAllPendingUpdates() {
@@ -2822,19 +2835,40 @@ class DeviceProvider extends ChangeNotifier {
     final current = _widgetState;
     if (current == null) return;
 
-    // Human-readable interaction log
+    // Skip if value hasn't changed — avoids Map copy + notify + BLE write
+    final currentInput = current.inputValues[widgetId];
+    if (currentInput != null && _listEquals(currentInput, values)) return;
+
+    // Human-readable interaction log (discrete widgets only to avoid gesture log storms)
     final widget = _widgets.where((w) => w.widgetId == widgetId).firstOrNull;
     if (widget != null) {
-      final label = widget.label.isNotEmpty ? '"${widget.label}"' : '#$widgetId';
-      final desc = _describeInteraction(widget, values);
-      _log('⚡ ${widget.typeName} $label $desc');
+      final isDiscrete = widget.typeId == kWidgetButton ||
+          widget.typeId == kWidgetSwitch ||
+          widget.typeId == kWidgetSlideSwitch ||
+          widget.typeId == kWidgetMultiple;
+      if (isDiscrete) {
+        final label = widget.label.isNotEmpty ? '"${widget.label}"' : '#$widgetId';
+        final desc = _describeInteraction(widget, values);
+        _log('⚡ ${widget.typeName} $label $desc');
+      }
     }
 
-    final next = current.copyWithInput(widgetId, values);
-    _widgetState = next;
-    notifyListeners();
+    // Mutate in-place instead of copyWithInput() to avoid heap allocation.
+    // copyWithInput creates a new Map + new RadioWidgetState per call,
+    // which causes GC pressure and event loop freeze under sustained load.
+    current.inputValues[widgetId] = values;
+    notifyListeners();  // synchronous — immediate visual update for touch path
     if (!_transport.isConnected) return;
     await _sendVarUpdate(widgetId, values);
+  }
+
+  /// List equality check for input values — avoids unnecessary Map copies.
+  static bool _listEquals(List<int> a, List<int> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   String _describeInteraction(WidgetConfig w, List<int> values) {

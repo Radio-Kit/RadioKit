@@ -20,6 +20,7 @@
 
 #include <Arduino.h>
 #include "RadioKitTransport.h"
+#include "../RadioKitProtocol.h"
 
 class RadioKitSerialTransport : public RadioKitTransport {
 public:
@@ -64,6 +65,23 @@ private:
     uint32_t            _lastPacketMs;
     uint32_t            _lastByteMs;
     bool                _everReceived;
+    bool                _bleActive;  // When true, skip USB keepalive (BLE handles transport)
+
+    // Non-blocking TX ring buffer — matches BLE transport pattern.
+    // sendPacket() enqueues here; update() drains to _stream.
+    struct TxPendingFrame {
+        uint8_t  data[RK_MAX_PACKET_SIZE];
+        uint16_t len;
+    };
+    static const uint8_t kTxRingSize = 8;
+    TxPendingFrame _txRing[kTxRingSize];
+    uint8_t        _txHead;      // next write slot
+    uint8_t        _txTail;      // next read slot
+    uint8_t        _txCount;     // frames currently queued
+    uint16_t       _txDropCount; // diagnostic: frames dropped (ring full)
+
+public:
+    void setBleActive(bool active) { _bleActive = active; }
 };
 
 extern RadioKitSerialTransport RadioKitSerialInstance;
