@@ -23,6 +23,7 @@
 // This decouples platform capability from user intent — the user must
 // opt in to FS support even on platforms that have LittleFS.
 #ifdef RK_ENABLE_FS
+  #include <FS.h>
   #include <LittleFS.h>
   #define RK_FS_HAS_LITTLEFS 1
 #else

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SavedDesign {
@@ -63,7 +64,35 @@ class DesignsProvider extends ChangeNotifier {
       _designs = decoded.map((e) => SavedDesign.fromJson(e)).toList();
       _designs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
     }
+    if (_designs.isEmpty) {
+      await _seedDefaultDesigns();
+    }
     notifyListeners();
+  }
+
+  Future<void> _seedDefaultDesigns() async {
+    try {
+      final jsonContent =
+          await rootBundle.loadString('assets/starter-templates/RC_UI.json');
+      final decoded = jsonDecode(jsonContent) as Map<String, dynamic>;
+      final config = decoded['config'] as Map<String, dynamic>?;
+      final name = config?['name'] as String? ?? 'RC_UI';
+      final appVersion =
+          (decoded['appdata'] as Map<String, dynamic>?)?['appVersion'] as String? ??
+              '1.0.0';
+
+      final design = SavedDesign(
+        id: 'rc_ui_default',
+        name: name,
+        jsonContent: jsonContent,
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+        appVersion: appVersion,
+      );
+      _designs.add(design);
+      await _persist();
+    } catch (_) {
+      // Ignored if asset unavailable in test environments
+    }
   }
 
   Future<void> saveDesign(

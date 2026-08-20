@@ -1047,16 +1047,20 @@ class RemoteAccessService {
       attempts.add((type.name, type, address, factory));
     }
 
+    final effectiveBle = last.bleAddress ?? (last.type == 'ble' ? last.uid : null);
+    final effectiveWifi = last.wifiAddress ?? (last.type == 'wifi' ? last.uid : null);
+    final effectiveSerial = last.serialAddress ?? (last.type == 'serial' ? last.uid : null);
+
     // 1. Last-used transport first
-    if (last.lastUsedTransport == 'wifi') addIf('wifi', TransportType.wifi, last.wifiAddress, () => WebSocketService());
-    if (last.lastUsedTransport == 'ble') addIf('ble', TransportType.ble, last.bleAddress, () => _bleProvider.bleService);
+    if (last.lastUsedTransport == 'wifi') addIf('wifi', TransportType.wifi, effectiveWifi, () => WebSocketService());
+    if (last.lastUsedTransport == 'ble') addIf('ble', TransportType.ble, effectiveBle, () => BleTransport(_bleProvider.bleService));
     if (last.lastUsedTransport == 'cloud') addIf('cloud', TransportType.cloud, last.cloudAddress, () => WebSocketService());
-    if (last.lastUsedTransport == 'serial') addIf('serial', TransportType.serial, last.serialAddress, () => _serialProvider.serialService);
+    if (last.lastUsedTransport == 'serial') addIf('serial', TransportType.serial, effectiveSerial, () => _serialProvider.serialService);
 
     // 2. Then remaining transports
-    addIf('wifi', TransportType.wifi, last.wifiAddress, () => WebSocketService());
-    addIf('ble', TransportType.ble, last.bleAddress, () => _bleProvider.bleService);
-    addIf('serial', TransportType.serial, last.serialAddress, () => _serialProvider.serialService);
+    addIf('wifi', TransportType.wifi, effectiveWifi, () => WebSocketService());
+    addIf('ble', TransportType.ble, effectiveBle, () => BleTransport(_bleProvider.bleService));
+    addIf('serial', TransportType.serial, effectiveSerial, () => _serialProvider.serialService);
 
     // 3. Cloud fallback: only if cached cloud account matches app identity
     if (last.cloudAccount != null && last.cloudAccount!.isNotEmpty) {
@@ -1140,7 +1144,6 @@ class RemoteAccessService {
     // itself acts as the availability probe for the API)
     for (final attempt in attempts) {
       final (label, type, address, factory) = attempt;
-      _deviceProvider.setTransport(factory());
 
       try {
         final info = DeviceInfo(
@@ -1153,14 +1156,28 @@ class RemoteAccessService {
           transportAddress: address,
           currentTransport: type,
         );
-        await _deviceProvider.connectToDevice(info);
-        if (_deviceProvider.isConnected) {
-          await _historyProvider.saveDevice(info, last.type, cloudAccount: last.cloudAccount);
-          return _json({
-            'ok': true,
-            'message': 'Reconnected to ${last.name} via $label',
-            'transport': label,
-          });
+        final multi = _getMulti();
+        if (multi != null) {
+          await multi.connectDevice(device: info, transport: factory());
+          if (multi.isDeviceConnected(last.uid)) {
+            await _historyProvider.saveDevice(info, last.type, cloudAccount: last.cloudAccount);
+            return _json({
+              'ok': true,
+              'message': 'Reconnected to ${last.name} via $label',
+              'transport': label,
+            });
+          }
+        } else {
+          _deviceProvider.setTransport(factory());
+          await _deviceProvider.connectToDevice(info);
+          if (_deviceProvider.isConnected) {
+            await _historyProvider.saveDevice(info, last.type, cloudAccount: last.cloudAccount);
+            return _json({
+              'ok': true,
+              'message': 'Reconnected to ${last.name} via $label',
+              'transport': label,
+            });
+          }
         }
       } catch (_) {
         // Try next transport
@@ -1375,7 +1392,9 @@ class RemoteAccessService {
 
   bool _checkFs(Request request) {
     final device = _deviceProvider.connectedDevice;
-    return _deviceProvider.isConnected && device != null && device.hasFs;
+    return _deviceProvider.isConnected &&
+        device != null &&
+        (_deviceProvider.hasFs || device.hasFs);
   }
 
   DeviceFsService _fsService() =>

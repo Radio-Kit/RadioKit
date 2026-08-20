@@ -31,6 +31,10 @@ class BleProvider extends ChangeNotifier {
 
   Future<void> startScan() async {
     if (_isScanning) return;
+    if (_bleService.isConnected) {
+      debugPrint('BLE_PROVIDER: Skipping startScan because device is already connected');
+      return;
+    }
 
     debugPrint('BLE_PROVIDER: Starting initialization sequence...');
     _devices = [];
@@ -150,12 +154,12 @@ class BleProvider extends ChangeNotifier {
   }
 
   Future<void> stopScan() async {
+    _isScanning = false;
     _scanLoopTimer?.cancel();
     _scanLoopTimer = null;
     await _scanSubscription?.cancel();
     _scanSubscription = null;
     await _bleService.stopScan();
-    _isScanning = false;
     notifyListeners();
   }
 

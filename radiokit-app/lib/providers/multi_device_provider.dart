@@ -165,7 +165,14 @@ class MultiDeviceProvider extends ChangeNotifier {
     }
 
     if (existing != null) {
-      return existing;
+      if (existing.isConnected) {
+        return existing;
+      }
+      // Stale or disconnected provider - clean up before creating a fresh connection
+      _devices.removeWhere((k, v) => v == existing);
+      existing.removeListener(notifyListeners);
+      existing.removeListener(_onDeviceChange);
+      existing.dispose();
     }
 
     // Create a per-device console if not provided

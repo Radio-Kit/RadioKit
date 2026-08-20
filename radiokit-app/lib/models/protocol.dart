@@ -327,6 +327,7 @@ const Map<int, int> kWidgetOutputSize = {
   kWidgetMultiple:    0,
   kWidgetSlideSwitch: 0,
   kWidgetKnob:        0,
+  kWidgetTelemetry:   33,
 };
 
 // Protocol version (v4 — NVS-backed config)
@@ -351,7 +352,7 @@ const Duration kTelemetryInterval = Duration(seconds: 5);
 const Duration kConfTimeout     = Duration(seconds: 8);
 /// How long the app waits for the firmware's proactive CONF_DATA push (BLE
 /// subscribe) before falling back to a GET_CONF request.
-const Duration kPushWaitTimeout = Duration(seconds: 3);
+const Duration kPushWaitTimeout = Duration(milliseconds: 500);
 
 // VAR_UPDATE reliability (v3)
 const int kVarUpdateTimeoutMs  = 200;

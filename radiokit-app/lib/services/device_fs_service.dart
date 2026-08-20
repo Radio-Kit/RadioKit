@@ -102,6 +102,22 @@ class DeviceFsService {
   /// larger files are multi-chunked so the per-chunk timeout is sufficient).
   static const Duration _writeTimeout = Duration(seconds: 30);
 
+  Future<void>? _lock;
+
+  Future<T> _synchronized<T>(Future<T> Function() action) async {
+    final prev = _lock;
+    final completer = Completer<void>();
+    _lock = completer.future;
+    try {
+      if (prev != null) {
+        await prev.catchError((_) {});
+      }
+      return await action();
+    } finally {
+      completer.complete();
+    }
+  }
+
   DeviceFsService(this._transport);
 
   bool get isReady => _transport.isConnected;
@@ -119,22 +135,22 @@ class DeviceFsService {
   // ── Public API ────────────────────────────────────────────────────────
 
   /// List a directory's contents.
-  Future<List<FsEntry>> listDir(String path) async {
+  Future<List<FsEntry>> listDir(String path) => _synchronized(() async {
     final resp = await _sendFs(FsProtocolService.buildList(path));
     if (resp == null) return [];
     final entries = FsProtocolService.parseListData(resp.payload);
     return entries ?? <FsEntry>[];
-  }
+  });
 
   /// Get filesystem usage info.
-  Future<FsInfo?> getInfo() async {
+  Future<FsInfo?> getInfo() => _synchronized(() async {
     final resp = await _sendFs(FsProtocolService.buildInfo());
     if (resp == null) return null;
     return FsProtocolService.parseInfoData(resp.payload);
-  }
+  });
 
   /// Delete a file or directory at [path].
-  Future<FsOpResult> delete(String path, {bool recursive = false}) async {
+  Future<FsOpResult> delete(String path, {bool recursive = false}) => _synchronized(() async {
     final resp = await _sendFs(
         FsProtocolService.buildDelete(path, recursive: recursive));
     if (resp == null) {
@@ -149,10 +165,10 @@ class DeviceFsService {
       errorCode: code,
       errorName: fsErrorName(code),
     );
-  }
+  });
 
   /// Create a directory at [path].
-  Future<FsOpResult> mkdir(String path) async {
+  Future<FsOpResult> mkdir(String path) => _synchronized(() async {
     final resp = await _sendFs(FsProtocolService.buildMkdir(path));
     if (resp == null) {
       return FsOpResult(
@@ -166,10 +182,10 @@ class DeviceFsService {
       errorCode: code,
       errorName: fsErrorName(code),
     );
-  }
+  });
 
   /// Rename a file or directory.
-  Future<FsOpResult> rename(String oldPath, String newPath) async {
+  Future<FsOpResult> rename(String oldPath, String newPath) => _synchronized(() async {
     final resp = await _sendFs(
         FsProtocolService.buildRename(oldPath, newPath));
     if (resp == null) {
@@ -184,11 +200,11 @@ class DeviceFsService {
       errorCode: code,
       errorName: fsErrorName(code),
     );
-  }
+  });
 
   /// Format the default filesystem. Destructive — erases all data.
   /// Returns true on success.
-  Future<FsOpResult> format() async {
+  Future<FsOpResult> format() => _synchronized(() async {
     final resp = await _sendFs(
       FsProtocolService.buildFormat(),
       timeout: const Duration(seconds: 10),
@@ -205,7 +221,7 @@ class DeviceFsService {
       errorCode: code,
       errorName: fsErrorName(code),
     );
-  }
+  });
 
   /// Read the entire file at [path]. Auto-chunks at [_defaultChunkSize].
   ///
@@ -218,6 +234,12 @@ class DeviceFsService {
   /// The transport's _pendingFs uses a FIFO queue per sub-cmd to match
   /// the pipelined responses in order.
   Future<Uint8List?> readFile(
+    String path, {
+    int chunkSize = _defaultChunkSize,
+    void Function(int bytesRead, int totalBytes)? onProgress,
+  }) => _synchronized(() => _readFileUnsync(path, chunkSize: chunkSize, onProgress: onProgress));
+
+  Future<Uint8List?> _readFileUnsync(
     String path, {
     int chunkSize = _defaultChunkSize,
     void Function(int bytesRead, int totalBytes)? onProgress,
@@ -257,7 +279,7 @@ class DeviceFsService {
     }
 
     // Discard any pre-sent-but-unawaited future
-    if (offset >= totalSize) {
+    if (offset >= (totalSize ?? 0)) {
       unawaited(pendingResp.catchError((_) => null));
     }
 
@@ -268,6 +290,13 @@ class DeviceFsService {
   /// at [chunkSize] (default [_writeChunkSize]; capped at [_maxWriteChunk]
   /// to leave headroom for the FS frame header and 4-byte offset).
   Future<FsOpResult> writeFile(
+    String path,
+    Uint8List data, {
+    int chunkSize = _writeChunkSize,
+    void Function(int bytesWritten, int totalBytes)? onProgress,
+  }) => _synchronized(() => _writeFileUnsync(path, data, chunkSize: chunkSize, onProgress: onProgress));
+
+  Future<FsOpResult> _writeFileUnsync(
     String path,
     Uint8List data, {
     int chunkSize = _writeChunkSize,
@@ -327,6 +356,13 @@ class DeviceFsService {
   static const int _maxUploadChunk = 12288;
 
   Future<FsOpResult> writeFileUpload(
+    String path,
+    Uint8List data, {
+    int chunkSize = _uploadChunkSize,
+    void Function(int bytesWritten, int totalBytes)? onProgress,
+  }) => _synchronized(() => _writeFileUploadUnsync(path, data, chunkSize: chunkSize, onProgress: onProgress));
+
+  Future<FsOpResult> _writeFileUploadUnsync(
     String path,
     Uint8List data, {
     int chunkSize = _uploadChunkSize,
@@ -411,7 +447,7 @@ class DeviceFsService {
   /// Replace the content of a file in a single frame with CRC32 verification.
   /// For files that fit within [FsProtocolService.replaceMaxContent].
   /// Falls back to [writeFileUpload] for larger files.
-  Future<FsOpResult> replaceFile(String path, Uint8List data) async {
+  Future<FsOpResult> replaceFile(String path, Uint8List data) => _synchronized(() async {
     final maxContent = FsProtocolService.replaceMaxContent(path);
     if (data.length <= maxContent) {
       // Single-frame REPLACE with CRC32
@@ -436,27 +472,27 @@ class DeviceFsService {
       return FsOpResult(success: true, errorCode: kFsErrOk, errorName: 'OK');
     }
     // Larger files: fall back to CRC32-verified upload protocol
-    return writeFileUpload(path, data);
-  }
+    return _writeFileUploadUnsync(path, data);
+  });
 
   /// Internal: fallback when REPLACE fails (e.g. older firmware).
   /// Delegates to [writeFile], which uses the basic WRITE protocol.
   Future<FsOpResult> _fallbackWrite(String path, Uint8List data) async {
-    return writeFile(path, data);
+    return _writeFileUnsync(path, data);
   }
 
   // ── CRC32 query ─────────────────────────────────────────────────────────
 
   /// Request the CRC32 checksum and file size from the device.
   /// Returns null on timeout or malformed response.
-  Future<({bool found, int crc32, int size})?> getFileCrc32(String path) async {
+  Future<({bool found, int crc32, int size})?> getFileCrc32(String path) => _synchronized(() async {
     final resp = await _sendFs(
       FsProtocolService.buildCrc32(path),
       timeout: const Duration(seconds: 3),
     );
     if (resp == null) return null;
     return FsProtocolService.parseCrc32Data(resp.payload);
-  }
+  });
 }
 
 /// Convenience: build a [DeviceFsService] that routes through a

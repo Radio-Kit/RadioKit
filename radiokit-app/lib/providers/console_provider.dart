@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import '../models/console_entry.dart';
@@ -5,8 +6,18 @@ import '../models/console_entry.dart';
 class ConsoleProvider extends ChangeNotifier {
   final List<ConsoleEntry> _entries = [];
   final int _maxEntries = 100;
+  bool _notifyDirty = false;
 
   List<ConsoleEntry> get entries => _entries;
+
+  void _scheduleNotify() {
+    if (_notifyDirty) return;
+    _notifyDirty = true;
+    scheduleMicrotask(() {
+      _notifyDirty = false;
+      notifyListeners();
+    });
+  }
 
   void log(String message, {ConsoleLogLevel level = ConsoleLogLevel.info}) {
     debugPrint('RadioKit Console: $message');
@@ -18,7 +29,7 @@ class ConsoleProvider extends ChangeNotifier {
       message: message,
       level: level,
     ));
-    notifyListeners();
+    _scheduleNotify();
   }
 
   Future<void> copyToClipboard() async {

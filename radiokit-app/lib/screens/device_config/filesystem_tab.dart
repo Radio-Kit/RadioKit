@@ -42,22 +42,59 @@ class _FsTabContentState extends State<FsTabContent> {
   final Set<String> _selectedPaths = {};
   final Set<String> _loadingPaths = {};
 
+  DeviceProvider? _dp;
+
   @override
   void initState() {
     super.initState();
+    _dp = widget.deviceProvider;
+    _dp?.addListener(_onDeviceProviderChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) => _initFs());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final dp = widget.deviceProvider ?? context.read<DeviceProvider>();
+    if (_dp != dp) {
+      _dp?.removeListener(_onDeviceProviderChanged);
+      _dp = dp;
+      _dp?.addListener(_onDeviceProviderChanged);
+      _initFs();
+    }
+  }
+
+  @override
+  void dispose() {
+    _dp?.removeListener(_onDeviceProviderChanged);
+    super.dispose();
+  }
+
+  void _onDeviceProviderChanged() {
+    if (!mounted) return;
+    final dp = _dp ?? widget.deviceProvider ?? context.read<DeviceProvider>();
+    if (dp.isConnected && !_initTriggered) {
+      _initFs();
+    } else if (!dp.isConnected && _initTriggered) {
+      setState(() {
+        _initTriggered = false;
+        _fs = null;
+        _entries = [];
+        _fsInfo = null;
+        _loading = false;
+      });
+    }
   }
 
   void _initFs() {
     if (!mounted || _initTriggered) return;
-    final dp = widget.deviceProvider ?? context.read<DeviceProvider>();
+    final dp = _dp ?? widget.deviceProvider ?? context.read<DeviceProvider>();
     if (!dp.isConnected) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _initFs());
       return;
     }
     _initTriggered = true;
     _fs = createDeviceFsService(dp);
-    if (dp.fsCacheReady) {
+    if (dp.fsCacheReady && _currentPath == '/') {
       final cached = dp.fsTreeCache!['/']!;
       setState(() {
         _entries = cached;

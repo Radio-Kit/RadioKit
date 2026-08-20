@@ -57,6 +57,10 @@ class BleService implements TransportService {
   /// Connect to a device and associate it with a [BleTransport].
   /// Delegates characteristic setup to the transport instance.
   Future<void> connectToDevice(String deviceId, {required dynamic transport}) async {
+    try {
+      await UniversalBle.stopScan();
+    } catch (_) {}
+
     _log('Connecting to $deviceId (multi-device)...');
     await UniversalBle.connect(deviceId);
 
@@ -112,14 +116,8 @@ class BleService implements TransportService {
 
     _log('Discovered chars for $deviceId: widget=$charWidgetId, fs=$charFsId, ota=$charOtaId, settings=$charSettingsId, print=$charPrintId');
 
-    // Subscribe to all discovered characteristics
-    if (charWidgetId != null) await UniversalBle.subscribeNotifications(deviceId, actualServiceId, charWidgetId);
-    if (charFsId != null) await UniversalBle.subscribeNotifications(deviceId, actualServiceId, charFsId);
-    if (charOtaId != null) await UniversalBle.subscribeNotifications(deviceId, actualServiceId, charOtaId);
-    if (charSettingsId != null) await UniversalBle.subscribeNotifications(deviceId, actualServiceId, charSettingsId);
-    if (charPrintId != null) await UniversalBle.subscribeNotifications(deviceId, actualServiceId, charPrintId);
-
-    // Set characteristics on the transport instance
+    // Set characteristics on the transport instance BEFORE subscribing,
+    // so incoming push notifications or immediate outgoing requests have valid char IDs.
     // ignore: avoid_dynamic_calls
     transport.setCharacteristics(
       widgetId: charWidgetId,
@@ -129,6 +127,24 @@ class BleService implements TransportService {
       printId: charPrintId,
       mtu: mtu,
     );
+
+    // Subscribe to all discovered characteristics sequentially
+    final charIds = [charWidgetId, charFsId, charOtaId, charSettingsId, charPrintId];
+    for (final cid in charIds) {
+      if (cid != null) {
+        try {
+          await UniversalBle.subscribeNotifications(deviceId, actualServiceId, cid);
+        } catch (_) {}
+      }
+    }
+
+    // Request high priority (11.25ms - 15ms interval on Android) for low-latency controls
+    try {
+      await UniversalBle.requestConnectionPriority(
+        deviceId,
+        BleConnectionPriority.highPerformance,
+      );
+    } catch (_) {}
   }
 
   /// Write a packet to a specific device (multi-device).
@@ -365,6 +381,10 @@ class BleService implements TransportService {
 
   Stream<DeviceInfo> startScan() {
     debugPrint('BLE_SERVICE: startScan() called');
+    if (_connectedDeviceId != null || _activeTransports.isNotEmpty) {
+      debugPrint('BLE_SERVICE: Skipping startScan because device is already connected');
+      return const Stream.empty();
+    }
     _scanController?.close();
     final controller = StreamController<DeviceInfo>.broadcast();
     _scanController = controller;
@@ -424,6 +444,10 @@ class BleService implements TransportService {
     }
 
     try {
+      try {
+        await UniversalBle.stopScan();
+      } catch (_) {}
+
       _log('Connecting to $deviceId...');
       await UniversalBle.connect(deviceId);
       _connectedDeviceId = deviceId;
@@ -498,45 +522,22 @@ class BleService implements TransportService {
 
       _log('Discovered chars: widget=$_charWidgetId, fs=$_charFsId, ota=$_charOtaId, settings=$_charSettingsId, print=$_charPrintId');
 
-      // Subscribe to all discovered characteristics
-      if (_charWidgetId != null) {
-        _log('Subscribing to widget char $_charWidgetId...');
-        await UniversalBle.subscribeNotifications(deviceId, actualServiceId, _charWidgetId!);
-        _log('Widget subscription SUCCESS');
-      } else {
-        _log('WARNING - Widget char not found (0xFFE1)');
-      }
-
-      if (_charFsId != null) {
-        _log('Subscribing to FS char $_charFsId...');
-        await UniversalBle.subscribeNotifications(deviceId, actualServiceId, _charFsId!);
-        _log('FS subscription SUCCESS');
-      } else {
-        _log('WARNING - FS char not found (0xFFE2)');
-      }
-
-      if (_charOtaId != null) {
-        _log('Subscribing to OTA char $_charOtaId...');
-        await UniversalBle.subscribeNotifications(deviceId, actualServiceId, _charOtaId!);
-        _log('OTA subscription SUCCESS');
-      } else {
-        _log('WARNING - OTA char not found (0xFFE3)');
-      }
-
-      if (_charSettingsId != null) {
-        _log('Subscribing to Settings char $_charSettingsId...');
-        await UniversalBle.subscribeNotifications(deviceId, actualServiceId, _charSettingsId!);
-        _log('Settings subscription SUCCESS');
-      } else {
-        _log('WARNING - Settings char not found (0xFFE4)');
-      }
-
-      if (_charPrintId != null) {
-        _log('Subscribing to Print char $_charPrintId...');
-        await UniversalBle.subscribeNotifications(deviceId, actualServiceId, _charPrintId!);
-        _log('Print subscription SUCCESS');
-      } else {
-        _log('WARNING - Print char not found (0xFFE5)');
+      // Subscribe to all discovered characteristics sequentially
+      _log('Subscribing to discovered characteristics sequentially...');
+      final discoveredChars = <(String, String)>[
+        if (_charWidgetId != null) (_charWidgetId!, 'Widget'),
+        if (_charFsId != null) (_charFsId!, 'FS'),
+        if (_charOtaId != null) (_charOtaId!, 'OTA'),
+        if (_charSettingsId != null) (_charSettingsId!, 'Settings'),
+        if (_charPrintId != null) (_charPrintId!, 'Print'),
+      ];
+      for (final (charId, name) in discoveredChars) {
+        try {
+          await UniversalBle.subscribeNotifications(deviceId, actualServiceId, charId);
+          _log('$name subscription SUCCESS');
+        } catch (e) {
+          _log('$name subscription ERROR: $e');
+        }
       }
 
       // Clear all buffers

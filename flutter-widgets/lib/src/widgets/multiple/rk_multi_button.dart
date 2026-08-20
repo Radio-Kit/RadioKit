@@ -428,7 +428,7 @@ class _ToggleButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(radius),
         onTap: onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
+          duration: const Duration(milliseconds: 50),
           curve: Curves.easeOutCubic,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(radius),

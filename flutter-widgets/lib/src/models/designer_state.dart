@@ -69,6 +69,12 @@ class DesignerState extends ChangeNotifier {
   final Map<String, dynamic> _runtimeWidgetValues = {};
   void Function(String id, dynamic value)? onRuntimeValueChanged;
 
+  /// When true, _pushUndo() is suppressed — used during runtime sync
+  /// to avoid creating deep-copy undo snapshots on every BLE notification.
+  bool _runtimeSync = false;
+  void beginRuntimeSync() { _runtimeSync = true; }
+  void endRuntimeSync() { _runtimeSync = false; }
+
   /// Monotonically-increasing counter bumped on every real data mutation.
   int _mutationCount = 0;
   int get mutationCount => _mutationCount;
@@ -151,6 +157,7 @@ class DesignerState extends ChangeNotifier {
 
   void _pushUndo() {
     if (_gestureSnapshot != null) return;
+    if (_runtimeSync) return;  // Skip undo during runtime BLE sync
     _mutationCount++;
     final stack = _getUndoStack(_activePageIndex);
     stack.add(_PageSnapshot.fromPage(activePage, _telemetryWidgets));
@@ -440,8 +447,10 @@ class DesignerState extends ChangeNotifier {
   void updateElementProperty(String id, String key, dynamic value) {
     final index = elements.indexWhere((e) => e.id == id);
     if (index == -1) return;
-    _pushUndo();
     final el = elements[index];
+    // Skip if value unchanged — avoids deep copy + notifyListeners on every BLE frame
+    if (el.properties[key] == value) return;
+    _pushUndo();
     final newProps = Map<String, dynamic>.from(el.properties);
     newProps[key] = value;
     activePage.elements = [
@@ -449,7 +458,8 @@ class DesignerState extends ChangeNotifier {
         if (i == index) el.copyWith(properties: newProps)
         else elements[i],
     ];
-    notifyListeners();
+    // During runtime sync, defer notifyListeners — caller batches it
+    if (!_runtimeSync) notifyListeners();
   }
 
   void updateElementSize(String id, {int? width, int? height}) {
@@ -516,7 +526,7 @@ class DesignerState extends ChangeNotifier {
         if (i == index) elements[i].copyWith(hidden: hidden)
         else elements[i],
     ];
-    notifyListeners();
+    if (!_runtimeSync) notifyListeners();
   }
 
   void updateElementRotation(String id, int rotation) {
@@ -621,7 +631,8 @@ class DesignerState extends ChangeNotifier {
     if (onRuntimeValueChanged != null) {
       onRuntimeValueChanged!(id, value);
     }
-    notifyListeners();
+    // During runtime sync, defer notifyListeners — caller batches it
+    if (!_runtimeSync) notifyListeners();
   }
 
   void togglePlayMode() {

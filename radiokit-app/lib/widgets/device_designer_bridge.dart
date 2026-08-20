@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 import '../models/widget_config.dart';
@@ -23,6 +24,9 @@ class DeviceDesignerBridge extends StatefulWidget {
 class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
   late DesignerState _designerState;
   Map<String, dynamic>? _lastJson;
+
+  final Map<int, Timer> _throttleTimers = {};
+  final Map<int, List<int>> _pendingPayloads = {};
 
   @override
   void initState() {
@@ -77,6 +81,11 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
 
   @override
   void dispose() {
+    for (final timer in _throttleTimers.values) {
+      timer.cancel();
+    }
+    _throttleTimers.clear();
+    _pendingPayloads.clear();
     widget.deviceProvider.removeListener(_onDeviceProviderChanged);
     _designerState.removeListener(_onDesignerStateChanged);
     _designerState.dispose();
@@ -127,6 +136,11 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
     final state = widget.deviceProvider.widgetState;
     if (state == null) return;
 
+    // Suppress undo snapshots during runtime sync — BLE notifications
+    // trigger this on every frame; creating deep copies blocks the event loop.
+    _designerState.beginRuntimeSync();
+    bool changed = false;
+    try {
     for (final el in _designerState.elements) {
       final widgetId = el.properties['widgetId'] as int? ?? 0;
       final config = _widgetConfigForElement(el);
@@ -184,10 +198,14 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
           normalized = inValues[0];
         }
 
-        final oldCallback = _designerState.onRuntimeValueChanged;
-        _designerState.onRuntimeValueChanged = null;
-        _designerState.setRuntimeWidgetValue(el.id, normalized);
-        _designerState.onRuntimeValueChanged = oldCallback;
+        final currentVal = _designerState.getRuntimeWidgetValue(el.id, null);
+        if (currentVal != normalized) {
+          changed = true;
+          final oldCallback = _designerState.onRuntimeValueChanged;
+          _designerState.onRuntimeValueChanged = null;
+          _designerState.setRuntimeWidgetValue(el.id, normalized);
+          _designerState.onRuntimeValueChanged = oldCallback;
+        }
       }
     }
 
@@ -196,8 +214,16 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
       final config = _widgetConfigForElement(el);
       if (config.typeId == 0) continue;
       if (config.hidden != el.hidden) {
+        changed = true;
         _designerState.setElementHidden(el.id, config.hidden);
       }
+    }
+    } finally {
+      _designerState.endRuntimeSync();
+    }
+    // Only rebuild if something actually changed — eliminates ~15 unnecessary rebuilds/sec
+    if (changed) {
+      _designerState.notifyListeners();
     }
   }
 
@@ -209,9 +235,13 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
 
     List<int> payload = [0];
 
+    final isContinuous = config.typeId == kWidgetSlider ||
+        config.typeId == kWidgetKnob ||
+        config.typeId == kWidgetJoystick;
+
     if (config.typeId == kWidgetSlider || config.typeId == kWidgetKnob) {
       // Map widget [min..max] → protocol [-100..100]
-      final doubleVal = value as double;
+      final doubleVal = (value is num) ? value.toDouble() : 0.0;
       final wMin = (el.properties['min'] as num?)?.toDouble() ?? 0;
       final wMax = (el.properties['max'] as num?)?.toDouble() ?? 100;
       final wRange = wMax - wMin;
@@ -225,19 +255,45 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
       }
       payload = [intVal];
     } else if (config.typeId == kWidgetJoystick) {
-      final joy = value as RKJoystickValue;
+      final joy = value is RKJoystickValue ? value : const RKJoystickValue(x: 0, y: 0);
       final intX = (joy.x * 100).round().clamp(-100, 100);
       final intY = (joy.y * 100).round().clamp(-100, 100);
       payload = [intX, intY];
     } else if (config.typeId == kWidgetButton ||
         config.typeId == kWidgetSwitch ||
         config.typeId == kWidgetSlideSwitch) {
-      payload = [(value as bool) ? 1 : 0];
+      payload = [(value == true) ? 1 : 0];
     } else if (config.typeId == kWidgetMultiple) {
-      payload = [value as int];
+      payload = [(value is num) ? value.toInt() : 0];
     }
 
+    // NOTE: Do NOT skip based on runtime widget value here — it was already
+    // updated by setRuntimeWidgetValue() before this callback fires, so it
+    // always matches. The skip logic is handled by setInputValue() which
+    // compares against the device's input state.
+    if (!isContinuous) {
+      _throttleTimers[widgetId]?.cancel();
+      _throttleTimers.remove(widgetId);
+      _pendingPayloads.remove(widgetId);
+      widget.deviceProvider.setInputValue(widgetId, payload);
+      return;
+    }
+
+    _pendingPayloads[widgetId] = payload;
+    if (_throttleTimers[widgetId]?.isActive ?? false) {
+      return;
+    }
+
+    // Send immediately if no throttle timer is running, then throttle subsequent samples
     widget.deviceProvider.setInputValue(widgetId, payload);
+    _pendingPayloads.remove(widgetId);
+
+    _throttleTimers[widgetId] = Timer(const Duration(milliseconds: 10), () {
+      final latest = _pendingPayloads.remove(widgetId);
+      if (latest != null && mounted) {
+        widget.deviceProvider.setInputValue(widgetId, latest);
+      }
+    });
   }
 
   @override

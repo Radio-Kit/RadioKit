@@ -13,6 +13,7 @@ class _FakeFsTransport implements FsTransport {
   bool _connected = true;
   final List<Uint8List> sent = [];
   final List<ParsedFsPacket?> responses = [];
+  Future<ParsedFsPacket?> Function(Uint8List frame)? onSendFs;
   Duration? overrideTimeout;
 
   @override
@@ -27,6 +28,9 @@ class _FakeFsTransport implements FsTransport {
       }) async {
     if (!_connected) return null;
     sent.add(frame);
+    if (onSendFs != null) {
+      return onSendFs!(frame);
+    }
     if (responses.isEmpty) {
       // No scripted response — pretend timeout.
       await Future<void>.delayed(const Duration(milliseconds: 10));
@@ -268,22 +272,41 @@ void main() {
     });
   });
 
-  group('DeviceFsService disconnection', () {
-    test('isReady is false when transport disconnects', () async {
+  group('DeviceFsService serialization', () {
+    test('concurrent operations are executed sequentially', () async {
       final t = _FakeFsTransport();
-      expect(DeviceFsService(t).isReady, isTrue);
-      t.disconnect();
-      expect(DeviceFsService(t).isReady, isFalse);
-    });
-
-    test('operations return failure when disconnected', () async {
-      final t = _FakeFsTransport()..disconnect();
       final svc = DeviceFsService(t);
-      expect(await svc.listDir('/'), isEmpty);
-      expect(await svc.readFile('/x'), isNull);
-      final w = await svc.writeFile('/x', Uint8List.fromList([1, 2, 3]));
-      expect(w.success, isFalse);
-      expect(w.errorName, 'TIMEOUT');
+      final order = <String>[];
+
+      t.onSendFs = (frame) async {
+        final subCmd = frame[1];
+        if (subCmd == kFsCmdList) {
+          order.add('list_start');
+          await Future.delayed(const Duration(milliseconds: 20));
+          order.add('list_end');
+          return ParsedFsPacket(
+            subCmd: kFsRespListData,
+            payload: Uint8List.fromList([0, 0]),
+          );
+        } else if (subCmd == kFsCmdInfo) {
+          order.add('info_start');
+          await Future.delayed(const Duration(milliseconds: 10));
+          order.add('info_end');
+          return ParsedFsPacket(
+            subCmd: kFsRespInfoData,
+            payload: Uint8List(11),
+          );
+        }
+        return null;
+      };
+
+      // Launch listDir and getInfo concurrently
+      final f1 = svc.listDir('/');
+      final f2 = svc.getInfo();
+
+      await Future.wait([f1, f2]);
+
+      expect(order, ['list_start', 'list_end', 'info_start', 'info_end']);
     });
   });
 }

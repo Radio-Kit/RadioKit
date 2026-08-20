@@ -40,6 +40,9 @@ class PairedDevice {
   /// Which transport was last used ('ble', 'wifi', 'cloud', 'serial').
   final String? lastUsedTransport;
 
+  /// Whether the device has LittleFS filesystem support.
+  final bool hasFs;
+
   final DateTime lastConnected;
 
   PairedDevice({
@@ -56,6 +59,7 @@ class PairedDevice {
     this.serialAddress,
     this.cloudAccount,
     this.lastUsedTransport,
+    this.hasFs = false,
     required this.lastConnected,
   });
 
@@ -73,6 +77,7 @@ class PairedDevice {
         'serialAddress': serialAddress,
         'cloudAccount': cloudAccount,
         'lastUsedTransport': lastUsedTransport,
+        'hasFs': hasFs,
         'lastConnected': lastConnected.toIso8601String(),
       };
 
@@ -90,6 +95,7 @@ class PairedDevice {
         serialAddress: json['serialAddress'] as String?,
         cloudAccount: json['cloudAccount'] as String?,
         lastUsedTransport: json['lastUsedTransport'] as String?,
+        hasFs: json['hasFs'] as bool? ?? false,
         lastConnected: DateTime.parse(json['lastConnected']),
       );
 
@@ -128,6 +134,7 @@ class PairedDevice {
         id: uid,
         name: name,
         rssi: 0,
+        hasFs: hasFs,
         preferredTransport: preferredTransport,
         deviceIcon: deviceIcon,
         currentTransport: TransportType.demo,
@@ -138,6 +145,7 @@ class PairedDevice {
       id: uid,
       name: name,
       rssi: 0,
+      hasFs: hasFs,
       preferredTransport: preferredTransport,
       deviceIcon: deviceIcon,
       transportAddress: address,
@@ -227,14 +235,14 @@ class HistoryProvider extends ChangeNotifier {
     final transportStr = _transportTypeToString(device.currentTransport);
 
     final curBle = device.currentTransport == TransportType.ble
-        ? (device.bleAddress ?? device.transportAddress)
-        : device.bleAddress;
+        ? (device.bleAddress ?? device.transportAddress ?? uid)
+        : (device.bleAddress ?? (type == 'ble' ? uid : null));
     final curWifi = device.currentTransport == TransportType.wifi
-        ? device.transportAddress
-        : device.wifiAddress;
+        ? (device.wifiAddress ?? device.transportAddress ?? uid)
+        : (device.wifiAddress ?? (type == 'wifi' ? uid : null));
     final curSerial = device.currentTransport == TransportType.serial
-        ? device.transportAddress
-        : null;
+        ? (device.transportAddress ?? uid)
+        : (type == 'serial' ? uid : null);
     final curCloud = device.currentTransport == TransportType.cloud
         ? device.transportAddress
         : null;
@@ -271,6 +279,7 @@ class HistoryProvider extends ChangeNotifier {
         serialAddress: curSerial ?? existing.serialAddress,
         cloudAccount: cloudAccount ?? existing.cloudAccount,
         lastUsedTransport: transportStr,
+        hasFs: device.hasFs || existing.hasFs,
         lastConnected: now,
       );
     } else {
@@ -291,6 +300,7 @@ class HistoryProvider extends ChangeNotifier {
           serialAddress: curSerial,
           cloudAccount: cloudAccount,
           lastUsedTransport: transportStr,
+          hasFs: device.hasFs,
           lastConnected: now,
         ),
       );

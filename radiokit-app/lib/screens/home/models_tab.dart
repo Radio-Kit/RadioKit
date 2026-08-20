@@ -325,9 +325,7 @@ class _ActiveLinkSectionState extends State<_ActiveLinkSection> {
     final multiDevice = context.watch<MultiDeviceProvider>();
     final devices = multiDevice.devices;
     final activeDevices = devices.where((dp) {
-      final state = dp.connectionState;
-      return state != DeviceConnectionState.disconnected &&
-             state != DeviceConnectionState.error;
+      return dp.isConnected;
     }).toList();
     final useWide = MediaQuery.of(context).size.width > 600;
 
@@ -732,14 +730,12 @@ class _DeviceInfoTabsState extends State<_DeviceInfoTabs>
   void _initTabs() {
     final dp = widget.deviceProvider;
     final isUserMode = dp.isUserMode;
-    final hasFs = widget.device.hasFs;
+    final hasFs = dp.hasFs || (dp.connectedDevice?.hasFs ?? false) || widget.device.hasFs;
     final hasOta = dp.hasOta;
     _tabCount = 2;
     if (hasFs && !isUserMode) _tabCount++;
     if (hasOta && !isUserMode) _tabCount++;
-    if (_tabCount > 1) {
-      _tabController = TabController(length: _tabCount, vsync: this);
-    }
+    _tabController = TabController(length: _tabCount, vsync: this);
   }
 
   Future<void> _fetchBleInfo() async {
@@ -780,9 +776,24 @@ class _DeviceInfoTabsState extends State<_DeviceInfoTabs>
       _sheetAutoClosed = false;
     }
 
-    final hasFs = device.hasFs;
+    final hasFs = dp.hasFs || (dp.connectedDevice?.hasFs ?? false) || device.hasFs;
     final hasOta = dp.hasOta;
     final isUserMode = dp.isUserMode;
+
+    int expectedTabCount = 2;
+    if (hasFs && !isUserMode) expectedTabCount++;
+    if (hasOta && !isUserMode) expectedTabCount++;
+
+    if (_tabController == null || _tabController!.length != expectedTabCount) {
+      final oldIndex = _tabController?.index ?? 0;
+      _tabController?.dispose();
+      _tabController = TabController(
+        length: expectedTabCount,
+        initialIndex: oldIndex.clamp(0, expectedTabCount - 1),
+        vsync: this,
+      );
+      _tabCount = expectedTabCount;
+    }
 
     final tabs = <Tab>[];
     final tabWidgets = <Widget>[];
@@ -1315,9 +1326,7 @@ class _PairedModelsListState extends State<_PairedModelsList> {
     final allDevices = history.pairedDevices;
     final filteredDevices = allDevices.where((d) {
       final isCurrentlyConnected = multiDevice.devices.any((dp) {
-        final state = dp.connectionState;
-        if (state == DeviceConnectionState.disconnected ||
-            state == DeviceConnectionState.error) {
+        if (!dp.isConnected) {
           return false;
         }
         if (dp.connectedDevice?.id == d.uid) return true;
@@ -1417,9 +1426,10 @@ class _PairedModelsListState extends State<_PairedModelsList> {
     final results = <TransportType, bool>{};
     final futures = <Future<void>>[];
 
-    if (device.wifiAddress != null && device.wifiAddress!.isNotEmpty) {
+    final wifiAddr = device.wifiAddress ?? (device.type == 'wifi' ? device.uid : null);
+    if (wifiAddr != null && wifiAddr.isNotEmpty) {
       futures.add(Future(() async {
-        final uri = Uri.tryParse(device.wifiAddress!);
+        final uri = Uri.tryParse(wifiAddr);
         if (uri != null && (uri.scheme == 'ws' || uri.scheme == 'wss')) {
           try {
             final socket = await Socket.connect(uri.host, uri.port, timeout: const Duration(seconds: 2));
@@ -1432,19 +1442,21 @@ class _PairedModelsListState extends State<_PairedModelsList> {
       }));
     }
 
-    if (device.bleAddress != null && device.bleAddress!.isNotEmpty) {
+    final bleAddr = device.bleAddress ?? (device.type == 'ble' ? device.uid : null);
+    if (bleAddr != null && bleAddr.isNotEmpty) {
       futures.add(Future(() async {
         await ble.startScan();
         await Future.delayed(const Duration(milliseconds: 2500));
         await ble.stopScan();
-        results[TransportType.ble] = ble.devices.any((d) => d.id == device.bleAddress);
+        results[TransportType.ble] = ble.devices.any((d) => d.id == bleAddr);
       }));
     }
 
-    if (device.serialAddress != null && device.serialAddress!.isNotEmpty) {
+    final serialAddr = device.serialAddress ?? (device.type == 'serial' ? device.uid : null);
+    if (serialAddr != null && serialAddr.isNotEmpty) {
       futures.add(Future(() async {
         await serial.startScan();
-        results[TransportType.serial] = serial.ports.any((p) => p.id == device.serialAddress);
+        results[TransportType.serial] = serial.ports.any((p) => p.id == serialAddr);
       }));
     }
 
@@ -1479,14 +1491,18 @@ class _PairedModelsListState extends State<_PairedModelsList> {
       attempts.add(_ReconnectAttempt(label: label, type: type, address: address, makeService: factory));
     }
 
-    if (device.lastUsedTransport == 'wifi') addIf('wifi', 'WiFi', device.wifiAddress, TransportType.wifi, () => WebSocketService());
-    if (device.lastUsedTransport == 'ble') addIf('ble', 'BLE', device.bleAddress, TransportType.ble, () => BleTransport(ble.bleService));
-    if (device.lastUsedTransport == 'cloud' && cloudIdentity != null) { final ci = cloudIdentity; addIf('cloud', 'Cloud', device.cloudAddress, TransportType.cloud, () { final ws = WebSocketService()..account = ci.account..identity = ci; return ws; }); }
-    if (device.lastUsedTransport == 'serial') addIf('serial', 'Serial', device.serialAddress, TransportType.serial, () => serial.serialService);
+    final effectiveBle = device.bleAddress ?? (device.type == 'ble' ? device.uid : null);
+    final effectiveWifi = device.wifiAddress ?? (device.type == 'wifi' ? device.uid : null);
+    final effectiveSerial = device.serialAddress ?? (device.type == 'serial' ? device.uid : null);
 
-    addIf('wifi', 'WiFi', device.wifiAddress, TransportType.wifi, () => WebSocketService());
-    addIf('ble', 'BLE', device.bleAddress, TransportType.ble, () => BleTransport(ble.bleService));
-    addIf('serial', 'Serial', device.serialAddress, TransportType.serial, () => serial.serialService);
+    if (device.lastUsedTransport == 'wifi') addIf('wifi', 'WiFi', effectiveWifi, TransportType.wifi, () => WebSocketService());
+    if (device.lastUsedTransport == 'ble') addIf('ble', 'BLE', effectiveBle, TransportType.ble, () => BleTransport(ble.bleService));
+    if (device.lastUsedTransport == 'cloud' && cloudIdentity != null) { final ci = cloudIdentity; addIf('cloud', 'Cloud', device.cloudAddress, TransportType.cloud, () { final ws = WebSocketService()..account = ci.account..identity = ci; return ws; }); }
+    if (device.lastUsedTransport == 'serial') addIf('serial', 'Serial', effectiveSerial, TransportType.serial, () => serial.serialService);
+
+    addIf('wifi', 'WiFi', effectiveWifi, TransportType.wifi, () => WebSocketService());
+    addIf('ble', 'BLE', effectiveBle, TransportType.ble, () => BleTransport(ble.bleService));
+    addIf('serial', 'Serial', effectiveSerial, TransportType.serial, () => serial.serialService);
 
     if (cloudIdentity != null && device.cloudAddress != null && device.cloudAddress!.isNotEmpty) {
       final ci = cloudIdentity;
@@ -1518,25 +1534,21 @@ class _PairedModelsListState extends State<_PairedModelsList> {
       return;
     }
 
-    _updateStatus(device.uid, 'scanning', message: 'Checking transports...');
-    final available = await _checkAllAvailabilities(device: device, ble: ble, serial: serial);
+    _updateStatus(device.uid, 'connecting', message: 'Connecting...');
 
-    // Pass 1: Try detected available transports first (fast path)
+    // Try each transport in priority order (last used transport first)
     for (final attempt in attempts) {
       if (!mounted) return;
-      if (available.contains(attempt.type) || attempt.type == TransportType.cloud) {
-        final ok = await _tryConnect(device: device, label: attempt.label, type: attempt.type, address: attempt.address, makeService: attempt.makeService, multiDevice: multiDevice, console: console);
-        if (ok) return;
-      }
-    }
-
-    // Pass 2: Fallback — if pre-scan missed advertising or connection, attempt direct connect
-    for (final attempt in attempts) {
-      if (!mounted) return;
-      if (!available.contains(attempt.type) && attempt.type != TransportType.cloud) {
-        final ok = await _tryConnect(device: device, label: attempt.label, type: attempt.type, address: attempt.address, makeService: attempt.makeService, multiDevice: multiDevice, console: console);
-        if (ok) return;
-      }
+      final ok = await _tryConnect(
+        device: device,
+        label: attempt.label,
+        type: attempt.type,
+        address: attempt.address,
+        makeService: attempt.makeService,
+        multiDevice: multiDevice,
+        console: console,
+      );
+      if (ok) return;
     }
 
     if (!mounted) return;
@@ -1560,9 +1572,9 @@ class _PairedModelsListState extends State<_PairedModelsList> {
       id: device.uid,
       name: device.name,
       rssi: 0,
-      hasFs: false,
-      bleAddress: device.bleAddress,
-      wifiAddress: device.wifiAddress,
+      hasFs: device.hasFs,
+      bleAddress: type == TransportType.ble ? address : (device.bleAddress ?? (device.type == 'ble' ? device.uid : null)),
+      wifiAddress: type == TransportType.wifi ? address : (device.wifiAddress ?? (device.type == 'wifi' ? device.uid : null)),
       transportAddress: address,
       currentTransport: type,
     );
