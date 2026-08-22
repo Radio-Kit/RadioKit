@@ -243,9 +243,16 @@ void RadioKitBLE::begin(const char* deviceName, RK_PacketCallback cb) {
     RadioKit.print("BLE: Starting advertising...\n");
     Serial.println("BLE: Starting advertising...");
     NimBLEAdvertising* pAdv = NimBLEDevice::getAdvertising();
-    pAdv->addServiceUUID(RK_BLE_SERVICE_UUID);
+    NimBLEAdvertisementData advData;
+    advData.setFlags(BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP);
+    advData.addServiceUUID(NimBLEUUID(RK_BLE_SERVICE_UUID));
+    pAdv->setAdvertisementData(advData);
+
+    NimBLEAdvertisementData scanData;
+    scanData.setName(deviceName ? deviceName : "RadioKit");
+    pAdv->setScanResponseData(scanData);
     pAdv->enableScanResponse(true);
-    pAdv->setName(deviceName ? deviceName : "RadioKit");
+
     // Optimized connection advertising params:
     // minInterval = 0x06 * 0.625ms = 3.75ms, maxInterval = 0x06 * 0.625ms = 3.75ms
     pAdv->setPreferredParams(0x06, 0x06);
@@ -682,7 +689,9 @@ void RadioKitBLE::updateAdvertisingName(const char* name) {
     NimBLEAdvertising* pAdv = NimBLEDevice::getAdvertising();
     if (pAdv) {
         pAdv->stop();
-        pAdv->setName(name);
+        NimBLEAdvertisementData scanData;
+        scanData.setName(name);
+        pAdv->setScanResponseData(scanData);
         pAdv->start();
     }
     
