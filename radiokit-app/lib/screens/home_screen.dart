@@ -23,10 +23,20 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final orientation = MediaQuery.of(context).orientation;
 
-    if (orientation == Orientation.landscape) {
-      return _buildLandscape(context);
-    }
-    return _buildPortrait(context);
+    final child = (orientation == Orientation.landscape)
+        ? _buildLandscape(context)
+        : _buildPortrait(context);
+
+    return PopScope(
+      canPop: widget.navigationShell.currentIndex == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (widget.navigationShell.currentIndex != 0) {
+          widget.navigationShell.goBranch(0);
+        }
+      },
+      child: child,
+    );
   }
 
   // ─── Shared data ────────────────────────────────────────────────

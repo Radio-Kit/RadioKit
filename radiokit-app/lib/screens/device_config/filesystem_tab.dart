@@ -104,36 +104,63 @@ class _FsTabContentState extends State<FsTabContent> {
     _refresh();
   }
 
+  void _navigateToParent() {
+    if (_currentPath == '/') return;
+    final segs = pathSegments(_currentPath);
+    if (segs.length <= 1) {
+      _navigateTo('/');
+    } else {
+      _navigateTo('/${segs.take(segs.length - 1).join('/')}');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        FsInfoStrip(
-          info: _fsInfo,
-          loading: _loading && _fsInfo == null,
-          speedBytesPerSec:
-              _transferStartTime != null && _transferStartTime != null
-                  ? _currentTransferBytes /
-                      (DateTime.now()
-                              .difference(_transferStartTime!)
-                              .inMilliseconds /
-                          1000.0)
-                  : null,
-        ),
-        FsBreadcrumbs(
-          currentPath: _currentPath,
-          onJumpTo: (idx) {
-            final segs = ['/', ...pathSegments(_currentPath)];
-            _navigateTo(idx == 0 ? '/' : segs.take(idx + 1).join('/'));
-          },
-        ),
-        const Divider(height: 1),
-        Expanded(child: _buildList()),
-        if (_statusMessage != null ||
-            _errorMessage != null ||
-            _progress != null)
-          _buildStatusBar(),
-      ],
+    final canPopLocally = _isMultiSelect || _currentPath != '/';
+    return PopScope(
+      canPop: !canPopLocally,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_isMultiSelect) {
+          setState(() {
+            _selectedPaths.clear();
+            _isMultiSelect = false;
+          });
+          return;
+        }
+        if (_currentPath != '/') {
+          _navigateToParent();
+        }
+      },
+      child: Column(
+        children: [
+          FsInfoStrip(
+            info: _fsInfo,
+            loading: _loading && _fsInfo == null,
+            speedBytesPerSec:
+                _transferStartTime != null
+                    ? _currentTransferBytes /
+                        (DateTime.now()
+                                .difference(_transferStartTime!)
+                                .inMilliseconds /
+                            1000.0)
+                    : null,
+          ),
+          FsBreadcrumbs(
+            currentPath: _currentPath,
+            onJumpTo: (idx) {
+              final segs = ['/', ...pathSegments(_currentPath)];
+              _navigateTo(idx == 0 ? '/' : segs.take(idx + 1).join('/'));
+            },
+          ),
+          const Divider(height: 1),
+          Expanded(child: _buildList()),
+          if (_statusMessage != null ||
+              _errorMessage != null ||
+              _progress != null)
+            _buildStatusBar(),
+        ],
+      ),
     );
   }
 

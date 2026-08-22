@@ -820,13 +820,24 @@ class _DeviceInfoTabsState extends State<_DeviceInfoTabs>
         offset: const Offset(0, -18),
         child: Column(
           children: [
-            TabBar(
-              controller: _tabController!,
-              indicatorColor: context.tokens.primary,
-              labelColor: context.tokens.onSurface,
-              unselectedLabelColor: context.tokens.onSurface.withValues(alpha: 0.54),
-              labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, letterSpacing: 1),
-              tabs: tabs,
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  tooltip: 'Back to Models',
+                ),
+                Expanded(
+                  child: TabBar(
+                    controller: _tabController!,
+                    indicatorColor: context.tokens.primary,
+                    labelColor: context.tokens.onSurface,
+                    unselectedLabelColor: context.tokens.onSurface.withValues(alpha: 0.54),
+                    labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, letterSpacing: 1),
+                    tabs: tabs,
+                  ),
+                ),
+              ],
             ),
             Divider(height: 1, color: context.tokens.onSurface.withValues(alpha: 0.12)),
             Expanded(

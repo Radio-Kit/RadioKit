@@ -8,7 +8,7 @@ Future<T?> showThemedBottomSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
   bool isScrollControlled = false,
-  bool useRootNavigator = false,
+  bool useRootNavigator = true,
   bool useSafeArea = false,
   bool showDragHandle = true,
   bool isDismissible = true,
