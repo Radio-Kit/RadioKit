@@ -16,6 +16,7 @@ import '../../providers/console_provider.dart';
 import '../../services/secure_storage_service.dart';
 import '../../models/console_entry.dart';
 import '../../models/device_info.dart';
+import '../../models/protocol.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/themed_bottom_sheet.dart';
 import '../../widgets/radiokit_app_bar.dart';
@@ -543,46 +544,86 @@ void _showDeviceInfoSheet(
 }
 
 Widget _buildActiveLinkTelemetry(DeviceProvider dp, DeviceInfo device) {
-  // Read configured telemetry from the device's config JSON
+  // Read configured telemetry from the device's config JSON, or fall back to dp.widgets
   final configJson = dp.deviceConfigJson;
-  final telemetry = configJson?['telemetry'];
-  if (telemetry is! List || telemetry.isEmpty) {
-    return const SizedBox.shrink();
-  }
+  final telemetryList = configJson?['telemetry'];
 
-  // The widgets list provides typeId + widgetId for telemetry widgets
-  final widgets = configJson?['widgets'] as List? ?? [];
-  final telemetryWidgets = widgets.where((w) {
-    final wMap = w as Map?;
-    return (wMap?['type'] as String? ?? '') == 'telemetry';
-  }).toList();
+  // Extract all telemetry widgets from dp.widgets (source of truth for wire widgets)
+  final wireTelemetryWidgets = dp.widgets.where((w) => w.typeId == kWidgetTelemetry).toList();
 
   final items = <Widget>[];
-  for (int i = 0; i < telemetry.length; i++) {
-    final t = telemetry[i] as Map;
-    final label = (t['label'] as String?) ?? '';
-    if (label.isEmpty) continue;
-    final iconName = t['icon'] as String?;
-    final unit = (t['unit'] as String?) ?? '';
 
-    // Find widgetId for this telemetry slot (index-based)
-    String value = '--';
-    if (i < telemetryWidgets.length) {
-      final wMap = telemetryWidgets[i] as Map;
-      final widgetId = (wMap['id'] as num?)?.toInt() ?? -1;
-      value = dp.telemetryValues[widgetId] ?? '--';
-    }
+  if (telemetryList is List && telemetryList.isNotEmpty) {
+    for (int i = 0; i < telemetryList.length; i++) {
+      final t = telemetryList[i];
+      if (t is! Map) continue;
+      final label = (t['label'] as String?) ?? '';
+      if (label.isEmpty) continue;
+      final iconName = t['icon'] as String?;
+      String unit = (t['unit'] as String?) ?? '';
 
-    items.add(
-      Flexible(
-        child: _TelemetryItem(
-          label: label,
-          iconName: iconName,
-          value: value,
-          unit: unit,
+      // Widget ID can come from 'id' in telemetry map, or by index in wireTelemetryWidgets
+      int widgetId = (t['id'] as num?)?.toInt() ?? -1;
+      if (widgetId < 0 && i < wireTelemetryWidgets.length) {
+        widgetId = wireTelemetryWidgets[i].widgetId;
+      }
+
+      // Infer fallback unit if omitted
+      if (unit.isEmpty) {
+        final lower = label.toLowerCase();
+        if (lower.contains('battery') || lower.contains('batt') || lower.contains('soc')) {
+          unit = '%';
+        } else if (lower.contains('speed') || lower.contains('spd')) {
+          unit = 'km/h';
+        } else if (lower.contains('volt') || lower.contains('vbat')) {
+          unit = 'V';
+        } else if (lower.contains('temp')) {
+          unit = '°C';
+        }
+      }
+
+      final value = (widgetId >= 0 ? dp.telemetryValues[widgetId] : null) ?? '--';
+
+      items.add(
+        Flexible(
+          child: _TelemetryItem(
+            label: label,
+            iconName: iconName,
+            value: value,
+            unit: unit,
+          ),
         ),
-      ),
-    );
+      );
+    }
+  } else if (wireTelemetryWidgets.isNotEmpty) {
+    for (final w in wireTelemetryWidgets) {
+      final label = w.label.isNotEmpty ? w.label : 'Telemetry ${w.widgetId}';
+      final iconName = w.icon.isNotEmpty ? w.icon : null;
+      String unit = '';
+      final lower = label.toLowerCase();
+      if (lower.contains('battery') || lower.contains('batt') || lower.contains('soc')) {
+        unit = '%';
+      } else if (lower.contains('speed') || lower.contains('spd')) {
+        unit = 'km/h';
+      } else if (lower.contains('volt') || lower.contains('vbat')) {
+        unit = 'V';
+      } else if (lower.contains('temp')) {
+        unit = '°C';
+      }
+
+      final value = dp.telemetryValues[w.widgetId] ?? '--';
+
+      items.add(
+        Flexible(
+          child: _TelemetryItem(
+            label: label,
+            iconName: iconName,
+            value: value,
+            unit: unit,
+          ),
+        ),
+      );
+    }
   }
 
   if (items.isEmpty) return const SizedBox.shrink();

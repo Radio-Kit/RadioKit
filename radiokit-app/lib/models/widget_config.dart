@@ -526,11 +526,12 @@ Map<String, dynamic> widgetConfigsToDesignerJson({
   if (enableControlUI != null) result['enableControlUI'] = enableControlUI;
   if (features != null) result['features'] = features;
 
-  // Telemetry widgets are reconstructed as {label, icon} entries; unit is not
+  // Telemetry widgets are reconstructed as {id, label, icon} entries; unit is not
   // carried on the wire.
   if (telemetryWidgets.isNotEmpty) {
     result['telemetry'] = telemetryWidgets.map((w) {
       return <String, dynamic>{
+        'id': w.widgetId,
         'label': w.label.isEmpty ? 'telemetry_${w.widgetId}' : w.label,
         if (w.icon.isNotEmpty) 'icon': w.icon,
       };

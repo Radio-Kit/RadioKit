@@ -1275,11 +1275,11 @@ void RadioKitClass::_handleMetaUpdate(const uint8_t* payload, uint16_t len) {
 uint16_t RadioKitClass::_buildConfPayload(uint8_t* buf, uint16_t bufSize) {
     uint16_t out = 0;
 
-    // Count visible widgets on active page
+    // Count visible widgets on active page (and global telemetry widgets)
     uint8_t visibleCount = 0;
     for (uint8_t i = 0; i < _widgetCount; i++) {
         RadioKit_Widget* w = _widgets[i];
-        if (w->page() != _activePage) continue;
+        if (w->typeId != RK_TYPE_TELEMETRY && w->page() != _activePage) continue;
         if (w->hidden()) continue;
         visibleCount++;
     }
@@ -1313,7 +1313,7 @@ uint16_t RadioKitClass::_buildConfPayload(uint8_t* buf, uint16_t bufSize) {
 
     for (uint8_t i = 0; i < _widgetCount; i++) {
         RadioKit_Widget* w = _widgets[i];
-        if (w->page() != _activePage) continue;
+        if (w->typeId != RK_TYPE_TELEMETRY && w->page() != _activePage) continue;
         if (w->hidden()) continue;
 
         if (out + 10 > bufSize) break;
@@ -1344,7 +1344,7 @@ uint16_t RadioKitClass::_buildVarPayload(uint8_t* buf, uint16_t bufSize) {
     uint16_t out = 0;
     for (uint8_t i = 0; i < _widgetCount; i++) {
         RadioKit_Widget* w = _widgets[i];
-        if (w->page() != _activePage) continue;
+        if (w->typeId != RK_TYPE_TELEMETRY && w->page() != _activePage) continue;
         if (w->hidden()) continue;
         uint8_t inSz = w->inputSize();
         uint8_t outSz = w->outputSize();
@@ -1365,7 +1365,7 @@ uint16_t RadioKitClass::_buildMetaPayload(uint8_t* buf, uint16_t bufSize) {
     uint16_t out = 0;
     for (uint8_t i = 0; i < _widgetCount; i++) {
         RadioKit_Widget* w = _widgets[i];
-        if (w->page() != _activePage) continue;
+        if (w->typeId != RK_TYPE_TELEMETRY && w->page() != _activePage) continue;
         if (w->hidden()) continue;
         uint16_t strLen = w->serializeStrings(&buf[out]);
         if (out + strLen <= bufSize) {
