@@ -68,28 +68,16 @@ abstract class FsTransport {
 class DeviceFsService {
   final FsTransport _transport;
 
-  /// Default chunk size for reads. 16 KB accounts for the 8-byte response
-  /// header overhead (totalSize(4) + fileOffset(4)) that the ESP32 subtracts
-  /// from RK_FS_MAX_PAYLOAD (16384). The effective data per chunk is
-  /// RK_FS_MAX_PAYLOAD - 8 = 16376 bytes, which is >= 16384 - 8 = 16376.
-  /// This produces ~32 BLE notifications per chunk at MTU 512.
-  /// Larger chunks were previously avoided because notification interleaving
-  /// at the single-characteristic level caused data corruption at 500KB+ —
-  /// this was fixed by dedicated BLE characteristics (0xFFE1 widget, 0xFFE2
-  /// FS, 0xFFE3 OTA).
-  static const int _defaultChunkSize = 16376;
+  /// Default chunk size for reads (480 bytes matches BLE MTU 512 single-packet payload
+  /// with zero fragmentation overhead and 100% reliable delivery).
+  static const int _defaultChunkSize = 480;
 
-  /// Default chunk size for writes. 4 KB matches reads — larger chunks
-  /// (8 KB) produce ~17 BLE Write-No-Response fragments per chunk, and
-  /// BLE Write-No-Response has no application-layer delivery guarantee.
-  /// Dropped fragments cause silent data corruption detectable only on
-  /// read-back integrity checks.
-  static const int _writeChunkSize = 8192;
+  /// Default chunk size for writes (480 bytes fits inside a single BLE packet
+  /// preventing dropped Write-Without-Response fragments).
+  static const int _writeChunkSize = 480;
 
-  /// Max safe payload for a single WRITE frame. Below the 16 KB frame
-  /// limit we leave headroom for the path-length byte + offset bytes
-  /// + per-frame overhead. Larger files are chunked transparently.
-  static const int _maxWriteChunk = 12288;
+  /// Max safe payload for a single WRITE frame.
+  static const int _maxWriteChunk = 480;
 
   /// Timeout for short operations (LIST, INFO, MKDIR, PING, etc.)
   static const Duration _shortTimeout = Duration(seconds: 3);

@@ -114,6 +114,7 @@ class BleService implements TransportService {
       return;
     }
 
+    _serviceIdPerDevice[deviceId] = actualServiceId;
     _log('Discovered chars for $deviceId: widget=$charWidgetId, fs=$charFsId, ota=$charOtaId, settings=$charSettingsId, print=$charPrintId');
 
     // Set characteristics on the transport instance BEFORE subscribing,
@@ -147,10 +148,27 @@ class BleService implements TransportService {
     } catch (_) {}
   }
 
+  final Map<String, String> _serviceIdPerDevice = {};
+
+  static String _normalizeUuid(String uuid) {
+    var clean = uuid.toLowerCase().replaceAll('-', '');
+    if (clean.length == 32 &&
+        clean.startsWith('0000') &&
+        clean.endsWith('00001000800000805f9b34fb')) {
+      return clean.substring(4, 8);
+    }
+    return clean;
+  }
+
+  static bool _isSameUuid(String? a, String? b) {
+    if (a == null || b == null) return false;
+    return _normalizeUuid(a) == _normalizeUuid(b);
+  }
+
   /// Write a packet to a specific device (multi-device).
   Future<void> writePacketToDevice(String deviceId, Uint8List data, int mtu, String? charId) async {
     if (charId == null) throw StateError('No characteristic found for this data');
-    final serviceId = kRadioKitServiceUuid.toLowerCase();
+    final serviceId = _serviceIdPerDevice[deviceId] ?? kRadioKitServiceUuid.toLowerCase();
     final chunkSize = (mtu - 3).clamp(20, mtu - 3);
 
     if (data.length <= chunkSize) {
@@ -350,19 +368,19 @@ class BleService implements TransportService {
       _log('RAW MCU from $characteristicId: ${value.map((b) => b.toRadixString(16).padLeft(2, "0")).join(" ")}');
 
       // Determine which protocol this characteristic belongs to
-      if (_charSettingsId != null && charId == _charSettingsId!.toLowerCase()) {
+      if (_isSameUuid(charId, _charSettingsId)) {
         _receiveSettingsBuffer.addAll(value);
         _processSettingsBuffer();
-      } else if (_charFsId != null && charId == _charFsId!.toLowerCase()) {
+      } else if (_isSameUuid(charId, _charFsId)) {
         _receiveFsBuffer.addAll(value);
         _processFsBuffer();
-      } else if (_charOtaId != null && charId == _charOtaId!.toLowerCase()) {
+      } else if (_isSameUuid(charId, _charOtaId)) {
         _receiveOtaBuffer.addAll(value);
         _processOtaBuffer();
-      } else if (_charWidgetId != null && charId == _charWidgetId!.toLowerCase()) {
+      } else if (_isSameUuid(charId, _charWidgetId)) {
         _receiveBuffer.addAll(value);
         _processWidgetBuffer();
-      } else if (_charPrintId != null && charId == _charPrintId!.toLowerCase()) {
+      } else if (_isSameUuid(charId, _charPrintId)) {
         // Print stream (0xEE) — unidirectional, log as print message
         _receivePrintBuffer.addAll(value);
         _processPrintBuffer();

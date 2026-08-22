@@ -133,25 +133,38 @@ class BleTransport implements TransportService {
     return _charWidgetId;
   }
 
+  static String _normalizeUuid(String uuid) {
+    var clean = uuid.toLowerCase().replaceAll('-', '');
+    if (clean.length == 32 &&
+        clean.startsWith('0000') &&
+        clean.endsWith('00001000800000805f9b34fb')) {
+      return clean.substring(4, 8);
+    }
+    return clean;
+  }
+
+  static bool _isSameUuid(String? a, String? b) {
+    if (a == null || b == null) return false;
+    return _normalizeUuid(a) == _normalizeUuid(b);
+  }
+
   // ── Callbacks from BleService (routed per-device) ──────────────────────
 
   /// Called by [BleService] when characteristic values arrive for this device.
   void onValueChanged(String characteristicId, Uint8List value) {
-    final charId = characteristicId.toLowerCase();
-
-    if (_charSettingsId != null && charId == _charSettingsId!.toLowerCase()) {
+    if (_isSameUuid(characteristicId, _charSettingsId)) {
       _settingsBuffer.addAll(value);
       _processSettingsBuffer();
-    } else if (_charFsId != null && charId == _charFsId!.toLowerCase()) {
+    } else if (_isSameUuid(characteristicId, _charFsId)) {
       _fsBuffer.addAll(value);
       _processFsBuffer();
-    } else if (_charOtaId != null && charId == _charOtaId!.toLowerCase()) {
+    } else if (_isSameUuid(characteristicId, _charOtaId)) {
       _otaBuffer.addAll(value);
       _processOtaBuffer();
-    } else if (_charWidgetId != null && charId == _charWidgetId!.toLowerCase()) {
+    } else if (_isSameUuid(characteristicId, _charWidgetId)) {
       _widgetBuffer.addAll(value);
       _processWidgetBuffer();
-    } else if (_charPrintId != null && charId == _charPrintId!.toLowerCase()) {
+    } else if (_isSameUuid(characteristicId, _charPrintId)) {
       _printBuffer.addAll(value);
       _processPrintBuffer();
     } else {

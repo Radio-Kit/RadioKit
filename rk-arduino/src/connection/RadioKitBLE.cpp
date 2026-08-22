@@ -283,11 +283,45 @@ NimBLECharacteristic* RadioKitBLE::_charForBuf(const uint8_t* buf) const {
 }
 
 void RadioKitBLE::sendPacket(const uint8_t* buf, uint16_t len) {
-    if (!_connected || !_txSemaphore) {
+    if (!_connected || !buf || len == 0) {
         return;
     }
 
-    // Non-blocking enqueue: copy frame into ring buffer slot and signal TX task.
+    // Direct sliced transmission for bulk frames (FS 0xAA, OTA 0xBB) or frames larger than ring slot
+    if (buf[0] == RK_FS_START_BYTE || buf[0] == RK_OTA_START_BYTE || len > RK_MAX_PACKET_SIZE) {
+        NimBLECharacteristic* target = _charForBuf(buf);
+        if (!target) return;
+
+        uint16_t mtu = _negotiatedMtu;
+        if (mtu < 23) mtu = 23;
+        mtu -= 3;
+
+        uint16_t offset = 0;
+        while (offset < len && _connected) {
+            uint16_t chunk = len - offset;
+            if (chunk > mtu) chunk = mtu;
+
+            bool success = false;
+            for (int retry = 0; retry < 50 && !success; retry++) {
+                if (!_connected) break;
+                success = (_connHandle != 0xFFFF)
+                    ? target->notify(buf + offset, chunk, _connHandle)
+                    : target->notify(buf + offset, chunk);
+                if (!success) delay(10);
+            }
+            if (!success) {
+                Serial.printf("BLE: bulk notify failed at offset %u/%u\n", offset, len);
+                break;
+            }
+            offset += chunk;
+            if (offset < len) delay(5);
+        }
+        return;
+    }
+
+    if (!_txSemaphore) return;
+
+    // Non-blocking enqueue for widget & telemetry frames: copy into ring buffer slot and signal TX task.
     // The main loop() returns immediately — no BLE blocking.
     if (_pendingCount < kPendingRingSize && len <= RK_MAX_PACKET_SIZE) {
         PendingFrame& slot = _pendingRing[_pendingHead];
@@ -371,8 +405,18 @@ void RadioKitBLE::_drainTxQueue() {
                 memcpy(batchBuf + batchLen, frame.data, frame.len);
                 batchLen += frame.len;
                 batchCount++;
+            } else if (batchCount == 0) {
+                // Single frame exceeds MTU — slice and send directly across notifications
+                uint16_t offset = 0;
+                while (offset < frame.len && _connected) {
+                    uint16_t chunk = frame.len - offset;
+                    if (chunk > mtu) chunk = mtu;
+                    frameTarget->notify(frame.data + offset, chunk);
+                    offset += chunk;
+                }
+                break;
             } else {
-                // Frame won't fit — put it back and break batch
+                // Frame won't fit — put it back and break batch to send current batch
                 _pendingHead = (_pendingHead + kPendingRingSize - 1) % kPendingRingSize;
                 _pendingRing[_pendingHead] = frame;
                 portENTER_CRITICAL(&_txMux);
@@ -390,7 +434,9 @@ void RadioKitBLE::_drainTxQueue() {
         for (int retry = 0; retry <= 1 && !success; retry++) {
             if (millis() - sendStart >= 50) break;
             if (!_connected) break;
-            success = target->notify(batchBuf, batchLen);
+            success = (_connHandle != 0xFFFF)
+                ? target->notify(batchBuf, batchLen, _connHandle)
+                : target->notify(batchBuf, batchLen);
             if (!success) yield();
         }
         if (!success) {
@@ -570,10 +616,6 @@ void RadioKitBLE::_onFsWrite(const uint8_t* data, size_t len) {
     uint8_t subCmd; const uint8_t* payload; uint16_t payloadLen;
     for (size_t i = 0; i < len; i++) {
         if (rk_fsRxFeedByte(data[i], subCmd, payload, payloadLen)) {
-            // Defer callback to update() to avoid blocking the NimBLE host
-            // task with LittleFS operations. Copy the payload to our own
-            // buffer since rk_fsRxFeedByte's returned payload pointer is into
-            // the FS state machine's internal rx buffer (s_fsBuf).
             _pendingFsSubCmd = subCmd;
             _pendingFsLen = payloadLen;
             if (payload && payloadLen > 0 && payloadLen <= kPendingFsPayloadSize) {
