@@ -45,6 +45,13 @@ void RadioKitSerialTransport::begin(Stream& stream, RK_PacketCallback cb) {
     rk_rxReset();
     rk_fsRxReset();
     rk_settingsRxReset();
+
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
+#if ARDUINO_USB_CDC_ON_BOOT || ARDUINO_USB_MODE
+    // Native USB-Serial-JTAG CDC (HWCDC): zero timeout so writes never block main loop
+    Serial.setTxTimeoutMs(0);
+#endif
+#endif
 }
 
 void RadioKitSerialTransport::begin(const char* /*name*/, RK_PacketCallback cb) {
@@ -89,29 +96,27 @@ void RadioKitSerialTransport::update() {
 #endif
     // --- End keepalive ---
 
-    // ── Drain TX ring buffer (non-blocking) ──
-    // Writes as many queued frames as the USB CDC FIFO can accept,
-    // then returns immediately. Main loop is never blocked.
+    // ── Drain TX ring buffer (non-blocking, atomic per frame) ──
+    // Only writes when the stream FIFO has space for the ENTIRE frame.
+    // Preserves frame integrity without blocking the loop or dropping partial bytes.
     while (_txCount > 0) {
         uint16_t avail = _stream->availableForWrite();
-        if (avail == 0) break;  // FIFO full — try next update() iteration
-
         TxPendingFrame& frame = _txRing[_txTail];
-        uint16_t toWrite = (frame.len < avail) ? frame.len : avail;
-        _stream->write(frame.data, toWrite);
+        if (avail < frame.len) break;  // FIFO cannot accept full frame — retry next iteration
 
-        // Advance tail — at 2MHz baud, the entire frame drains in <4ms
-        // so we treat each frame as fully consumed per iteration.
+        _stream->write(frame.data, frame.len);
         _txTail = (_txTail + 1) % kTxRingSize;
         _txCount--;
     }
 
-    // Diagnostic: log drops every 10 seconds
+    // Diagnostic: log drops every 10 seconds (only if stream can write without blocking)
     if (_txDropCount > 0) {
         static uint32_t s_lastSerialDiagMs = 0;
         uint32_t now = millis();
         if (now - s_lastSerialDiagMs >= 10000) {
-            Serial.printf("SERIAL: diag — drops=%u\n", _txDropCount);
+            if (_stream->availableForWrite() >= 32) {
+                Serial.printf("SERIAL: diag — drops=%u\n", _txDropCount);
+            }
             _txDropCount = 0;
             s_lastSerialDiagMs = now;
         }

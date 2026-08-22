@@ -36,6 +36,7 @@ class RawUsbSerialService implements TransportService {
   // ── State ─────────────────────────────────────────────────────
   bool _connected = false;
   bool _disposed = false;
+  bool _isReading = false;
   Timer? _readPollTimer;
   Timer? _sessionTimer;
   final List<int> _receiveBuffer = [];
@@ -174,15 +175,17 @@ class RawUsbSerialService implements TransportService {
   void _stopReadPoll() {
     _readPollTimer?.cancel();
     _readPollTimer = null;
+    _isReading = false;
   }
 
   Future<void> _pollRead() async {
-    if (!_connected || _disposed) return;
+    if (!_connected || _disposed || _isReading) return;
+    _isReading = true;
 
     try {
       final data = await _channel.invokeMethod<Uint8List>('read', {
         'maxLength': 4096,
-        'timeout': 100,
+        'timeout': 10,
       });
 
       if (data != null && data.isNotEmpty) {
@@ -197,6 +200,8 @@ class RawUsbSerialService implements TransportService {
       }
     } catch (_) {
       // Read errors during polling are non-fatal
+    } finally {
+      _isReading = false;
     }
   }
 

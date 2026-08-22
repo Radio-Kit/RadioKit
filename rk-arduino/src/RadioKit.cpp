@@ -1391,7 +1391,9 @@ void RadioKitClass::_sendToAllTransports(const uint8_t* buf, uint16_t len) {
     if (_wifiActive) RadioKitWiFiInstance.sendPacket(buf, len);
     if (_cloudActive) RadioKitCloudInstance.sendPacket(buf, len);
     if (_serialActive && _transport != &RadioKitSerialInstance) {
-        RadioKitSerialInstance.sendPacket(buf, len);
+        if (RadioKitSerialInstance.isConnected()) {
+            RadioKitSerialInstance.sendPacket(buf, len);
+        }
     }
 }
 
