@@ -78,7 +78,6 @@ GoRouter createRouter(
         },
         branches: [
           StatefulShellBranch(
-            observers: [if (modalTracker != null) modalTracker],
             routes: [
               GoRoute(
                 path: '/models',
@@ -88,7 +87,6 @@ GoRouter createRouter(
           ),
 
           StatefulShellBranch(
-            observers: [if (modalTracker != null) modalTracker],
             routes: [
               GoRoute(
                 path: '/flasher',
@@ -98,7 +96,6 @@ GoRouter createRouter(
           ),
 
           StatefulShellBranch(
-            observers: [if (modalTracker != null) modalTracker],
             routes: [
               GoRoute(
                 path: '/designs',
@@ -107,7 +104,6 @@ GoRouter createRouter(
             ],
           ),
           StatefulShellBranch(
-            observers: [if (modalTracker != null) modalTracker],
             routes: [
               GoRoute(
                 path: '/system',

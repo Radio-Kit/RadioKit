@@ -712,30 +712,15 @@ class _DeviceInfoTabs extends StatefulWidget {
   State<_DeviceInfoTabs> createState() => _DeviceInfoTabsState();
 }
 
-class _DeviceInfoTabsState extends State<_DeviceInfoTabs>
-    with SingleTickerProviderStateMixin {
+class _DeviceInfoTabsState extends State<_DeviceInfoTabs> {
   Map<String, dynamic>? _bleInfo;
   bool _loadingBleInfo = true;
-  TabController? _tabController;
-  int _tabCount = 0;
   bool _sheetAutoClosed = false;
 
   @override
   void initState() {
     super.initState();
-    _initTabs();
     _fetchBleInfo();
-  }
-
-  void _initTabs() {
-    final dp = widget.deviceProvider;
-    final isUserMode = dp.isUserMode;
-    final hasFs = dp.hasFs || (dp.connectedDevice?.hasFs ?? false) || widget.device.hasFs;
-    final hasOta = dp.hasOta;
-    _tabCount = 2;
-    if (hasFs && !isUserMode) _tabCount++;
-    if (hasOta && !isUserMode) _tabCount++;
-    _tabController = TabController(length: _tabCount, vsync: this);
   }
 
   Future<void> _fetchBleInfo() async {
@@ -750,12 +735,6 @@ class _DeviceInfoTabsState extends State<_DeviceInfoTabs>
         _loadingBleInfo = false;
       });
     }
-  }
-
-  @override
-  void dispose() {
-    _tabController?.dispose();
-    super.dispose();
   }
 
   @override
@@ -780,21 +759,6 @@ class _DeviceInfoTabsState extends State<_DeviceInfoTabs>
     final hasOta = dp.hasOta;
     final isUserMode = dp.isUserMode;
 
-    int expectedTabCount = 2;
-    if (hasFs && !isUserMode) expectedTabCount++;
-    if (hasOta && !isUserMode) expectedTabCount++;
-
-    if (_tabController == null || _tabController!.length != expectedTabCount) {
-      final oldIndex = _tabController?.index ?? 0;
-      _tabController?.dispose();
-      _tabController = TabController(
-        length: expectedTabCount,
-        initialIndex: oldIndex.clamp(0, expectedTabCount - 1),
-        vsync: this,
-      );
-      _tabCount = expectedTabCount;
-    }
-
     final tabs = <Tab>[];
     final tabWidgets = <Widget>[];
 
@@ -814,37 +778,43 @@ class _DeviceInfoTabsState extends State<_DeviceInfoTabs>
       tabWidgets.add(FirmwareTabContent(device: device, deviceProvider: dp));
     }
 
-    return SizedBox(
-      height: MediaQuery.of(context).size.height * 0.9,
-      child: Transform.translate(
-        offset: const Offset(0, -18),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded, size: 20),
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  tooltip: 'Back to Models',
-                ),
-                Expanded(
-                  child: TabBar(
-                    controller: _tabController!,
-                    indicatorColor: context.tokens.primary,
-                    labelColor: context.tokens.onSurface,
-                    unselectedLabelColor: context.tokens.onSurface.withValues(alpha: 0.54),
-                    labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, letterSpacing: 1),
-                    tabs: tabs,
+    return DefaultTabController(
+      length: tabs.length,
+      child: Builder(
+        builder: (tabContext) {
+          return SizedBox(
+            height: MediaQuery.of(context).size.height * 0.9,
+            child: Transform.translate(
+              offset: const Offset(0, -18),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                        onPressed: () => Navigator.of(context).maybePop(),
+                        tooltip: 'Back to Models',
+                      ),
+                      Expanded(
+                        child: TabBar(
+                          indicatorColor: context.tokens.primary,
+                          labelColor: context.tokens.onSurface,
+                          unselectedLabelColor: context.tokens.onSurface.withValues(alpha: 0.54),
+                          labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, letterSpacing: 1),
+                          tabs: tabs,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                  Divider(height: 1, color: context.tokens.onSurface.withValues(alpha: 0.12)),
+                  Expanded(
+                    child: TabBarView(children: tabWidgets),
+                  ),
+                ],
+              ),
             ),
-            Divider(height: 1, color: context.tokens.onSurface.withValues(alpha: 0.12)),
-            Expanded(
-              child: TabBarView(controller: _tabController!, children: tabWidgets),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
