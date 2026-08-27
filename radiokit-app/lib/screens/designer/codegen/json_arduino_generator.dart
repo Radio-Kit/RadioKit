@@ -146,11 +146,22 @@ class JsonArduinoGenerator {
       buf.writeln();
     }
 
+    // ─── Canvas Display Flags ───
+    final canvas = json['canvas'] as Map<String, dynamic>? ?? {};
+    final showPageBar = canvas['showPageBar'] as bool? ?? true;
+    final showControlPageBar = canvas['showControlPageBar'] as bool? ?? true;
+    int canvasFlags = 0;
+    if (showPageBar) canvasFlags |= 0x01;
+    if (showControlPageBar) canvasFlags |= 0x02;
+
     // ─── Multi-page initialization ───
     if (isMultiPage) {
       buf.writeln('  RadioKit.setNumPages(RK_NUM_PAGES);');
       buf.writeln('  RadioKit.setPageNames(rk_pageNames);');
       buf.writeln('  RadioKit.setPageOrientations(rk_pageOrientations);');
+      if (canvasFlags != 0x03) {
+        buf.writeln('  RadioKit.setCanvasFlags(0x${canvasFlags.toRadixString(16).padLeft(2, '0')});');
+      }
       buf.writeln();
     }
 

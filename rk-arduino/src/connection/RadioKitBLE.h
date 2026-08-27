@@ -61,9 +61,10 @@ public:
 
     // Internal callbacks invoked by NimBLE event handlers
     void _onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo);
-    void _onDisconnect();
+    void _onDisconnect(int reason = 0);
     void _onMTUChange(uint16_t MTU, NimBLEConnInfo& connInfo);
     void _onWidgetWrite(const uint8_t* data, size_t len);
+    void _onWidgetSubscribe(uint16_t subValue);
     void _onFsWrite(const uint8_t* data, size_t len);
     void _onOtaWrite(const uint8_t* data, size_t len);
     void _onSettingsWrite(const uint8_t* data, size_t len);

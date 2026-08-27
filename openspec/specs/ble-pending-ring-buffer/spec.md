@@ -1,6 +1,9 @@
 # ble-pending-ring-buffer Specification
 
-## ADDED Requirements
+## Purpose
+TBD - created by archiving change fix-ble-frame-contention. Update Purpose after archive.
+
+## Requirements
 
 ### Requirement: Multi-slot pending frame queue
 `RadioKitBLE::sendPacket()` SHALL use an 8-slot ring buffer for pending frames instead of a single-slot buffer. When `sendPacket()` is re-entered during an in-progress send (e.g., an incoming BLE write triggers an ACK), the outgoing frame SHALL be enqueued to the next free ring slot instead of overwriting the previous pending frame. If the ring buffer is full, the frame SHALL be dropped and the drop counter incremented.

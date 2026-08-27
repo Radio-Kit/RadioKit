@@ -180,6 +180,7 @@ RadioKit.startCloud();                         // Start cloud relay client
 RadioKit.setNumPages(uint8_t n);               // Set total page count (call before begin)
 RadioKit.setPageNames(const char* const* names); // Set page name array (call before begin)
 RadioKit.setPageOrientations(const uint8_t* or); // Set per-page orientations: 0=landscape, 1=portrait (call before begin)
+RadioKit.setCanvasFlags(uint8_t flags);         // Set canvas display flags: 0x01=showPageBar, 0x02=showControlPageBar (call before begin)
 RadioKit.setActivePage(uint8_t page);          // Switch active page at runtime
 RadioKit.getActivePage();                      // Get current page index
 RadioKit.getNumPages();                        // Get total page count

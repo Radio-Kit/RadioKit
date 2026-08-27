@@ -171,6 +171,7 @@ private:
     uint8_t _numPages   = 1;
     const char* const* _pageNames = nullptr;
     uint8_t _pageOrientations[RADIOKIT_MAX_PAGES] = {0}; // 0=landscape, 1=portrait
+    uint8_t _canvasFlags = RK_CANVAS_DEFAULT_FLAGS;
 
     // ── Visibility dirty flag ────────────────────────────────
     bool _confDirty = false;
@@ -189,6 +190,8 @@ public:
             _pageOrientations[i] = orientations[i];
         }
     }
+    void setCanvasFlags(uint8_t flags) { _canvasFlags = flags; }
+    uint8_t getCanvasFlags() const { return _canvasFlags; }
 
     /// Mark CONF_DATA as needing rebuild (called by Widget on hidden/labelHidden change).
     static void markConfDirty();

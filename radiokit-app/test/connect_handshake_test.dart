@@ -20,7 +20,14 @@ class _FakeTransport implements TransportService {
   /// When true, answers a GET_CONF write with CONF_DATA.
   final bool answerGetConf;
 
-  _FakeTransport({this.pushOnConnect = false, this.answerGetConf = true});
+  /// Custom CONF_DATA packet to return instead of default.
+  final ParsedPacket? customConfPacket;
+
+  _FakeTransport({
+    this.pushOnConnect = false,
+    this.answerGetConf = true,
+    this.customConfPacket,
+  });
 
   @override
   PacketReceivedCallback? onPacketReceived;
@@ -43,7 +50,7 @@ class _FakeTransport implements TransportService {
   Future<void> connect(String deviceId, {int baudRate = 1000000}) async {
     connected = true;
     if (pushOnConnect) {
-      onPacketReceived?.call(_confDataPacket());
+      onPacketReceived?.call(customConfPacket ?? _confDataPacket());
     }
   }
 
@@ -56,7 +63,7 @@ class _FakeTransport implements TransportService {
   Future<void> writePacket(Uint8List data) async {
     writtenPackets.add(data);
     if (answerGetConf && data.length >= 4 && data[3] == kCmdGetConf) {
-      onPacketReceived?.call(_confDataPacket());
+      onPacketReceived?.call(customConfPacket ?? _confDataPacket());
     }
   }
 
@@ -162,6 +169,66 @@ void main() {
       expect(sw.elapsedMilliseconds, lessThan(2000),
           reason: 'push arriving during connect must skip the 3s push window');
       expect(transport.sentCommand(kCmdGetConf), isFalse);
+    });
+
+    test('multi-page connect applies activePage orientation immediately',
+        () async {
+      // v5 CONF_DATA: orientation=0 (global landscape), 0 widgets, activePage=1, numPages=2, theme="dragon", pageOrientations=[0, 1] (page 1 is portrait), canvasFlags=0x03
+      final multiPageConfPacket = ParsedPacket(
+        cmd: kCmdConfData,
+        payload: Uint8List.fromList([
+          0x00, 0x00, 0x01, 0x02,
+          0x06, 0x64, 0x72, 0x61, 0x67, 0x6f, 0x6e, // "dragon"
+          0x00, 0x01, // page 0 = 0 (landscape), page 1 = 1 (portrait)
+          0x03, // canvasFlags = 0x03
+        ]),
+      );
+
+      final transport = _FakeTransport(
+        pushOnConnect: false,
+        answerGetConf: true,
+        customConfPacket: multiPageConfPacket,
+      );
+      final dp = DeviceProvider(transport: transport);
+      addTearDown(dp.dispose);
+
+      await dp.connectToDevice(bleDevice());
+
+      expect(dp.connectionState, DeviceConnectionState.connected);
+      expect(dp.numPages, 2);
+      expect(dp.activePage, 1);
+      expect(dp.pageOrientations, [0, 1]);
+      expect(dp.orientation, 1,
+          reason: 'orientation must match activePage (page 1 = portrait)');
+    });
+
+    test('multi-page connect applies canvasFlags to deviceConfigJson',
+        () async {
+      // v5 CONF_DATA with canvasFlags = 0x01 (showPageBar=true, showControlPageBar=false)
+      final confPacket = ParsedPacket(
+        cmd: kCmdConfData,
+        payload: Uint8List.fromList([
+          0x00, 0x00, 0x00, 0x02,
+          0x06, 0x64, 0x72, 0x61, 0x67, 0x6f, 0x6e, // "dragon"
+          0x00, 0x00, // pageOrientations
+          0x01, // canvasFlags: showPageBar=true, showControlPageBar=false
+        ]),
+      );
+
+      final transport = _FakeTransport(
+        pushOnConnect: false,
+        answerGetConf: true,
+        customConfPacket: confPacket,
+      );
+      final dp = DeviceProvider(transport: transport);
+      addTearDown(dp.dispose);
+
+      await dp.connectToDevice(bleDevice());
+
+      expect(dp.connectionState, DeviceConnectionState.connected);
+      final canvas = dp.deviceConfigJson?['canvas'] as Map<String, dynamic>?;
+      expect(canvas?['showPageBar'], isTrue);
+      expect(canvas?['showControlPageBar'], isFalse);
     });
   });
 }

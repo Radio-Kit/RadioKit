@@ -1,4 +1,9 @@
-## ADDED Requirements
+# serial-nonblocking-tx Specification
+
+## Purpose
+TBD - created by archiving change fix-usb-serial-blocking-lag. Update Purpose after archive.
+
+## Requirements
 
 ### Requirement: Non-blocking native USB CDC writes
 The firmware SHALL configure native USB CDC interfaces with a transmit timeout of 0 milliseconds (`setTxTimeoutMs(0)`) so write calls never block the main loop on FreeRTOS semaphore waits when endpoint FIFOs are full.

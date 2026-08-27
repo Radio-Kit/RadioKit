@@ -1,9 +1,6 @@
-# Page Orientation Override
-
-Purpose: TBD
-
+## Purpose
+Define per-page orientation override settings and behavior for multi-page RadioKit configurations.
 ## Requirements
-
 ### Requirement: Per-page orientation override
 Each page in a multi-page design SHALL have an orientation override field that can be "global" (inherit from CONTROL UI), "landscape" (force), or "portrait" (force). The default for new pages SHALL be "global".
 
@@ -57,7 +54,11 @@ Page bar tabs SHALL display a small rotation indicator badge when the page has a
 - **THEN** the tab does not show a rotation indicator badge
 
 ### Requirement: Control screen orientation re-lock
-When the user switches pages in the control screen, the phone's system orientation SHALL be re-locked to match the new page's effective orientation.
+When the user switches pages in the control screen or when the initial connection handshake processes CONF_DATA, the phone's system orientation SHALL be locked to match the active page's effective orientation.
+
+#### Scenario: Initial connection applies active page orientation
+- **WHEN** the app connects to a device and receives CONF_DATA with activePage = N
+- **THEN** the phone's system orientation is locked to the effective orientation of page N (_pageOrientations[N])
 
 #### Scenario: Page switch updates phone orientation
 - **WHEN** user switches from a landscape page to a portrait page in the control screen
@@ -66,3 +67,4 @@ When the user switches pages in the control screen, the phone's system orientati
 #### Scenario: Same orientation no-op
 - **WHEN** user switches between two pages with the same effective orientation
 - **THEN** the phone's system orientation remains unchanged
+

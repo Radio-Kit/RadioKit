@@ -136,6 +136,13 @@
 #define RK_STR_EXTRA         (1 << 7) ///< Widget-specific binary configuration (v3.1+)
 
 // ─────────────────────────────────────────────
+//  Canvas Display Flags (CONF_DATA canvas flags byte)
+// ─────────────────────────────────────────────
+#define RK_CANVAS_SHOW_PAGE_BAR         (1 << 0) ///< Show page tabs in Designer/Edit mode (0x01)
+#define RK_CANVAS_SHOW_CONTROL_PAGE_BAR (1 << 1) ///< Show page tabs in Play/Control mode (0x02)
+#define RK_CANVAS_DEFAULT_FLAGS         0x03     ///< Both page bars visible by default
+
+// ─────────────────────────────────────────────
 //  Widget limits
 // ─────────────────────────────────────────────
 #define RADIOKIT_MAX_WIDGETS 32

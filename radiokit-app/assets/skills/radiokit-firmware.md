@@ -163,6 +163,9 @@ RadioKit.startBLE(const char* name = nullptr); // Start BLE (NimBLE)
 RadioKit.startSerial(Stream& stream);          // Start Serial transport
 RadioKit.startWiFi();                          // Start WiFi WebSocket server
 RadioKit.startCloud();                         // Start cloud relay client
+RadioKit.setPageOrientations(const uint8_t* or); // Set per-page orientations: 0=landscape, 1=portrait (call before begin)
+RadioKit.setCanvasFlags(uint8_t flags);         // Set canvas display flags: 0x01=showPageBar, 0x02=showControlPageBar (call before begin)
+RadioKit.setActivePage(uint8_t page);          // Switch active page at runtime
 ```
 
 ### Loop Methods

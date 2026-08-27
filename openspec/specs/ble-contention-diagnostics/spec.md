@@ -1,9 +1,12 @@
 # ble-contention-diagnostics Specification
 
-## ADDED Requirements
+## Purpose
+TBD - created by archiving change fix-ble-frame-contention. Update Purpose after archive.
+
+## Requirements
 
 ### Requirement: TX contention drop counter
-The BLE transport SHALL maintain a `static uint16_t` drop counter that increments each time a frame is dropped because the pending ring buffer is full. The counter SHALL be logged via `Serial.printf()` every 10 seconds in the format `BLE: diag — drops=%u pending=%u`, where `drops` is the cumulative drop count and `pending` is the current ring buffer occupancy.
+The BLE transport SHALL maintain a `static uint16_t` drop counter that increments each time a frame is dropped because the pending ring buffer is full. The counter SHALL be logged via `Serial.printf()` every 10 seconds in the format `BLE: diag -- drops=%u pending=%u`, where `drops` is the cumulative drop count and `pending` is the current ring buffer occupancy.
 
 #### Scenario: No contention
 - **WHEN** the BLE transport operates normally with no ring buffer overflows

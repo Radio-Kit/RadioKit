@@ -134,9 +134,7 @@ class RemoteAccessProvider extends ChangeNotifier {
         _historyProvider = historyProvider,
         _consoleProvider = consoleProvider,
         _designsProvider = designsProvider {
-    if (kDebugMode) {
-      start();
-    }
+    start();
   }
 
   Future<String?> start() async {

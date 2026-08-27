@@ -79,6 +79,35 @@ void main() {
         expect(parsed.widgets[0].widgetId, equals(5));
         expect(parsed.widgets[0].label, equals('BTN'));
       });
+
+      test('parses v5 multi-page payload with canvasFlags', () {
+        // [ORIENTATION(0)] [NUM_WIDGETS(0)] [ACTIVE_PAGE(1)] [NUM_PAGES(2)] [THEME_LEN(5)] [THEME...] [PAGE_ORIENTATIONS(2)] [CANVAS_FLAGS(1)]
+        final payload = [
+          0x00, 0x00, 0x01, 0x02,
+          0x05, 0x74, 0x68, 0x65, 0x6d, 0x65, // "theme"
+          0x00, 0x01, // pageOrientations: [0, 1]
+          0x01, // canvasFlags: 0x01 (showPageBar=true, showControlPageBar=false)
+        ];
+        final parsed = ProtocolService.parseConfData(payload);
+        expect(parsed, isNotNull);
+        expect(parsed!.activePage, equals(1));
+        expect(parsed.numPages, equals(2));
+        expect(parsed.pageOrientations, equals([0, 1]));
+        expect(parsed.canvasFlags, equals(0x01));
+      });
+
+      test('parses v5 multi-page payload without canvasFlags with default fallback', () {
+        // [ORIENTATION(0)] [NUM_WIDGETS(0)] [ACTIVE_PAGE(0)] [NUM_PAGES(2)] [THEME_LEN(5)] [THEME...] [PAGE_ORIENTATIONS(2)]
+        final payload = [
+          0x00, 0x00, 0x00, 0x02,
+          0x05, 0x74, 0x68, 0x65, 0x6d, 0x65, // "theme"
+          0x00, 0x00, // pageOrientations: [0, 0]
+        ];
+        final parsed = ProtocolService.parseConfData(payload);
+        expect(parsed, isNotNull);
+        expect(parsed!.numPages, equals(2));
+        expect(parsed.canvasFlags, equals(0x03));
+      });
     });
 
     group('SET_INPUT building', () {

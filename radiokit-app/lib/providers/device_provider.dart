@@ -313,6 +313,9 @@ class DeviceProvider extends ChangeNotifier {
   /// Page names from the device.
   List<String> get pageNames => List.unmodifiable(_pageNames);
 
+  /// Per-page effective orientations from the device.
+  List<int> get pageOrientations => List.unmodifiable(_pageOrientations);
+
   /// Live telemetry values keyed by widget index (0-based).
   Map<int, String> get telemetryValues => Map.unmodifiable(_telemetryValues);
 
@@ -713,6 +716,9 @@ class DeviceProvider extends ChangeNotifier {
     // 4. If base is same AND layers are correct, only update callbacks
     if (identical(currentBase, base) && hasCorrectLayers) {
       _transport.onPacketReceived = _handlePacket;
+      _transport.onFsPacketReceived = _handleFsPacket;
+      _transport.onOtaPacketReceived = _handleOtaPacket;
+      _transport.onSettingsPacketReceived = _handleSettingsPacket;
       _transport.onConnectionLost = _handleConnectionLost;
       return;
     }
@@ -1980,34 +1986,6 @@ class DeviceProvider extends ChangeNotifier {
             ? w
             : w.copyWith(pageIndex: conf.activePage))
         .toList();
-    _orientation     = conf.orientation;
-    _widgetState     = RadioWidgetState.initial(conf.widgets);
-    _connectionState = DeviceConnectionState.connected;
-
-    // Convert to designer-format JSON and cache for fast UI rendering.
-    // CONF_DATA does not carry `features`/`enableControlUI`/page-bar flags on
-    // the wire; so the reconstruction inherits them from (1) a saved design
-    // matching the device config name (source of truth), falling back to
-    // (2) any previously reconstructed values from this session.
-    final designSeed = _designSeedForConfig(_configName ?? fallbackName);
-    final prev = _deviceConfigJson;
-    _deviceConfigJson = widgetConfigsToDesignerJson(
-      widgets: _widgets,
-      name: _configName ?? fallbackName,
-      description: _description ?? '',
-      orientation: conf.orientation,
-      theme: conf.theme,
-      pageNames: _pageNames,
-      numPages: conf.numPages,
-      features: (designSeed?['features'] as Map<String, dynamic>?) ??
-          prev?['features'] as Map<String, dynamic>?,
-      enableControlUI: (designSeed?['enableControlUI'] as bool?) ??
-          prev?['enableControlUI'] as bool?,
-      showPageBar: (designSeed?['showPageBar'] as bool?) ??
-          (prev?['canvas'] as Map?)?['showPageBar'] as bool?,
-      showControlPageBar: (designSeed?['showControlPageBar'] as bool?) ??
-          (prev?['canvas'] as Map?)?['showControlPageBar'] as bool?,
-    );
     _numPages = conf.numPages;
     _activePage = conf.activePage;
     // Use per-page orientations from device if available, fallback to global
@@ -2016,6 +1994,43 @@ class DeviceProvider extends ChangeNotifier {
     } else {
       _pageOrientations = List.filled(_numPages, conf.orientation);
     }
+    if (_activePage < _pageOrientations.length) {
+      _orientation = _pageOrientations[_activePage];
+    } else {
+      _orientation = conf.orientation;
+    }
+    _widgetState     = RadioWidgetState.initial(conf.widgets);
+    _connectionState = DeviceConnectionState.connected;
+
+    final wireShowPageBar = (conf.canvasFlags & 0x01) != 0;
+    final wireShowControlPageBar = (conf.canvasFlags & 0x02) != 0;
+
+    // Convert to designer-format JSON and cache for fast UI rendering.
+    // CONF_DATA carries `canvasFlags` for showPageBar/showControlPageBar;
+    // designer-only features/enableControlUI are inherited from (1) a saved design
+    // matching the device config name (source of truth), falling back to
+    // (2) any previously reconstructed values from this session.
+    final designSeed = _designSeedForConfig(_configName ?? fallbackName);
+    final prev = _deviceConfigJson;
+    _deviceConfigJson = widgetConfigsToDesignerJson(
+      widgets: _widgets,
+      name: _configName ?? fallbackName,
+      description: _description ?? '',
+      orientation: _orientation,
+      theme: conf.theme,
+      pageNames: _pageNames,
+      numPages: conf.numPages,
+      features: (designSeed?['features'] as Map<String, dynamic>?) ??
+          prev?['features'] as Map<String, dynamic>?,
+      enableControlUI: (designSeed?['enableControlUI'] as bool?) ??
+          prev?['enableControlUI'] as bool?,
+      showPageBar: (designSeed?['showPageBar'] as bool?) ??
+          (prev?['canvas'] as Map?)?['showPageBar'] as bool? ??
+          wireShowPageBar,
+      showControlPageBar: (designSeed?['showControlPageBar'] as bool?) ??
+          (prev?['canvas'] as Map?)?['showControlPageBar'] as bool? ??
+          wireShowControlPageBar,
+    );
 
     // Apply the skin provided by the device
     _themePresetProvider?.setTheme(conf.theme);

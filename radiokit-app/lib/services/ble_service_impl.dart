@@ -63,17 +63,7 @@ class BleService implements TransportService {
 
     _log('Connecting to $deviceId (multi-device)...');
     await UniversalBle.connect(deviceId);
-
-    // Request large MTU
-    int mtu = 23;
-    try {
-      _log('Requesting MTU of 512...');
-      final negotiated = await UniversalBle.requestMtu(deviceId, 512);
-      mtu = (negotiated - 3).clamp(23, 600);
-      _log('Using effective MTU: $mtu');
-    } catch (e) {
-      _log('MTU request failed, using default 23: $e');
-    }
+    await Future.delayed(const Duration(milliseconds: 200));
 
     // Discover services
     _log('Discovering services for $deviceId...');
@@ -126,7 +116,7 @@ class BleService implements TransportService {
       otaId: charOtaId,
       settingsId: charSettingsId,
       printId: charPrintId,
-      mtu: mtu,
+      mtu: 23,
     );
 
     // Subscribe to all discovered characteristics sequentially
@@ -135,8 +125,30 @@ class BleService implements TransportService {
       if (cid != null) {
         try {
           await UniversalBle.subscribeNotifications(deviceId, actualServiceId, cid);
-        } catch (_) {}
+          await Future.delayed(const Duration(milliseconds: 150));
+        } catch (e) {
+          _log('Subscription error for $cid: $e');
+        }
       }
+    }
+
+    // Request large MTU after subscriptions are established
+    int mtu = 23;
+    try {
+      _log('Requesting MTU of 512...');
+      final negotiated = await UniversalBle.requestMtu(deviceId, 512);
+      mtu = (negotiated - 3).clamp(23, 600);
+      _log('Using effective MTU: $mtu');
+      transport.setCharacteristics(
+        widgetId: charWidgetId,
+        fsId: charFsId,
+        otaId: charOtaId,
+        settingsId: charSettingsId,
+        printId: charPrintId,
+        mtu: mtu,
+      );
+    } catch (e) {
+      _log('MTU request failed, using default 23: $e');
     }
 
     // Request high priority (11.25ms - 15ms interval on Android) for low-latency controls
@@ -469,18 +481,7 @@ class BleService implements TransportService {
       _log('Connecting to $deviceId...');
       await UniversalBle.connect(deviceId);
       _connectedDeviceId = deviceId;
-
-      // Request large MTU
-      try {
-        _log('Requesting MTU of 512...');
-        final negotiated = await UniversalBle.requestMtu(deviceId, 512);
-        _log('MTU requestMtu returned: $negotiated');
-        _mtu = (negotiated - 3).clamp(23, 600);
-        _log('Using effective MTU: $_mtu (max BLE write payload: ${_mtu - 3})');
-      } catch (e) {
-        _log('MTU request failed, using default 23: $e');
-        _mtu = 23;
-      }
+      await Future.delayed(const Duration(milliseconds: 200));
 
       // Discover services — find all three characteristics
       _log('Discovering services...');
@@ -491,7 +492,6 @@ class BleService implements TransportService {
           _log('  -> Characteristic: ${c.uuid} (Notify: ${c.properties.contains(CharacteristicProperty.notify)})');
         }
       }
-
       final serviceUuid = kRadioKitServiceUuid.toLowerCase();
       final widgetCharUuid = kRadioKitCharWidgetUuid.toLowerCase();
       final fsCharUuid = kRadioKitCharFsUuid.toLowerCase();
@@ -552,6 +552,7 @@ class BleService implements TransportService {
       for (final (charId, name) in discoveredChars) {
         try {
           await UniversalBle.subscribeNotifications(deviceId, actualServiceId, charId);
+          await Future.delayed(const Duration(milliseconds: 100));
           _log('$name subscription SUCCESS');
         } catch (e) {
           _log('$name subscription ERROR: $e');
@@ -564,6 +565,18 @@ class BleService implements TransportService {
       _receiveOtaBuffer.clear();
       _receiveSettingsBuffer.clear();
       _receivePrintBuffer.clear();
+
+      // Request large MTU after subscriptions are established
+      try {
+        _log('Requesting MTU of 512...');
+        final negotiated = await UniversalBle.requestMtu(deviceId, 512);
+        _log('MTU requestMtu returned: $negotiated');
+        _mtu = (negotiated - 3).clamp(23, 600);
+        _log('Using effective MTU: $_mtu (max BLE write payload: ${_mtu - 3})');
+      } catch (e) {
+        _log('MTU request failed, using default 23: $e');
+        _mtu = 23;
+      }
     } catch (e) {
       _log('Connection ERROR: $e');
       _connectedDeviceId = null;

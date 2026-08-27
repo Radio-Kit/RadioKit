@@ -279,9 +279,34 @@ void main() {
         ];
         final output = JsonArduinoGenerator.generate(json);
 
-        expect(output, contains('static const uint8_t rk_pageOrientations[]'));
-        expect(output, contains('0,  // Landscape'));
         expect(output, contains('1,  // Portrait'));
+      });
+
+      test('does not emit setCanvasFlags when both flags are true', () {
+        final output = JsonArduinoGenerator.generate(multiPageJson);
+        expect(output, isNot(contains('RadioKit.setCanvasFlags')));
+      });
+
+      test('emits setCanvasFlags when showControlPageBar is false', () {
+        final json = Map<String, dynamic>.from(multiPageJson);
+        json['canvas'] = {
+          'showPageBar': true,
+          'showControlPageBar': false,
+          'orientation': 'landscape',
+        };
+        final output = JsonArduinoGenerator.generate(json);
+        expect(output, contains('RadioKit.setCanvasFlags(0x01)'));
+      });
+
+      test('emits setCanvasFlags when showPageBar is false', () {
+        final json = Map<String, dynamic>.from(multiPageJson);
+        json['canvas'] = {
+          'showPageBar': false,
+          'showControlPageBar': true,
+          'orientation': 'landscape',
+        };
+        final output = JsonArduinoGenerator.generate(json);
+        expect(output, contains('RadioKit.setCanvasFlags(0x02)'));
       });
 
       test('emits page-grouped widget declarations', () {

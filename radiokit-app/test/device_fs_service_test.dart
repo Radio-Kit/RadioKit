@@ -181,29 +181,29 @@ void main() {
       expect(t.sent[0][1], kFsCmdWrite);
     });
 
-    test('chunks a 20 KB write at the 8 KB default', () async {
+    test('chunks a write at the 480 B default', () async {
       final t = _FakeFsTransport();
-      // 20 KB / 8 KB = 3 chunks.
+      // 1000 B / 480 B = 3 chunks (480 + 480 + 40).
       t.responses.add(ack());
       t.responses.add(ack());
       t.responses.add(ack());
       final svc = DeviceFsService(t);
-      final data = Uint8List(20480);
+      final data = Uint8List(1000);
       final res = await svc.writeFile('/big.bin', data);
       expect(res.success, isTrue);
       expect(t.sent.length, 3);
     });
 
-    test('caps chunkSize at 12 KB to stay under the 16 KB frame limit', () async {
+    test('caps chunkSize at 480 B to stay under single BLE packet limit', () async {
       final t = _FakeFsTransport();
-      // 30 KB write with chunkSize=20 KB. Should cap to 12 KB.
-      // 30 KB / 12 KB = 3 chunks (12 + 12 + 6).
+      // 1000 B write with chunkSize=1000. Should cap to 480 B.
+      // 1000 / 480 = 3 chunks (480 + 480 + 40).
       t.responses.add(ack());
       t.responses.add(ack());
       t.responses.add(ack());
       final svc = DeviceFsService(t);
-      final data = Uint8List(30720);
-      final res = await svc.writeFile('/huge.bin', data, chunkSize: 20480);
+      final data = Uint8List(1000);
+      final res = await svc.writeFile('/huge.bin', data, chunkSize: 1000);
       expect(res.success, isTrue);
       expect(t.sent.length, 3);
     });
@@ -234,10 +234,10 @@ void main() {
       final events = <int>[];
       await svc.writeFile(
         '/x',
-        Uint8List(16000),
+        Uint8List(960),
         onProgress: (w, total) => events.add(w),
       );
-      expect(events, [8192, 16000]);
+      expect(events, [480, 960]);
     });
   });
 

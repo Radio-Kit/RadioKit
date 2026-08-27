@@ -1309,6 +1309,7 @@ uint16_t RadioKitClass::_buildConfPayload(uint8_t* buf, uint16_t bufSize) {
         for (uint8_t i = 0; i < _numPages; i++) {
             buf[out++] = _pageOrientations[i];
         }
+        buf[out++] = _canvasFlags;
     }
 
     for (uint8_t i = 0; i < _widgetCount; i++) {

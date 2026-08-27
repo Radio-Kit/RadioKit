@@ -42,7 +42,7 @@ public:
         RadioKitBLEInstance._onConnect(pServer, connInfo);
     }
     void onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo, int reason) override { 
-        RadioKitBLEInstance._onDisconnect(); 
+        RadioKitBLEInstance._onDisconnect(reason); 
     }
     void onMTUChange(uint16_t MTU, NimBLEConnInfo& connInfo) override {
         RadioKitBLEInstance._onMTUChange(MTU, connInfo);
@@ -58,13 +58,7 @@ public:
             RadioKitBLEInstance._onWidgetWrite(value.data(), value.length());
     }
     void onSubscribe(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo, uint16_t subValue) override {
-        // Serial-only to avoid spamming the print buffer on every BLE connect
-        Serial.printf("BLE: Widget char subscribed (subValue=%d)\n", subValue);
-        if (subValue != 0) {
-            // Push CONF_DATA + VAR_DATA as soon as a client subscribes so the
-            // app can render without waiting for GET_CONF/GET_VARS round-trips.
-            RadioKit.pushConfigAndVars();
-        }
+        RadioKitBLEInstance._onWidgetSubscribe(subValue);
     }
 };
 
@@ -166,13 +160,6 @@ void RadioKitBLE::begin(const char* deviceName, RK_PacketCallback cb) {
     RadioKit.print("BLE: Requested MTU 512\n");
     Serial.println("BLE: Requested MTU 512");
 
-    // 2. Prefer 2M PHY for maximum throughput.
-    //    ESP32-S3 supports BLE 5.0 with 2M PHY.
-    //    Masks: BLE_GAP_LE_PHY_1M = 1, BLE_GAP_LE_PHY_2M = 2, BLE_GAP_LE_PHY_CODED = 4
-    NimBLEDevice::setDefaultPhy(BLE_GAP_LE_PHY_2M_MASK, BLE_GAP_LE_PHY_2M_MASK);
-    RadioKit.print("BLE: Preferred 2M PHY\n");
-    Serial.println("BLE: Preferred 2M PHY");
-
     // 3. Set power to +9 dBm for stronger signal (ESP32-S3 max)
     NimBLEDevice::setPower(9, NimBLETxPowerType::All);
 
@@ -253,9 +240,6 @@ void RadioKitBLE::begin(const char* deviceName, RK_PacketCallback cb) {
     pAdv->setScanResponseData(scanData);
     pAdv->enableScanResponse(true);
 
-    // Optimized connection advertising params:
-    // minInterval = 0x06 * 0.625ms = 3.75ms, maxInterval = 0x06 * 0.625ms = 3.75ms
-    pAdv->setPreferredParams(0x06, 0x06);
     pAdv->start();
     
     RadioKit.print("BLE: System ready.\n");
@@ -269,7 +253,7 @@ void RadioKitBLE::begin(const char* deviceName, RK_PacketCallback cb) {
             "ble_tx",        // Task name
             4096,            // Stack size (4KB — enough for sendPacket locals)
             this,            // Parameter = this instance
-            configMAX_PRIORITIES - 4,  // Below NimBLE host task, allows main loop to run
+            1,               // Low priority (below NimBLE host task)
             &_txTaskHandle,
             0                // Core 0 (protocol core)
         );
@@ -330,22 +314,23 @@ void RadioKitBLE::sendPacket(const uint8_t* buf, uint16_t len) {
 
     // Non-blocking enqueue for widget & telemetry frames: copy into ring buffer slot and signal TX task.
     // The main loop() returns immediately — no BLE blocking.
+    bool enqueued = false;
+    portENTER_CRITICAL(&_txMux);
     if (_pendingCount < kPendingRingSize && len <= RK_MAX_PACKET_SIZE) {
         PendingFrame& slot = _pendingRing[_pendingHead];
         memcpy(slot.data, buf, len);
         slot.len = len;
         _pendingHead = (_pendingHead + 1) % kPendingRingSize;
-
-        portENTER_CRITICAL(&_txMux);
         _pendingCount++;
         if (_pendingCount > s_txQueueMaxDepth) s_txQueueMaxDepth = _pendingCount;
-        portEXIT_CRITICAL(&_txMux);
-
-        // Signal TX task to wake and drain
-        xSemaphoreGive(_txSemaphore);
+        enqueued = true;
     } else {
-        // Ring buffer full — drop and count
         s_pendingDrops++;
+    }
+    portEXIT_CRITICAL(&_txMux);
+
+    if (enqueued) {
+        xSemaphoreGive(_txSemaphore);
     }
 }
 
@@ -365,101 +350,23 @@ void RadioKitBLE::ble_tx_task(void* pvParameters) {
 }
 
 void RadioKitBLE::_drainTxQueue() {
-    // Batch multiple frames into a single BLE write to reduce notify() calls.
-    // With MTU 498, we can fit ~40 small VAR_UPDATE frames per batch.
-    // The firmware's _onWidgetWrite() handles concatenated packets via rk_rxFeedByte().
-    static const int kMaxBatchFrames = 8;
-    static const uint16_t kBatchBufSize = RK_MAX_PACKET_SIZE * kMaxBatchFrames;
-    uint8_t batchBuf[kBatchBufSize];
-
     while (_pendingCount > 0 && _connected) {
-        // Accumulate frames into a batch up to MTU limit
-        uint16_t batchLen = 0;
-        int batchCount = 0;
-        NimBLECharacteristic* target = nullptr;
-
-        while (_pendingCount > 0 && batchCount < kMaxBatchFrames && _connected) {
-            PendingFrame frame;
-            portENTER_CRITICAL(&_txMux);
-            frame = _pendingRing[_pendingTail];
-            _pendingTail = (_pendingTail + 1) % kPendingRingSize;
-            _pendingCount--;
+        PendingFrame frame;
+        portENTER_CRITICAL(&_txMux);
+        if (_pendingCount == 0) {
             portEXIT_CRITICAL(&_txMux);
-
-            NimBLECharacteristic* frameTarget = _charForBuf(frame.data);
-            if (!frameTarget) continue;
-
-            // All frames in a batch must target the same characteristic
-            if (target == nullptr) {
-                target = frameTarget;
-            } else if (frameTarget != target) {
-                // Different characteristic — put frame back and break batch
-                // (Re-enqueue by writing to head — safe because we own the critical section)
-                _pendingHead = (_pendingHead + kPendingRingSize - 1) % kPendingRingSize;
-                _pendingRing[_pendingHead] = frame;
-                portENTER_CRITICAL(&_txMux);
-                _pendingCount++;
-                portEXIT_CRITICAL(&_txMux);
-                break;
-            }
-
-            // Check if frame fits in batch
-            uint16_t mtu = _negotiatedMtu;
-            if (mtu < 23) mtu = 23;
-            mtu -= 3;
-
-            if (batchLen + frame.len <= mtu) {
-                memcpy(batchBuf + batchLen, frame.data, frame.len);
-                batchLen += frame.len;
-                batchCount++;
-            } else if (batchCount == 0) {
-                // Single frame exceeds MTU — slice and send directly across notifications
-                uint16_t offset = 0;
-                while (offset < frame.len && _connected) {
-                    uint16_t chunk = frame.len - offset;
-                    if (chunk > mtu) chunk = mtu;
-                    frameTarget->notify(frame.data + offset, chunk);
-                    offset += chunk;
-                }
-                break;
-            } else {
-                // Frame won't fit — put it back and break batch to send current batch
-                _pendingHead = (_pendingHead + kPendingRingSize - 1) % kPendingRingSize;
-                _pendingRing[_pendingHead] = frame;
-                portENTER_CRITICAL(&_txMux);
-                _pendingCount++;
-                portEXIT_CRITICAL(&_txMux);
-                break;
-            }
+            break;
         }
+        frame = _pendingRing[_pendingTail];
+        _pendingTail = (_pendingTail + 1) % kPendingRingSize;
+        _pendingCount--;
+        portEXIT_CRITICAL(&_txMux);
 
-        if (!target || batchLen == 0) continue;
-
-        // Send the entire batch in one BLE notify (reduces per-frame 48ms blocking)
-        unsigned long sendStart = millis();
-        bool success = false;
-        for (int retry = 0; retry <= 1 && !success; retry++) {
-            if (millis() - sendStart >= 50) break;
-            if (!_connected) break;
-            success = (_connHandle != 0xFFFF)
-                ? target->notify(batchBuf, batchLen, _connHandle)
-                : target->notify(batchBuf, batchLen);
-            if (!success) yield();
+        NimBLECharacteristic* target = _charForBuf(frame.data);
+        if (target && frame.len > 0 && _connected) {
+            target->notify(frame.data, frame.len);
         }
-        if (!success) {
-            s_pendingDrops += batchCount;
-        }
-    }
-
-    // Diagnostic: log drops and queue depth every 10 seconds
-    uint32_t now = millis();
-    if ((s_pendingDrops > 0 || s_txQueueMaxDepth > 2) &&
-        (now - s_lastDiagLog >= 10000)) {
-        s_lastDiagLog = now;
-        Serial.printf("BLE: diag — drops=%u maxQueueDepth=%u\n",
-            s_pendingDrops, s_txQueueMaxDepth);
-        s_pendingDrops = 0;
-        s_txQueueMaxDepth = 0;
+        vTaskDelay(pdMS_TO_TICKS(5));
     }
 }
 
@@ -528,7 +435,7 @@ void RadioKitBLE::_processPendingOta() {
 }
 
 void RadioKitBLE::_onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) {
-    _connected = true;
+    _connected = false; // Remains false until client subscribes to widget char
     _connHandle = connInfo.getConnHandle();
 
     _connIntervalMs = (uint16_t)(connInfo.getConnInterval() * 1.25f);
@@ -543,20 +450,6 @@ void RadioKitBLE::_onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) {
     if (_negotiatedMtu < 3) _negotiatedMtu = RK_BLE_MTU;
     RadioKit.printf("BLE: Initial MTU = %u (will update after negotiation)\n", _negotiatedMtu);
     Serial.printf("BLE: Initial MTU = %u (will update after negotiation)\n", _negotiatedMtu);
-
-    // ── Post-connection optimizations ─────────────────────────────
-
-    pServer->updateConnParams(_connHandle, 6, 8, 0, 400);
-    RadioKit.print("BLE: Requested connection params (7.5-10ms, lat=0, timeout=4s)\n");
-    Serial.println("BLE: Requested connection params (7.5-10ms, lat=0, timeout=4s)");
-
-    pServer->setDataLen(_connHandle, 251);
-    RadioKit.print("BLE: Requested data length 251 (DLE)\n");
-    Serial.println("BLE: Requested data length 251 (DLE)");
-
-    pServer->updatePhy(_connHandle, BLE_GAP_LE_PHY_2M_MASK, BLE_GAP_LE_PHY_2M_MASK, 0);
-    RadioKit.print("BLE: Requested 2M PHY update\n");
-    Serial.println("BLE: Requested 2M PHY update");
 }
 
 void RadioKitBLE::_onMTUChange(uint16_t MTU, NimBLEConnInfo& connInfo) {
@@ -565,7 +458,18 @@ void RadioKitBLE::_onMTUChange(uint16_t MTU, NimBLEConnInfo& connInfo) {
     Serial.printf("BLE: MTU negotiated to %u\n", MTU);
 }
 
-void RadioKitBLE::_onDisconnect() {
+void RadioKitBLE::_onWidgetSubscribe(uint16_t subValue) {
+    Serial.printf("BLE: Widget char subscribed (subValue=%d)\n", subValue);
+    if (subValue != 0) {
+        _connected = true;
+        RadioKit.pushConfigAndVars();
+    } else {
+        _connected = false;
+    }
+}
+
+void RadioKitBLE::_onDisconnect(int reason) {
+    portENTER_CRITICAL(&_txMux);
     _connected = false;
     _sending = false;
     _pendingHead = 0;
@@ -578,11 +482,12 @@ void RadioKitBLE::_onDisconnect() {
     _hasPendingOta = false;
     _connHandle = 0xFFFF;
     _negotiatedMtu = RK_BLE_MTU;
+    portEXIT_CRITICAL(&_txMux);
     rk_rxReset();
     rk_fsRxReset();
     rk_otaRxReset();
-    RadioKit.print("BLE: Client disconnected\n");
-    Serial.println("BLE: Client disconnected");
+    RadioKit.printf("BLE: Client disconnected (reason=%d, 0x%02X)\n", reason, reason);
+    Serial.printf("BLE: Client disconnected (reason=%d, 0x%02X)\n", reason, reason);
 
     NimBLEAdvertising* pAdv = NimBLEDevice::getAdvertising();
     if (pAdv) {

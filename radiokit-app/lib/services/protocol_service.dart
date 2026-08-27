@@ -16,6 +16,7 @@ class ParsedConf {
   final int activePage;
   final int numPages;
   final List<int> pageOrientations;
+  final int canvasFlags;
   final List<WidgetConfig> widgets;
   const ParsedConf({
     required this.name,
@@ -25,6 +26,7 @@ class ParsedConf {
     this.activePage = 0,
     this.numPages = 1,
     this.pageOrientations = const [],
+    this.canvasFlags = 0x03,
     required this.widgets,
   });
 }
@@ -440,6 +442,7 @@ class ProtocolService {
 
     // Parse per-page orientations (1 byte per page when numPages > 1)
     final pageOrientations = <int>[];
+    int canvasFlags = 0x03;
     if (numPages > 1) {
       for (int i = 0; i < numPages; i++) {
         if (offset >= payload.length) {
@@ -447,6 +450,9 @@ class ProtocolService {
           break;
         }
         pageOrientations.add(payload[offset++]);
+      }
+      if (offset < payload.length) {
+        canvasFlags = payload[offset++];
       }
     }
 
@@ -580,6 +586,7 @@ class ProtocolService {
       activePage: activePage,
       numPages: numPages,
       pageOrientations: pageOrientations,
+      canvasFlags: canvasFlags,
       widgets: widgets,
     );
   }

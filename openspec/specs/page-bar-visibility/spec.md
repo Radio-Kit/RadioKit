@@ -3,9 +3,7 @@
 ## Purpose
 
 Toggle show/hide for the designer page bar.
-
 ## Requirements
-
 ### Requirement: Toggle page bar visibility
 The designer SHALL include a toggle button to show or hide the page bar. The toggle button SHALL be located in the page bar area itself (right side).
 
@@ -23,19 +21,19 @@ The designer SHALL include a toggle button to show or hide the page bar. The tog
 - **THEN** the page bar expands back to its full height with an animated transition
 
 ### Requirement: Persist page bar visibility in config
-The page bar visibility state SHALL be stored in the JSON config under `canvas.showPageBar`. The default value SHALL be `true` when the field is missing.
+The page bar visibility states SHALL be stored in the JSON config under `canvas.showPageBar` and `canvas.showControlPageBar`, and transmitted over the wire protocol via `CONF_DATA` canvas flags. The default value SHALL be `true` when fields or wire flags are missing.
 
 #### Scenario: Save visibility state
-- **WHEN** user hides the page bar
-- **THEN** the JSON config contains `"showPageBar": false` in the canvas object
+- **WHEN** user hides the page bar or control page bar in the designer
+- **THEN** the JSON config contains `"showPageBar": false` or `"showControlPageBar": false` in the canvas object
 
-#### Scenario: Load visibility state
-- **WHEN** a design config with `"showPageBar": false` is loaded
-- **THEN** the page bar starts hidden
+#### Scenario: Load visibility state from wire
+- **WHEN** the app receives CONF_DATA with canvasFlags bit 1 cleared
+- **THEN** the control UI page switcher tab bar is hidden
 
 #### Scenario: Backward compatibility
-- **WHEN** a design config without `showPageBar` field is loaded
-- **THEN** the page bar defaults to visible
+- **WHEN** a design config or CONF_DATA payload without canvasFlags is loaded
+- **THEN** the page bar and control page bar default to visible
 
 ### Requirement: Single toggle button
 The toggle SHALL use a single button that changes icon based on state:
@@ -47,3 +45,4 @@ The toggle SHALL use a single button that changes icon based on state:
 - **THEN** toggle shows panelTopOpen icon
 - **WHEN** page bar is hidden
 - **THEN** restore button shows panelTopClose icon
+
