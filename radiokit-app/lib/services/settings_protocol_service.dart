@@ -300,9 +300,9 @@ class SettingsProtocolService {
     return (fsUrl: fsUrl, otaUrl: otaUrl);
   }
 
-  /// Parse DEVICE_INFO_DATA: [PROTO_VER(1)][NAME_LEN(1)][NAME][DESC_LEN(1)][DESC][UID_LEN(1)][UID][ICON_LEN(1)][ICON...]
-  /// Icon field is optional (protocol v5+). Returns null if icon is absent.
-  static ({int version, String name, String description, String uid, String? icon})? parseDeviceInfoData(
+  /// Parse DEVICE_INFO_DATA: [PROTO_VER(1)][NAME_LEN(1)][NAME][DESC_LEN(1)][DESC][UID_LEN(1)][UID][ICON_LEN(1)][ICON...][VER_LEN(1)][VERSION...]
+  /// Icon and firmwareVersion fields are optional (protocol v5+). Returns null if invalid.
+  static ({int version, String name, String description, String uid, String? icon, String? firmwareVersion})? parseDeviceInfoData(
       List<int> payload) {
     if (payload.length < 3) return null;
     int offset = 0;
@@ -336,9 +336,27 @@ class SettingsProtocolService {
       if (iconLen > 0 && offset + iconLen <= payload.length) {
         icon = utf8.decode(payload.sublist(offset, offset + iconLen),
             allowMalformed: true);
+        offset += iconLen;
       }
       // If iconLen == 0, icon remains null (not set)
     }
-    return (version: version, name: name, description: description, uid: uid, icon: icon);
+    // Parse optional firmware version string
+    String? firmwareVersion;
+    if (offset + 1 <= payload.length) {
+      final verLen = payload[offset++];
+      if (verLen > 0 && offset + verLen <= payload.length) {
+        firmwareVersion = utf8.decode(payload.sublist(offset, offset + verLen),
+            allowMalformed: true);
+        offset += verLen;
+      }
+    }
+    return (
+      version: version,
+      name: name,
+      description: description,
+      uid: uid,
+      icon: icon,
+      firmwareVersion: firmwareVersion,
+    );
   }
 }

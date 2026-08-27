@@ -29,7 +29,7 @@ struct RK_Config {
     const char* name        = "RadioKit Device";
     const char* password    = "";
     const char* description = "";
-    const char* version     = "1.0.0";
+    const char* version     = RK_VERSION;
     const char* type        = "";
     const char* theme       = "dragon";
     uint8_t     orientation = RK_LANDSCAPE;

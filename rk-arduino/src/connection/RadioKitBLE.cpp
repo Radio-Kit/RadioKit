@@ -70,8 +70,6 @@ public:
             RadioKitBLEInstance._onFsWrite(value.data(), value.length());
     }
     void onSubscribe(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo, uint16_t subValue) override {
-        // Serial-only to avoid spamming the print buffer on every BLE connect
-        Serial.printf("BLE: FS char subscribed (subValue=%d)\n", subValue);
     }
 };
 
@@ -83,8 +81,6 @@ public:
             RadioKitBLEInstance._onOtaWrite(value.data(), value.length());
     }
     void onSubscribe(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo, uint16_t subValue) override {
-        // Serial-only to avoid spamming the print buffer on every BLE connect
-        Serial.printf("BLE: OTA char subscribed (subValue=%d)\n", subValue);
     }
 };
 
@@ -101,16 +97,12 @@ public:
             RadioKitBLEInstance._onSettingsWrite(value.data(), value.length());
     }
     void onSubscribe(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo, uint16_t subValue) override {
-        // Serial-only to avoid spamming the print buffer on every BLE connect
-        Serial.printf("BLE: Settings char subscribed (subValue=%d)\n", subValue);
     }
 };
 
 class RKPrintCharCallbacks : public NimBLECharacteristicCallbacks {
 public:
     void onSubscribe(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo, uint16_t subValue) override {
-        // Serial-only to avoid spamming the print buffer on every BLE connect
-        Serial.printf("BLE: Print char subscribed (subValue=%d)\n", subValue);
     }
 };
 
@@ -149,7 +141,6 @@ void RadioKitBLE::begin(const char* deviceName, RK_PacketCallback cb) {
     digitalWrite(7, HIGH); delay(100); digitalWrite(7, LOW);
 
     RadioKit.print("BLE: Initializing stack...\n");
-    Serial.println("BLE: Initializing stack...");
     NimBLEDevice::init(deviceName ? deviceName : "RadioKit");
 
     // ── BLE Optimizations ────────────────────────────────────────
@@ -158,25 +149,21 @@ void RadioKitBLE::begin(const char* deviceName, RK_PacketCallback cb) {
     //    Must be called BEFORE creating server/service/characteristic.
     NimBLEDevice::setMTU(512);
     RadioKit.print("BLE: Requested MTU 512\n");
-    Serial.println("BLE: Requested MTU 512");
 
     // 3. Set power to +9 dBm for stronger signal (ESP32-S3 max)
     NimBLEDevice::setPower(9, NimBLETxPowerType::All);
 
     RadioKit.print("BLE: Creating server...\n");
-    Serial.println("BLE: Creating server...");
     _server = NimBLEDevice::createServer();
     _server->setCallbacks(&s_serverCallbacks);
 
     RadioKit.print("BLE: Creating service...\n");
-    Serial.println("BLE: Creating service...");
     NimBLEService* pService = _server->createService(RK_BLE_SERVICE_UUID);
 
     // ── Three dedicated characteristics ───────────────────────────
     // Each protocol gets its own pipe — prevents notification interleaving.
 
     RadioKit.print("BLE: Creating widget char (0xFFE1)...\n");
-    Serial.println("BLE: Creating widget char (0xFFE1)...");
     _charWidget = pService->createCharacteristic(
         RK_BLE_CHAR_WIDGET_UUID,
         NIMBLE_PROPERTY::WRITE   |
@@ -186,7 +173,6 @@ void RadioKitBLE::begin(const char* deviceName, RK_PacketCallback cb) {
     _charWidget->setCallbacks(&s_widgetCharCallbacks);
 
     RadioKit.print("BLE: Creating FS char (0xFFE2)...\n");
-    Serial.println("BLE: Creating FS char (0xFFE2)...");
     _charFs = pService->createCharacteristic(
         RK_BLE_CHAR_FS_UUID,
         NIMBLE_PROPERTY::WRITE   |
@@ -196,7 +182,6 @@ void RadioKitBLE::begin(const char* deviceName, RK_PacketCallback cb) {
     _charFs->setCallbacks(&s_fsCharCallbacks);
 
     RadioKit.print("BLE: Creating OTA char (0xFFE3)...\n");
-    Serial.println("BLE: Creating OTA char (0xFFE3)...");
     _charOta = pService->createCharacteristic(
         RK_BLE_CHAR_OTA_UUID,
         NIMBLE_PROPERTY::WRITE   |
@@ -206,7 +191,6 @@ void RadioKitBLE::begin(const char* deviceName, RK_PacketCallback cb) {
     _charOta->setCallbacks(&s_otaCharCallbacks);
 
     RadioKit.print("BLE: Creating Settings char (0xFFE4)...\n");
-    Serial.println("BLE: Creating Settings char (0xFFE4)...");
     _charSettings = pService->createCharacteristic(
         RK_BLE_CHAR_SETTINGS_UUID,
         NIMBLE_PROPERTY::WRITE   |
@@ -216,7 +200,6 @@ void RadioKitBLE::begin(const char* deviceName, RK_PacketCallback cb) {
     _charSettings->setCallbacks(&s_settingsCharCallbacks);
 
     RadioKit.print("BLE: Creating Print char (0xFFE5 — notify-only)...\n");
-    Serial.println("BLE: Creating Print char (0xFFE5 — notify-only)...");
     _charPrint = pService->createCharacteristic(
         RK_BLE_CHAR_PRINT_UUID,
         NIMBLE_PROPERTY::NOTIFY
@@ -224,11 +207,9 @@ void RadioKitBLE::begin(const char* deviceName, RK_PacketCallback cb) {
     _charPrint->setCallbacks(&s_printCharCallbacks);
 
     RadioKit.print("BLE: Starting server...\n");
-    Serial.println("BLE: Starting server...");
     _server->start();
 
     RadioKit.print("BLE: Starting advertising...\n");
-    Serial.println("BLE: Starting advertising...");
     NimBLEAdvertising* pAdv = NimBLEDevice::getAdvertising();
     NimBLEAdvertisementData advData;
     advData.setFlags(BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP);
@@ -243,7 +224,6 @@ void RadioKitBLE::begin(const char* deviceName, RK_PacketCallback cb) {
     pAdv->start();
     
     RadioKit.print("BLE: System ready.\n");
-    Serial.println("BLE: System ready.");
 
     // Create the non-blocking TX task and semaphore
     _txSemaphore = xSemaphoreCreateBinary();
@@ -259,7 +239,6 @@ void RadioKitBLE::begin(const char* deviceName, RK_PacketCallback cb) {
         );
         _txTaskRunning = true;
         RadioKit.print("BLE: TX task started\n");
-        Serial.println("BLE: TX task started");
     }
 }
 
@@ -464,24 +443,19 @@ void RadioKitBLE::_onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) {
     if (_connIntervalMs < 8) _connIntervalMs = 8;
     RadioKit.printf("BLE: Client connected (handle=%u, interval=%ums)\n",
         _connHandle, _connIntervalMs);
-    Serial.printf("BLE: Client connected (handle=%u, interval=%ums)\n",
-        _connHandle, _connIntervalMs);
 
     // Cache the initial (pre-negotiation) MTU
     _negotiatedMtu = pServer->getPeerMTU(_connHandle);
     if (_negotiatedMtu < 3) _negotiatedMtu = RK_BLE_MTU;
     RadioKit.printf("BLE: Initial MTU = %u (will update after negotiation)\n", _negotiatedMtu);
-    Serial.printf("BLE: Initial MTU = %u (will update after negotiation)\n", _negotiatedMtu);
 }
 
 void RadioKitBLE::_onMTUChange(uint16_t MTU, NimBLEConnInfo& connInfo) {
     _negotiatedMtu = MTU;
     RadioKit.printf("BLE: MTU negotiated to %u\n", MTU);
-    Serial.printf("BLE: MTU negotiated to %u\n", MTU);
 }
 
 void RadioKitBLE::_onWidgetSubscribe(uint16_t subValue) {
-    Serial.printf("BLE: Widget char subscribed (subValue=%d)\n", subValue);
     if (subValue != 0) {
         _connected = true;
         RadioKit.pushConfigAndVars();
@@ -509,7 +483,6 @@ void RadioKitBLE::_onDisconnect(int reason) {
     rk_fsRxReset();
     rk_otaRxReset();
     RadioKit.printf("BLE: Client disconnected (reason=%d, 0x%02X)\n", reason, reason);
-    Serial.printf("BLE: Client disconnected (reason=%d, 0x%02X)\n", reason, reason);
 
     NimBLEAdvertising* pAdv = NimBLEDevice::getAdvertising();
     if (pAdv) {
@@ -623,7 +596,6 @@ void RadioKitBLE::updateAdvertisingName(const char* name) {
     }
     
     RadioKit.print("BLE: Advertising re-started with new name\n");
-    Serial.println("BLE: Advertising re-started with new name");
 }
 
 #else // !defined(RK_ENABLE_BLE) — no-op stubs for non-BLE platforms

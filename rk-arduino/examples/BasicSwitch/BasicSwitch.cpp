@@ -27,7 +27,6 @@ void setup() {
   Serial.begin(1000000);
   while (!Serial) { delay(10); } // Wait for host to open port (DTR/RTS)
   delay(500); // Brief settle time after DTR received
-  Serial.println("--- RadioKit BasicSwitch Start ---");
 
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);
@@ -39,7 +38,8 @@ void setup() {
   // Initialize RadioKit from the UI config and start USB Serial.
   initRadioKit();
 
-  Serial.println("RK: Setup complete.");
+  RadioKit.println("--- RadioKit BasicSwitch Start ---");
+  RadioKit.println("RK: Setup complete.");
 }
 
 // ── State tracking ────────────────────────────────────────────

@@ -114,6 +114,10 @@ void RadioKitClass::begin() {
     RKFs::setSender(&RadioKitClass::_sendFsFrame);
     rk_fsSetCallback(&RadioKitClass::_onFsPacket);
 
+#if defined(RK_ENABLE_OTA)
+    enableOTA();
+#endif
+
     // ── Initialise NVS and load config ──────────────────────────────
     _nvsActive = RKNvs::init();
 
@@ -1037,14 +1041,8 @@ void RadioKitClass::_handleSettingsGetChipInfo() {
 
 void RadioKitClass::_handleSettingsDeviceInfo() {
     if (!_transport) return;
-    RadioKit.printf("DEVICE_INFO: Sending name='%s' uid='%s'\n",
-        _nvsActive && _nvsName[0] ? _nvsName : (config.name ? config.name : ""),
-        _nvsDeviceUid);
-    Serial.printf("DEVICE_INFO: Sending name='%s' uid='%s'\n",
-        _nvsActive && _nvsName[0] ? _nvsName : (config.name ? config.name : ""),
-        _nvsDeviceUid);
-    // Payload: [PROTO_VER(1)][NAME_LEN(1)][NAME][DESC_LEN(1)][DESC][UID_LEN(1)][UID(16)][ICON_LEN(1)][ICON...]
-    uint8_t buf[1 + 1 + RADIOKIT_MAX_NAME + 1 + RADIOKIT_MAX_DESC + 1 + 16 + 1 + RADIOKIT_MAX_DEVICE_ICON];
+    // Payload: [PROTO_VER(1)][NAME_LEN(1)][NAME][DESC_LEN(1)][DESC][UID_LEN(1)][UID(16)][ICON_LEN(1)][ICON...][VER_LEN(1)][VERSION...]
+    uint8_t buf[1 + 1 + RADIOKIT_MAX_NAME + 1 + RADIOKIT_MAX_DESC + 1 + 16 + 1 + RADIOKIT_MAX_DEVICE_ICON + 1 + RADIOKIT_MAX_VERSION];
     uint16_t offset = 0;
     buf[offset++] = RK_PROTOCOL_VERSION;
     const char* name = _nvsActive && _nvsName[0] ? _nvsName : (config.name ? config.name : "");
@@ -1071,6 +1069,15 @@ void RadioKitClass::_handleSettingsDeviceInfo() {
     if (iconLen > 0) {
         memcpy(&buf[offset], icon, iconLen);
         offset += iconLen;
+    }
+
+    // Append firmware version (optional)
+    const char* ver = config.version ? config.version : "";
+    uint8_t verLen = (uint8_t)strnlen(ver, RADIOKIT_MAX_VERSION);
+    buf[offset++] = verLen;
+    if (verLen > 0) {
+        memcpy(&buf[offset], ver, verLen);
+        offset += verLen;
     }
 
     uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
@@ -1583,15 +1590,17 @@ void RadioKitClass::_handleOtaBegin(const uint8_t* payload, uint16_t len) {
     s_otaBytesWritten = 0;
 
     // Abort any stale OTA in progress
-    Update.abort();
+    if (Update.isRunning()) {
+        Update.abort();
+    }
+    Update.clearError();
     s_otaBytesWritten = 0;
 
     if (!Update.begin(firmwareSize)) {
         uint8_t err = RK_OTA_ERR_NO_SPACE;
         uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
         _sendOtaFrame(rk_otaTxBuf(), frameLen);
-        RadioKit.printf("OTA: Update.begin failed (no space?)\n");
-        Serial.printf("OTA: Update.begin failed (no space?)\n");
+        RadioKit.printf("OTA: Update.begin failed (no space? size=%u)\n", firmwareSize);
         return;
     }
 
@@ -1641,8 +1650,6 @@ void RadioKitClass::_handleOtaChunk(const uint8_t* payload, uint16_t len) {
     if (chunkOffset != s_otaBytesWritten) {
         RadioKit.printf("OTA: Offset mismatch — got %u, expected %u\n",
             chunkOffset, s_otaBytesWritten);
-        Serial.printf("OTA: Offset mismatch — got %u, expected %u\n",
-            chunkOffset, s_otaBytesWritten);
         uint8_t err = RK_OTA_ERR_SEQ;
         uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
         _sendOtaFrame(rk_otaTxBuf(), frameLen);
@@ -1652,7 +1659,6 @@ void RadioKitClass::_handleOtaChunk(const uint8_t* payload, uint16_t len) {
     size_t written = Update.write((uint8_t*)(&payload[4]), dataLen);
     if (written != dataLen) {
         RadioKit.printf("OTA: Write error — wrote %u of %u bytes\n", written, dataLen);
-        Serial.printf("OTA: Write error — wrote %u of %u bytes\n", written, dataLen);
         uint8_t err = RK_OTA_ERR_FLASH;
         uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
         _sendOtaFrame(rk_otaTxBuf(), frameLen);
@@ -1664,29 +1670,6 @@ void RadioKitClass::_handleOtaChunk(const uint8_t* payload, uint16_t len) {
     uint8_t err = RK_OTA_ERR_OK;
     uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
     _sendOtaFrame(rk_otaTxBuf(), frameLen);
-
-    // Send periodic progress notification (every ~5% or every 50 chunks)
-    uint32_t total = Update.size();
-    uint32_t received = s_otaBytesWritten;
-    if (total > 0) {
-        uint32_t pct = (received * 100) / total;
-        s_otaChunkCount++;
-        if (pct >= s_otaLastProgressPct + 5 || s_otaChunkCount - s_otaLastProgressChunk >= 50) {
-            s_otaLastProgressPct = pct;
-            s_otaLastProgressChunk = s_otaChunkCount;
-            uint8_t progBuf[8];
-            progBuf[0] = (uint8_t)(received & 0xFF);
-            progBuf[1] = (uint8_t)((received >> 8) & 0xFF);
-            progBuf[2] = (uint8_t)((received >> 16) & 0xFF);
-            progBuf[3] = (uint8_t)((received >> 24) & 0xFF);
-            progBuf[4] = (uint8_t)(total & 0xFF);
-            progBuf[5] = (uint8_t)((total >> 8) & 0xFF);
-            progBuf[6] = (uint8_t)((total >> 16) & 0xFF);
-            progBuf[7] = (uint8_t)((total >> 24) & 0xFF);
-            uint16_t pLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_PROGRESS, progBuf, 8);
-            _sendOtaFrame(rk_otaTxBuf(), pLen);
-        }
-    }
 #else
     uint8_t err = RK_OTA_ERR_NOT_SUPPORTED;
     uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
@@ -1728,7 +1711,6 @@ void RadioKitClass::_handleOtaEnd(const uint8_t* payload, uint16_t len) {
     if (!Update.end()) {
         // Flash write error during finalisation
         RadioKit.printf("OTA: Update.end() failed\n");
-        Serial.printf("OTA: Update.end() failed\n");
         uint8_t err = RK_OTA_ERR_FLASH;
         uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
         _sendOtaFrame(rk_otaTxBuf(), frameLen);
@@ -1742,7 +1724,6 @@ void RadioKitClass::_handleOtaEnd(const uint8_t* payload, uint16_t len) {
     const esp_partition_t* next = esp_ota_get_next_update_partition(running);
     if (!next) {
         RadioKit.printf("OTA: No next OTA partition found\n");
-        Serial.printf("OTA: No next OTA partition found\n");
         uint8_t err = RK_OTA_ERR_FLASH;
         uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
         _sendOtaFrame(rk_otaTxBuf(), frameLen);
@@ -1753,7 +1734,6 @@ void RadioKitClass::_handleOtaEnd(const uint8_t* payload, uint16_t len) {
     esp_err_t err = esp_ota_set_boot_partition(next);
     if (err != ESP_OK) {
         RadioKit.printf("OTA: esp_ota_set_boot_partition failed: %d\n", err);
-        Serial.printf("OTA: esp_ota_set_boot_partition failed: %d\n", err);
         uint8_t errCode = RK_OTA_ERR_FLASH;
         uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &errCode, 1);
         _sendOtaFrame(rk_otaTxBuf(), frameLen);
@@ -1781,14 +1761,15 @@ void RadioKitClass::_handleOtaAbort() {
 #if RK_ARCH_DETECTED == RK_ARCH_ESP32
     if (!_otaReady) {
         RadioKit.print("OTA: Abort ignored — OTA not enabled\n");
-        Serial.println("OTA: Abort ignored — OTA not enabled");
         return;
     }
     RK_DEBUG_PRINT("OTA: Abort requested\n");
-    Update.abort();
+    if (Update.isRunning()) {
+        Update.abort();
+    }
+    Update.clearError();
     s_otaBytesWritten = 0;
     RadioKit.print("OTA: Aborted — partition released, ready for new OTA\n");
-    Serial.println("OTA: Aborted — partition released, ready for new OTA");
 #else
     RadioKit.print("OTA: Abort ignored — OTA not supported\n");
     Serial.println("OTA: Abort ignored — OTA not supported");

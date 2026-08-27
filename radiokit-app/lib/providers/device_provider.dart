@@ -306,12 +306,16 @@ class DeviceProvider extends ChangeNotifier {
 
   String _fsUrl = '';
   String _otaUrl = '';
+  String? _firmwareVersion;
 
   /// Configured filesystem repo / subfolder link from the device.
   String get fsUrl => _fsUrl;
 
   /// Configured OTA firmware link placeholder from the device.
   String get otaUrl => _otaUrl;
+
+  /// Firmware version reported by the device (e.g. "1.0.0").
+  String? get firmwareVersion => _firmwareVersion;
 
   /// Current active page index (0-based).
   int get activePage => _activePage;
@@ -1846,10 +1850,13 @@ class DeviceProvider extends ChangeNotifier {
       _log('DEVICE_INFO_DATA parse failed', level: ConsoleLogLevel.error);
       return;
     }
-    _log('Device info: v${parsed.version} "${parsed.name}" "${parsed.description}" uid="${parsed.uid}"',
+    _log('Device info: v${parsed.version} "${parsed.name}" "${parsed.description}" uid="${parsed.uid}" ver="${parsed.firmwareVersion ?? ''}"',
         level: ConsoleLogLevel.success);
     _configName = parsed.name.isNotEmpty ? parsed.name : _configName;
     _description = parsed.description.isNotEmpty ? parsed.description : _description;
+    if (parsed.firmwareVersion != null && parsed.firmwareVersion!.isNotEmpty) {
+      _firmwareVersion = parsed.firmwareVersion;
+    }
 
     // Update DeviceInfo name to match the device's configured name,
     // not the transport address (e.g. "WiFi_Cloud_Switch", not "10.0.0.5").
@@ -3049,6 +3056,7 @@ class DeviceProvider extends ChangeNotifier {
     _cloudTransport   = null;
     _fsUrl            = '';
     _otaUrl           = '';
+    _firmwareVersion  = null;
     _linksInfoCompleter = null;
     // Note: saved password is NOT cleared on disconnect so it persists
     // for reconnection. Clear only on factory reset or explicit unpair.

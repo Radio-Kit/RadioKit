@@ -157,6 +157,7 @@ RADIOKIT_Designer_Config__*/
 #ifndef RADIOKIT_UI_H
 #define RADIOKIT_UI_H
 
+#define RK_ENABLE_OTA
 #define RK_ENABLE_BLE
 #include <RadioKitLib.h>
 
@@ -172,6 +173,8 @@ static inline void initRadioKit() {
   RadioKit.config.type        = "IOT";
   RadioKit.config.theme       = "dragon";
   RadioKit.config.baudrate    = 1000000;
+  RadioKit.config.version     = "1.0.0";
+  RadioKit.config.ota_url     = "https://github.com/Radio-Kit/demo-fs-assets";
 
   button_1.rk.onText  = "ON";
   button_1.rk.offText = "OFF";
@@ -180,8 +183,8 @@ static inline void initRadioKit() {
 
   RadioKit.begin();
 
-  RadioKit.startSerial(Serial);
   RadioKit.startBLE();
+  RadioKit.startSerial(Serial);
 }
 
 #endif // RADIOKIT_UI_H
