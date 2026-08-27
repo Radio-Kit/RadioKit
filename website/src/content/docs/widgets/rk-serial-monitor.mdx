@@ -1,0 +1,51 @@
+---
+title: RKSerialMonitor
+description: Serial monitor widget for streaming text
+---
+
+A serial monitor widget for RadioKit, designed to display a streaming list of text messages. It supports auto-scrolling to the latest message and customizable typography.
+
+## Constructor
+
+```dart
+RKSerialMonitor({
+  required List<String> messages,
+  double width = 300.0,
+  double height = 200.0,
+  double fontSize = 12.0,
+  String fontFamily = 'monospace',
+  Color? textColor,
+  bool autoScroll = true,
+  ValueChanged<bool>? onInteractionChanged,
+  double rotation = 0.0,
+  String? label,
+})
+```
+
+## Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `messages` | `List<String>` | Required | The list of string messages to display. |
+| `width` | `double` | `300` | Width of the serial monitor container. |
+| `height` | `double` | `200` | Height of the serial monitor container. |
+| `fontSize` | `double` | `12` | Font size for the text messages. |
+| `fontFamily` | `String` | `'monospace'` | Font family for the messages. |
+| `textColor` | `Color?` | `null` | Color of the text. Defaults to theme primary. |
+| `autoScroll` | `bool` | `true` | Auto-scroll to the latest message. |
+| `onInteractionChanged` | `ValueChanged<bool>?` | `null` | Callback when user starts/stops touching. |
+| `rotation` | `double` | `0.0` | Visual rotation in radians. |
+| `label` | `String?` | `null` | Optional text label above the widget. |
+
+## Example
+
+```dart
+RKSerialMonitor(
+  messages: ['> SYS: Booting...', '> SYS: Online'],
+  width: 300,
+  height: 200,
+  fontFamily: 'monospace',
+  textColor: Colors.greenAccent,
+  autoScroll: true,
+);
+```

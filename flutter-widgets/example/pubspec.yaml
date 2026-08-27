@@ -1,0 +1,28 @@
+name: radiokit_widgets_example
+description: Widget Playground for RadioKit.
+publish_to: none
+version: 1.0.0
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.10.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  radiokit_widgets:
+    path: ../
+  go_router: ^17.3.0
+  lucide_icons_flutter: ^3.1.13
+  simple_icons:
+    git:
+      url: https://github.com/PiscesXD/simple_icons.git
+      ref: master
+  flex_color_picker: ^3.8.0
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

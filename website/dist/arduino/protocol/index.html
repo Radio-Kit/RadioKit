@@ -1,0 +1,1004 @@
+<!DOCTYPE html><html lang="en" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-bguv2lll"> <head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Protocol Specification | RADIO_KIT</title><link rel="canonical" href="https://rambros3d.github.io/arduino/protocol/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml"/><meta name="generator" content="Astro v5.18.2"/><meta name="generator" content="Starlight v0.34.8"/><meta property="og:title" content="Protocol Specification"/><meta property="og:type" content="article"/><meta property="og:url" content="https://rambros3d.github.io/arduino/protocol/"/><meta property="og:locale" content="en"/><meta property="og:description" content="Binary packet format for RadioKit communication"/><meta property="og:site_name" content="RADIO_KIT"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="Binary packet format for RadioKit communication"/><script>
+	window.StarlightThemeProvider = (() => {
+		const storedTheme =
+			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+		const theme =
+			storedTheme ||
+			(window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+		document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+		return {
+			updatePickers(theme = storedTheme || 'auto') {
+				document.querySelectorAll('starlight-theme-select').forEach((picker) => {
+					const select = picker.querySelector('select');
+					if (select) select.value = theme;
+					/** @type {HTMLTemplateElement | null} */
+					const tmpl = document.querySelector(`#theme-icons`);
+					const newIcon = tmpl && tmpl.content.querySelector('.' + theme);
+					if (newIcon) {
+						const oldIcon = picker.querySelector('svg.label-icon');
+						if (oldIcon) {
+							oldIcon.replaceChildren(...newIcon.cloneNode(true).childNodes);
+						}
+					}
+				});
+			},
+		};
+	})();
+</script><template id="theme-icons"><svg aria-hidden="true" class="light astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.DNXP8c50.css" media="print"><link rel="stylesheet" href="/_astro/index.xqrk6sQT.css"><script type="module" src="/_astro/page.B1D-nYk3.js"></script></head> <body class="astro-bguv2lll"> <a href="#_top" class="astro-7q3lir66">Skip to content</a>  <div class="page sl-flex astro-vrdttmbt"> <header class="header astro-vrdttmbt"><div class="header astro-bkumecsx"> <div class="title-wrapper sl-flex astro-bkumecsx"> <a href="/" class="site-title sl-flex astro-m46x6ez3">  <img class="astro-m46x6ez3" alt="RADIO_KIT Logo" src="/_astro/logo.7i8Y6VFo.svg" width="120" height="120">  <span class="astro-m46x6ez3" translate="no"> RADIO_KIT </span> </a>  </div> <div class="nav-right astro-bkumecsx"> <div class="sl-hidden md:sl-flex print:hidden right-group astro-bkumecsx"> <div class="sl-flex social-icons astro-bkumecsx"> <a href="https://github.com/rambros3d/RadioKit" rel="me" class="sl-flex astro-wy4te6ga"><span class="sr-only astro-wy4te6ga">GitHub</span><svg aria-hidden="true" class="astro-wy4te6ga astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a> </div> <label for="theme-modal" id="theme-toggle" aria-label="Theme settings" class="astro-bkumecsx"> <svg class="icon-sun astro-bkumecsx" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"> <circle cx="12" cy="12" r="4" class="astro-bkumecsx"></circle> <path d="M12 2v2" class="astro-bkumecsx"></path><path d="M12 20v2" class="astro-bkumecsx"></path> <path d="m4.93 4.93 1.41 1.41" class="astro-bkumecsx"></path><path d="m17.66 17.66 1.41 1.41" class="astro-bkumecsx"></path> <path d="M2 12h2" class="astro-bkumecsx"></path><path d="M20 12h2" class="astro-bkumecsx"></path> <path d="m6.34 17.66-1.41 1.41" class="astro-bkumecsx"></path><path d="m19.07 4.93-1.41 1.41" class="astro-bkumecsx"></path> </svg> <svg class="icon-moon astro-bkumecsx" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"> <path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" class="astro-bkumecsx"></path> </svg> <svg class="icon-auto astro-bkumecsx" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"> <path d="M12 2v2" class="astro-bkumecsx"></path><path d="m4.93 4.93 1.41 1.41" class="astro-bkumecsx"></path> <path d="M20 12h2" class="astro-bkumecsx"></path><path d="m19.07 4.93-1.41 1.41" class="astro-bkumecsx"></path> <path d="M15.947 12.65a4 4 0 0 0-5.925-4.128" class="astro-bkumecsx"></path> <path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z" class="astro-bkumecsx"></path> </svg> </label> <script type="module">class s extends HTMLElement{constructor(){super();const e=this.querySelector("select");e&&(e.addEventListener("change",t=>{t.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=t.currentTarget.value)}),window.addEventListener("pageshow",t=>{if(!t.persisted)return;const n=e.querySelector("option[selected]")?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}}customElements.define("starlight-lang-select",s);</script> </div> </div> </div> <!-- Theme Dialog (CSS-only DaisyUI modal) --> <input type="checkbox" id="theme-modal" class="modal-toggle astro-bkumecsx"> <div class="modal astro-bkumecsx" role="dialog"> <div class="dialog-panel astro-bkumecsx"> <div class="dialog-header astro-bkumecsx"> <h2 class="astro-bkumecsx">Theme Settings</h2> <label for="theme-modal" aria-label="Close" class="dialog-close-btn astro-bkumecsx"> <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="astro-bkumecsx"> <line x1="18" y1="6" x2="6" y2="18" class="astro-bkumecsx"></line><line x1="6" y1="6" x2="18" y2="18" class="astro-bkumecsx"></line> </svg> </label> </div> <div class="dialog-section astro-bkumecsx"> <h3 class="dialog-section-title astro-bkumecsx">Mode</h3> <div class="mode-group astro-bkumecsx" role="radiogroup" aria-label="Theme mode"> <button class="mode-btn astro-bkumecsx" data-mode="system" role="radio" aria-checked="false"> <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="astro-bkumecsx"> <rect x="2" y="3" width="20" height="14" rx="2" class="astro-bkumecsx"></rect> <line x1="8" y1="21" x2="16" y2="21" class="astro-bkumecsx"></line> <line x1="12" y1="17" x2="12" y2="21" class="astro-bkumecsx"></line> </svg>
+System
+</button> <button class="mode-btn astro-bkumecsx" data-mode="dark" role="radio" aria-checked="false"> <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="astro-bkumecsx"> <path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" class="astro-bkumecsx"></path> </svg>
+Dark
+</button> <button class="mode-btn astro-bkumecsx" data-mode="light" role="radio" aria-checked="false"> <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="astro-bkumecsx"> <circle cx="12" cy="12" r="4" class="astro-bkumecsx"></circle> <path d="M12 2v2" class="astro-bkumecsx"></path><path d="M12 20v2" class="astro-bkumecsx"></path> <path d="m4.93 4.93 1.41 1.41" class="astro-bkumecsx"></path><path d="m17.66 17.66 1.41 1.41" class="astro-bkumecsx"></path> <path d="M2 12h2" class="astro-bkumecsx"></path><path d="M20 12h2" class="astro-bkumecsx"></path> <path d="m6.34 17.66-1.41 1.41" class="astro-bkumecsx"></path><path d="m19.07 4.93-1.41 1.41" class="astro-bkumecsx"></path> </svg>
+Light
+</button> </div> </div> <div class="dialog-section astro-bkumecsx"> <h3 class="dialog-section-title astro-bkumecsx">Dark Theme</h3> <div class="theme-grid astro-bkumecsx" id="dark-themes"></div> </div> <div class="dialog-section astro-bkumecsx"> <h3 class="dialog-section-title astro-bkumecsx">Light Theme</h3> <div class="theme-grid astro-bkumecsx" id="light-themes"></div> </div> </div> <label class="modal-backdrop astro-bkumecsx" for="theme-modal">Close</label> </div>  <script type="module">const i=document.documentElement,l=[{name:"abyss",scheme:"dark",colors:["#1a3345","#0f2a3a","#091a2a","#e6dcc0"]},{name:"dragon",scheme:"dark",colors:["#362e24","#241f1a","#000000","#d4d0c8"]},{name:"matrix",scheme:"dark",colors:["#142814","#1c301c","#264026","#e0f5d0"]},{name:"bumblebee",scheme:"light",colors:["#ffffff","#f7f7f7","#ebebeb","#333333"]},{name:"emerald",scheme:"light",colors:["#ffffff","#ededed","#dbdbdb","#2c3e4d"]},{name:"minimal",scheme:"light",colors:["#ffffff","#f7f7f7","#efefef","#000000"]},{name:"rose",scheme:"light",colors:["#f7eaee","#efe0e5","#e3c9d1","#8a2a4a"]},{name:"vintage",scheme:"light",colors:["#faf4e8","#f2ead4","#e6dbba","#5c3c28"]}],u=l.filter(e=>e.scheme==="dark"),g=l.filter(e=>e.scheme==="light");function a(e,t){return localStorage.getItem(e)||t}function m(e,t){localStorage.setItem(e,t)}function k(e){return e==="system"?window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark":e}function d(e,t,c){const r=k(e),o=r==="dark"?t:c;i.dataset.theme=r,i.dataset.themeVariant=o,b(e),y(e),h("dark-themes",u,t),h("light-themes",g,c);const s=e==="system"?"":e;localStorage.setItem("starlight-theme",s),window.StarlightThemeProvider&&window.StarlightThemeProvider.updatePickers(s||r)}function b(e){document.querySelectorAll(".icon-sun, .icon-moon, .icon-auto").forEach(c=>{c.style.display="none"});const t=e==="dark"?".icon-moon":e==="light"?".icon-sun":".icon-auto";document.querySelectorAll(t).forEach(c=>{c.style.display=""})}function y(e){document.querySelectorAll(".mode-btn").forEach(t=>{t.setAttribute("aria-checked",t.dataset.mode===e?"true":"false")})}function h(e,t,c){const r=document.getElementById(e);r&&(r.innerHTML=t.map(o=>{const s=o.colors;return`<button class="theme-swatch${o.name===c?" active":""}" data-theme-name="${o.name}">
+        <div class="theme-swatch-colors">
+          ${s.slice(0,4).map(n=>`<span class="theme-swatch-dot" style="background:${n}"></span>`).join("")}
+        </div>
+        <span class="theme-swatch-name">${o.name}</span>
+      </button>`}).join(""),r.querySelectorAll(".theme-swatch").forEach(o=>{o.addEventListener("click",()=>{const s=o.dataset.themeName,n=l.find(f=>f.name===s);n&&(m("rk-mode",n.scheme),n.scheme==="dark"?m("rk-dark-theme",s):m("rk-light-theme",s),d(n.scheme,a("rk-dark-theme","dragon"),a("rk-light-theme","bumblebee")))})}))}const E=a("rk-mode","system"),p=a("rk-dark-theme","dragon"),v=a("rk-light-theme","bumblebee");d(E,p,v);document.querySelectorAll(".mode-btn").forEach(e=>{e.addEventListener("click",()=>{const t=e.dataset.mode;m("rk-mode",t),d(t,a("rk-dark-theme","dragon"),a("rk-light-theme","bumblebee"))})});window.matchMedia("(prefers-color-scheme: light)").addEventListener("change",()=>{a("rk-mode","system")==="system"&&d("system",a("rk-dark-theme","dragon"),a("rk-light-theme","bumblebee"))});</script></header> <nav class="sidebar print:hidden astro-vrdttmbt" aria-label="Main"> <starlight-menu-button class="print:hidden astro-jif73yzw"> <button aria-expanded="false" aria-label="Menu" aria-controls="starlight__sidebar" class="sl-flex md:sl-hidden astro-jif73yzw"> <svg aria-hidden="true" class="open-menu astro-jif73yzw astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg> <svg aria-hidden="true" class="close-menu astro-jif73yzw astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg> </button> </starlight-menu-button> <script type="module">class s extends HTMLElement{constructor(){super(),this.btn=this.querySelector("button"),this.btn.addEventListener("click",()=>this.toggleExpanded());const t=this.closest("nav");t&&t.addEventListener("keyup",e=>this.closeOnEscape(e))}setExpanded(t){this.setAttribute("aria-expanded",String(t)),document.body.toggleAttribute("data-mobile-menu-expanded",t)}toggleExpanded(){this.setExpanded(this.getAttribute("aria-expanded")!=="true")}closeOnEscape(t){t.code==="Escape"&&(this.setExpanded(!1),this.btn.focus())}}customElements.define("starlight-menu-button",s);</script>   <div id="starlight__sidebar" class="sidebar-pane astro-vrdttmbt"> <div class="sidebar-content sl-flex astro-vrdttmbt"> <ul class="starlight-sidebar-topics astro-2fh6iaza"> <li class="astro-2fh6iaza"> <a href="/app/overview/" class="astro-2fh6iaza">  <div class="astro-2fh6iaza"> App  </div> </a> </li><li class="astro-2fh6iaza"> <a href="/arduino/overview/" class="starlight-sidebar-topics-current astro-2fh6iaza">  <div class="astro-2fh6iaza"> Arduino  </div> </a> </li><li class="astro-2fh6iaza"> <a href="/widgets/overview/" class="astro-2fh6iaza">  <div class="astro-2fh6iaza"> Flutter Widgets  </div> </a> </li> </ul>  <sl-sidebar-state-persist data-hash="0xra6nk" class="astro-kku4brbg"> <script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script>  <ul class="top-level astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/arduino/overview" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">Overview</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/arduino/setup" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">Getting Started</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/arduino/widgets" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">Widgets Reference</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/arduino/ui-layout" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">UI Layout</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/arduino/ui-skin" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">UI Skins</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/arduino/transports" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">Transports</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/arduino/protocol" aria-current="page" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">Protocol</span>  </a> </li> </ul>   <script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script> </sl-sidebar-state-persist>  <div class="md:sl-hidden"> <div class="mobile-preferences sl-flex astro-wu23bvmt"> <div class="social-icons astro-wu23bvmt"> <a href="https://github.com/rambros3d/RadioKit" rel="me" class="sl-flex astro-wy4te6ga"><span class="sr-only astro-wy4te6ga">GitHub</span><svg aria-hidden="true" class="astro-wy4te6ga astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a> </div> <starlight-theme-select>  <label style="--sl-select-width: 6.25em" class="astro-4yphtoen"> <span class="sr-only astro-4yphtoen">Select theme</span> <svg aria-hidden="true" class="icon label-icon astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg> <select value="auto" autocomplete="off" class="astro-4yphtoen"> <option value="dark" class="astro-4yphtoen">Dark</option><option value="light" class="astro-4yphtoen">Light</option><option value="auto" selected class="astro-4yphtoen">Auto</option> </select> <svg aria-hidden="true" class="icon caret astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg> </label>  </starlight-theme-select>  <script>
+	StarlightThemeProvider.updatePickers();
+</script> <script type="module">const r="starlight-theme",o=e=>e==="auto"||e==="dark"||e==="light"?e:"auto",c=()=>o(typeof localStorage<"u"&&localStorage.getItem(r));function n(e){typeof localStorage<"u"&&localStorage.setItem(r,e==="light"||e==="dark"?e:"")}const l=()=>matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";function t(e){StarlightThemeProvider.updatePickers(e),document.documentElement.dataset.theme=e==="auto"?l():e,n(e)}matchMedia("(prefers-color-scheme: light)").addEventListener("change",()=>{c()==="auto"&&t("auto")});class s extends HTMLElement{constructor(){super(),t(c()),this.querySelector("select")?.addEventListener("change",a=>{a.currentTarget instanceof HTMLSelectElement&&t(o(a.currentTarget.value))})}}customElements.define("starlight-theme-select",s);</script>  </div>  </div> </div> </div> </nav> <div class="main-frame astro-vrdttmbt">  <script type="module">const a=document.getElementById("starlight__sidebar"),n=a?.querySelector("sl-sidebar-state-persist"),o="sl-sidebar-state",i=()=>{let t=[];const e=n?.dataset.hash||"";try{const s=sessionStorage.getItem(o),r=JSON.parse(s||"{}");Array.isArray(r.open)&&r.hash===e&&(t=r.open)}catch{}return{hash:e,open:t,scroll:a?.scrollTop||0}},c=t=>{try{sessionStorage.setItem(o,JSON.stringify(t))}catch{}},d=()=>c(i()),l=(t,e)=>{const s=i();s.open[e]=t,c(s)};n?.addEventListener("click",t=>{if(!(t.target instanceof Element))return;const e=t.target.closest("summary")?.closest("details");if(!e)return;const s=e.querySelector("sl-sidebar-restore"),r=parseInt(s?.dataset.index||"");isNaN(r)||l(!e.open,r)});addEventListener("visibilitychange",()=>{document.visibilityState==="hidden"&&d()});addEventListener("pageHide",d);</script> <div class="lg:sl-flex astro-67yu43on"> <aside class="right-sidebar-container print:hidden astro-67yu43on"> <div class="right-sidebar astro-67yu43on"> <script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C181hMzK.js"></script><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.CKWWgpjV.js"></script><div class="lg:sl-hidden astro-pb3aqygn"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-doynk5tl"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-doynk5tl"><details id="starlight__mobile-toc" class="astro-doynk5tl"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-doynk5tl"><div class="toggle sl-flex astro-doynk5tl">On this page<svg aria-hidden="true" class="caret astro-doynk5tl astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></div><span class="display-current astro-doynk5tl"></span></summary><div class="dropdown astro-doynk5tl"><ul class="isMobile astro-g2bywc46" style="--depth: 0;"> <li class="astro-g2bywc46" style="--depth: 0;"> <a href="#_top" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Overview</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#packet-structure" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Packet Structure</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#command-bytes" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Command Bytes</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#conf_data-configuration" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">CONF_DATA (Configuration)</span> </a> <ul class="isMobile astro-g2bywc46" style="--depth: 1;"> <li class="astro-g2bywc46" style="--depth: 1;"> <a href="#global-header" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Global Header</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#widget-descriptor" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Widget Descriptor</span> </a>  </li> </ul>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#runtime-communication" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Runtime Communication</span> </a> <ul class="isMobile astro-g2bywc46" style="--depth: 1;"> <li class="astro-g2bywc46" style="--depth: 1;"> <a href="#var_data-full-state-sync" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">VAR_DATA (Full State Sync)</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#set_input-arduino---app" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">SET_INPUT (Arduino -&gt; App)</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#var_update-reliable-push" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">VAR_UPDATE (Reliable Push)</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#ack-acknowledgment" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">ACK (Acknowledgment)</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#active_state-app---arduino" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">ACTIVE_STATE (App -&gt; Arduino)</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#meta_data--meta_update" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">META_DATA &amp; META_UPDATE</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#telemetry-arduino---app" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">TELEMETRY (Arduino -&gt; App)</span> </a>  </li> </ul>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#transports" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Transports</span> </a> <ul class="isMobile astro-g2bywc46" style="--depth: 1;"> <li class="astro-g2bywc46" style="--depth: 1;"> <a href="#ble-nimble" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">BLE (NimBLE)</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#usb-serial--uart" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">USB Serial / UART</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#web-serial-chromeedge" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Web Serial (Chrome/Edge)</span> </a>  </li> </ul>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#timing--keepalive" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Timing &amp; Keepalive</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#error-handling" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Error Handling</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#example-session" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Example Session</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#bulk-filesystem-protocol-0xaa" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Bulk Filesystem Protocol (0xAA)</span> </a> <ul class="isMobile astro-g2bywc46" style="--depth: 1;"> <li class="astro-g2bywc46" style="--depth: 1;"> <a href="#fs-frame-structure" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">FS Frame Structure</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#sub-commands-app---arduino" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Sub-Commands (App -&gt; Arduino)</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#sub-commands-arduino---app" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Sub-Commands (Arduino -&gt; App)</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#error-codes" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Error Codes</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#notes" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Notes</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#example-capability-detection-ping" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Example: Capability detection (PING)</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#example-listing-a-directory" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Example: Listing a directory</span> </a>  </li> </ul>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#version-history" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Version History</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#see-also" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">See Also</span> </a>  </li> </ul> </div></details></nav></mobile-starlight-toc></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-pb3aqygn"><div class="sl-container astro-pb3aqygn"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">On this page</h2><ul class="astro-g2bywc46" style="--depth: 0;"> <li class="astro-g2bywc46" style="--depth: 0;"> <a href="#_top" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Overview</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#packet-structure" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Packet Structure</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#command-bytes" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Command Bytes</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#conf_data-configuration" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">CONF_DATA (Configuration)</span> </a> <ul class="astro-g2bywc46" style="--depth: 1;"> <li class="astro-g2bywc46" style="--depth: 1;"> <a href="#global-header" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Global Header</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#widget-descriptor" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Widget Descriptor</span> </a>  </li> </ul>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#runtime-communication" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Runtime Communication</span> </a> <ul class="astro-g2bywc46" style="--depth: 1;"> <li class="astro-g2bywc46" style="--depth: 1;"> <a href="#var_data-full-state-sync" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">VAR_DATA (Full State Sync)</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#set_input-arduino---app" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">SET_INPUT (Arduino -&gt; App)</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#var_update-reliable-push" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">VAR_UPDATE (Reliable Push)</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#ack-acknowledgment" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">ACK (Acknowledgment)</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#active_state-app---arduino" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">ACTIVE_STATE (App -&gt; Arduino)</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#meta_data--meta_update" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">META_DATA &amp; META_UPDATE</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#telemetry-arduino---app" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">TELEMETRY (Arduino -&gt; App)</span> </a>  </li> </ul>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#transports" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Transports</span> </a> <ul class="astro-g2bywc46" style="--depth: 1;"> <li class="astro-g2bywc46" style="--depth: 1;"> <a href="#ble-nimble" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">BLE (NimBLE)</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#usb-serial--uart" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">USB Serial / UART</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#web-serial-chromeedge" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Web Serial (Chrome/Edge)</span> </a>  </li> </ul>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#timing--keepalive" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Timing &amp; Keepalive</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#error-handling" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Error Handling</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#example-session" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Example Session</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#bulk-filesystem-protocol-0xaa" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Bulk Filesystem Protocol (0xAA)</span> </a> <ul class="astro-g2bywc46" style="--depth: 1;"> <li class="astro-g2bywc46" style="--depth: 1;"> <a href="#fs-frame-structure" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">FS Frame Structure</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#sub-commands-app---arduino" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Sub-Commands (App -&gt; Arduino)</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#sub-commands-arduino---app" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Sub-Commands (Arduino -&gt; App)</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#error-codes" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Error Codes</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#notes" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Notes</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#example-capability-detection-ping" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Example: Capability detection (PING)</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#example-listing-a-directory" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Example: Listing a directory</span> </a>  </li> </ul>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#version-history" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Version History</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#see-also" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">See Also</span> </a>  </li> </ul> </nav></starlight-toc></div></div> </div> </aside> <div class="main-pane astro-67yu43on">  <main data-pagefind-body class="astro-bguv2lll" lang="en" dir="ltr">    <div class="content-panel astro-7nkwcw3z"> <div class="sl-container astro-7nkwcw3z"> <h1 id="_top" class="astro-j6tvhyss">Protocol Specification</h1>  </div> </div>  <div class="content-panel astro-7nkwcw3z"> <div class="sl-container astro-7nkwcw3z"> <div class="sl-markdown-content"> <p>RadioKit uses a compact binary protocol which is transport-agnostic (works for BLE and Serial). The protocol is designed for low-latency, reliable control with minimal overhead.</p>
+<hr>
+<div class="sl-heading-wrapper level-h2"><h2 id="packet-structure">Packet Structure</h2><a class="sl-anchor-link" href="#packet-structure"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Packet Structure”</span></a></div>
+<div class="expressive-code"><link rel="stylesheet" href="/_astro/ec.v4551.css"><script type="module" src="/_astro/ec.0vx5m.js"></script><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">[START][LENGTH_LO][LENGTH_HI][CMD][PAYLOAD...][CRC_LO][CRC_HI]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">  </span></span><span style="--0:#d6deeb;--1:#403f53">0x55    total      total</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="[START][LENGTH_LO][LENGTH_HI][CMD][PAYLOAD...][CRC_LO][CRC_HI]  0x55    total      total"><div></div></button></div></figure></div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Field</th><th>Size</th><th>Description</th></tr></thead><tbody><tr><td><code dir="auto">START</code></td><td>1</td><td>Always <code dir="auto">0x55</code></td></tr><tr><td><code dir="auto">LENGTH</code></td><td>2</td><td>Total packet length including all fields</td></tr><tr><td><code dir="auto">CMD</code></td><td>1</td><td>Command byte</td></tr><tr><td><code dir="auto">PAYLOAD</code></td><td>0-N</td><td>Command-specific payload</td></tr><tr><td><code dir="auto">CRC</code></td><td>2</td><td>CRC-16/CCITT-FALSE over <code dir="auto">CMD + PAYLOAD</code></td></tr></tbody></table>
+<p>Minimum packet size: <strong>6 bytes</strong> (no payload).</p>
+<hr>
+<div class="sl-heading-wrapper level-h2"><h2 id="command-bytes">Command Bytes</h2><a class="sl-anchor-link" href="#command-bytes"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Command Bytes”</span></a></div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Value</th><th>Name</th><th>Direction</th><th>Description</th></tr></thead><tbody><tr><td><code dir="auto">0x01</code></td><td><code dir="auto">GET_CONF</code></td><td>App -> Arduino</td><td>Request configuration descriptor</td></tr><tr><td><code dir="auto">0x02</code></td><td><code dir="auto">CONF_DATA</code></td><td>Arduino -> App</td><td>Configuration descriptor response</td></tr><tr><td><code dir="auto">0x03</code></td><td><code dir="auto">PING</code></td><td>App -> Arduino</td><td>Connectivity check</td></tr><tr><td><code dir="auto">0x04</code></td><td><code dir="auto">PONG</code></td><td>Arduino -> App</td><td>Ping response</td></tr><tr><td><code dir="auto">0x05</code></td><td><code dir="auto">ACK</code></td><td>Both</td><td>Acknowledge reliable packet</td></tr><tr><td><code dir="auto">0x06</code></td><td><code dir="auto">GET_VARS</code></td><td>App -> Arduino</td><td>Request current variable state</td></tr><tr><td><code dir="auto">0x07</code></td><td><code dir="auto">VAR_DATA</code></td><td>Arduino -> App</td><td>Variable state response</td></tr><tr><td><code dir="auto">0x08</code></td><td><code dir="auto">VAR_UPDATE</code></td><td>Both</td><td>Reliable push of a single widget state</td></tr><tr><td><code dir="auto">0x09</code></td><td><code dir="auto">GET_META</code></td><td>App -> Arduino</td><td>Request widget metadata</td></tr><tr><td><code dir="auto">0x0A</code></td><td><code dir="auto">META_DATA</code></td><td>Arduino -> App</td><td>Metadata response</td></tr><tr><td><code dir="auto">0x0B</code></td><td><code dir="auto">META_UPDATE</code></td><td>Both</td><td>Reliable push of widget metadata</td></tr><tr><td><code dir="auto">0x0C</code></td><td><code dir="auto">SET_INPUT</code></td><td>Arduino -> App</td><td>Set state of an input widget from Arduino</td></tr><tr><td><code dir="auto">0x0D</code></td><td><code dir="auto">ACTIVE_STATE</code></td><td>App -> Arduino</td><td>Bitmask of active widgets (1 bit/ID)</td></tr><tr><td><code dir="auto">0x0E</code></td><td><code dir="auto">GET_TELEMETRY</code></td><td>App -> Arduino</td><td>Request signal/battery status</td></tr><tr><td><code dir="auto">0x0F</code></td><td><code dir="auto">TELEMETRY_DATA</code></td><td>Arduino -> App</td><td>Telemetry values (RSSI, etc.)</td></tr></tbody></table>
+<hr>
+<div class="sl-heading-wrapper level-h2"><h2 id="conf_data-configuration">CONF_DATA (Configuration)</h2><a class="sl-anchor-link" href="#conf_data-configuration"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “CONF_DATA (Configuration)”</span></a></div>
+<p>Sent in response to <code dir="auto">GET_CONF</code>. Contains device configuration and widget descriptors.</p>
+<div class="sl-heading-wrapper level-h3"><h3 id="global-header">Global Header</h3><a class="sl-anchor-link" href="#global-header"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Global Header”</span></a></div>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">[PROTO_VER][ORIENT][WIDGET_COUNT][NAME_LEN][NAME...][DESC_LEN][DESC...]</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">[THEME_LEN][THEME...][VERSION_LEN][VERSION...]</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="[PROTO_VER][ORIENT][WIDGET_COUNT][NAME_LEN][NAME...][DESC_LEN][DESC...][THEME_LEN][THEME...][VERSION_LEN][VERSION...]"><div></div></button></div></figure></div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td><code dir="auto">PROTO_VER</code></td><td><code dir="auto">uint8_t</code></td><td>Protocol version (current: <code dir="auto">0x03</code>)</td></tr><tr><td><code dir="auto">ORIENT</code></td><td><code dir="auto">uint8_t</code></td><td><code dir="auto">0x00</code> = Landscape, <code dir="auto">0x01</code> = Portrait</td></tr><tr><td><code dir="auto">WIDGET_COUNT</code></td><td><code dir="auto">uint8_t</code></td><td>Number of widget descriptors that follow</td></tr><tr><td><code dir="auto">NAME_LEN</code></td><td><code dir="auto">uint8_t</code></td><td>Length of device name string</td></tr><tr><td><code dir="auto">NAME</code></td><td><code dir="auto">char[N]</code></td><td>Device identity name (UTF-8)</td></tr><tr><td><code dir="auto">DESC_LEN</code></td><td><code dir="auto">uint8_t</code></td><td>Length of description string</td></tr><tr><td><code dir="auto">DESC</code></td><td><code dir="auto">char[N]</code></td><td>Device description (UTF-8)</td></tr><tr><td><code dir="auto">THEME_LEN</code></td><td><code dir="auto">uint8_t</code></td><td>Length of theme identifier string</td></tr><tr><td><code dir="auto">THEME</code></td><td><code dir="auto">char[N]</code></td><td>Theme name (e.g., <code dir="auto">"default"</code>, <code dir="auto">"dark"</code>, <code dir="auto">"retro"</code>)</td></tr><tr><td><code dir="auto">VERSION_LEN</code></td><td><code dir="auto">uint8_t</code></td><td>Length of version string</td></tr><tr><td><code dir="auto">VERSION</code></td><td><code dir="auto">char[N]</code></td><td>Firmware version (UTF-8)</td></tr></tbody></table>
+<div class="sl-heading-wrapper level-h3"><h3 id="widget-descriptor">Widget Descriptor</h3><a class="sl-anchor-link" href="#widget-descriptor"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Widget Descriptor”</span></a></div>
+<p>Each widget is described by a fixed header followed by optional string data.</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">[TYPE][ID][X][Y][HEIGHT][WIDTH][ROT_LO][ROT_HI][VARIANT][STR_MASK][STR_DATA...]</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="[TYPE][ID][X][Y][HEIGHT][WIDTH][ROT_LO][ROT_HI][VARIANT][STR_MASK][STR_DATA...]"><div></div></button></div></figure></div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td><code dir="auto">TYPE</code></td><td><code dir="auto">uint8_t</code></td><td>Widget type ID (see table below)</td></tr><tr><td><code dir="auto">ID</code></td><td><code dir="auto">uint8_t</code></td><td>Widget index (0-based, sequential)</td></tr><tr><td><code dir="auto">X</code></td><td><code dir="auto">uint8_t</code></td><td>Center X on virtual canvas (0-200)</td></tr><tr><td><code dir="auto">Y</code></td><td><code dir="auto">uint8_t</code></td><td>Center Y on virtual canvas (0-200)</td></tr><tr><td><code dir="auto">HEIGHT</code></td><td><code dir="auto">uint8_t</code></td><td>Physical height in virtual units (0-200)</td></tr><tr><td><code dir="auto">WIDTH</code></td><td><code dir="auto">uint8_t</code></td><td>Physical width in virtual units (0 = auto-aspect)</td></tr><tr><td><code dir="auto">ROTATION</code></td><td><code dir="auto">int16_t</code></td><td>Rotation in degrees (clockwise)</td></tr><tr><td><code dir="auto">VARIANT</code></td><td><code dir="auto">uint8_t</code></td><td>Behavioral variation (e.g., spring mode)</td></tr><tr><td><code dir="auto">STR_MASK</code></td><td><code dir="auto">uint8_t</code></td><td>String bitmask (determines following string segments)</td></tr></tbody></table>
+<div class="sl-heading-wrapper level-h4"><h4 id="widget-type-ids">Widget Type IDs</h4><a class="sl-anchor-link" href="#widget-type-ids"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Widget Type IDs”</span></a></div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>ID</th><th>Widget</th><th>Description</th></tr></thead><tbody><tr><td>1</td><td>PushButton</td><td>Momentary button</td></tr><tr><td>2</td><td>ToggleButton</td><td>Latching button</td></tr><tr><td>3</td><td>SlideSwitch</td><td>iOS-style toggle switch</td></tr><tr><td>4</td><td>Slider</td><td>Linear slider (-100 to +100)</td></tr><tr><td>5</td><td>Knob</td><td>Rotary knob (-100 to +100)</td></tr><tr><td>6</td><td>Joystick</td><td>2-axis joystick</td></tr><tr><td>7</td><td>LED</td><td>Status indicator</td></tr><tr><td>8</td><td>Text</td><td>Read-only text display</td></tr><tr><td>9</td><td>MultipleButton</td><td>Radio-style button group</td></tr><tr><td>10</td><td>MultipleSelect</td><td>Checkbox-style group</td></tr></tbody></table>
+<div class="sl-heading-wrapper level-h4"><h4 id="string-bitmask-str_mask">String Bitmask (<code dir="auto">STR_MASK</code>)</h4><a class="sl-anchor-link" href="#string-bitmask-str_mask"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “String Bitmask (STR_MASK)”</span></a></div>
+<p>Bits indicate which optional strings are included. Each active bit adds a <code dir="auto">[LEN][STR]</code> pair to the <code dir="auto">STR_DATA</code> block.</p>
+<ul>
+<li><strong>Bit 0 (0x01)</strong>: Label (primary display text)</li>
+<li><strong>Bit 1 (0x02)</strong>: Icon (standard name string)</li>
+<li><strong>Bit 2 (0x04)</strong>: OnText (for buttons)</li>
+<li><strong>Bit 3 (0x08)</strong>: OffText (for buttons)</li>
+<li><strong>Bit 4 (0x10)</strong>: Content (for Text widget initial value)</li>
+</ul>
+<p>Each string is encoded as: <code dir="auto">[LENGTH (1 byte)][UTF-8 DATA]</code></p>
+<hr>
+<div class="sl-heading-wrapper level-h2"><h2 id="runtime-communication">Runtime Communication</h2><a class="sl-anchor-link" href="#runtime-communication"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Runtime Communication”</span></a></div>
+<div class="sl-heading-wrapper level-h3"><h3 id="var_data-full-state-sync">VAR_DATA (Full State Sync)</h3><a class="sl-anchor-link" href="#var_data-full-state-sync"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “VAR_DATA (Full State Sync)”</span></a></div>
+<p>Sent in response to <code dir="auto">GET_VARS</code>. Contains the current state of all widgets in ID order.</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">[DATA_W0][DATA_W1][DATA_W2]...</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="[DATA_W0][DATA_W1][DATA_W2]..."><div></div></button></div></figure></div>
+<p>Each widget’s data is encoded according to its type:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Type</th><th>Widget</th><th>Data Bytes</th><th>Description</th></tr></thead><tbody><tr><td>1</td><td>PushButton</td><td>1 byte</td><td>Current state (0/1)</td></tr><tr><td>2</td><td>ToggleButton</td><td>1 byte</td><td>Current state (0/1)</td></tr><tr><td>3</td><td>SlideSwitch</td><td>1 byte</td><td>Current state (0/1)</td></tr><tr><td>4</td><td>Slider</td><td>1 byte</td><td>Value (Signed int8, -100 to +100)</td></tr><tr><td>5</td><td>Knob</td><td>1 byte</td><td>Value (Signed int8, -100 to +100)</td></tr><tr><td>6</td><td>Joystick</td><td>2 bytes</td><td>X, Y values (Signed int8, -100 to +100)</td></tr><tr><td>7</td><td>LED</td><td>5 bytes</td><td>State (1), R, G, B, Opacity</td></tr><tr><td>8</td><td>Text</td><td>32 bytes</td><td>UTF-8 string (null-padded)</td></tr><tr><td>9</td><td>MultipleButton</td><td>1 byte</td><td>Selected item(s) (Index or Bitmask)</td></tr><tr><td>10</td><td>MultipleSelect</td><td>1 byte</td><td>Selected item(s) (Index or Bitmask)</td></tr></tbody></table>
+<div class="sl-heading-wrapper level-h3"><h3 id="set_input-arduino---app">SET_INPUT (Arduino -> App)</h3><a class="sl-anchor-link" href="#set_input-arduino---app"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “SET_INPUT (Arduino -> App)”</span></a></div>
+<p>Sent by the Arduino to programmatically set the state of an input widget in the app (e.g., resetting a slider or toggle).</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">[ID][VALUE...]</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="[ID][VALUE...]"><div></div></button></div></figure></div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td><code dir="auto">ID</code></td><td><code dir="auto">uint8_t</code></td><td>Widget index</td></tr><tr><td><code dir="auto">VALUE</code></td><td>variable</td><td>Type-specific value (see VAR_DATA table)</td></tr></tbody></table>
+<p>The app updates the widget UI immediately. Unlike <code dir="auto">VAR_UPDATE</code>, this is not acknowledged.</p>
+<div class="sl-heading-wrapper level-h3"><h3 id="var_update-reliable-push">VAR_UPDATE (Reliable Push)</h3><a class="sl-anchor-link" href="#var_update-reliable-push"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “VAR_UPDATE (Reliable Push)”</span></a></div>
+<p>Pushes a change for a single widget. Can be sent by either side:</p>
+<ul>
+<li><strong>App -> Arduino</strong>: When user changes an input.</li>
+<li><strong>Arduino -> App</strong>: When firmware programmatically changes a widget state</li>
+</ul>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">[ID][SEQ][DATA...]</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="[ID][SEQ][DATA...]"><div></div></button></div></figure></div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td><code dir="auto">ID</code></td><td><code dir="auto">uint8_t</code></td><td>Widget index</td></tr><tr><td><code dir="auto">SEQ</code></td><td><code dir="auto">uint8_t</code></td><td>Rolling sequence number (0-255)</td></tr><tr><td><code dir="auto">DATA</code></td><td>variable</td><td>Type-specific value (see VAR_DATA table)</td></tr></tbody></table>
+<div class="sl-heading-wrapper level-h4"><h4 id="reliability-logic">Reliability Logic</h4><a class="sl-anchor-link" href="#reliability-logic"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Reliability Logic”</span></a></div>
+<ul>
+<li>The sender maintains a <strong>pending bitmask</strong> (32-bit) for unacknowledged updates</li>
+<li>Retransmission timeout: <strong>200 ms</strong></li>
+<li>Maximum retries: <strong>5 attempts</strong></li>
+<li>After 5 failures, the packet is dropped (fail-soft)</li>
+<li>The receiver sends <code dir="auto">ACK</code> immediately upon receipt</li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="ack-acknowledgment">ACK (Acknowledgment)</h3><a class="sl-anchor-link" href="#ack-acknowledgment"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “ACK (Acknowledgment)”</span></a></div>
+<p>Confirms receipt of a reliable packet (<code dir="auto">VAR_UPDATE</code> or <code dir="auto">META_UPDATE</code>).</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">[SEQ]</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="[SEQ]"><div></div></button></div></figure></div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td><code dir="auto">SEQ</code></td><td><code dir="auto">uint8_t</code></td><td>Sequence number being acknowledged</td></tr></tbody></table>
+<div class="sl-heading-wrapper level-h3"><h3 id="active_state-app---arduino">ACTIVE_STATE (App -> Arduino)</h3><a class="sl-anchor-link" href="#active_state-app---arduino"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “ACTIVE_STATE (App -> Arduino)”</span></a></div>
+<p>Sent whenever the “active” status of one or more widgets changes (e.g., user starts/stops touching a slider).</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">[BITMASK (4 bytes)]</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="[BITMASK (4 bytes)]"><div></div></button></div></figure></div>
+<ul>
+<li><strong>Payload</strong>: A 32-bit bitmask (Little-Endian).</li>
+<li><strong>Mapping</strong>: Bit <code dir="auto">n</code> corresponds to Widget ID <code dir="auto">n</code>.</li>
+<li><strong>Value</strong>: <code dir="auto">1</code> = Active (being manipulated), <code dir="auto">0</code> = Idle.</li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="meta_data--meta_update">META_DATA &#x26; META_UPDATE</h3><a class="sl-anchor-link" href="#meta_data--meta_update"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “META_DATA &#x26; META_UPDATE”</span></a></div>
+<p>Same format as VAR_DATA/VAR_UPDATE but for widget metadata (label, icon, etc.). Used when firmware changes widget appearance at runtime.</p>
+<div class="sl-heading-wrapper level-h3"><h3 id="telemetry-arduino---app">TELEMETRY (Arduino -> App)</h3><a class="sl-anchor-link" href="#telemetry-arduino---app"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “TELEMETRY (Arduino -> App)”</span></a></div>
+<p>Periodic status updates (optional).</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">[RSSI][LATENCY][RESERVED][RESERVED]</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="[RSSI][LATENCY][RESERVED][RESERVED]"><div></div></button></div></figure></div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td><code dir="auto">RSSI</code></td><td><code dir="auto">int8_t</code></td><td>Signal strength (dBm)</td></tr><tr><td><code dir="auto">LATENCY</code></td><td><code dir="auto">uint8_t</code></td><td>Reserved for latency</td></tr><tr><td><code dir="auto">RESERVED</code></td><td><code dir="auto">uint8_t</code></td><td>Reserved</td></tr><tr><td><code dir="auto">RESERVED</code></td><td><code dir="auto">uint8_t</code></td><td>Reserved</td></tr></tbody></table>
+<hr>
+<div class="sl-heading-wrapper level-h2"><h2 id="transports">Transports</h2><a class="sl-anchor-link" href="#transports"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Transports”</span></a></div>
+<div class="sl-heading-wrapper level-h3"><h3 id="ble-nimble">BLE (NimBLE)</h3><a class="sl-anchor-link" href="#ble-nimble"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “BLE (NimBLE)”</span></a></div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Role</th><th>UUID</th></tr></thead><tbody><tr><td><strong>Service</strong></td><td><code dir="auto">0000FFE0-0000-1000-8000-00805F9B34FB</code></td></tr><tr><td><strong>Characteristic</strong></td><td><code dir="auto">0000FFE1-0000-1000-8000-00805F9B34FB</code></td></tr></tbody></table>
+<ul>
+<li><strong>Properties</strong>: Write (no response), Notify, Indicate</li>
+<li><strong>MTU</strong>: 23 bytes (default), negotiated up to 517</li>
+<li><strong>Packet fragmentation</strong>: Handled by NimBLE for packets > MTU</li>
+<li><strong>Flow control</strong>: Credit-based (app grants credits for sends)</li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="usb-serial--uart">USB Serial / UART</h3><a class="sl-anchor-link" href="#usb-serial--uart"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “USB Serial / UART”</span></a></div>
+<ul>
+<li><strong>Baud rate</strong>: 1000000 (recommended), any speed supported</li>
+<li><strong>Connection timeout</strong>: 3000 ms after last valid packet</li>
+<li><strong>Recommended PING interval</strong>: 1000 ms</li>
+<li><strong>Hardware flow control</strong>: Optional (RTS/CTS)</li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="web-serial-chromeedge">Web Serial (Chrome/Edge)</h3><a class="sl-anchor-link" href="#web-serial-chromeedge"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Web Serial (Chrome/Edge)”</span></a></div>
+<ul>
+<li>Same as USB Serial</li>
+<li>Browser handles serial port selection</li>
+<li>No baud rate restrictions (virtual port)</li>
+</ul>
+<hr>
+<div class="sl-heading-wrapper level-h2"><h2 id="timing--keepalive">Timing &#x26; Keepalive</h2><a class="sl-anchor-link" href="#timing--keepalive"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Timing &#x26; Keepalive”</span></a></div>
+<ul>
+<li><strong>PING interval</strong>: 1000-2000 ms (app -> Arduino)</li>
+<li><strong>PONG timeout</strong>: 3000 ms (no response = disconnected)</li>
+<li><strong>VAR_UPDATE retry</strong>: 200 ms interval, 5 max retries</li>
+<li><strong>Connection timeout</strong>: 5000 ms (no data from either side)</li>
+</ul>
+<hr>
+<div class="sl-heading-wrapper level-h2"><h2 id="error-handling">Error Handling</h2><a class="sl-anchor-link" href="#error-handling"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Error Handling”</span></a></div>
+<ul>
+<li><strong>CRC mismatch</strong>: Packet silently discarded</li>
+<li><strong>Invalid START byte</strong>: Stream resynchronized on next <code dir="auto">0x55</code></li>
+<li><strong>Unknown CMD</strong>: Packet ignored (future compatibility)</li>
+<li><strong>Buffer overflow</strong>: Packet truncated, connection reset</li>
+<li><strong>Reliable packet timeout</strong>: Retransmit up to 5 times, then drop</li>
+</ul>
+<hr>
+<div class="sl-heading-wrapper level-h2"><h2 id="example-session">Example Session</h2><a class="sl-anchor-link" href="#example-session"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Example Session”</span></a></div>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">App -> Arduino:  GET_CONF</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Arduino -> App: CONF_DATA (with all widget descriptors)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">App -> Arduino: GET_VARS</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Arduino -> App: VAR_DATA (current state of all widgets)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">[User taps button]</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">App -> Arduino: VAR_UPDATE with new state</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Arduino -> App: ACK</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">[Arduino resets slider to zero]</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Arduino -> App: SET_INPUT (or VAR_UPDATE) with value 0</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">[LED state changes programmatically]</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Arduino -> App: VAR_UPDATE (with LED new state)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">App -> Arduino: ACK</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="App -> Arduino:  GET_CONFArduino -> App: CONF_DATA (with all widget descriptors)App -> Arduino: GET_VARSArduino -> App: VAR_DATA (current state of all widgets)[User taps button]App -> Arduino: VAR_UPDATE with new stateArduino -> App: ACK[Arduino resets slider to zero]Arduino -> App: SET_INPUT (or VAR_UPDATE) with value 0[LED state changes programmatically]Arduino -> App: VAR_UPDATE (with LED new state)App -> Arduino: ACK"><div></div></button></div></figure></div>
+<hr>
+<div class="sl-heading-wrapper level-h2"><h2 id="bulk-filesystem-protocol-0xaa">Bulk Filesystem Protocol (0xAA)</h2><a class="sl-anchor-link" href="#bulk-filesystem-protocol-0xaa"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Bulk Filesystem Protocol (0xAA)”</span></a></div>
+<p>A separate, higher-bandwidth protocol runs on the <strong>same physical transport</strong> for filesystem operations (browse, read, write, delete, mkdir, rename, info, ping, format). It uses a different start byte so it can coexist with the widget protocol (0x55) without interfering.</p>
+<div class="sl-heading-wrapper level-h3"><h3 id="fs-frame-structure">FS Frame Structure</h3><a class="sl-anchor-link" href="#fs-frame-structure"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “FS Frame Structure”</span></a></div>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">[START][SUB_CMD][LEN_LO][LEN_HI][PAYLOAD...]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">  </span></span><span style="--0:#d6deeb;--1:#403f53">0xAA   uint8     uint8   uint8   0..16380 bytes</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="[START][SUB_CMD][LEN_LO][LEN_HI][PAYLOAD...]  0xAA   uint8     uint8   uint8   0..16380 bytes"><div></div></button></div></figure></div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Field</th><th>Size</th><th>Description</th></tr></thead><tbody><tr><td><code dir="auto">START</code></td><td>1</td><td>Always <code dir="auto">0xAA</code></td></tr><tr><td><code dir="auto">SUB_CMD</code></td><td>1</td><td>FS sub-command</td></tr><tr><td><code dir="auto">LEN</code></td><td>2 (LE)</td><td><strong>Total frame length</strong> (header(4) + payload)</td></tr><tr><td><code dir="auto">PAYLOAD</code></td><td>0..16380</td><td>Sub-command-specific payload</td></tr><tr><td><strong>CRC</strong></td><td><strong>none</strong></td><td>No checksum - rely on transport reliability</td></tr></tbody></table>
+<p>Maximum payload size: <strong>16 380 bytes</strong> (16 384 - 4-byte header).</p>
+<div class="sl-heading-wrapper level-h3"><h3 id="sub-commands-app---arduino">Sub-Commands (App -> Arduino)</h3><a class="sl-anchor-link" href="#sub-commands-app---arduino"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Sub-Commands (App -> Arduino)”</span></a></div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Value</th><th>Name</th><th>Payload</th><th>Description</th></tr></thead><tbody><tr><td><code dir="auto">0x01</code></td><td><code dir="auto">FS_LIST</code></td><td><code dir="auto">[u8 path_len][path...]</code></td><td>List entries in a directory</td></tr><tr><td><code dir="auto">0x02</code></td><td><code dir="auto">FS_READ</code></td><td><code dir="auto">[u8 path_len][path...][u32 offset][u16 max_bytes]</code></td><td>Read up to 65 535 bytes from offset</td></tr><tr><td><code dir="auto">0x03</code></td><td><code dir="auto">FS_WRITE</code></td><td><code dir="auto">[u8 path_len][path...][u32 offset][bytes...]</code></td><td>Write a file chunk</td></tr><tr><td><code dir="auto">0x04</code></td><td><code dir="auto">FS_DELETE</code></td><td><code dir="auto">[u8 path_len][path...][u8 recursive]</code></td><td>Delete a file or directory</td></tr><tr><td><code dir="auto">0x05</code></td><td><code dir="auto">FS_INFO</code></td><td>(empty)</td><td>Get FS usage / free space</td></tr><tr><td><code dir="auto">0x06</code></td><td><code dir="auto">FS_MKDIR</code></td><td><code dir="auto">[u8 path_len][path...]</code></td><td>Create a directory</td></tr><tr><td><code dir="auto">0x07</code></td><td><code dir="auto">FS_RENAME</code></td><td><code dir="auto">[u8 old_len][old...][u8 new_len][new...]</code></td><td>Rename / move</td></tr><tr><td><code dir="auto">0x08</code></td><td><code dir="auto">FS_UPLOAD_BEGIN</code></td><td><code dir="auto">[u8 path_len][path...][u32 size]</code></td><td>Begin a multi-frame write</td></tr><tr><td><code dir="auto">0x09</code></td><td><code dir="auto">FS_UPLOAD_CHUNK</code></td><td><code dir="auto">[u8 path_len][path...][u32 offset][bytes...]</code></td><td>Write a chunk of an upload</td></tr><tr><td><code dir="auto">0x0A</code></td><td><code dir="auto">FS_UPLOAD_END</code></td><td><code dir="auto">[u8 path_len][path...][u32 size]</code></td><td>Finalize a multi-frame write</td></tr><tr><td><code dir="auto">0x0B</code></td><td><code dir="auto">FS_PING</code></td><td>(empty)</td><td>Capability probe</td></tr><tr><td><code dir="auto">0x0C</code></td><td><code dir="auto">FS_FORMAT</code></td><td>(empty)</td><td>Re-format the default FS (destructive)</td></tr></tbody></table>
+<div class="sl-heading-wrapper level-h3"><h3 id="sub-commands-arduino---app">Sub-Commands (Arduino -> App)</h3><a class="sl-anchor-link" href="#sub-commands-arduino---app"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Sub-Commands (Arduino -> App)”</span></a></div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Value</th><th>Name</th><th>Payload</th><th>Description</th></tr></thead><tbody><tr><td><code dir="auto">0x81</code></td><td><code dir="auto">FS_LIST_DATA</code></td><td><code dir="auto">[u16 count]</code> then per entry <code dir="auto">[u8 is_dir][u32 size][u8 name_len][name...]</code></td><td>Directory listing result</td></tr><tr><td><code dir="auto">0x82</code></td><td><code dir="auto">FS_READ_DATA</code></td><td><code dir="auto">[u32 total_size][u32 offset][bytes...]</code></td><td>File chunk</td></tr><tr><td><code dir="auto">0x83</code></td><td><code dir="auto">FS_WRITE_ACK</code></td><td><code dir="auto">[u8 err]</code></td><td>Write ack</td></tr><tr><td><code dir="auto">0x84</code></td><td><code dir="auto">FS_DELETE_ACK</code></td><td><code dir="auto">[u8 err]</code></td><td>Delete ack</td></tr><tr><td><code dir="auto">0x85</code></td><td><code dir="auto">FS_INFO_DATA</code></td><td><code dir="auto">[u32 total][u32 used][u16 block_size][u8 fs_type]</code></td><td>FS usage / metadata</td></tr><tr><td><code dir="auto">0x86</code></td><td><code dir="auto">FS_MKDIR_ACK</code></td><td><code dir="auto">[u8 err]</code></td><td>Mkdir ack</td></tr><tr><td><code dir="auto">0x87</code></td><td><code dir="auto">FS_RENAME_ACK</code></td><td><code dir="auto">[u8 err]</code></td><td>Rename ack</td></tr><tr><td><code dir="auto">0x88</code></td><td><code dir="auto">FS_UPLOAD_BEGIN_ACK</code></td><td><code dir="auto">[u8 err]</code></td><td>Upload begin ack</td></tr><tr><td><code dir="auto">0x89</code></td><td><code dir="auto">FS_UPLOAD_CHUNK_ACK</code></td><td><code dir="auto">[u8 err]</code></td><td>Upload chunk ack</td></tr><tr><td><code dir="auto">0x8A</code></td><td><code dir="auto">FS_UPLOAD_END_ACK</code></td><td><code dir="auto">[u8 err]</code></td><td>Upload end ack</td></tr><tr><td><code dir="auto">0x8B</code></td><td><code dir="auto">FS_PING_ACK</code></td><td><code dir="auto">[u8 status]</code></td><td>Mount status</td></tr><tr><td><code dir="auto">0x8C</code></td><td><code dir="auto">FS_FORMAT_ACK</code></td><td><code dir="auto">[u8 err]</code></td><td>Format ack</td></tr></tbody></table>
+<div class="sl-heading-wrapper level-h3"><h3 id="error-codes">Error Codes</h3><a class="sl-anchor-link" href="#error-codes"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Error Codes”</span></a></div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Value</th><th>Name</th><th>Meaning</th></tr></thead><tbody><tr><td><code dir="auto">0x00</code></td><td><code dir="auto">OK</code></td><td>Success</td></tr><tr><td><code dir="auto">0x01</code></td><td><code dir="auto">NOT_FOUND</code></td><td>File or directory does not exist</td></tr><tr><td><code dir="auto">0x02</code></td><td><code dir="auto">IO</code></td><td>Read/write error</td></tr><tr><td><code dir="auto">0x03</code></td><td><code dir="auto">NO_FS</code></td><td>LittleFS not compiled in or not mounted</td></tr><tr><td><code dir="auto">0x04</code></td><td><code dir="auto">ACCESS_DENIED</code></td><td>Permission denied</td></tr><tr><td><code dir="auto">0x05</code></td><td><code dir="auto">INVALID_PATH</code></td><td>Malformed path or argument</td></tr><tr><td><code dir="auto">0x06</code></td><td><code dir="auto">OUT_OF_SPACE</code></td><td>Filesystem full</td></tr><tr><td><code dir="auto">0x07</code></td><td><code dir="auto">INVALID_STATE</code></td><td>Operation not valid in current state</td></tr></tbody></table>
+<div class="sl-heading-wrapper level-h3"><h3 id="notes">Notes</h3><a class="sl-anchor-link" href="#notes"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Notes”</span></a></div>
+<ul>
+<li>The FS protocol is optional. Sketches that don’t use it can simply not call <code dir="auto">RadioKit.beginFs()</code>.</li>
+<li>The two state machines (0x55 widget + 0xAA FS) are fed from the same byte stream and demuxed by the start byte.</li>
+<li><code dir="auto">FS_PING</code> is the recommended way to detect FS support on a freshly-connected device.</li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="example-capability-detection-ping">Example: Capability detection (PING)</h3><a class="sl-anchor-link" href="#example-capability-detection-ping"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Example: Capability detection (PING)”</span></a></div>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">App -> Arduino: FS_PING</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">  </span></span><span style="--0:#d6deeb;--1:#403f53">0xAA 0x0B 0x04 0x00</span></div></div><div class="ec-line"><div class="code">
+</div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Arduino -> App: FS_PING_ACK (mounted)</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">  </span></span><span style="--0:#d6deeb;--1:#403f53">0xAA 0x8B 0x05 0x00 0x00</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="App -> Arduino: FS_PING  0xAA 0x0B 0x04 0x00Arduino -> App: FS_PING_ACK (mounted)  0xAA 0x8B 0x05 0x00 0x00"><div></div></button></div></figure></div>
+<div class="sl-heading-wrapper level-h3"><h3 id="example-listing-a-directory">Example: Listing a directory</h3><a class="sl-anchor-link" href="#example-listing-a-directory"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Example: Listing a directory”</span></a></div>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">App -> Arduino: FS_LIST ("/")</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">  </span></span><span style="--0:#d6deeb;--1:#403f53">0xAA 0x01 0x05 0x00 0x01 0x2F</span></div></div><div class="ec-line"><div class="code">
+</div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Arduino -> App: FS_LIST_DATA (2 entries)</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">  </span></span><span style="--0:#d6deeb;--1:#403f53">0xAA 0x81 0x14 0x00</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">  </span></span><span style="--0:#d6deeb;--1:#403f53">0x02 0x00</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">  </span></span><span style="--0:#d6deeb;--1:#403f53">0x01 0x00 0x00 0x00 0x00 0x04 'd' 'e' 'm' 'o'</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">  </span></span><span style="--0:#d6deeb;--1:#403f53">0x00 0x57 0x00 0x00 0x00 0x04 'R' 'E' 'A' 'D' 'M' 'E'</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="App -> Arduino: FS_LIST (&#x22;/&#x22;)  0xAA 0x01 0x05 0x00 0x01 0x2FArduino -> App: FS_LIST_DATA (2 entries)  0xAA 0x81 0x14 0x00  0x02 0x00  0x01 0x00 0x00 0x00 0x00 0x04 &#x27;d&#x27; &#x27;e&#x27; &#x27;m&#x27; &#x27;o&#x27;  0x00 0x57 0x00 0x00 0x00 0x04 &#x27;R&#x27; &#x27;E&#x27; &#x27;A&#x27; &#x27;D&#x27; &#x27;M&#x27; &#x27;E&#x27;"><div></div></button></div></figure></div>
+<hr>
+<div class="sl-heading-wrapper level-h2"><h2 id="version-history">Version History</h2><a class="sl-anchor-link" href="#version-history"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Version History”</span></a></div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Version</th><th>Changes</th></tr></thead><tbody><tr><td>v0.01</td><td>Initial protocol (GET_CONF, CONF_DATA only)</td></tr><tr><td>v0.02</td><td>Added VAR_DATA, SET_INPUT</td></tr><tr><td>v0.03</td><td>Added reliability (ACK, VAR_UPDATE)</td></tr><tr><td>v2.0</td><td>Added META_DATA, TELEMETRY, expanded to 256 widgets, aspect ratio support</td></tr><tr><td>v3.0</td><td>Absolute Height/Width layout, META_UPDATE, enhanced reliability</td></tr><tr><td>v3.1</td><td>Added bulk Filesystem protocol (0xAA)</td></tr><tr><td>v3.2</td><td>Added FS_PING and FS_FORMAT sub-commands</td></tr></tbody></table>
+<div class="sl-heading-wrapper level-h2"><h2 id="see-also">See Also</h2><a class="sl-anchor-link" href="#see-also"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “See Also”</span></a></div>
+<ul>
+<li><a href="/arduino/widgets">Widgets Reference</a> — Widget type IDs and properties</li>
+<li><a href="/arduino/transports">Transports</a> — Transport configuration</li>
+</ul> </div> <footer class="sl-flex astro-3yyafb3n"> <div class="meta sl-flex astro-3yyafb3n">   </div> <div class="pagination-links print:hidden astro-u2l5gyhi" dir="ltr"> <a href="/arduino/transports" rel="prev" class="astro-u2l5gyhi"> <svg aria-hidden="true" class="astro-u2l5gyhi astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.5rem;"><path d="M17 11H9.41l3.3-3.29a1.004 1.004 0 1 0-1.42-1.42l-5 5a1 1 0 0 0-.21.33 1 1 0 0 0 0 .76 1 1 0 0 0 .21.33l5 5a1.002 1.002 0 0 0 1.639-.325 1 1 0 0 0-.219-1.095L9.41 13H17a1 1 0 0 0 0-2Z"/></svg> <span class="astro-u2l5gyhi"> Previous <br class="astro-u2l5gyhi"> <span class="link-title astro-u2l5gyhi">Transports</span> </span> </a>  </div>   </footer>  </div> </div>   </main> </div> </div>  </div> </div>  </body></html>

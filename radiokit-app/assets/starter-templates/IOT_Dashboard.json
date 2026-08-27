@@ -1,0 +1,219 @@
+{
+  "version": 2,
+  "appdata": {
+    "appVersion": "1.0.0"
+  },
+  "config": {
+    "name": "IOT-Dashboard",
+    "description": "Sensor monitoring dashboard",
+    "type": "IOT",
+    "theme": "default",
+    "password": "",
+    "transports": {
+      "ble": {
+        "enabled": false
+      },
+      "wifi": {
+        "enabled": true,
+        "ssid": "",
+        "pass": ""
+      },
+      "cloud": {
+        "enabled": false,
+        "account": "",
+        "relay": ""
+      }
+    }
+  },
+  "canvas": {
+    "grid": "none",
+    "skin": "dragon"
+  },
+  "enableControlUI": true,
+  "telemetry": [
+    {
+      "label": "Temperature",
+      "icon": "thermometer",
+      "unit": "\u00b0C"
+    },
+    {
+      "label": "Humidity",
+      "icon": "droplets",
+      "unit": "%"
+    },
+    {
+      "label": "Pressure",
+      "icon": "gauge",
+      "unit": "hPa"
+    },
+    {
+      "label": "Light",
+      "icon": "sun",
+      "unit": "lux"
+    }
+  ],
+  "features": {
+    "ota": true,
+    "filesystem": false
+  },
+  "pages": [
+    {
+      "name": "Page 1",
+      "orientation": "landscape",
+      "widgets": [
+        {
+          "type": "text",
+          "name": "title",
+          "label": {
+            "text": "title",
+            "show": false
+          },
+          "position": [
+            100,
+            10,
+            0
+          ],
+          "size": [
+            80,
+            12
+          ],
+          "haptic": true,
+          "properties": {
+            "text": "IOT DASHBOARD",
+            "fontSize": 16,
+            "fontFamily": "monospace"
+          }
+        },
+        {
+          "type": "text",
+          "name": "temp_display",
+          "label": {
+            "text": "temp_display",
+            "show": true
+          },
+          "position": [
+            40,
+            30,
+            0
+          ],
+          "size": [
+            40,
+            18
+          ],
+          "haptic": true,
+          "properties": {
+            "text": "23.5\u00b0C",
+            "fontSize": 18,
+            "fontFamily": "monospace"
+          }
+        },
+        {
+          "type": "led",
+          "name": "status_led",
+          "label": {
+            "text": "status_led",
+            "show": true
+          },
+          "position": [
+            170,
+            30,
+            0
+          ],
+          "size": [
+            null,
+            16
+          ],
+          "haptic": true,
+          "properties": {
+            "state": "on",
+            "shape": "circle",
+            "color": 65280,
+            "timing": 500
+          }
+        },
+        {
+          "type": "slider",
+          "name": "temp_threshold",
+          "label": {
+            "text": "temp_threshold",
+            "show": true
+          },
+          "position": [
+            100,
+            58,
+            0
+          ],
+          "size": [
+            120,
+            12
+          ],
+          "haptic": true,
+          "properties": {
+            "min": 0,
+            "max": 50,
+            "divisions": 50,
+            "autoCenter": [
+              null,
+              "smooth",
+              300
+            ]
+          }
+        },
+        {
+          "type": "switch",
+          "name": "fan_control",
+          "label": {
+            "text": "fan_control",
+            "show": true
+          },
+          "position": [
+            170,
+            78,
+            0
+          ],
+          "size": [
+            null,
+            14
+          ],
+          "haptic": true,
+          "variant": "slideSwitch",
+          "properties": {
+            "onText": "FAN ON",
+            "offText": "FAN OFF"
+          }
+        },
+        {
+          "type": "knob",
+          "name": "brightness",
+          "label": {
+            "text": "brightness",
+            "show": true
+          },
+          "position": [
+            40,
+            78,
+            0
+          ],
+          "size": [
+            null,
+            24
+          ],
+          "haptic": true,
+          "properties": {
+            "min": 0,
+            "max": 100,
+            "minAngle": -135,
+            "maxAngle": 135,
+            "centerIcon": "sun",
+            "divisions": null,
+            "autoCenter": [
+              null,
+              "smooth",
+              500
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,99 @@
+name: radiokit
+description: RadioKit - BLE & USB Serial companion app for Arduino RadioKit library
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # BLE: Unified (All platforms)
+  universal_ble: ^2.0.4
+
+  # Device info (for Android SDK version detection)
+  device_info_plus: ^13.1.0
+
+  # Serial: web (Web Serial API — Chrome/Edge)
+  # https://pub.dev/packages/webserial
+  webserial: ^1.1.0
+
+  # Routing
+  go_router: ^17.2.2
+
+  # State management
+  provider: ^6.1.2
+
+  shared_preferences: ^2.5.5
+  google_fonts: ^8.0.2
+  path_provider: ^2.1.3
+  file_picker: ^12.0.0-beta.5
+  # Multi-mode Rendering
+  flutter_svg: ^2.0.10+1
+  archive: ^4.0.0
+
+  # RadioKit Widget Library
+  radiokit_widgets:
+    path: ../flutter-widgets
+  geolocator: ^14.0.2
+  intl: ^0.20.2
+  web: ^1.1.1
+  share_plus: ^13.1.0
+  phosphoricons_flutter: ^1.0.0
+
+  # Serial: Linux desktop
+  flserial: ^0.7.1
+
+  # HTTP API server for remote access / test automation
+  shelf: ^1.4.2
+  shelf_router: ^1.1.4
+  flutter_secure_storage: ^10.3.1
+  re_editor: ^0.9.0
+  re_highlight: ^0.0.3
+  web_socket_channel: ^3.0.3
+  multicast_dns: ^0.3.3+1
+  cryptography: ^2.9.0
+  flutter_esptool: 0.1.4
+  platform_serial: 0.1.2
+  flutter_serial_communication: ^0.2.8
+
+dependency_overrides:
+  flserial:
+    git:
+      url: https://github.com/rambros3d/flserial.git
+      ref: fix/find-comm-interface-id-return-minus-one
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  build_runner: ^2.4.14
+  flutter_gen_runner: ^5.10.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter:
+  uses-material-design: true
+  assets:
+    - resources/icon/app_icon.png
+    - assets/demos/
+    - assets/starter-templates/
+    - assets/skills/
+    - assets/rk-arduino.zip
+
+flutter_gen:
+  output: lib/gen/
+  line_length: 80
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "resources/icon/app_icon.png"
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: "resources/icon/app_icon.png"
+    background_color: "#373737"
+    theme_color: "#373737"

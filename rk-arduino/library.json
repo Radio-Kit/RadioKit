@@ -1,0 +1,25 @@
+{
+  "name": "RadioKit",
+  "version": "2.0.0",
+  "description": "Open source alternative to RemoteXY, build amazing UIs for your Arduino projects using a simple C++ API and a native Flutter companion app.",
+  "keywords": ["ble", "bluetooth", "remote control", "gui", "esp32"],
+  "authors": [
+    {
+      "name": "RadioKit Contributors",
+      "url": "https://github.com/rambros3d/RadioKit"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rambros3d/RadioKit"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/rambros3d/RadioKit",
+  "platforms": ["espressif32", "ststm32", "raspberrypi"],
+  "dependencies": [],
+  "build": {
+    "srcDir": "src",
+    "includeDir": "src",
+    "extraScript": ""
+  }
+}

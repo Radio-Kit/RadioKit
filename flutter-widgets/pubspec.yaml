@@ -1,0 +1,29 @@
+name: radiokit_widgets
+description: A Flutter widget library for RadioKit — buttons, sliders, knobs, joysticks, and more for Arduino/microcontroller control interfaces.
+publish_to: 'none'
+version: 0.0.1
+homepage: https://github.com/rambros3d/RadioKit_Widgets
+repository: https://github.com/rambros3d/RadioKit_Widgets
+issue_tracker: https://github.com/rambros3d/RadioKit_Widgets/issues
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.10.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  google_fonts: ^8.0.2
+  simple_icons:
+    git:
+      url: https://github.com/PiscesXD/simple_icons.git
+      ref: master
+  phosphoricons_flutter: ^1.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

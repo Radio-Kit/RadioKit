@@ -1,0 +1,337 @@
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/device_info.dart';
+
+/// Helper to convert a [TransportType] to its string form.
+String _transportTypeToString(TransportType t) {
+  switch (t) {
+    case TransportType.ble:    return 'ble';
+    case TransportType.wifi:   return 'wifi';
+    case TransportType.cloud:  return 'cloud';
+    case TransportType.serial: return 'serial';
+    case TransportType.demo:   return 'demo';
+  }
+}
+
+/// Represents a previously connected device in the history.
+class PairedDevice {
+  /// Unique device identity (UID from device NVS or synthetic for demos).
+  final String uid;
+
+  final String name;
+  final String type;
+  final String? configName;
+  final String? description;
+  final String? preferredTransport;
+  final String? deviceIcon;
+
+  /// Per-transport connection addresses for reconnection.
+  final String? bleAddress;
+  final String? wifiAddress;
+  final String? cloudAddress;
+  final String? serialAddress;
+
+  /// Cloud account (Ed25519 public key hex) from the device's cloud_info.
+  /// Cached so reconnection can decide whether cloud fallback is viable.
+  final String? cloudAccount;
+
+  /// Which transport was last used ('ble', 'wifi', 'cloud', 'serial').
+  final String? lastUsedTransport;
+
+  /// Whether the device has LittleFS filesystem support.
+  final bool hasFs;
+
+  final DateTime lastConnected;
+
+  PairedDevice({
+    required this.uid,
+    required this.name,
+    required this.type,
+    this.configName,
+    this.description,
+    this.preferredTransport,
+    this.deviceIcon,
+    this.bleAddress,
+    this.wifiAddress,
+    this.cloudAddress,
+    this.serialAddress,
+    this.cloudAccount,
+    this.lastUsedTransport,
+    this.hasFs = false,
+    required this.lastConnected,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'uid': uid,
+        'name': name,
+        'type': type,
+        'configName': configName,
+        'description': description,
+        'preferredTransport': preferredTransport,
+        'deviceIcon': deviceIcon,
+        'bleAddress': bleAddress,
+        'wifiAddress': wifiAddress,
+        'cloudAddress': cloudAddress,
+        'serialAddress': serialAddress,
+        'cloudAccount': cloudAccount,
+        'lastUsedTransport': lastUsedTransport,
+        'hasFs': hasFs,
+        'lastConnected': lastConnected.toIso8601String(),
+      };
+
+  factory PairedDevice.fromJson(Map<String, dynamic> json) => PairedDevice(
+        uid: (json['uid'] ?? json['id']) as String,  // fallback to old 'id' key
+        name: json['name'],
+        type: json['type'],
+        configName: json['configName'],
+        description: json['description'],
+        preferredTransport: json['preferredTransport'] as String?,
+        deviceIcon: json['deviceIcon'] as String?,
+        bleAddress: json['bleAddress'] as String?,
+        wifiAddress: json['wifiAddress'] as String?,
+        cloudAddress: json['cloudAddress'] as String?,
+        serialAddress: json['serialAddress'] as String?,
+        cloudAccount: json['cloudAccount'] as String?,
+        lastUsedTransport: json['lastUsedTransport'] as String?,
+        hasFs: json['hasFs'] as bool? ?? false,
+        lastConnected: DateTime.parse(json['lastConnected']),
+      );
+
+  /// Create a [DeviceInfo] suitable for reconnection.
+  /// Uses [lastUsedTransport] to pick the right transport address.
+  DeviceInfo toDeviceInfo() {
+    // Determine which transport address to use
+    String? address;
+    TransportType transport = TransportType.ble;
+    final lastType = lastUsedTransport;
+
+    if (lastType == 'wifi' && wifiAddress != null) {
+      address = wifiAddress;
+      transport = TransportType.wifi;
+    } else if (lastType == 'cloud' && cloudAddress != null) {
+      address = cloudAddress;
+      transport = TransportType.cloud;
+    } else if (lastType == 'serial' && serialAddress != null) {
+      address = serialAddress;
+      transport = TransportType.serial;
+    } else if (bleAddress != null) {
+      address = bleAddress;
+      transport = TransportType.ble;
+    } else if (wifiAddress != null) {
+      address = wifiAddress;
+      transport = TransportType.wifi;
+    } else if (cloudAddress != null) {
+      address = cloudAddress;
+      transport = TransportType.cloud;
+    } else if (serialAddress != null) {
+      address = serialAddress;
+      transport = TransportType.serial;
+    } else if (type == 'demo') {
+      // Demo device — no real transport address
+      return DeviceInfo(
+        id: uid,
+        name: name,
+        rssi: 0,
+        hasFs: hasFs,
+        preferredTransport: preferredTransport,
+        deviceIcon: deviceIcon,
+        currentTransport: TransportType.demo,
+      );
+    }
+
+    return DeviceInfo(
+      id: uid,
+      name: name,
+      rssi: 0,
+      hasFs: hasFs,
+      preferredTransport: preferredTransport,
+      deviceIcon: deviceIcon,
+      transportAddress: address,
+      currentTransport: transport,
+    );
+  }
+}
+
+/// Manages persistent history of connected devices.
+class HistoryProvider extends ChangeNotifier {
+  static const _storageKey = 'radiokit_paired_models';
+  List<PairedDevice> _pairedDevices = [];
+  final Completer<void> _ready = Completer<void>();
+
+  HistoryProvider() {
+    _loadHistory();
+  }
+
+  List<PairedDevice> get pairedDevices => List.unmodifiable(_pairedDevices);
+
+  Future<void> _loadHistory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final data = prefs.getString(_storageKey);
+      if (data != null) {
+        final List<dynamic> decoded = jsonDecode(data);
+        _pairedDevices = decoded.map((e) => PairedDevice.fromJson(e)).toList();
+        _deduplicateEntries();
+        _pairedDevices.sort((a, b) => b.lastConnected.compareTo(a.lastConnected));
+        notifyListeners();
+        await _persist();
+      }
+    } catch (e) {
+      debugPrint('RadioKit: Failed to load history: $e');
+    } finally {
+      if (!_ready.isCompleted) _ready.complete();
+    }
+  }
+
+  /// Deduplicate existing entries by merging ones that share the same address or name/type.
+  void _deduplicateEntries() {
+    final unique = <PairedDevice>[];
+    for (final device in _pairedDevices) {
+      final matchIdx = unique.indexWhere((u) {
+        if (u.uid == device.uid) return true;
+        if (u.bleAddress != null && device.bleAddress != null && u.bleAddress == device.bleAddress) return true;
+        if (u.serialAddress != null && device.serialAddress != null && u.serialAddress == device.serialAddress) return true;
+        if (u.wifiAddress != null && device.wifiAddress != null && u.wifiAddress == device.wifiAddress) return true;
+        if (u.name.isNotEmpty && u.name == device.name && u.type == device.type && u.type != 'demo') return true;
+        return false;
+      });
+
+      if (matchIdx == -1) {
+        unique.add(device);
+      } else {
+        // Merge into the more recent entry
+        final existing = unique[matchIdx];
+        unique[matchIdx] = PairedDevice(
+          uid: existing.uid,
+          name: existing.name.isNotEmpty ? existing.name : device.name,
+          type: existing.type,
+          configName: existing.configName ?? device.configName,
+          description: existing.description ?? device.description,
+          preferredTransport: existing.preferredTransport ?? device.preferredTransport,
+          deviceIcon: existing.deviceIcon ?? device.deviceIcon,
+          bleAddress: existing.bleAddress ?? device.bleAddress,
+          wifiAddress: existing.wifiAddress ?? device.wifiAddress,
+          cloudAddress: existing.cloudAddress ?? device.cloudAddress,
+          serialAddress: existing.serialAddress ?? device.serialAddress,
+          cloudAccount: existing.cloudAccount ?? device.cloudAccount,
+          lastUsedTransport: existing.lastUsedTransport ?? device.lastUsedTransport,
+          lastConnected: existing.lastConnected.isAfter(device.lastConnected) ? existing.lastConnected : device.lastConnected,
+        );
+      }
+    }
+    _pairedDevices = unique;
+  }
+
+  /// Save or update a device in history.
+  ///
+  /// Matches by UID, transport address (BLE/Serial/WiFi/Cloud), or name+type,
+  /// and merges multi-transport connection addresses while removing stale duplicates.
+  Future<void> saveDevice(DeviceInfo device, String type, {String? configName, String? description, String? cloudAccount}) async {
+    await _ready.future;
+    final uid = device.id;  // DeviceInfo.id is the UID after connection
+    final now = DateTime.now();
+    final transportStr = _transportTypeToString(device.currentTransport);
+
+    final curBle = device.currentTransport == TransportType.ble
+        ? (device.bleAddress ?? device.transportAddress ?? uid)
+        : (device.bleAddress ?? (type == 'ble' ? uid : null));
+    final curWifi = device.currentTransport == TransportType.wifi
+        ? (device.wifiAddress ?? device.transportAddress ?? uid)
+        : (device.wifiAddress ?? (type == 'wifi' ? uid : null));
+    final curSerial = device.currentTransport == TransportType.serial
+        ? (device.transportAddress ?? uid)
+        : (type == 'serial' ? uid : null);
+    final curCloud = device.currentTransport == TransportType.cloud
+        ? device.transportAddress
+        : null;
+
+    // Find existing entry by UID or transport address or name/config
+    final index = _pairedDevices.indexWhere((d) {
+      if (d.uid == uid) return true;
+      if (curBle != null && curBle.isNotEmpty && d.bleAddress == curBle) return true;
+      if (curSerial != null && curSerial.isNotEmpty && d.serialAddress == curSerial) return true;
+      if (curWifi != null && curWifi.isNotEmpty && d.wifiAddress == curWifi) return true;
+      if (curCloud != null && curCloud.isNotEmpty && d.cloudAddress == curCloud) return true;
+      if (d.name.isNotEmpty && d.name == device.displayName && d.type == type && type != 'demo') {
+        if (configName == null || d.configName == null || d.configName == configName) {
+          return true;
+        }
+      }
+      return false;
+    });
+
+    if (index != -1) {
+      // Merge: keep existing transport addresses, update current transport's address and UID
+      final existing = _pairedDevices[index];
+      _pairedDevices[index] = PairedDevice(
+        uid: uid,
+        name: device.displayName.isNotEmpty ? device.displayName : existing.name,
+        type: type,
+        configName: configName ?? existing.configName,
+        description: description ?? existing.description,
+        preferredTransport: device.preferredTransport ?? existing.preferredTransport,
+        deviceIcon: device.deviceIcon ?? existing.deviceIcon,
+        bleAddress: curBle ?? existing.bleAddress,
+        wifiAddress: curWifi ?? existing.wifiAddress,
+        cloudAddress: curCloud ?? existing.cloudAddress,
+        serialAddress: curSerial ?? existing.serialAddress,
+        cloudAccount: cloudAccount ?? existing.cloudAccount,
+        lastUsedTransport: transportStr,
+        hasFs: device.hasFs || existing.hasFs,
+        lastConnected: now,
+      );
+    } else {
+      // Create new entry with the current transport's address
+      _pairedDevices.insert(
+        0,
+        PairedDevice(
+          uid: uid,
+          name: device.displayName,
+          type: type,
+          configName: configName,
+          description: description,
+          preferredTransport: device.preferredTransport,
+          deviceIcon: device.deviceIcon,
+          bleAddress: curBle,
+          wifiAddress: curWifi,
+          cloudAddress: curCloud,
+          serialAddress: curSerial,
+          cloudAccount: cloudAccount,
+          lastUsedTransport: transportStr,
+          hasFs: device.hasFs,
+          lastConnected: now,
+        ),
+      );
+    }
+
+    _deduplicateEntries();
+    _pairedDevices.sort((a, b) => b.lastConnected.compareTo(a.lastConnected));
+    notifyListeners();
+    await _persist();
+  }
+
+  /// Remove a device by UID.
+  Future<void> removeDevice(String uid) async {
+    _pairedDevices.removeWhere((d) => d.uid == uid);
+    notifyListeners();
+    await _persist();
+  }
+
+  Future<void> deleteAll() async {
+    _pairedDevices.clear();
+    notifyListeners();
+    await _persist();
+  }
+
+  Future<void> _persist() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final data = jsonEncode(_pairedDevices.map((e) => e.toJson()).toList());
+      await prefs.setString(_storageKey, data);
+    } catch (e) {
+      debugPrint('RadioKit: Failed to persist history: $e');
+    }
+  }
+}

@@ -1,19 +1,29 @@
+# =============================================================================
+# Unified .gitignore for RadioKit
+# =============================================================================
+# asgent
+.*/
+!/.github/
+changes/archive/
+
+# my tasks
+todo.txt
+
 # IDE
-.idea/
-.vscode/
-.gemini/
-.cursor/
-.agent/
-.kilo/
-.antigravity/
-.codex/
-.claude/
 references/
+.worktree/
+ref/
+tmp/
+scratch/
 *.iml
+*.ipr
+*.iws
 *.swp
 *.swo
 *~
 *.log
+*.txt
+!**/CMakeLists.txt
 
 # PlatformIO
 .pio/
@@ -26,47 +36,54 @@ build/
 compile_commands.json
 build_log.txt
 .clangd
+*.bin
+.venv/
 
 # Flutter
-flutter-app/.dart_tool/
-flutter-app/.packages
-flutter-app/.pub-cache/
-flutter-app/.pub/
-flutter-app/build/
-flutter-app/.flutter-plugins
-flutter-app/.flutter-plugins-dependencies
-flutter-app/pubspec.lock
-flutter-app/.metadata
-flutter-app/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+.flutter-plugins
+.flutter-plugins-dependencies
+.metadata
+GeneratedPluginRegistrant.java
 .screenshots/
+.xconfig
 
 # Android
-flutter-app/android/.gradle/
-flutter-app/android/local.properties
-flutter-app/android/gradle-wrapper.jar
-flutter-app/android/gradlew
-flutter-app/android/gradlew.bat
-flutter-app/android/captures/
-flutter-app/android/.cxx/
-flutter-app/android/app/build/
-flutter-app/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+.gradle/
+local.properties
+gradle-wrapper.jar
+gradlew
+gradlew.bat
+captures/
+.cxx/
+build/
 *.apk
 *.aab
+key.properties
+*.keystore
+*.jks
 
 # iOS
-flutter-app/ios/Pods/
-flutter-app/ios/.symlinks/
-flutter-app/ios/Flutter/Flutter.framework
-flutter-app/ios/Flutter/Flutter.podspec
-flutter-app/ios/Flutter/Generated.xcconfig
-flutter-app/ios/Flutter/flutter_export_environment.sh
-flutter-app/ios/Flutter/ephemeral/
-flutter-app/ios/Runner/GeneratedPluginRegistrant.h
-flutter-app/ios/Runner/GeneratedPluginRegistrant.m
-flutter-app/ios/Runner.xcworkspace/
+Pods/
+.symlinks/
+Flutter.framework
+Flutter.podspec
+Generated.xcconfig
+flutter_export_environment.sh
+ephemeral/
+GeneratedPluginRegistrant.h
+GeneratedPluginRegistrant.m
+Runner.xcworkspace/
+.xconfig
 
 # macOS
 .DS_Store
+
+# Rust
+target/
 
 # Build
 *.o
@@ -75,18 +92,18 @@ flutter-app/ios/Runner.xcworkspace/
 *.dylib
 
 # Specific Flutter & Android additions
-flutter-app/android/key.properties
-flutter-app/android/*.keystore
-flutter-app/android/*.jks
-flutter-app/android/app/src/main/res/raw/
-flutter-app/android/app/src/main/res/xml/
-flutter-app/android/app/google-services.json
-flutter-app/android/app/src/debug/lib*
-flutter-app/android/app/src/main/jniLibs
-flutter-app/assets/fonts/
-!flutter-app/assets/fonts/.gitkeep
+raw/
+xml/
+debug/lib*
+main/jniLibs
+assets/fonts/
+!assets/fonts/.gitkeep
+flutter_*.png
 
-# AI Agent Specifics (Comprehensive)
+# Generated assets (build scripts produce these)
+radiokit-app/assets/rk-arduino.zip
+
+# AI Agent Specifics
 .agent/
 .antigravity/
 .gemini/
@@ -95,6 +112,122 @@ flutter-app/assets/fonts/
 .codex/
 .claude/
 .screenshots/
+.kmeta.*
 walkthrough.md
 task.md
 implementation_plan.md
+GEMINI.md
+plans/
+!llms.txt
+
+# -----------------------------------------------------------------------------
+# Patterns from flutter-library/example/.gitignore
+# -----------------------------------------------------------------------------
+# Miscellaneous
+*.class
+*.pyc
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+/build/
+/coverage/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio build artifacts
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# -----------------------------------------------------------------------------
+# iOS-specific patterns
+# -----------------------------------------------------------------------------
+**/dgph
+*.mode1v3
+*.mode2v3
+*.moved-aside
+*.pbxuser
+*.perspectivev3
+**/*sync/
+.sconsign.dblite
+.tags*
+**/.vagrant/
+**/DerivedData/
+Icon?
+xcuserdata
+**/.generated/
+**/Flutter/App.framework
+**/Flutter/Flutter.framework
+**/Flutter/Flutter.podspec
+**/Flutter/Generated.xcconfig
+**/Flutter/ephemeral/
+**/Flutter/app.flx
+**/Flutter/app.zip
+**/Flutter/flutter_assets/
+**/Flutter/flutter_export_environment.sh
+ServiceDefinitions.json
+Runner/GeneratedPluginRegistrant.*
+
+# Exceptions to above rules
+!default.mode1v3
+!default.mode2v3
+!default.pbxuser
+!default.perspectivev3
+
+# -----------------------------------------------------------------------------
+# Flatpak
+# -----------------------------------------------------------------------------
+com.rambros3d.radiokit.yml
+generated/
+build-dir/
+repo/
+.flatpak-builder/
+
+# -----------------------------------------------------------------------------
+# Linux-specific patterns
+# -----------------------------------------------------------------------------
+flutter/ephemeral
+
+# -----------------------------------------------------------------------------
+# macOS-specific patterns
+# -----------------------------------------------------------------------------
+**/Flutter/ephemeral/
+**/Pods/
+**/dgph
+**/xcuserdata/
+
+# -----------------------------------------------------------------------------
+# Windows-specific patterns
+# -----------------------------------------------------------------------------
+flutter/ephemeral/
+
+# Visual Studio user-specific files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Visual Studio build-related files
+x64/
+x86/
+
+# Visual Studio cache files
+*.[Cc]ache
+# but keep track of directories ending in .cache
+!*.[Cc]ache/
+node_modules/
+
+# openspec
+archive/

@@ -1,0 +1,45 @@
+---
+import MobileMenuFooter from 'virtual:starlight/components/MobileMenuFooter';
+import Search from 'virtual:starlight/components/Search';
+import SidebarPersister from '@astrojs/starlight/components/SidebarPersister.astro';
+import SidebarSublist from '@astrojs/starlight/components/SidebarSublist.astro';
+
+const { sidebar } = Astro.locals.starlightRoute;
+const currentPath = Astro.url.pathname;
+
+const isApp = currentPath.startsWith('/app/');
+const isArduino = currentPath.startsWith('/arduino/');
+
+// Keep only the relevant group + any non-group entries
+const filteredSidebar = sidebar.filter((entry: any) => {
+  if (entry.type !== 'group') return true;
+  if (isApp) return entry.label === 'App';
+  if (isArduino) return entry.label === 'Arduino';
+  return true;
+});
+---
+
+<div class="search-wrapper">
+  <Search />
+</div>
+
+<SidebarPersister>
+  <SidebarSublist sublist={filteredSidebar} />
+</SidebarPersister>
+
+<div class="md:sl-hidden">
+  <MobileMenuFooter />
+</div>
+
+<style>
+  @layer starlight.core {
+    .search-wrapper {
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--sl-color-hairline-shade);
+    }
+    .search-wrapper site-search button[data-open-modal] {
+      width: 100%;
+      max-width: 100%;
+    }
+  }
+</style>

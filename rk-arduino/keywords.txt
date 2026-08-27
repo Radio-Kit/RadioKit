@@ -1,0 +1,118 @@
+#######################################
+# Syntax Coloring Map For RadioKit
+# (Arduino IDE keywords.txt format)
+#
+# Format: KEYWORD\tTOKEN_TYPE
+#   KEYWORD1  = class names
+#   KEYWORD2  = method / function names
+#   LITERAL1  = constants
+#######################################
+
+#######################################
+# Classes (KEYWORD1 — orange)
+#######################################
+RadioKitClass	KEYWORD1
+RadioKit_Widget	KEYWORD1
+RK_PushButton	KEYWORD1
+RK_ToggleButton	KEYWORD1
+RK_Slider	KEYWORD1
+RK_GasPedal	KEYWORD1
+RK_Joystick	KEYWORD1
+RK_Knob	KEYWORD1
+RK_LED	KEYWORD1
+RK_Serial	KEYWORD1
+RK_Text	KEYWORD1
+
+#######################################
+# Methods / Functions (KEYWORD2 — brown)
+#######################################
+
+# RadioKitClass
+addWidget	KEYWORD2
+begin	KEYWORD2
+handle	KEYWORD2
+isConnected	KEYWORD2
+widgetCount	KEYWORD2
+
+# RK_PushButton
+pressed	KEYWORD2
+clicked	KEYWORD2
+
+# RK_ToggleButton
+isOn	KEYWORD2
+
+# RK_Slider
+value	KEYWORD2
+
+# RK_Joystick
+x	KEYWORD2
+y	KEYWORD2
+
+# RK_Knob
+value	KEYWORD2
+
+# RK_LED
+set	KEYWORD2
+get	KEYWORD2
+on	KEYWORD2
+off	KEYWORD2
+setColor	KEYWORD2
+setShape	KEYWORD2
+setLedState	KEYWORD2
+setTiming	KEYWORD2
+
+# RK_Text
+set	KEYWORD2
+get	KEYWORD2
+
+#######################################
+# Constants (LITERAL1 — teal)
+#######################################
+LED_OFF	LITERAL1
+LED_RED	LITERAL1
+LED_GREEN	LITERAL1
+LED_BLUE	LITERAL1
+LED_YELLOW	LITERAL1
+
+RADIOKIT_TYPE_BUTTON	LITERAL1
+RADIOKIT_TYPE_SWITCH	LITERAL1
+RADIOKIT_TYPE_SLIDER	LITERAL1
+RADIOKIT_TYPE_JOYSTICK	LITERAL1
+RADIOKIT_TYPE_LED	LITERAL1
+RADIOKIT_TYPE_TEXT	LITERAL1
+
+RK_CMD_GET_CONF	LITERAL1
+RK_CMD_CONF_DATA	LITERAL1
+RK_CMD_GET_VARS	LITERAL1
+RK_CMD_VAR_DATA	LITERAL1
+RK_CMD_SET_INPUT	LITERAL1
+RK_CMD_ACK	LITERAL1
+RK_CMD_PING	LITERAL1
+RK_CMD_PONG	LITERAL1
+
+RK_PROTOCOL_VERSION	LITERAL1
+RK_START_BYTE	LITERAL1
+
+# Variant / Shape
+RK_SHAPE_STANDARD	LITERAL1
+RK_SHAPE_ALT	LITERAL1
+
+# LED Shapes
+RK_LED_SHAPE_CIRCLE	LITERAL1
+RK_LED_SHAPE_SQUARE	LITERAL1
+RK_LED_SHAPE_DIAMOND	LITERAL1
+RK_LED_SHAPE_STAR	LITERAL1
+
+# LED States
+RK_LED_STATE_OFF	LITERAL1
+RK_LED_STATE_ON	LITERAL1
+RK_LED_STATE_BLINK	LITERAL1
+RK_LED_STATE_BREATHE	LITERAL1
+
+# Centering / Spring modes
+RK_SPRING_NONE	LITERAL1
+RK_SPRING_CENTER	LITERAL1
+RK_SPRING_MIN	LITERAL1
+RK_SPRING_MAX	LITERAL1
+RK_SPRING_TOP	LITERAL1
+RK_SPRING_BOTTOM	LITERAL1

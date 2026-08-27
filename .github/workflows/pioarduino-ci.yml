@@ -1,0 +1,98 @@
+name: Pioarduino Builds
+
+# Build all PlatformIO examples on every push and PR to catch
+# Arduino-side regressions early.
+
+on:
+  push:
+    branches: [main]
+    tags-ignore:
+      - "v*"
+      - "*-apk"
+      - "*-ios"
+      - "*-linux"
+      - "*-win"
+      - "*-mac"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  pio:
+    name: Pioarduino (${{ matrix.env }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ESP32 examples
+          - env: SerialTest
+            dir: SerialTest
+            pio_env: SerialTest
+          - env: BasicSwitch
+            dir: BasicSwitch
+            pio_env: basicswitch
+          - env: JoystickMotor
+            dir: JoystickMotor
+            pio_env: joystickmotor
+          - env: SliderServo
+            dir: SliderServo
+            pio_env: sliderservo
+          - env: BLE_RC_Truck
+            dir: BLE_RC_Truck
+            pio_env: ble_rc_truck
+          - env: Filesystem_LED
+            dir: Filesystem_LED
+            pio_env: filesystem_led
+          - env: FsCommandTest
+            dir: FsCommandTest
+            pio_env: fs_command_test
+          - env: WiFiCloudSwitch
+            dir: WiFiCloudSwitch
+            pio_env: wificloudswitch
+          # ESP32 Multi-page demo
+          - env: MultiPageController
+            dir: MultiPageController
+            pio_env: multipagecontroller
+          # STM32 (serial-only examples — no LittleFS)
+          - env: FsCommandTest_stm32
+            dir: FsCommandTest
+            pio_env: fs_command_test_stm32
+          - env: BasicSwitch_stm32
+            dir: BasicSwitch
+            pio_env: basicswitch_stm32
+          # RP2040 (serial-only examples)
+          - env: FsCommandTest_rp2040
+            dir: FsCommandTest
+            pio_env: fs_command_test_rp2040
+          - env: BasicSwitch_rp2040
+            dir: BasicSwitch
+            pio_env: basicswitch_rp2040
+          - env: Filesystem_LED_rp2040
+            dir: Filesystem_LED
+            pio_env: filesystem_led_rp2040
+          - env: SerialSimple_rp2040
+            dir: SerialSimple
+            pio_env: serialsimple_rp2040
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PlatformIO
+        run: |
+          python -m pip install --upgrade pip
+          pip install platformio
+          pio --version
+
+      - name: Cache PlatformIO packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            .pio
+          key: pio-${{ matrix.env }}-${{ hashFiles('rk-arduino/**/library.properties', 'rk-arduino/**/library.json') }}
+          restore-keys: |
+            pio-${{ matrix.env }}-
+
+      - name: Build ${{ matrix.env }}
+        working-directory: rk-arduino/examples/${{ matrix.dir }}
+        run: pio run -e ${{ matrix.pio_env }}

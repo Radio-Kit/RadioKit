@@ -1,0 +1,138 @@
+---
+title: App Overview
+description: Complete manual for the RadioKit Flutter companion app
+---
+
+The RadioKit Flutter app is a native companion application that connects to Arduino devices over BLE, Serial, WiFi, or Cloud relay and dynamically renders control widgets. It is the primary interface for controlling your RadioKit-powered hardware.
+
+## Architecture
+
+RadioKit uses a two-component architecture:
+
+1. **Arduino Library** (`rk-arduino`) -- Define widgets in C++ on the microcontroller
+2. **Flutter App** (`radiokit-app`) -- Native app that renders the UI and communicates with the device
+
+When a device connects, the app reads the widget configuration over the transport layer and builds the control interface automatically. No manual UI setup is required on the app side.
+
+```
+Arduino Device  <--BLE/Serial/WiFi/Cloud-->  Flutter App
+     |                                            |
+     +-- Widgets (C++ structs)                    +-- Dynamic UI Rendering
+     +-- Transport Layer                          +-- Real-time Control
+     +-- Protocol v5                              +-- Protocol v5
+```
+
+## Supported Platforms
+
+| Platform | Status | Notes |
+|----------|--------|-------|
+| Android | Supported | API 21+ with BLE permissions |
+| iOS | Supported | iOS 13+ with BLE support |
+| Linux | Supported | Desktop with BLE and Serial |
+| Web | Supported | Web Serial only (no BLE) |
+| macOS | Planned | Future release |
+| Windows | Planned | Future release |
+
+## App Screens
+
+The app is organized into a bottom navigation with four main tabs, plus dedicated full-screen views for connected devices and the designer.
+
+### Models Tab (Home)
+
+The Models tab is the app's home screen. It shows:
+
+- **Active Links** -- Cards for each currently connected device, showing transport type, signal strength (dBm), latency (ms), and connection status. Each card has buttons for CONTROLLER (opens the control screen), settings (info bottom sheet), and disconnect.
+- **Paired Models** -- A list of previously connected devices. The app periodically probes each paired device across all configured transports (BLE, WiFi, Serial, Cloud) to show availability status. Tap a paired model to reconnect -- the app tries the last-used transport first, then falls back to others.
+- **+ New Device** -- Opens the Pair Bottom Sheet for connecting a new device.
+- **Interactive Demo** -- Simulated device connections (WIDGETS_DEMO, RC_CONTROLLER, IOT_DASHBOARD) for testing without hardware. Enabled/disabled via the ENABLE_DEMO toggle in System settings.
+
+### Pair Bottom Sheet
+
+The pair bottom sheet provides four connection tabs:
+
+| Tab | Transport | Discovery | Notes |
+|-----|-----------|-----------|-------|
+| **USB** | Serial | Port scan | Supports baud rate selection (9600 to 1000000). Auto-detects USB CDC, FTDI, CP210x, CH340. |
+| **BLE** | Bluetooth Low Energy | BLE scan | Shows discovered devices with signal strength bars. Auto-discovers RadioKit BLE services. |
+| **WiFi** | WebSocket | mDNS scan | Discovers devices on the local network. Manual IP entry fallback (default port 5555). |
+| **Cloud** | WebSocket relay | Account-based | Connects through a cloud relay server using Ed25519 authentication. Shows available devices for the selected account. |
+
+### Control Screen
+
+The control screen is the full-screen widget canvas for a connected device. It renders all widgets defined in the Arduino configuration in real-time.
+
+**Features:**
+- Auto-orientation -- rotates to match the device's configured orientation (portrait/landscape)
+- Fullscreen mode -- immersive mode when enabled in System settings
+- Signal strength and latency display in the app bar
+- Connection health monitoring with automatic reconnection prompts
+- Debug mode access (debug builds only)
+
+**Connection states:**
+- `Fetching Config` -- Reading widget layout from the device
+- `Connected` -- Active widget canvas
+- `OTA Rebooting` -- Device rebooting after firmware flash
+- `Disconnected` -- Connection lost, shows reconnect prompt
+- `Error` -- Connection error with retry option
+
+### Designs Tab
+
+The Designs tab manages saved UI designs created in the Visual Designer. Designs can be:
+
+- **App-stored** -- Saved as JSON within the app's local storage
+- **File-linked** -- Linked to `.h` or `.json` files on the filesystem
+
+Each design shows its name, creation date, and app version. Long-press to delete. Tap to open in the Designer.
+
+**Actions from the app bar:**
+- **Open** -- Import a `.h` or `.json` file from the filesystem
+- **Create** -- Start a new design from scratch
+
+### Dev Tools Tab
+
+The Dev Tools tab provides three developer utilities:
+
+1. **USB Serial Monitor** -- Monitor and send serial data over USB. View raw protocol communication in real-time.
+2. **Filesystem Explorer** -- Browse, upload, download, rename, delete, and format files on the device's LittleFS partition. Requires filesystem transport support.
+3. **Firmware Flasher** -- Flash firmware to the MCU via USB serial. Supports chip detection, erase-all mode, and progress tracking.
+
+### System Tab
+
+The System tab provides app-wide settings organized into sections:
+
+1. **Cloud** -- Manage cloud relay accounts (create, edit, delete Ed25519 keypairs and relay URLs)
+2. **Environment** -- System language, interface theme (8 built-in themes: abyss, dragon, matrix, bumblebee, emerald, minimal, rose, vintage), demo mode toggle
+3. **Control UI** -- Fullscreen mode toggle for the controller screen
+4. **Advanced Options** -- Remote Access API (HTTP API on port 7007 for automation/testing), Follow Mode (live navigation mirroring)
+5. **Version** -- App version and firmware version display
+6. **Danger Zone** -- Remove all paired models, delete all saved designs
+
+## Authentication
+
+Devices can require password authentication on connection. The flow:
+
+1. Device connects with `hasPassword: true`
+2. App automatically opens an auth dialog (30-second countdown)
+3. User enters password; if "Remember password" is checked, it is stored securely
+4. Saved passwords are auto-loaded on reconnect
+5. Auth bypass for serial connections (no password required)
+6. Admin access mode available from the device info sheet
+
+## Multi-Device Support
+
+The app supports simultaneous connections to multiple RadioKit devices. Each device gets its own `DeviceProvider` instance within the `MultiDeviceProvider`. The control screen can be opened per-device via the route `/control/<deviceId>`.
+
+## Remote Access API
+
+When enabled in System settings, the app runs an HTTP API server on port 7007 that exposes all device operations as RESTful endpoints. This enables:
+
+- Automated testing via `curl` or scripts
+- Follow mode for remote control of the app's navigation
+- Integration with external tools and dashboards
+
+## See Also
+
+- [Features](/app/features) -- Detailed feature reference
+- [Quick Start](/app/quick-start) -- Get started in 5 minutes
+- [Designer Manual](/app/designer) -- Visual UI designer guide
+- [Arduino Library](/arduino/overview) -- Hardware side documentation

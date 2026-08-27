@@ -1,0 +1,43 @@
+---
+title: Introduction
+description: Get started with RadioKit - the open-source Arduino UI framework
+---
+
+RadioKit is an open-source alternative to RemoteXY that lets you define your UI in C++ and control it from a native Flutter companion app over BLE, Serial, WiFi, or Cloud relay.
+
+## What is RadioKit?
+
+RadioKit is a powerful, object-oriented Arduino library that bridges your hardware and a highly customizable mobile dashboard. It allows you to build industrial-grade control interfaces using simple C++ structures.
+
+### Key Features
+
+- **Hardware Agnostic**: Supports ESP32 (NimBLE), Nordic nRF52, STM32, and any board with a Hardware Serial port
+- **Tailored Memory Model**: Each widget only consumes the RAM it needs — no dynamic allocation
+- **Zero Configuration**: The UI is defined in your Arduino code; the app dynamically builds the dashboard upon connection
+- **Reliable Communication**: Built-in sequence tracking and retransmission for critical commands
+- **Spring Physics**: High-fidelity spring simulations for sliders, knobs, and joysticks
+- **Multiple Transports**: BLE (NimBLE), Serial (USB CDC, FTDI, CP210x, CH340), WiFi, and Cloud relay
+
+## Architecture
+
+RadioKit consists of two main components:
+
+1. **Arduino Library** (`rk-arduino`) — Define your UI widgets in C++ and manage transport connections
+2. **Flutter App** (`radiokit-app`) — Native companion app that renders the UI and communicates with your device
+
+### Communication Flow
+
+```
+Arduino Device  <--BLE/Serial/WiFi/Cloud-->  Flutter App
+     |                                            |
+     +-- Widgets (C++ structs)                    +-- Dynamic UI Rendering
+     +-- Transport Layer                          +-- Real-time Control
+     +-- Protocol v5                              +-- Protocol v5
+```
+
+## Next Steps
+
+- [Installation](/installation) — Set up RadioKit in your project
+- [Quick Start](/quick-start) — Build your first RadioKit project
+- [Arduino Library](/arduino/overview) — Learn about the Arduino library
+- [Flutter App](/app/overview) — Explore the companion app

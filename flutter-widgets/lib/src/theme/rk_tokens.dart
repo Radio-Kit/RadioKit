@@ -1,0 +1,427 @@
+import 'package:flutter/material.dart';
+
+/// Design tokens shared across all RadioKit widgets.
+///
+/// Follows the DaisyUI semantic color model with 20 color fields,
+/// 3 border-radius tokens, 3 sizing tokens, and 2 effect tokens.
+class RKTokens {
+  const RKTokens({
+    required this.primary,
+    required this.onPrimary,
+    required this.secondary,
+    required this.onSecondary,
+    required this.accent,
+    required this.onAccent,
+    required this.neutral,
+    required this.onNeutral,
+    required this.surface,
+    required this.onSurface,
+    required this.base200,
+    required this.base300,
+    required this.info,
+    required this.onInfo,
+    required this.success,
+    required this.onSuccess,
+    required this.warning,
+    required this.onWarning,
+    required this.error,
+    required this.onError,
+    this.outlineColor,
+    this.borderRadius = 16.0,
+    this.radiusSelector = 16.0,
+    this.radiusField = 8.0,
+    this.sizeSelector = 4.0,
+    this.sizeField = 4.0,
+    this.borderWidth = 1.0,
+    this.depth = 1,
+    this.noise = 0,
+    this.isDark = false,
+    this.isDefault = false,
+  });
+
+  final Color primary;
+  final Color onPrimary;
+  final Color secondary;
+  final Color onSecondary;
+  final Color accent;
+  final Color onAccent;
+  final Color neutral;
+  final Color onNeutral;
+  final Color surface;
+  final Color onSurface;
+  final Color base200;
+  final Color base300;
+  final Color info;
+  final Color onInfo;
+  final Color success;
+  final Color onSuccess;
+  final Color warning;
+  final Color onWarning;
+  final Color error;
+  final Color onError;
+  final Color? outlineColor;
+  final double borderRadius;
+  final double radiusSelector;
+  final double radiusField;
+  final double sizeSelector;
+  final double sizeField;
+  final double borderWidth;
+  final int depth;
+  final int noise;
+  final bool isDark;
+  final bool isDefault;
+
+  Color get effectiveOutline => outlineColor ?? onSurface.withValues(alpha: 0.35);
+
+  /// A recessed-groove / track color with guaranteed contrast against [surface].
+  /// Blends [base200] toward [onSurface] so dark themes remain legible.
+  Color get track => Color.lerp(base200, onSurface, 0.12)!;
+
+  /// Standardised active-state glow highlight derived from [primary].
+  Color get glow => primary.withValues(alpha: 0.45);
+
+  // -- Presets --
+  static const RKTokens abyss = RKTokens(
+    surface: Color(0xFF001E29),
+    onSurface: Color(0xFFFFD6A7),
+    base200: Color(0xFF00111D),
+    base300: Color(0xFF000611),
+    primary: Color(0xFFBDFF00),
+    onPrimary: Color(0xFF427600),
+    secondary: Color(0xFFCEBEF4),
+    onSecondary: Color(0xFF564775),
+    accent: Color(0xFF505050),
+    onAccent: Color(0xFFF8F8F8),
+    neutral: Color(0xFF003843),
+    onNeutral: Color(0xFFFFD6A7),
+    info: Color(0xFF00BAFE),
+    onInfo: Color(0xFF042E49),
+    success: Color(0xFF01DF72),
+    onSuccess: Color(0xFF022D14),
+    warning: Color(0xFFFFBF00),
+    onWarning: Color(0xFF854200),
+    error: Color(0xFFF04E4F),
+    onError: Color(0xFF690000),
+    borderRadius: 8.0,
+    radiusSelector: 32.0,
+    radiusField: 4.0,
+    sizeSelector: 4.0,
+    sizeField: 4.0,
+    borderWidth: 1.0,
+    depth: 1,
+    noise: 0,
+    isDark: true,
+    isDefault: false,
+  );
+  static const RKTokens bumblebee = RKTokens(
+    surface: Color(0xFFFFFFFF),
+    onSurface: Color(0xFF161616),
+    base200: Color(0xFFF5F5F5),
+    base300: Color(0xFFE4E4E4),
+    primary: Color(0xFFFDC700),
+    onPrimary: Color(0xFF733E0A),
+    secondary: Color(0xFFFF8904),
+    onSecondary: Color(0xFF7C2808),
+    accent: Color(0xFF000000),
+    onAccent: Color(0xFFFFFFFF),
+    neutral: Color(0xFF433F3A),
+    onNeutral: Color(0xFFE6E4E3),
+    info: Color(0xFF00BAFE),
+    onInfo: Color(0xFF014A70),
+    success: Color(0xFF00D390),
+    onSuccess: Color(0xFF004C39),
+    warning: Color(0xFFFCB700),
+    onWarning: Color(0xFF793205),
+    error: Color(0xFFFF6266),
+    onError: Color(0xFF801518),
+    borderRadius: 16.0,
+    radiusSelector: 16.0,
+    radiusField: 8.0,
+    sizeSelector: 4.0,
+    sizeField: 4.0,
+    borderWidth: 1.0,
+    depth: 1,
+    noise: 0,
+    isDark: false,
+    isDefault: false,
+  );
+  static const RKTokens dragon = RKTokens(
+    surface: Color(0xFF1B1816),
+    onSurface: Color(0xFFCDCDCD),
+    base200: Color(0xFF0B0908),
+    base300: Color(0xFF000000),
+    primary: Color(0xFFFA9700),
+    onPrimary: Color(0xFF131616),
+    secondary: Color(0xFF7A00C2),
+    onSecondary: Color(0xFFE3D4F6),
+    accent: Color(0xFF42AA00),
+    onAccent: Color(0xFF000000),
+    neutral: Color(0xFF2F1B05),
+    onNeutral: Color(0xFFD2CCC7),
+    info: Color(0xFF2563EB),
+    onInfo: Color(0xFFD2E2FF),
+    success: Color(0xFF18A34A),
+    onSuccess: Color(0xFF000A02),
+    warning: Color(0xFFD97708),
+    onWarning: Color(0xFF110500),
+    error: Color(0xFFF35248),
+    onError: Color(0xFF140202),
+    borderRadius: 16.0,
+    radiusSelector: 16.0,
+    radiusField: 8.0,
+    sizeSelector: 4.0,
+    sizeField: 4.0,
+    borderWidth: 1.0,
+    depth: 1,
+    noise: 0,
+    isDark: true,
+    isDefault: true,
+  );
+  static const RKTokens emerald = RKTokens(
+    surface: Color(0xFFFFFFFF),
+    onSurface: Color(0xFF333C4D),
+    base200: Color(0xFFE8E8E8),
+    base300: Color(0xFFD1D1D1),
+    primary: Color(0xFF66CC8A),
+    onPrimary: Color(0xFF223D30),
+    secondary: Color(0xFF377CFB),
+    onSecondary: Color(0xFFFFFFFF),
+    accent: Color(0xFFF68067),
+    onAccent: Color(0xFF000000),
+    neutral: Color(0xFF333C4D),
+    onNeutral: Color(0xFFF9FAFB),
+    info: Color(0xFF00B5FF),
+    onInfo: Color(0xFF000000),
+    success: Color(0xFF00A96E),
+    onSuccess: Color(0xFF000000),
+    warning: Color(0xFFFFBE00),
+    onWarning: Color(0xFF000000),
+    error: Color(0xFFFF5861),
+    onError: Color(0xFF000000),
+    borderRadius: 16.0,
+    radiusSelector: 16.0,
+    radiusField: 8.0,
+    sizeSelector: 4.0,
+    sizeField: 4.0,
+    borderWidth: 1.0,
+    depth: 0,
+    noise: 0,
+    isDark: false,
+    isDefault: true,
+  );
+  static const RKTokens matrix = RKTokens(
+    surface: Color(0xFF010201),
+    onSurface: Color(0xFFCDF0CD),
+    base200: Color(0xFF020502),
+    base300: Color(0xFF060D06),
+    primary: Color(0xFF19C63C),
+    onPrimary: Color(0xFF010401),
+    secondary: Color(0xFF009342),
+    onSecondary: Color(0xFFE6F8E6),
+    accent: Color(0xFF8FDD5D),
+    onAccent: Color(0xFF030703),
+    neutral: Color(0xFF0C140C),
+    onNeutral: Color(0xFFCEE6CE),
+    info: Color(0xFF00B1DA),
+    onInfo: Color(0xFF00080D),
+    success: Color(0xFF49D158),
+    onSuccess: Color(0xFF010401),
+    warning: Color(0xFFE2BA00),
+    onWarning: Color(0xFF171100),
+    error: Color(0xFFFF4C4D),
+    onError: Color(0xFFFFEDEB),
+    borderRadius: 0.0,
+    radiusSelector: 0.0,
+    radiusField: 0.0,
+    sizeSelector: 4.0,
+    sizeField: 4.0,
+    borderWidth: 1.0,
+    depth: 1,
+    noise: 0,
+    isDark: true,
+    isDefault: false,
+  );
+  static const RKTokens minimal = RKTokens(
+    surface: Color(0xFFFFFFFF),
+    onSurface: Color(0xFF000000),
+    base200: Color(0xFFF5F5F5),
+    base300: Color(0xFFEBEBEB),
+    primary: Color(0xFF0D0D0D),
+    onPrimary: Color(0xFFFFFFFF),
+    secondary: Color(0xFF1A1919),
+    onSecondary: Color(0xFFFFFFFF),
+    accent: Color(0xFF262626),
+    onAccent: Color(0xFFFFFFFF),
+    neutral: Color(0xFF000000),
+    onNeutral: Color(0xFFFFFFFF),
+    info: Color(0xFF5FCFDD),
+    onInfo: Color(0xFF031011),
+    success: Color(0xFF69FEC3),
+    onSuccess: Color(0xFF04160E),
+    warning: Color(0xFFFFCE69),
+    onWarning: Color(0xFF170F04),
+    error: Color(0xFFFF9181),
+    onError: Color(0xFF180706),
+    borderRadius: 8.0,
+    radiusSelector: 32.0,
+    radiusField: 4.0,
+    sizeSelector: 4.0,
+    sizeField: 4.0,
+    borderWidth: 1.0,
+    depth: 0,
+    noise: 0,
+    isDark: false,
+    isDefault: false,
+  );
+  static const RKTokens rose = RKTokens(
+    surface: Color(0xFFFCF2F8),
+    onSurface: Color(0xFFC5005A),
+    base200: Color(0xFFF9E4F0),
+    base300: Color(0xFFF9CBE5),
+    primary: Color(0xFFF43098),
+    onPrimary: Color(0xFFFFFFFF),
+    secondary: Color(0xFFAB44FF),
+    onSecondary: Color(0xFFF8F3FD),
+    accent: Color(0xFF71D1FE),
+    onAccent: Color(0xFF014A70),
+    neutral: Color(0xFF830C41),
+    onNeutral: Color(0xFFF9CBE5),
+    info: Color(0xFF51E8FB),
+    onInfo: Color(0xFF005889),
+    success: Color(0xFF5CE8B3),
+    onSuccess: Color(0xFF006044),
+    warning: Color(0xFFFF8904),
+    onWarning: Color(0xFF421104),
+    error: Color(0xFFF82834),
+    onError: Color(0xFFFEF2F2),
+    borderRadius: 16.0,
+    radiusSelector: 16.0,
+    radiusField: 32.0,
+    sizeSelector: 4.0,
+    sizeField: 4.0,
+    borderWidth: 1.0,
+    depth: 0,
+    noise: 0,
+    isDark: false,
+    isDefault: false,
+  );
+  static const RKTokens vintage = RKTokens(
+    surface: Color(0xFFFFF7ED),
+    onSurface: Color(0xFF7C2808),
+    base200: Color(0xFFFEECD3),
+    base300: Color(0xFFFFD6A7),
+    primary: Color(0xFF000000),
+    onPrimary: Color(0xFFFFFFFF),
+    secondary: Color(0xFF370A00),
+    onSecondary: Color(0xFFFFD6A7),
+    accent: Color(0xFF8C3F27),
+    onAccent: Color(0xFFFFD6A7),
+    neutral: Color(0xFFC93400),
+    onNeutral: Color(0xFFFFF7ED),
+    info: Color(0xFF193AB7),
+    onInfo: Color(0xFFFFD6A7),
+    success: Color(0xFF006044),
+    onSuccess: Color(0xFFFFD6A7),
+    warning: Color(0xFFFCB700),
+    onWarning: Color(0xFF793205),
+    error: Color(0xFFFF6266),
+    onError: Color(0xFF801518),
+    borderRadius: 16.0,
+    radiusSelector: 32.0,
+    radiusField: 8.0,
+    sizeSelector: 4.0,
+    sizeField: 4.0,
+    borderWidth: 2.0,
+    depth: 1,
+    noise: 1,
+    isDark: false,
+    isDefault: false,
+  );
+
+  /// Auto-generated from CSS themes -- do not edit manually.
+  static const Map<String, RKTokens> presets = {
+    'ABYSS': abyss,
+    'BUMBLEBEE': bumblebee,
+    'DRAGON': dragon,
+    'EMERALD': emerald,
+    'MATRIX': matrix,
+    'MINIMAL': minimal,
+    'ROSE': rose,
+    'VINTAGE': vintage,
+  };
+
+  RKTokens copyWith({
+    Color? primary,
+    Color? onPrimary,
+    Color? secondary,
+    Color? onSecondary,
+    Color? accent,
+    Color? onAccent,
+    Color? neutral,
+    Color? onNeutral,
+    Color? surface,
+    Color? onSurface,
+    Color? base200,
+    Color? base300,
+    Color? info,
+    Color? onInfo,
+    Color? success,
+    Color? onSuccess,
+    Color? warning,
+    Color? onWarning,
+    Color? error,
+    Color? onError,
+    Color? outlineColor,
+    double? borderRadius,
+    double? radiusSelector,
+    double? radiusField,
+    double? sizeSelector,
+    double? sizeField,
+    double? borderWidth,
+    int? depth,
+    int? noise,
+    bool? isDark,
+    bool? isDefault,
+  }) {
+    return RKTokens(
+      primary: primary ?? this.primary,
+      onPrimary: onPrimary ?? this.onPrimary,
+      secondary: secondary ?? this.secondary,
+      onSecondary: onSecondary ?? this.onSecondary,
+      accent: accent ?? this.accent,
+      onAccent: onAccent ?? this.onAccent,
+      neutral: neutral ?? this.neutral,
+      onNeutral: onNeutral ?? this.onNeutral,
+      surface: surface ?? this.surface,
+      onSurface: onSurface ?? this.onSurface,
+      base200: base200 ?? this.base200,
+      base300: base300 ?? this.base300,
+      info: info ?? this.info,
+      onInfo: onInfo ?? this.onInfo,
+      success: success ?? this.success,
+      onSuccess: onSuccess ?? this.onSuccess,
+      warning: warning ?? this.warning,
+      onWarning: onWarning ?? this.onWarning,
+      error: error ?? this.error,
+      onError: onError ?? this.onError,
+      outlineColor: outlineColor ?? this.outlineColor,
+      borderRadius: borderRadius ?? this.borderRadius,
+      radiusSelector: radiusSelector ?? this.radiusSelector,
+      radiusField: radiusField ?? this.radiusField,
+      sizeSelector: sizeSelector ?? this.sizeSelector,
+      sizeField: sizeField ?? this.sizeField,
+      borderWidth: borderWidth ?? this.borderWidth,
+      depth: depth ?? this.depth,
+      noise: noise ?? this.noise,
+      isDark: isDark ?? this.isDark,
+      isDefault: isDefault ?? this.isDefault,
+    );
+  }
+
+  static Map<String, RKTokens> get presetsByName => {
+    for (final e in presets.entries) e.key.toLowerCase(): e.value,
+  };
+
+  static String get defaultPreset =>
+      presetsByName.entries.firstWhere((e) => e.value.isDefault, orElse: () => presetsByName.entries.first).key;
+}

@@ -1,0 +1,59 @@
+name: Release iOS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+    tags-ignore:
+      - 'v*-apk'
+      - 'v*-linux'
+      - 'v*-win'
+      - 'v*-mac'
+
+jobs:
+  ios:
+    name: Build iOS IPA
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: |
+          cd radiokit-app
+          flutter pub get
+
+      - name: Build iOS IPA
+        run: |
+          cd radiokit-app
+          flutter build ios --release --no-codesign
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r radiokit.ipa Payload
+
+      - name: Rename IPA
+        run: |
+          VERSION=${GITHUB_REF_NAME}
+          IPA_PATH=$(find . -name "*.ipa" | head -n 1)
+          echo "Found IPA at: $IPA_PATH"
+          cp "$IPA_PATH" "radiokit-${VERSION}.ipa"
+
+      - name: Create or update GitHub Release
+        if: startsWith(github.ref_name, 'v')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" --json id >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" radiokit-*.ipa --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" radiokit-*.ipa --generate-notes
+          fi

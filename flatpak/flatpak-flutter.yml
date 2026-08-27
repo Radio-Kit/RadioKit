@@ -1,0 +1,42 @@
+app-id: com.rambros3d.radiokit
+runtime: org.freedesktop.Platform//24.08
+sdk: org.freedesktop.Sdk//24.08
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.llvm18
+command: radiokit
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=all
+  - --socket=system-bus
+  - --talk-name=org.bluez
+  - --share=network
+  - --filesystem=host
+
+modules:
+  - name: radiokit
+    buildsystem: simple
+    build-commands:
+      - cd radiokit-app && flutter build linux --release --no-pub
+      - mkdir -p /app/share/radiokit /app/bin
+      - cp -r radiokit-app/build/linux/*/release/bundle/lib /app/share/radiokit/
+      - cp -r radiokit-app/build/linux/*/release/bundle/data /app/share/radiokit/
+      - install -Dm755 radiokit-app/build/linux/*/release/bundle/radiokit /app/share/radiokit/radiokit
+      - ln -s /app/share/radiokit/radiokit /app/bin/radiokit
+      - install -Dm644 radiokit-app/resources/icon/app_icon.png /app/share/icons/hicolor/256x256/apps/com.rambros3d.radiokit.png
+      - install -Dm644 flatpak/com.rambros3d.radiokit.desktop /app/share/applications/com.rambros3d.radiokit.desktop
+      - install -Dm644 flatpak/com.rambros3d.radiokit.metainfo.xml /app/share/metainfo/com.rambros3d.radiokit.metainfo.xml
+    build-options:
+      append-path: /usr/lib/sdk/llvm18/bin:/run/build/radiokit/flutter/bin
+      env:
+        CC: clang
+        CXX: clang++
+        PUB_CACHE: /run/build/radiokit/.pub-cache
+    sources:
+      - type: git
+        url: https://github.com/rambros3d/RadioKit.git
+        tag: main
+      - type: git
+        url: https://github.com/flutter/flutter.git
+        tag: 3.44.0
+        dest: flutter

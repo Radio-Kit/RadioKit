@@ -1,0 +1,178 @@
+{
+  "version": 2,
+  "appdata": {
+    "appVersion": "1.0.0"
+  },
+  "config": {
+    "name": "Locomotive-Remote",
+    "description": "",
+    "type": "Locomotive",
+    "theme": "default",
+    "password": "",
+    "transports": {
+      "ble": {
+        "enabled": true
+      },
+      "wifi": {
+        "enabled": false,
+        "ssid": "",
+        "pass": ""
+      },
+      "cloud": {
+        "enabled": false,
+        "account": "",
+        "relay": ""
+      }
+    }
+  },
+  "canvas": {
+    "grid": "none",
+    "skin": "dragon"
+  },
+  "enableControlUI": true,
+  "telemetry": [
+    {
+      "label": "",
+      "icon": null,
+      "unit": ""
+    },
+    {
+      "label": "",
+      "icon": null,
+      "unit": ""
+    },
+    {
+      "label": "",
+      "icon": null,
+      "unit": ""
+    },
+    {
+      "label": "",
+      "icon": null,
+      "unit": ""
+    }
+  ],
+  "features": {
+    "ota": false,
+    "filesystem": false
+  },
+  "pages": [
+    {
+      "name": "Page 1",
+      "orientation": "portrait",
+      "widgets": [
+        {
+          "type": "slider",
+          "name": "slider_1",
+          "label": {
+            "text": "slider_1",
+            "show": false
+          },
+          "position": [
+            75,
+            105,
+            0
+          ],
+          "size": [
+            26,
+            104
+          ],
+          "haptic": true,
+          "properties": {
+            "min": 0,
+            "max": 100,
+            "divisions": null,
+            "autoCenter": [
+              null,
+              "smooth",
+              300
+            ]
+          }
+        },
+        {
+          "type": "multiple",
+          "name": "multi_select_1",
+          "label": {
+            "text": "multi_select_1",
+            "show": false
+          },
+          "position": [
+            28,
+            105,
+            0
+          ],
+          "size": [
+            29,
+            null
+          ],
+          "haptic": true,
+          "variant": "multiSelect",
+          "properties": {
+            "itemCount": 6,
+            "items": [
+              {
+                "onLabel": "A",
+                "onIcon": null,
+                "offLabel": null,
+                "offIcon": null
+              },
+              {
+                "onLabel": "B",
+                "onIcon": null,
+                "offLabel": null,
+                "offIcon": null
+              },
+              {
+                "onLabel": "C",
+                "onIcon": null,
+                "offLabel": null,
+                "offIcon": null
+              },
+              {
+                "onLabel": "D",
+                "onIcon": null,
+                "offLabel": null,
+                "offIcon": null
+              },
+              {
+                "onLabel": "E",
+                "onIcon": null,
+                "offLabel": null,
+                "offIcon": null
+              },
+              {
+                "onLabel": "F",
+                "onIcon": null,
+                "offLabel": null,
+                "offIcon": null
+              }
+            ]
+          }
+        },
+        {
+          "type": "switch",
+          "name": "slide_switch_1",
+          "label": {
+            "text": "slide_switch_1",
+            "show": false
+          },
+          "position": [
+            75,
+            170,
+            0
+          ],
+          "size": [
+            null,
+            20
+          ],
+          "haptic": true,
+          "variant": "slideSwitch",
+          "properties": {
+            "onText": "ON",
+            "offText": "OFF"
+          }
+        }
+      ]
+    }
+  ]
+}

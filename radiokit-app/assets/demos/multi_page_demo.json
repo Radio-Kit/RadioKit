@@ -1,0 +1,85 @@
+{
+  "version": 2,
+  "appdata": {
+    "appVersion": "1.0.0",
+    "lastEdit": "2026-07-16T12:00:00.000Z"
+  },
+  "config": {
+    "name": "MULTI_PAGE_DEMO",
+    "description": "Multi-page demo with Control and Settings pages",
+    "type": "Locomotive",
+    "theme": "dragon",
+    "transports": {
+      "ble": { "enabled": true },
+      "wifi": { "enabled": false, "ssid": "", "pass": "" },
+      "cloud": { "enabled": false, "account": "", "relay": "" }
+    }
+  },
+  "canvas": {
+    "size": [200, 100],
+    "grid": "none",
+    "skin": "default"
+  },
+  "enableControlUI": true,
+  "telemetry": {},
+  "features": {},
+  "pages": [
+    {
+      "name": "Control",
+      "orientation": "landscape",
+      "widgets": [
+        {
+          "type": "button",
+          "name": "btn_forward",
+          "label": { "text": "Forward", "show": true },
+          "position": [80, 20, 0],
+          "size": [40, 40],
+          "haptic": true,
+          "properties": { "widgetId": 1 }
+        },
+        {
+          "type": "slider",
+          "name": "slider_speed",
+          "label": { "text": "Speed", "show": true },
+          "position": [10, 80, 0],
+          "size": [180, 20],
+          "haptic": true,
+          "properties": { "widgetId": 2, "min": 0, "max": 100 }
+        },
+        {
+          "type": "led",
+          "name": "led_status",
+          "label": { "text": "Status", "show": true },
+          "position": [160, 20, 0],
+          "size": [20, 20],
+          "haptic": false,
+          "properties": { "widgetId": 3 }
+        }
+      ]
+    },
+    {
+      "name": "Settings",
+      "orientation": "portrait",
+      "widgets": [
+        {
+          "type": "switch",
+          "name": "sw_lights",
+          "label": { "text": "Lights", "show": true },
+          "position": [10, 20, 0],
+          "size": [80, 30],
+          "haptic": true,
+          "properties": { "widgetId": 4 }
+        },
+        {
+          "type": "knob",
+          "name": "knob_volume",
+          "label": { "text": "Volume", "show": true },
+          "position": [50, 70, 0],
+          "size": [40, 40],
+          "haptic": true,
+          "properties": { "widgetId": 5, "min": 0, "max": 100 }
+        }
+      ]
+    }
+  ]
+}

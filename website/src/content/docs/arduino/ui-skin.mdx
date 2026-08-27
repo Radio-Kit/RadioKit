@@ -1,0 +1,167 @@
+---
+title: Controller UI Skins
+description: Skin pack system and custom theme creation for RadioKit
+---
+
+RadioKit uses **Absolute Height & Width Sizing** for all widgets, while maintaining a high-fidelity native vector engine for all skin packs.
+
+---
+
+## 1. Dimensional Scaling
+
+The layout engine uses absolute height and width units (0-200) to provide deterministic control over the dashboard layout:
+
+- **Variable Scaling**: Slider and Text widgets allow independent `width` and `height` values.
+- **Auto-Aspect**: Setting `width` to `0` enables the auto-aspect mode, where the widget calculates its own width based on its internal content (e.g., labels or number of items).
+- **Fixed Scaling**: Widgets with fixed aspect ratios (Joystick, Knob, LED, Button, Switch) are sized primarily by their `height`. The `width` parameter is ignored for these widgets to preserve their natural geometry.
+
+---
+
+## 2. Pure Native Architecture
+
+RadioKit skins exclusively use Skia/Impeller-based rendering. Widgets are composed of high-quality SVG layers that are tinted and transformed in real-time.
+
+### Key Features:
+
+- **No HTML/CSS**: Pure native rendering for maximum performance.
+- **Decentralized Config**: Each widget is a self-contained folder in the skin pack.
+- **Physics Simulator**: Animations driven by a high-fidelity **Spring Simulation** engine.
+
+---
+
+## 3. Directory Structure (.rkskin)
+
+A Skin Pack is a ZIP archive (identifiable by the `.rkskin` extension). To add support for a widget, simply create a folder with the widget's name in the root of the pack.
+
+```text
+(skin-pack-name)/
++-- manifest.json        # Global tokens and metadata
++-- global/              # Shared assets (backgrounds, overlays)
++-- button_push/         # Folder for RK_PushButton
++-- button_toggle/       # Folder for RK_ToggleButton
++-- slide_switch/        # Folder for RK_SlideSwitch
++-- slider/              # Folder for RK_Slider
++-- knob/                # Folder for RK_Knob
++-- joystick/            # Folder for RK_Joystick
++-- led/                 # Folder for RK_LED
++-- display/             # Folder for RK_Text (display)
+|   +-- bg.svg
+|   +-- active.svg       # Shown when pressed
+|   +-- config.json      # Mapping and local animations
++-- multiple_button/     # Folder for RK_MultipleButton
++-- multiple_select/     # Folder for RK_MultipleSelect
++-- joystick/            # Folder for RK_Joystick
+    +-- base.svg
+    +-- stick.svg
+    +-- config.json      # Physics parameters (damping, stiffness)
+```
+
+---
+
+## 4. Global Manifest (`manifest.json`)
+
+The manifest focuses purely on identity and visual tokens.
+
+```json
+{
+  "name": "Neon Midnight",
+  "version": "2.0.0",
+  "author": "RadioKit Team",
+  "tokens": {
+    "colors": {
+      "primary": "#39FF14",
+      "onPrimary": "#000000",
+      "background": "#000000",
+      "surface": "#111111",
+      "onSurface": "#FFFFFF"
+    },
+    "typography": {
+      "fontFamily": "Inter"
+    }
+  }
+}
+```
+
+---
+
+## 5. Widget Configuration (`config.json`)
+
+Each widget folder contains a `config.json` that defines its specific visual mapping and physical behavior.
+
+### High-Fidelity Physics
+
+RadioKit uses a **Spring Simulation** for interactive elements like Joysticks, Sliders, and Knobs.
+
+```json
+{
+  "layers": {
+    "track": "track.svg",
+    "thumb": "thumb.svg"
+  },
+  "physics": {
+    "damping": 0.5,
+    "stiffness": 100.0,
+    "mass": 1.0,
+    "deadzone": 0.05
+  }
+}
+```
+
+Functional behavior (like self-centering) is defined by the hardware's `variant` byte. The `config.json` parameters purely define the **aesthetic character** of that behavior.
+
+---
+
+## 6. Real-time Reactivity
+
+The RadioKit dashboard supports **instant theme switching**. When a user selects a new skin in the Gallery, the app:
+
+1. Re-resolves all active widgets against the new skin folders.
+2. Injects the new `SpringSimulation` parameters into the active animation controllers.
+3. Swaps the SVG layers immediately without re-rendering the entire dashboard.
+
+---
+
+## 7. Built-in Skins
+
+| Skin | Description |
+|------|-------------|
+| **Default** | Light blue, modern, high contrast |
+| **Dark** | Dark mode with blue accents |
+| **Retro** | CRT green phosphor aesthetic |
+| **Neon** | Cyberpunk neon glow effects |
+| **Minimal** | Flat, minimal, no shadows |
+| **Futuristic** | Futuristic style |
+| **Military** | Military style |
+| **Cyberpunk** | Cyberpunk aesthetic |
+
+---
+
+## 8. Installation & Gallery
+
+Skins can be imported manually using the `.rkskin` importer in the settings menu, or browsed in the **Theme Gallery** (Palette icon in the Control Screen).
+
+### Custom Skin Creation
+
+1. Create a new folder with your skin assets
+2. Add a `manifest.json` with your color tokens
+3. Add widget folders (`button_push/`, `slider/`, etc.) with SVG assets
+4. Optional: Add `config.json` for physics tuning
+5. Zip the folder and rename to `.rkskin`
+6. Import via the Theme Gallery
+
+---
+
+## 9. Planned Features
+
+- **GLSL Shaders**: Support for custom vertex/fragment shaders for neon glows and CRT effects.
+- **Sound Packs**: Associating specific sounds with widget interactions (clicks, slides).
+- **Haptic Feedback Profiles**: Custom vibration patterns for mobile devices.
+- **Dynamic Theming**: Runtime color palette generation from a single seed color.
+
+---
+
+## See Also
+
+- [UI Layout](/arduino/ui-layout) — Coordinate system and sizing details
+- [Widgets Reference](/arduino/widgets) — Complete widget API
+- [Protocol Specification](/arduino/protocol) — Binary packet format

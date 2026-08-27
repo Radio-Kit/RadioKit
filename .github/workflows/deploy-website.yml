@@ -1,0 +1,66 @@
+name: Deploy Website
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'website/**'
+      - 'themes/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Clean dist
+        run: |
+          cd dist
+          find . -type l -delete
+          find . -type f -links +1 -exec sh -c 'cp --remove-destination "$1" "$1"' _ {} \;
+
+      - name: Create tar
+        run: tar -cvf "$RUNNER_TEMP/github-pages.tar" -C dist .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: github-pages
+          path: /home/runner/work/_temp/github-pages.tar
+          retention-days: 1
+          overwrite: true
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

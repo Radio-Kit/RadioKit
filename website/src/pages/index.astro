@@ -1,0 +1,418 @@
+---
+import LandingLayout from '../layouts/LandingLayout.astro';
+import heroImg from '../assets/hero.png';
+---
+
+<LandingLayout title="RADIO_KIT">
+  <!-- Navbar -->
+  <div class="fixed top-3 left-1/2 -translate-x-1/2 z-50">
+    <div class="navbar rounded-full border border-base-300 bg-base-100/80 backdrop-blur-md shadow-lg min-h-[52px] px-5 gap-5">
+      <div class="navbar-start">
+        <a href="/" class="text-lg font-bold font-audiowide no-underline">RADIO<span class="text-primary">_</span>KIT</a>
+      </div>
+      <div class="navbar-end gap-1">
+        <a href="/app/getting-started/" class="btn btn-ghost btn-sm rounded-full font-changa text-base-content/60 hover:text-base-content">Docs</a>
+        <a href="https://github.com/rambros3d/RadioKit" target="_blank" class="btn btn-ghost btn-sm btn-square rounded-full text-base-content/60 hover:text-base-content" aria-label="GitHub">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg>
+        </a>
+        <label for="theme-modal" class="btn btn-ghost btn-sm btn-square rounded-full text-base-content/60 hover:text-base-content" aria-label="Theme settings">
+          <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+            <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/>
+            <path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/>
+            <path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
+          </svg>
+          <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/>
+          </svg>
+          <svg class="icon-auto" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+            <path d="M12 2v2"/><path d="m4.93 4.93 1.41 1.41"/>
+            <path d="M20 12h2"/><path d="m19.07 4.93-1.41 1.41"/>
+            <path d="M15.947 12.65a4 4 0 0 0-5.925-4.128"/>
+            <path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z"/>
+          </svg>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Theme Modal (CSS-only) -->
+  <input type="checkbox" id="theme-modal" class="modal-toggle" />
+  <div class="modal" role="dialog">
+    <div class="modal-box max-w-[360px]">
+      <label for="theme-modal" class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3">✕</label>
+      <h3 class="text-lg font-bold font-exo mb-5">Theme Settings</h3>
+
+      <div class="mb-5">
+        <h4 class="text-xs font-semibold uppercase tracking-widest text-primary mb-2.5">Mode</h4>
+        <div class="flex gap-1.5 bg-base-200 rounded-xl p-1">
+          <button class="mode-btn flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-base-content/60 hover:text-base-content transition-all" data-mode="system" role="radio" aria-checked="false">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            System
+          </button>
+          <button class="mode-btn flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-base-content/60 hover:text-base-content transition-all" data-mode="dark" role="radio" aria-checked="false">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+            Dark
+          </button>
+          <button class="mode-btn flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-base-content/60 hover:text-base-content transition-all" data-mode="light" role="radio" aria-checked="false">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+            Light
+          </button>
+        </div>
+      </div>
+
+      <div class="mb-5">
+        <h4 class="text-xs font-semibold uppercase tracking-widest text-primary mb-2.5">Dark Theme</h4>
+        <div class="grid grid-cols-3 gap-1.5" id="dark-themes"></div>
+      </div>
+
+      <div>
+        <h4 class="text-xs font-semibold uppercase tracking-widest text-primary mb-2.5">Light Theme</h4>
+        <div class="grid grid-cols-3 gap-1.5" id="light-themes"></div>
+      </div>
+    </div>
+    <label class="modal-backdrop" for="theme-modal">Close</label>
+  </div>
+
+  <!-- Hero -->
+  <section class="hero min-h-[90vh]">
+    <div class="hero-content text-center flex-col gap-5">
+      <img src={heroImg.src} alt="RADIO_KIT App" class="w-28 h-28 rounded-3xl shadow-[0_8px_40px] shadow-primary/25" width="240" height="240" />
+      <h1 class="text-5xl md:text-7xl font-bold font-audiowide tracking-tight">RADIO<span class="text-primary">_</span>KIT</h1>
+      <p class="text-lg text-base-content/60 max-w-[540px] leading-relaxed">Define your UI in C++. Control it from your phone.<br/>The open-source Arduino companion app.</p>
+      <div class="flex gap-3 mt-3">
+        <a href="https://github.com/rambros3d/RadioKit/releases" target="_blank" class="btn btn-primary font-changa font-semibold px-7 py-3 h-auto rounded-xl text-base gap-2">
+          Download App
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </a>
+        <a href="/app/getting-started/" class="btn btn-ghost font-changa font-semibold px-7 py-3 h-auto rounded-xl text-base">Get Started</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="max-w-[1000px] mx-auto px-6 pb-20">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="card bg-base-100 border border-base-300 rounded-2xl hover:border-primary transition-colors">
+        <div class="card-body p-6">
+          <h3 class="card-title text-base">Multi-Transport</h3>
+          <p class="text-sm text-base-content/60 leading-relaxed">BLE, Serial, WiFi, and Cloud relay. Multiple transports can run simultaneously.</p>
+        </div>
+      </div>
+      <div class="card bg-base-100 border border-base-300 rounded-2xl hover:border-primary transition-colors">
+        <div class="card-body p-6">
+          <h3 class="card-title text-base">Visual Designer</h3>
+          <p class="text-sm text-base-content/60 leading-relaxed">Create and edit UI layouts visually. Export to Arduino code instantly.</p>
+        </div>
+      </div>
+      <div class="card bg-base-100 border border-base-300 rounded-2xl hover:border-primary transition-colors">
+        <div class="card-body p-6">
+          <h3 class="card-title text-base">Filesystem Explorer</h3>
+          <p class="text-sm text-base-content/60 leading-relaxed">Browse, upload, and manage files on your device's LittleFS filesystem.</p>
+        </div>
+      </div>
+      <div class="card bg-base-100 border border-base-300 rounded-2xl hover:border-primary transition-colors">
+        <div class="card-body p-6">
+          <h3 class="card-title text-base">Firmware Flasher</h3>
+          <p class="text-sm text-base-content/60 leading-relaxed">OTA firmware updates directly from the app. No cables needed.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Choose your theme -->
+  <section class="text-center px-6 pb-14 max-w-[1100px] mx-auto">
+    <h2 class="text-[1.8rem] font-bold font-exo mb-2">Choose your theme</h2>
+    <p class="text-base text-base-content/60 mb-7">Select a look that suits you.</p>
+    <div class="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3" id="theme-showcase">
+      {[
+        { name: 'abyss', colors: ['#1a3345','#0f2a3a','#091a2a','#e6dcc0'] },
+        { name: 'dragon', colors: ['#362e24','#241f1a','#000000','#d4d0c8'] },
+        { name: 'matrix', colors: ['#142814','#1c301c','#264026','#e0f5d0'] },
+        { name: 'bumblebee', colors: ['#ffffff','#f7f7f7','#ebebeb','#333333'] },
+        { name: 'emerald', colors: ['#ffffff','#ededed','#dbdbdb','#2c3e4d'] },
+        { name: 'minimal', colors: ['#ffffff','#f7f7f7','#efefef','#000000'] },
+        { name: 'rose', colors: ['#f7eaee','#efe0e5','#e3c9d1','#8a2a4a'] },
+        { name: 'vintage', colors: ['#faf4e8','#f2ead4','#e6dbba','#5c3c28'] },
+      ].map((t, i) => (
+        <div class="theme-card card bg-base-100 border border-base-300 rounded-2xl hover:border-primary transition-all cursor-pointer select-none" data-theme-name={t.name} style={`--delay:${i * 40}ms`}>
+          <div class="card-body items-center gap-2 py-4 px-3">
+            <div class="flex gap-1 mb-1">
+              {t.colors.map(h => (
+                <span class="w-5 h-5 rounded-full border border-white/10" style={`background:${h}`}></span>
+              ))}
+            </div>
+            <span class="text-sm font-semibold capitalize">{t.name}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <!-- Downloads -->
+  <section class="text-center px-6 pb-14 max-w-[900px] mx-auto">
+    <h2 class="text-[1.8rem] font-bold font-exo mb-2">Start your journey</h2>
+    <p class="text-base text-base-content/60 mb-7">Download RadioKit for your platform.</p>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <a href="https://github.com/RamBros3D/RadioKit/releases" target="_blank" class="card bg-base-100 border border-base-300 rounded-2xl hover:border-primary transition-colors no-underline">
+        <div class="card-body items-center gap-2 py-5 px-3">
+          <img src="/icons/android.svg" alt="" class="w-9 h-9" />
+          <span class="text-sm font-semibold text-base-content">Android</span>
+          <span class="text-xs text-primary font-medium">Download APK</span>
+        </div>
+      </a>
+      <a href="https://github.com/RamBros3D/RadioKit/releases" target="_blank" class="card bg-base-100 border border-base-300 rounded-2xl hover:border-primary transition-colors no-underline">
+        <div class="card-body items-center gap-2 py-5 px-3">
+          <img src="/icons/linux.svg" alt="" class="w-9 h-9" />
+          <span class="text-sm font-semibold text-base-content">Linux</span>
+          <span class="text-xs text-primary font-medium">Flatpak</span>
+        </div>
+      </a>
+      <a href="https://github.com/RamBros3D/RadioKit/releases" target="_blank" class="card bg-base-100 border border-base-300 rounded-2xl hover:border-primary transition-colors no-underline">
+        <div class="card-body items-center gap-2 py-5 px-3">
+          <img src="/icons/windows.svg" alt="" class="w-9 h-9" />
+          <span class="text-sm font-semibold text-base-content">Windows</span>
+          <span class="text-xs text-primary font-medium">Download .exe</span>
+        </div>
+      </a>
+      <div class="card bg-base-100 border border-base-300 rounded-2xl opacity-50 cursor-default">
+        <div class="card-body items-center gap-2 py-5 px-3">
+          <img src="/icons/apple.svg" alt="" class="w-9 h-9" />
+          <span class="text-sm font-semibold text-base-content">Mac</span>
+          <span class="text-xs font-semibold uppercase tracking-wide text-base-content/50 bg-base-200 px-2.5 py-0.5 rounded-full">Soon</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Official Hardware -->
+  <section class="text-center px-6 pb-14 max-w-[900px] mx-auto">
+    <h2 class="text-[1.8rem] font-bold font-exo mb-2">Official Hardware</h2>
+    <p class="text-base text-base-content/60 mb-7">Plug and play hardware; Connect Flash and Control your RC models.</p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <a href="https://www.elecrow.com/tracklink-v3-dragon-railway.html" target="_blank" class="card bg-base-100 border border-base-300 rounded-2xl hover:border-primary transition-colors no-underline text-left">
+        <div class="card-body p-7">
+          <h3 class="card-title text-lg">TrackLink V3</h3>
+          <p class="text-sm text-base-content/60 leading-relaxed flex-1">ESP32-S3 based railway control board. Built-in BLE and WiFi for RadioKit.</p>
+          <span class="text-xs font-semibold text-primary mt-4">Buy Now</span>
+        </div>
+      </a>
+      <a href="https://www.elecrow.com/g-track-esp32s3-based-control-board-for-rc-models.html" target="_blank" class="card bg-base-100 border border-base-300 rounded-2xl hover:border-primary transition-colors no-underline text-left">
+        <div class="card-body p-7">
+          <h3 class="card-title text-lg">G-Track</h3>
+          <p class="text-sm text-base-content/60 leading-relaxed flex-1">ESP32-S3 control board for RC models. Built-in BLE, WiFi, and motor drivers.</p>
+          <span class="text-xs font-semibold text-primary mt-4">Buy Now</span>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <!-- Partners -->
+  <section class="text-center px-6 pb-14 max-w-[800px] mx-auto">
+    <h2 class="text-[1.8rem] font-bold font-exo mb-7">RamBros' Partners</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <a href="https://oshwlab.com/shreeramlive/works" target="_blank" class="card bg-base-100 border border-base-300 rounded-2xl hover:border-primary transition-colors no-underline items-center pt-6 pb-5 px-6">
+        <div class="card-body items-center text-center gap-1 p-0">
+          <div class="mb-3"><img src="/brands/easyeda-square-logo.png" alt="OSHWLab" width="48" height="48" class="rounded-lg" /></div>
+          <h3 class="text-lg font-semibold">OSHWLab</h3>
+          <p class="text-sm text-base-content/60 leading-relaxed">All our development prototypes are sponsored by OSHWLab Stars.</p>
+          <span class="text-xs text-base-content/40 mt-1.5 opacity-70">(since 2024)</span>
+        </div>
+      </a>
+      <a href="https://www.elecrow.com/store/RamBros3D" target="_blank" class="card bg-base-100 border border-base-300 rounded-2xl hover:border-primary transition-colors no-underline items-center pt-6 pb-5 px-6">
+        <div class="card-body items-center text-center gap-1 p-0">
+          <div class="mb-3"><img src="/brands/elecrow-logo.svg" alt="Elecrow" width="48" height="48" class="rounded-lg" /></div>
+          <h3 class="text-lg font-semibold">Elecrow</h3>
+          <p class="text-sm text-base-content/60 leading-relaxed">Our manufacturing partner, more than a hundred boards sold to our happy supporters.</p>
+          <span class="text-xs text-base-content/40 mt-1.5 opacity-70">(since 2025)</span>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="text-center py-10 px-6 border-t border-base-300">
+    <p class="text-sm text-base-content/40">Made by <a href="https://rambros3d.com" target="_blank" class="text-primary no-underline hover:underline">RamBros</a> &mdash; Designing the world's most advanced scale models</p>
+  </footer>
+</LandingLayout>
+
+<style is:global>
+  /* Smooth scrolling on html */
+  html { scroll-behavior: smooth; }
+
+  /* Theme swatch in modal */
+  .theme-swatch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 6px 8px;
+    border: 2px solid var(--color-base-300);
+    border-radius: 10px;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .theme-swatch:hover { border-color: var(--color-base-content); }
+  .theme-swatch.active {
+    border-color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+  }
+  .theme-swatch-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .theme-swatch-name {
+    font-size: 0.7rem;
+    font-weight: 500;
+    text-transform: capitalize;
+    color: var(--color-base-content / 0.6);
+  }
+  .theme-swatch.active .theme-swatch-name { color: var(--color-primary); }
+
+  /* Mode button active state */
+  .mode-btn[aria-checked="true"] {
+    background: var(--color-primary);
+    color: var(--color-primary-content) !important;
+  }
+
+  /* Theme showcase cards */
+  .theme-card {
+    animation: fadeSlideUp 0.4s ease both;
+    animation-delay: var(--delay, 0ms);
+  }
+  .theme-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  }
+  .theme-card.border-primary {
+    box-shadow: 0 0 0 1px var(--color-primary);
+  }
+
+  @keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+</style>
+
+<script>
+  const root = document.documentElement;
+  const THEME_META = [
+    {name:'abyss',scheme:'dark',colors:['#1a3345','#0f2a3a','#091a2a','#e6dcc0']},
+    {name:'dragon',scheme:'dark',colors:['#362e24','#241f1a','#000000','#d4d0c8']},
+    {name:'matrix',scheme:'dark',colors:['#142814','#1c301c','#264026','#e0f5d0']},
+    {name:'bumblebee',scheme:'light',colors:['#ffffff','#f7f7f7','#ebebeb','#333333']},
+    {name:'emerald',scheme:'light',colors:['#ffffff','#ededed','#dbdbdb','#2c3e4d']},
+    {name:'minimal',scheme:'light',colors:['#ffffff','#f7f7f7','#efefef','#000000']},
+    {name:'rose',scheme:'light',colors:['#f7eaee','#efe0e5','#e3c9d1','#8a2a4a']},
+    {name:'vintage',scheme:'light',colors:['#faf4e8','#f2ead4','#e6dbba','#5c3c28']},
+  ];
+  const DARK_THEMES = THEME_META.filter(t => t.scheme === 'dark');
+  const LIGHT_THEMES = THEME_META.filter(t => t.scheme === 'light');
+
+  function getStored(key, fallback) { return localStorage.getItem(key) || fallback; }
+  function store(key, value) { localStorage.setItem(key, value); }
+
+  function resolveMode(mode) {
+    if (mode === 'system') {
+      return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    return mode;
+  }
+
+  function applyAll(mode, darkTheme, lightTheme) {
+    const resolved = resolveMode(mode);
+    const variant = resolved === 'dark' ? darkTheme : lightTheme;
+    root.dataset.theme = variant;
+    root.dataset.themeVariant = variant;
+    updateIcons(mode);
+    updateModeUI(mode);
+    updateThemeGrid('dark-themes', DARK_THEMES, darkTheme);
+    updateThemeGrid('light-themes', LIGHT_THEMES, lightTheme);
+    updateShowcase(mode, darkTheme, lightTheme);
+    // Sync Starlight for docs pages
+    const slVal = mode === 'system' ? '' : mode;
+    localStorage.setItem('starlight-theme', slVal);
+    if (window.StarlightThemeProvider) {
+      window.StarlightThemeProvider.updatePickers(slVal || resolved);
+    }
+  }
+
+  function updateIcons(mode) {
+    document.querySelectorAll('.icon-sun, .icon-moon, .icon-auto').forEach(el => el.style.display = 'none');
+    const cls = mode === 'dark' ? '.icon-moon' : mode === 'light' ? '.icon-sun' : '.icon-auto';
+    document.querySelectorAll(cls).forEach(el => { el.style.display = ''; });
+  }
+
+  function updateModeUI(mode) {
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.setAttribute('aria-checked', btn.dataset.mode === mode ? 'true' : 'false');
+    });
+  }
+
+  function updateShowcase(mode, darkTheme, lightTheme) {
+    const resolved = resolveMode(mode);
+    const activeName = resolved === 'dark' ? darkTheme : lightTheme;
+    document.querySelectorAll('#theme-showcase .theme-card').forEach(card => {
+      card.classList.toggle('border-primary', card.dataset.themeName === activeName);
+      card.classList.toggle('bg-primary/10', card.dataset.themeName === activeName);
+      card.classList.toggle('bg-base-100', card.dataset.themeName !== activeName);
+    });
+  }
+
+  function updateThemeGrid(id, themes, activeName) {
+    const grid = document.getElementById(id);
+    if (!grid) return;
+    grid.innerHTML = themes.map(t => {
+      const c = t.colors;
+      return `<button class="theme-swatch${t.name === activeName ? ' active' : ''}" data-theme-name="${t.name}">
+        <div class="theme-swatch-colors flex gap-0.5">${c.slice(0,4).map(h => `<span class="theme-swatch-dot" style="background:${h}"></span>`).join('')}</div>
+        <span class="theme-swatch-name">${t.name}</span>
+      </button>`;
+    }).join('');
+    grid.querySelectorAll('.theme-swatch').forEach(el => {
+      el.addEventListener('click', () => {
+        const name = el.dataset.themeName;
+        const meta = THEME_META.find(t => t.name === name);
+        if (!meta) return;
+        store('rk-mode', meta.scheme);
+        if (meta.scheme === 'dark') store('rk-dark-theme', name);
+        else store('rk-light-theme', name);
+        applyAll(meta.scheme, getStored('rk-dark-theme', 'dragon'), getStored('rk-light-theme', 'bumblebee'));
+      });
+    });
+  }
+
+  // Init
+  applyAll(getStored('rk-mode', 'system'), getStored('rk-dark-theme', 'dragon'), getStored('rk-light-theme', 'bumblebee'));
+
+  // Mode buttons
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.mode;
+      store('rk-mode', mode);
+      applyAll(mode, getStored('rk-dark-theme', 'dragon'), getStored('rk-light-theme', 'bumblebee'));
+    });
+  });
+
+  // Theme showcase cards
+  document.querySelectorAll('#theme-showcase .theme-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const name = card.dataset.themeName;
+      const meta = THEME_META.find(t => t.name === name);
+      if (!meta) return;
+      store('rk-mode', meta.scheme);
+      if (meta.scheme === 'dark') store('rk-dark-theme', name);
+      else store('rk-light-theme', name);
+      applyAll(meta.scheme, getStored('rk-dark-theme', 'dragon'), getStored('rk-light-theme', 'bumblebee'));
+    });
+  });
+
+  // System prefers-color-scheme listener
+  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+    if (getStored('rk-mode', 'system') === 'system') {
+      applyAll('system', getStored('rk-dark-theme', 'dragon'), getStored('rk-light-theme', 'bumblebee'));
+    }
+  });
+</script>

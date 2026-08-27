@@ -1,0 +1,62 @@
+name: Release Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+    tags-ignore:
+      - 'v*-linux'
+      - 'v*-ios'
+      - 'v*-win'
+      - 'v*-mac'
+
+jobs:
+  android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: |
+          cd radiokit-app
+          flutter pub get
+
+      - name: Build Android APK
+        run: |
+          cd radiokit-app
+          flutter build apk --release
+
+      - name: Rename APK
+        run: |
+          VERSION=${GITHUB_REF_NAME}
+          APK_PATH=$(find . -name "app-release.apk" | head -n 1)
+          echo "Found APK at: $APK_PATH"
+          cp "$APK_PATH" "radiokit-${VERSION}.apk"
+
+      - name: Create or update GitHub Release
+        if: startsWith(github.ref_name, 'v')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" --json id >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" radiokit-*.apk --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" radiokit-*.apk --generate-notes
+          fi

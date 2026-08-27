@@ -1,0 +1,268 @@
+{
+  "version": 2,
+  "appdata": {},
+  "config": {
+    "name": "IOT_DASHBOARD",
+    "description": "Interactive Demo Mode",
+    "type": "Dashboard",
+    "theme": "RK_DEFAULT",
+    "password": "",
+    "transports": {
+      "ble": {
+        "enabled": true
+      },
+      "wifi": {
+        "enabled": false,
+        "ssid": "",
+        "pass": ""
+      },
+      "cloud": {
+        "enabled": false,
+        "account": "",
+        "relay": ""
+      }
+    }
+  },
+  "canvas": {
+    "grid": "none",
+    "skin": "dragon"
+  },
+  "enableControlUI": true,
+  "telemetry": [],
+  "features": {},
+  "pages": [
+    {
+      "name": "Page 1",
+      "orientation": "portrait",
+      "widgets": [
+        {
+          "type": "knob",
+          "name": "temp",
+          "label": {
+            "text": "TEMP",
+            "show": true
+          },
+          "position": [
+            30,
+            170,
+            0
+          ],
+          "size": [
+            10,
+            15
+          ],
+          "haptic": true,
+          "properties": {
+            "widgetId": 1,
+            "min": 0,
+            "max": 50,
+            "minAngle": -135,
+            "maxAngle": 135,
+            "autoCenter": [
+              null,
+              "smooth",
+              500
+            ],
+            "centerIcon": "thermometer",
+            "divisions": null
+          }
+        },
+        {
+          "type": "knob",
+          "name": "humid",
+          "label": {
+            "text": "HUMID",
+            "show": true
+          },
+          "position": [
+            70,
+            170,
+            0
+          ],
+          "size": [
+            10,
+            15
+          ],
+          "haptic": true,
+          "properties": {
+            "widgetId": 2,
+            "min": 0,
+            "max": 100,
+            "minAngle": -135,
+            "maxAngle": 135,
+            "autoCenter": [
+              null,
+              "smooth",
+              500
+            ],
+            "centerIcon": "droplet",
+            "divisions": null
+          }
+        },
+        {
+          "type": "multiple",
+          "name": "hvac",
+          "label": {
+            "text": "HVAC",
+            "show": true
+          },
+          "position": [
+            50,
+            130,
+            0
+          ],
+          "size": [
+            10,
+            15
+          ],
+          "variant": "multiSelect",
+          "haptic": true,
+          "properties": {
+            "widgetId": 3,
+            "itemCount": 3,
+            "items": [
+              {
+                "onLabel": "Eco",
+                "onIcon": "leaf"
+              },
+              {
+                "onLabel": "Turbo",
+                "onIcon": "wind"
+              },
+              {
+                "onLabel": "Off",
+                "onIcon": "power"
+              }
+            ]
+          }
+        },
+        {
+          "type": "led",
+          "name": "ac",
+          "label": {
+            "text": "AC",
+            "show": true
+          },
+          "position": [
+            20,
+            100,
+            0
+          ],
+          "size": [
+            10,
+            10
+          ],
+          "haptic": true,
+          "properties": {
+            "widgetId": 4,
+            "state": "off",
+            "shape": "circle",
+            "color": 65535,
+            "timing": 500
+          }
+        },
+        {
+          "type": "led",
+          "name": "net",
+          "label": {
+            "text": "NET",
+            "show": true
+          },
+          "position": [
+            50,
+            100,
+            0
+          ],
+          "size": [
+            10,
+            10
+          ],
+          "haptic": true,
+          "properties": {
+            "widgetId": 5,
+            "state": "off",
+            "shape": "circle",
+            "color": 16776960,
+            "timing": 500
+          }
+        },
+        {
+          "type": "led",
+          "name": "sec",
+          "label": {
+            "text": "SEC",
+            "show": true
+          },
+          "position": [
+            80,
+            100,
+            0
+          ],
+          "size": [
+            10,
+            10
+          ],
+          "haptic": true,
+          "properties": {
+            "widgetId": 6,
+            "state": "off",
+            "shape": "circle",
+            "color": 16711680,
+            "timing": 500
+          }
+        },
+        {
+          "type": "slider",
+          "name": "brightness",
+          "label": {
+            "text": "BRIGHTNESS",
+            "show": true
+          },
+          "position": [
+            50,
+            65,
+            0
+          ],
+          "size": [
+            45,
+            10
+          ],
+          "haptic": true,
+          "properties": {
+            "widgetId": 7,
+            "min": 0,
+            "max": 100,
+            "autoCenter": [
+              null,
+              "smooth",
+              300
+            ],
+            "divisions": null
+          }
+        },
+        {
+          "type": "text",
+          "name": "system_load",
+          "label": {
+            "text": "SYSTEM_LOAD",
+            "show": true
+          },
+          "position": [
+            50,
+            25,
+            0
+          ],
+          "size": [
+            60,
+            15
+          ],
+          "haptic": true,
+          "properties": {
+            "widgetId": 8,
+            "text": "Display"
+          }
+        }
+      ]
+    }
+  ]
+}

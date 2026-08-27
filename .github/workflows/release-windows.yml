@@ -1,0 +1,55 @@
+name: Release Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+    tags-ignore:
+      - 'v*-apk'
+      - 'v*-ios'
+      - 'v*-linux'
+      - 'v*-mac'
+
+jobs:
+  windows:
+    name: Build Windows
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: |
+          cd radiokit-app
+          flutter pub get
+
+      - name: Build Windows
+        run: |
+          cd radiokit-app
+          flutter build windows --release
+
+      - name: Rename artifact
+        run: |
+          $VERSION = $env:GITHUB_REF_NAME
+          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath "radiokit-${VERSION}.zip"
+
+      - name: Create or update GitHub Release
+        if: startsWith(github.ref_name, 'v')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view "$env:GITHUB_REF_NAME" --json id
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload "$env:GITHUB_REF_NAME" radiokit-*.zip --clobber
+          } else {
+            gh release create "$env:GITHUB_REF_NAME" radiokit-*.zip --generate-notes
+          }

@@ -1,0 +1,675 @@
+{
+  "version": 2,
+  "appdata": {
+    "appVersion": "1.0.0"
+  },
+  "config": {
+    "name": "FULL_RC",
+    "description": "Full featured multi-page RC & Locomotive controller",
+    "type": "RC",
+    "transports": {
+      "ble": {
+        "enabled": true
+      },
+      "wifi": {
+        "enabled": false,
+        "ssid": "",
+        "pass": ""
+      },
+      "cloud": {
+        "enabled": false,
+        "account": "",
+        "relay": ""
+      }
+    },
+    "theme": "dragon",
+    "password": ""
+  },
+  "canvas": {
+    "grid": "none",
+    "skin": "dragon",
+    "showPageBar": true,
+    "showControlPageBar": false,
+    "orientation": "landscape"
+  },
+  "enableControlUI": true,
+  "telemetry": [
+    {
+      "label": "Battery",
+      "icon": "battery",
+      "unit": "%"
+    },
+    {
+      "label": "Speed",
+      "icon": "gauge",
+      "unit": ""
+    }
+  ],
+  "features": {
+    "ota": true,
+    "filesystem": true
+  },
+  "pages": [
+    {
+      "name": "Truck",
+      "orientation": "global",
+      "widgets": [
+        {
+          "type": "knob",
+          "name": "steering_wheel",
+          "label": {
+            "text": "steering_wheel",
+            "show": false
+          },
+          "position": [
+            163,
+            54,
+            0
+          ],
+          "size": [
+            null,
+            64
+          ],
+          "haptic": true,
+          "variant": "steeringWheel",
+          "properties": {
+            "min": -100,
+            "max": 100,
+            "minAngle": -200,
+            "maxAngle": 200,
+            "divisions": null,
+            "centerIcon": "renault",
+            "autoCenter": [
+              null,
+              "smooth",
+              500
+            ]
+          }
+        },
+        {
+          "type": "slider",
+          "name": "gas_pedal",
+          "label": {
+            "text": "gas_pedal",
+            "show": false
+          },
+          "position": [
+            49,
+            55,
+            0
+          ],
+          "size": [
+            20,
+            56
+          ],
+          "haptic": true,
+          "variant": "gasPedal",
+          "properties": {
+            "min": 0.0,
+            "max": 100.0,
+            "divisions": null,
+            "autoCenter": [
+              "min",
+              "smooth",
+              300
+            ]
+          }
+        },
+        {
+          "type": "slider",
+          "name": "brake_pedal",
+          "label": {
+            "text": "brake_pedal",
+            "show": false
+          },
+          "position": [
+            21,
+            65,
+            0
+          ],
+          "size": [
+            32,
+            33
+          ],
+          "haptic": true,
+          "variant": "gasPedal",
+          "properties": {
+            "min": 0.0,
+            "max": 100.0,
+            "divisions": null,
+            "autoCenter": [
+              "min",
+              "smooth",
+              300
+            ]
+          }
+        },
+        {
+          "type": "multiple",
+          "name": "truck_light",
+          "label": {
+            "text": "truck_light",
+            "show": false
+          },
+          "position": [
+            98,
+            87,
+            0
+          ],
+          "size": [
+            100,
+            27
+          ],
+          "haptic": true,
+          "variant": "multiSelect",
+          "properties": {
+            "itemCount": 8,
+            "items": [
+              {
+                "onLabel": null,
+                "onIcon": "lightbulb",
+                "offLabel": null,
+                "offIcon": null
+              },
+              {
+                "onLabel": null,
+                "onIcon": "headlights",
+                "offLabel": null,
+                "offIcon": null
+              },
+              {
+                "onLabel": null,
+                "onIcon": "snowflake",
+                "offLabel": null,
+                "offIcon": null
+              },
+              {
+                "onLabel": null,
+                "onIcon": "warning",
+                "offLabel": null,
+                "offIcon": null
+              },
+              {
+                "onLabel": null,
+                "onIcon": "siren",
+                "offLabel": null,
+                "offIcon": null
+              },
+              {
+                "onLabel": null,
+                "onIcon": "car-simple",
+                "offLabel": null,
+                "offIcon": null
+              },
+              {
+                "onLabel": null,
+                "onIcon": "wrench",
+                "offLabel": null,
+                "offIcon": null
+              },
+              {
+                "onLabel": null,
+                "onIcon": "x",
+                "offLabel": null,
+                "offIcon": null
+              }
+            ],
+            "autoCenter": [
+              null,
+              "smooth",
+              300
+            ]
+          }
+        },
+        {
+          "type": "button",
+          "name": "start_button",
+          "label": {
+            "text": "start_button",
+            "show": false
+          },
+          "position": [
+            98,
+            56,
+            0
+          ],
+          "size": [
+            null,
+            20
+          ],
+          "haptic": true,
+          "properties": {
+            "variant": "toggle",
+            "onText": "START",
+            "offText": "STOP",
+            "onIcon": "refresh-ccw",
+            "offIcon": "refresh-ccw",
+            "autoCenter": [
+              null,
+              "smooth",
+              300
+            ]
+          }
+        },
+        {
+          "type": "button",
+          "name": "left_indicator",
+          "label": {
+            "text": "left_indicator",
+            "show": false
+          },
+          "position": [
+            136,
+            16,
+            0
+          ],
+          "size": [
+            null,
+            13
+          ],
+          "haptic": true,
+          "properties": {
+            "variant": "toggle",
+            "onText": "",
+            "offText": "",
+            "onIcon": "arrow-fat-left",
+            "offIcon": null,
+            "autoCenter": [
+              null,
+              "smooth",
+              300
+            ]
+          }
+        },
+        {
+          "type": "button",
+          "name": "right_indicator",
+          "label": {
+            "text": "right_indicator",
+            "show": false
+          },
+          "position": [
+            190,
+            16,
+            0
+          ],
+          "size": [
+            null,
+            13
+          ],
+          "haptic": true,
+          "properties": {
+            "variant": "toggle",
+            "onText": "",
+            "offText": "",
+            "onIcon": "arrow-fat-right",
+            "offIcon": null,
+            "autoCenter": [
+              null,
+              "smooth",
+              300
+            ]
+          }
+        },
+        {
+          "type": "slider",
+          "name": "aux_slider",
+          "label": {
+            "text": "aux_slider",
+            "show": false
+          },
+          "position": [
+            121,
+            55,
+            0
+          ],
+          "size": [
+            12,
+            40
+          ],
+          "haptic": true,
+          "properties": {
+            "min": -100,
+            "max": 100,
+            "divisions": 5,
+            "autoCenter": [
+              "min",
+              "smooth",
+              300
+            ]
+          }
+        },
+        {
+          "type": "button",
+          "name": "horn_button",
+          "label": {
+            "text": "horn_button",
+            "show": false
+          },
+          "position": [
+            163,
+            15,
+            0
+          ],
+          "size": [
+            null,
+            12
+          ],
+          "haptic": true,
+          "properties": {
+            "variant": "push",
+            "onText": "",
+            "offText": "",
+            "onIcon": "bell-ringing",
+            "offIcon": "bell",
+            "autoCenter": [
+              null,
+              "smooth",
+              300
+            ]
+          }
+        },
+        {
+          "type": "multiple",
+          "name": "gear_switch",
+          "label": {
+            "text": "gear_switch",
+            "show": false
+          },
+          "position": [
+            75,
+            56,
+            0
+          ],
+          "size": [
+            18,
+            40
+          ],
+          "haptic": true,
+          "variant": "multiButton",
+          "properties": {
+            "itemCount": 3,
+            "items": [
+              {
+                "onLabel": "D",
+                "onIcon": null,
+                "offLabel": null,
+                "offIcon": null
+              },
+              {
+                "onLabel": "P",
+                "onIcon": null,
+                "offLabel": null,
+                "offIcon": null
+              },
+              {
+                "onLabel": "R",
+                "onIcon": null,
+                "offLabel": null,
+                "offIcon": null
+              }
+            ],
+            "autoCenter": [
+              null,
+              "smooth",
+              300
+            ]
+          }
+        },
+        {
+          "type": "serialMonitor",
+          "name": "serial_monitor_1",
+          "label": {
+            "text": "serial_monitor_1",
+            "show": false
+          },
+          "position": [
+            97,
+            15,
+            0
+          ],
+          "size": [
+            58,
+            30
+          ],
+          "haptic": true,
+          "properties": {
+            "autoscroll": true,
+            "autoCenter": [
+              null,
+              "smooth",
+              300
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Loco",
+      "orientation": "portrait",
+      "widgets": [
+        {
+          "type": "slider",
+          "name": "throttle_slider",
+          "label": {
+            "text": "throttle_slider",
+            "show": false
+          },
+          "position": [
+            67,
+            105,
+            0
+          ],
+          "size": [
+            20,
+            114
+          ],
+          "haptic": true,
+          "properties": {
+            "min": 0.0,
+            "max": 100.0,
+            "divisions": null,
+            "autoCenter": [
+              null,
+              "smooth",
+              300
+            ]
+          }
+        },
+        {
+          "type": "switch",
+          "name": "dir_switch",
+          "label": {
+            "text": "dir_switch",
+            "show": false
+          },
+          "position": [
+            67,
+            173,
+            0
+          ],
+          "size": [
+            32,
+            18
+          ],
+          "haptic": true,
+          "variant": "slideSwitch",
+          "properties": {
+            "onText": "",
+            "offText": "",
+            "onIcon": "arrow-fat-right",
+            "offIcon": "arrow-fat-left",
+            "autoCenter": [
+              null,
+              "smooth",
+              300
+            ]
+          }
+        },
+        {
+          "type": "multiple",
+          "name": "loco_light",
+          "label": {
+            "text": "loco_light",
+            "show": false
+          },
+          "position": [
+            31,
+            97,
+            0
+          ],
+          "size": [
+            24,
+            130
+          ],
+          "haptic": true,
+          "variant": "multiSelect",
+          "properties": {
+            "itemCount": 8,
+            "items": [
+              {
+                "onLabel": null,
+                "onIcon": "arrow-up",
+                "offLabel": null,
+                "offIcon": null
+              },
+              {
+                "onLabel": null,
+                "onIcon": "arrow-down",
+                "offLabel": null,
+                "offIcon": null
+              },
+              {
+                "onLabel": null,
+                "onIcon": "snowflake",
+                "offLabel": null,
+                "offIcon": null
+              },
+              {
+                "onLabel": null,
+                "onIcon": "crosshair",
+                "offLabel": null,
+                "offIcon": null
+              },
+              {
+                "onLabel": null,
+                "onIcon": "siren",
+                "offLabel": null,
+                "offIcon": null
+              },
+              {
+                "onLabel": null,
+                "onIcon": "cable-car",
+                "offLabel": null,
+                "offIcon": null
+              },
+              {
+                "onLabel": null,
+                "onIcon": "tablet",
+                "offLabel": null,
+                "offIcon": null
+              },
+              {
+                "onLabel": null,
+                "onIcon": "x",
+                "offLabel": null,
+                "offIcon": null
+              }
+            ],
+            "autoCenter": [
+              null,
+              "smooth",
+              300
+            ]
+          }
+        },
+        {
+          "type": "button",
+          "name": "bell_button",
+          "label": {
+            "text": "bell_button",
+            "show": false
+          },
+          "position": [
+            31,
+            175,
+            0
+          ],
+          "size": [
+            null,
+            20
+          ],
+          "haptic": true,
+          "properties": {
+            "variant": "push",
+            "onText": "",
+            "offText": "",
+            "onIcon": "bell-ringing",
+            "offIcon": "bell",
+            "autoCenter": [
+              null,
+              "smooth",
+              300
+            ]
+          }
+        },
+        {
+          "type": "button",
+          "name": "engine_button",
+          "label": {
+            "text": "engine_button",
+            "show": false
+          },
+          "position": [
+            67,
+            41,
+            0
+          ],
+          "size": [
+            null,
+            20
+          ],
+          "haptic": true,
+          "properties": {
+            "variant": "toggle",
+            "onText": "START",
+            "offText": "",
+            "onIcon": "power",
+            "offIcon": null,
+            "autoCenter": [
+              null,
+              "smooth",
+              300
+            ]
+          }
+        },
+        {
+          "type": "serialMonitor",
+          "name": "serial_monitor_2",
+          "label": {
+            "text": "serial_monitor_2",
+            "show": false
+          },
+          "position": [
+            49,
+            16,
+            0
+          ],
+          "size": [
+            57,
+            25
+          ],
+          "haptic": true,
+          "properties": {
+            "autoscroll": true,
+            "autoCenter": [
+              null,
+              "smooth",
+              300
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

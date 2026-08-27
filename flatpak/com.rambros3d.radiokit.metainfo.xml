@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.rambros3d.radiokit</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>RadioKit</name>
+  <summary>BLE &amp; USB Serial companion app for Arduino RadioKit library</summary>
+  <description>
+    <p>
+      RadioKit is an open-source companion app for the Arduino RadioKit library.
+      It provides a rich set of customizable widgets — buttons, sliders, knobs,
+      joysticks, gauges, and more — that communicate with microcontrollers over
+      BLE or USB serial.
+    </p>
+    <p>
+      Design control panels visually on your phone or desktop, then control
+      your Arduino projects wirelessly or over USB with zero coding required
+      for the UI.
+    </p>
+  </description>
+  <developer id="com.rambros3d">
+    <name>RAMBROS3D</name>
+  </developer>
+  <url type="homepage">https://github.com/rambros3d/RadioKit</url>
+  <url type="bugtracker">https://github.com/rambros3d/RadioKit/issues</url>
+  <url type="donation">https://github.com/sponsors/rambros3d</url>
+  <launchable type="desktop-id">com.rambros3d.radiokit.desktop</launchable>
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/rambros3d/RadioKit/main/.screenshots/1.png</image>
+    </screenshot>
+  </screenshots>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="1.0.0" date="2025-01-01"/>
+  </releases>
+</component>

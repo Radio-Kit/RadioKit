@@ -1,0 +1,76 @@
+---
+title: Arduino Library Overview
+description: Overview of the RadioKit Arduino library
+---
+
+RadioKit is a powerful, object-oriented Arduino library that bridges your hardware and a highly customizable mobile dashboard. It allows you to build industrial-grade control interfaces using simple C++ structures.
+
+## Key Features
+
+- **Zero Configuration**: The UI is defined in your Arduino code; the app dynamically builds the dashboard upon connection.
+- **Reliable Communication**: Built-in sequence tracking and retransmission for critical commands (VAR_UPDATE, META_UPDATE).
+- **Spring Physics**: High-fidelity spring simulations for sliders, knobs, and joysticks.
+- **Multiple Transports**: BLE (NimBLE), Serial (USB/UART), WiFi (WebSocket), and Cloud relay — all can run simultaneously.
+- **NVS Persistence**: Device configuration (name, passwords, WiFi/Cloud credentials) survives power cycles via ESP32 NVS.
+- **OTA Firmware Updates**: Over-the-air firmware updates via the companion app.
+- **Filesystem Access**: Browse, read, write, and manage files on the device's LittleFS partition from the app.
+- **Print Stream**: Transport-agnostic `RadioKit.print()` API sends messages to the app's console.
+
+## Widget Types
+
+| Widget | Class | Type | Description |
+|--------|-------|------|-------------|
+| Push Button | `RK_PushButton` | Input | Momentary (true while held) |
+| Toggle Button | `RK_ToggleButton` | Input | Latching on/off |
+| Slide Switch | `RK_SlideSwitch` | Input | iOS-style slide toggle |
+| Rocker Switch | `RK_RockerSwitch` | Input | Rocker-style on/off |
+| Slider | `RK_Slider` | Input | Linear -100..+100 |
+| Gas Pedal | `RK_GasPedal` | Input | Slider variant, springs to min |
+| Knob | `RK_Knob` | Input | Rotary -100..+100 |
+| Steering Wheel | `RK_Knob` (variant) | Input | Knob variant, springs to center |
+| Joystick | `RK_Joystick` | Input | 2-axis (-100..+100 each) |
+| Multi Button | `RK_MultipleButton` | Input | Radio-style button group |
+| Multi Select | `RK_MultipleSelect` | Input | Checkbox-style multi-select |
+| LED | `RK_LED` | Output | RGB indicator |
+| Text | `RK_Text` | Output | Read-only text display |
+| Serial Monitor | `RK_Serial` | Output | Serial console in the app |
+| Telemetry | `RK_Telemetry` | Output | Display-only metrics |
+
+## Transports
+
+| Transport | Activation | Use case |
+|-----------|-----------|----------|
+| **BLE** | `RadioKit.startBLE(name)` | Local control via RadioKit app (NimBLE on ESP32) |
+| **Serial** | `RadioKit.startSerial(Serial)` | USB/UART communication (1000000 baud recommended) |
+| **WiFi** | `RadioKit.startWiFi()` | Local WiFi WebSocket server on port 5555 |
+| **Cloud** | `RadioKit.startCloud()` | Internet relay via WebSocket (requires WiFi first) |
+
+Multiple transports can run simultaneously. The library broadcasts widget state changes across all active transports automatically.
+
+## Supported Hardware
+
+| Platform | BLE | Serial | WiFi | Notes |
+|----------|-----|--------|------|-------|
+| **ESP32** | [X] NimBLE | [X] USB CDC, FTDI | [X] WebSocket | Fully supported |
+| **ESP32-S3** | [X] NimBLE | [X] USB CDC | [X] WebSocket | Fully supported |
+| **ESP32-C3** | [X] NimBLE | [X] USB CDC | [X] WebSocket | WiFi/BLE only |
+| **nRF52** | [-] | [X] UART | [-] | Serial only |
+| **STM32** | [-] | [X] UART | [-] | Serial only |
+| **SAMD** | [-] | [X] UART | [-] | Serial only |
+
+## Examples
+
+- **`BasicSwitch`** — Minimal BLE example (toggle switch + LED)
+- **`JoystickMotor`** — Joystick controlling a servo
+- **`SliderServo`** — Slider controlling a servo
+- **`BLE_RC_Truck`** — RC truck: dual motor, steering
+- **`Filesystem_LED`** — BLE + LittleFS bulk filesystem demo
+- **`FsCommandTest`** — FS command validation
+- **`WiFiCloudSwitch`** — BLE + WiFi + Cloud relay: multi-transport demo
+
+## See Also
+
+- [Widgets Reference](/arduino/widgets) — Complete widget API
+- [Transports](/arduino/transports) — Transport configuration
+- [UI Layout](/arduino/ui-layout) — Coordinate system and sizing
+- [Protocol](/arduino/protocol) — Binary packet format
