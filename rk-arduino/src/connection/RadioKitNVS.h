@@ -33,6 +33,10 @@
 #define RK_NVS_KEY_CLOUD_URL      "rk_cloud_url"
 #define RK_NVS_KEY_CLOUD_ACCOUNT  "rk_cloud_account"
 
+// ── Remote links NVS keys ───────────────────────────────────────────────────
+#define RK_NVS_KEY_FS_URL         "rk_fs_url"
+#define RK_NVS_KEY_OTA_URL        "rk_ota_url"
+
 // ── Device identity ─────────────────────────────────────────────────────────
 #define RK_NVS_KEY_DEVICE_UID     "rk_device_uid"
 #define RK_NVS_KEY_DEVICE_ICON    "rk_device_icon"

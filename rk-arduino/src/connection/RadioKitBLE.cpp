@@ -364,7 +364,29 @@ void RadioKitBLE::_drainTxQueue() {
 
         NimBLECharacteristic* target = _charForBuf(frame.data);
         if (target && frame.len > 0 && _connected) {
-            target->notify(frame.data, frame.len);
+            uint16_t mtu = _negotiatedMtu;
+            if (mtu < 23) mtu = 23;
+            mtu -= 3;
+
+            if (frame.len <= mtu) {
+                target->notify(frame.data, frame.len);
+            } else {
+                uint16_t offset = 0;
+                while (offset < frame.len && _connected) {
+                    uint16_t chunk = frame.len - offset;
+                    if (chunk > mtu) chunk = mtu;
+                    bool success = false;
+                    for (int retry = 0; retry < 50 && !success; retry++) {
+                        if (!_connected) break;
+                        success = (_connHandle != 0xFFFF)
+                            ? target->notify(frame.data + offset, chunk, _connHandle)
+                            : target->notify(frame.data + offset, chunk);
+                        if (!success) delay(5);
+                    }
+                    offset += chunk;
+                    if (offset < frame.len) delay(5);
+                }
+            }
         }
         vTaskDelay(pdMS_TO_TICKS(5));
     }

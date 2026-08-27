@@ -94,6 +94,8 @@ RadioKitClass::RadioKitClass()
     memset(_nvsStaPwd, 0, sizeof(_nvsStaPwd));
     memset(_nvsCloudUrl, 0, sizeof(_nvsCloudUrl));
     memset(_nvsCloudAccount, 0, sizeof(_nvsCloudAccount));
+    memset(_nvsFsUrl, 0, sizeof(_nvsFsUrl));
+    memset(_nvsOtaUrl, 0, sizeof(_nvsOtaUrl));
     memset(_nvsDeviceIcon, 0, sizeof(_nvsDeviceIcon));
     memset(_nvsDeviceUid, 0, sizeof(_nvsDeviceUid));
     memset(_printBuf, 0, sizeof(_printBuf));
@@ -168,6 +170,8 @@ void RadioKitClass::begin() {
             RKNvs::writeString(RK_NVS_KEY_STA_PWD, config.sta_password ? config.sta_password : "");
             RKNvs::writeString(RK_NVS_KEY_CLOUD_URL, config.cloud_url ? config.cloud_url : "");
             RKNvs::writeString(RK_NVS_KEY_CLOUD_ACCOUNT, config.cloud_account ? config.cloud_account : "");
+            RKNvs::writeString(RK_NVS_KEY_FS_URL, config.fs_url ? config.fs_url : "");
+            RKNvs::writeString(RK_NVS_KEY_OTA_URL, config.ota_url ? config.ota_url : "");
             RKNvs::writeString(RK_NVS_KEY_DEVICE_ICON, config.device_icon ? config.device_icon : "");
             // Transport enable defaults: BLE on, WiFi on, Cloud off
             RKNvs::writeU8("rk_ble_on", 1);
@@ -810,6 +814,7 @@ void RadioKitClass::_onSettingsPacket(uint8_t subCmd,
         case RK_SETTINGS_CMD_SET_WIFI:      s_instance->_handleSettingsSetWifi(payload, payloadLen);      break;
         case RK_SETTINGS_CMD_GET_CLOUD_INFO: s_instance->_handleSettingsGetCloudInfo();                        break;
         case RK_SETTINGS_CMD_SET_CLOUD_INFO: s_instance->_handleSettingsSetCloud(payload, payloadLen);           break;
+        case RK_SETTINGS_CMD_GET_LINKS_INFO: s_instance->_handleSettingsGetLinksInfo();                        break;
         case RK_SETTINGS_CMD_REBOOT:         s_instance->_handleSettingsReboot();                                break;
         default:
             RadioKit.printf("RK: Unknown SETTINGS sub-command 0x%02X\n", subCmd);
@@ -952,6 +957,26 @@ void RadioKitClass::_handleSettingsGetCloudInfo() {
     }
     uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
         RK_SETTINGS_RESP_CLOUD_INFO_DATA, buf, offset);
+    _sendSettingsFrame(frameLen);
+}
+
+void RadioKitClass::_handleSettingsGetLinksInfo() {
+    uint8_t buf[1 + RADIOKIT_MAX_FS_URL + 1 + RADIOKIT_MAX_OTA_URL];
+    uint16_t offset = 0;
+    uint8_t fsLen = (uint8_t)strnlen(_nvsFsUrl, RADIOKIT_MAX_FS_URL);
+    buf[offset++] = fsLen;
+    if (fsLen > 0) {
+        memcpy(&buf[offset], _nvsFsUrl, fsLen);
+        offset += fsLen;
+    }
+    uint8_t otaLen = (uint8_t)strnlen(_nvsOtaUrl, RADIOKIT_MAX_OTA_URL);
+    buf[offset++] = otaLen;
+    if (otaLen > 0) {
+        memcpy(&buf[offset], _nvsOtaUrl, otaLen);
+        offset += otaLen;
+    }
+    uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+        RK_SETTINGS_RESP_LINKS_INFO_DATA, buf, offset);
     _sendSettingsFrame(frameLen);
 }
 
@@ -1993,6 +2018,14 @@ void RadioKitClass::_syncNvsToBuffers() {
     // ── Device icon ───────────────────────────────────────────────────
     if (!RKNvs::readString(RK_NVS_KEY_DEVICE_ICON, _nvsDeviceIcon, sizeof(_nvsDeviceIcon))) {
         strncpy(_nvsDeviceIcon, config.device_icon ? config.device_icon : "", sizeof(_nvsDeviceIcon) - 1);
+    }
+
+    // ── Remote links ──────────────────────────────────────────────────
+    if (!RKNvs::readString(RK_NVS_KEY_FS_URL, _nvsFsUrl, sizeof(_nvsFsUrl))) {
+        strncpy(_nvsFsUrl, config.fs_url ? config.fs_url : "", sizeof(_nvsFsUrl) - 1);
+    }
+    if (!RKNvs::readString(RK_NVS_KEY_OTA_URL, _nvsOtaUrl, sizeof(_nvsOtaUrl))) {
+        strncpy(_nvsOtaUrl, config.ota_url ? config.ota_url : "", sizeof(_nvsOtaUrl) - 1);
     }
 
     RK_DEBUG_PRINT("NVS: Loaded name='%s', desc='%s', device_pwd=%s, user_pwd=%s, uid='%s', icon='%s'\n",

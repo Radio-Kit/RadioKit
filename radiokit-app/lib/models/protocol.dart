@@ -135,6 +135,7 @@ const int kSettingsCmdSetWifi        = 0x0B;
 const int kSettingsCmdGetCloudInfo   = 0x0C;
 const int kSettingsCmdReboot          = 0x0D;
 const int kSettingsCmdSetCloudInfo   = 0x0E;
+const int kSettingsCmdGetLinksInfo   = 0x0F;
 
 // SET_CLOUD_INFO field mask bits
 const int kSettingsSetCloudUrl     = 1 << 0;
@@ -155,6 +156,7 @@ const int kSettingsRespSetWifiAck          = 0x8B;
 const int kSettingsRespCloudInfoData       = 0x8C;
 const int kSettingsRespRebootAck           = 0x8D;
 const int kSettingsRespSetCloudInfoAck       = 0x8E;
+const int kSettingsRespLinksInfoData       = 0x8F;
 
 // NVS raw read/write status codes
 const int kSettingsNvsRawOk    = 0x00;

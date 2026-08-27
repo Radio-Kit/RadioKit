@@ -157,12 +157,14 @@
 #define RADIOKIT_MAX_ITEMS    8  ///< MultipleButton/Select item pool size
 
 // ─────────────────────────────────────────────
-//  WiFi / Cloud config limits
+//  WiFi / Cloud / Links config limits
 // ─────────────────────────────────────────────
 #define RADIOKIT_MAX_SSID           32  ///< STA SSID max chars
 #define RADIOKIT_MAX_WIFI_PWD       64  ///< STA WiFi password max chars
 #define RADIOKIT_MAX_CLOUD_URL      128 ///< Cloud relay URL max chars
 #define RADIOKIT_MAX_CLOUD_ACCOUNT  64  ///< Account identifier max chars
+#define RADIOKIT_MAX_FS_URL         128 ///< Filesystem repo URL max chars
+#define RADIOKIT_MAX_OTA_URL        128 ///< OTA firmware URL max chars
 
 // ─────────────────────────────────────────────
 //  Device icon limits

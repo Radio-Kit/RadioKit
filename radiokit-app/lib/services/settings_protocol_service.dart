@@ -51,6 +51,7 @@ class SettingsProtocolService {
   static Uint8List buildGetDeviceInfo() => buildFrame(kSettingsCmdGetDeviceInfo);
   static Uint8List buildFactoryReset() => buildFrame(kSettingsCmdFactoryReset);
   static Uint8List buildGetCloudInfo() => buildFrame(kSettingsCmdGetCloudInfo);
+  static Uint8List buildGetLinksInfo() => buildFrame(kSettingsCmdGetLinksInfo);
   static Uint8List buildReboot() => buildFrame(kSettingsCmdReboot);
 
   /// Build NVS_RAW_READ frame. Payload: [KEY_LEN(1)][KEY...]
@@ -278,6 +279,25 @@ class SettingsProtocolService {
             allowMalformed: true)
         : '';
     return (url: url, account: account);
+  }
+
+  /// Parse LINKS_INFO_DATA: [FS_URL_LEN(1)][FS_URL...][OTA_URL_LEN(1)][OTA_URL...]
+  /// Returns (fsUrl, otaUrl) on success, null on parse failure.
+  static ({String fsUrl, String otaUrl})? parseLinksInfoData(List<int> payload) {
+    if (payload.length < 2) return null;
+    int offset = 0;
+    final fsUrlLen = payload[offset++];
+    if (offset + fsUrlLen > payload.length) return null;
+    final fsUrl = utf8.decode(payload.sublist(offset, offset + fsUrlLen),
+        allowMalformed: true);
+    offset += fsUrlLen;
+    if (offset >= payload.length) return null;
+    final otaUrlLen = payload[offset++];
+    final otaUrl = (offset + otaUrlLen <= payload.length)
+        ? utf8.decode(payload.sublist(offset, offset + otaUrlLen),
+            allowMalformed: true)
+        : '';
+    return (fsUrl: fsUrl, otaUrl: otaUrl);
   }
 
   /// Parse DEVICE_INFO_DATA: [PROTO_VER(1)][NAME_LEN(1)][NAME][DESC_LEN(1)][DESC][UID_LEN(1)][UID][ICON_LEN(1)][ICON...]

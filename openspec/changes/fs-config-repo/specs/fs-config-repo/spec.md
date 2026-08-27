@@ -2,86 +2,62 @@
 
 ## Purpose
 
-The FS manager SHALL let users browse a device-declared GitHub config repository and install config bundles onto the device filesystem with one tap.
+The Filesystem tab SHALL let users browse a remote GitHub repository or subfolder directly from the file browser and selectively upload files and folders to the device LittleFS.
 
 ## ADDED Requirements
 
-### Requirement: Cache device-declared repo info on connect
+### Requirement: Cache device-declared links on connect
 
-The app SHALL request the device's config repository information via the settings protocol after connection and SHALL cache the repo URL and subdir in `DeviceProvider` for the connected device.
+The app SHALL request the device's remote link information via the settings protocol after connection and SHALL cache the filesystem link (`fsUrl`) and OTA link (`otaUrl`) in `DeviceProvider`.
 
-#### Scenario: Device declares a repo
-- **WHEN** the app connects to a device and receives a `REPO_INFO_DATA` response with a non-empty URL
-- **THEN** `DeviceProvider` exposes `repoUrl` and `repoSubdir` for that connection and the FS manager offers the config-browse feature
+#### Scenario: Device declares a filesystem link
+- **WHEN** the app connects to a device and receives a `LINKS_INFO_DATA` response with a non-empty `fs_url`
+- **THEN** `DeviceProvider` exposes `fsUrl` for that connection
 
-#### Scenario: Device declares no repo
-- **WHEN** the app connects to a device and the `REPO_INFO_DATA` response has an empty URL (or older firmware never responds)
-- **THEN** `DeviceProvider` treats the repo as unset and the FS manager shows a hint that no config repo is configured
+#### Scenario: Device declares no links
+- **WHEN** the app connects to a device and the `LINKS_INFO_DATA` response has empty URLs (or older firmware never responds)
+- **THEN** `DeviceProvider` treats the links as unset
 
-### Requirement: Parse GitHub repository URLs
+### Requirement: Parse GitHub repository and subfolder URLs
 
-The app SHALL convert a normal GitHub URL (e.g. `https://github.com/owner/repo`) into the raw content base used for fetching, extracting owner, repo, and an optional ref. When no ref is given, `HEAD` SHALL be used.
+The app SHALL convert a GitHub URL (e.g. `https://github.com/owner/repo` or `https://github.com/owner/repo/tree/branch/subfolder`) into owner, repo, ref (defaulting to `HEAD`), and subfolder path components.
 
 #### Scenario: Plain repository URL
-- **WHEN** `ConfigRepoService` parses `https://github.com/rambros3d/RadioKit`
-- **THEN** the raw base resolves to `https://raw.githubusercontent.com/rambros3d/RadioKit/HEAD`
+- **WHEN** `RepoTreeService` parses `https://github.com/rambros3d/RadioKit`
+- **THEN** owner is `rambros3d`, repo is `RadioKit`, ref is `HEAD`, and subfolder is empty
 
-#### Scenario: Branch-qualified repository URL
-- **WHEN** `ConfigRepoService` parses `https://github.com/rambros3d/RadioKit/tree/dev/configs`
-- **THEN** the raw base resolves to `https://raw.githubusercontent.com/rambros3d/RadioKit/dev`
+#### Scenario: Subfolder repository URL
+- **WHEN** `RepoTreeService` parses `https://github.com/rambros3d/RadioKit/tree/main/configs/sensors`
+- **THEN** owner is `rambros3d`, repo is `RadioKit`, ref is `main`, and subfolder is `configs/sensors`
 
-#### Scenario: Non-GitHub URL
-- **WHEN** `ConfigRepoService` parses a URL whose host is not `github.com`
-- **THEN** parsing fails and the catalog sheet shows an error state
+### Requirement: Remote repo browser modal in Filesystem tab
 
-### Requirement: Fetch and parse the config manifest
+The Filesystem tab SHALL provide a remote repository browse action button in its toolbar/FAB and empty-directory menu. Tapping the action SHALL open a modal window displaying the directory tree of the repository/subfolder with selective checkboxes for files and directories.
 
-The app SHALL fetch `radiokit.json` from the repo subdir (`{rawBase}/{subdir}/radiokit.json`) and parse it into manifest items, each with id, name, description, version, optional icon, and a list of files (name + optional target path). A malformed or missing manifest SHALL result in a visible error state with retry.
+#### Scenario: Open modal with declared repo link
+- **WHEN** the user taps the remote repo action button
+- **THEN** the modal opens, pre-fills the configured `fs_url`, fetches the tree structure, and displays the folder hierarchy
 
-#### Scenario: Manifest present and valid
-- **WHEN** the catalog sheet loads and the manifest fetch succeeds with a parseable `radiokit.json`
-- **THEN** the sheet renders one card per config item
+#### Scenario: Editable repository URL in modal
+- **WHEN** the user edits the repository URL in the modal and submits
+- **THEN** the modal fetches and renders the tree corresponding to the new URL
 
-#### Scenario: Manifest missing or unreachable
-- **WHEN** the manifest fetch returns HTTP 404, times out, or fails network validation
-- **THEN** the catalog sheet shows an error state with a retry action
+### Requirement: Granular file and folder selection
 
-#### Scenario: Malformed manifest
-- **WHEN** the fetched manifest is not valid JSON or lacks a `configs` array
-- **THEN** the catalog sheet shows an error state rather than an empty catalog
+The modal SHALL allow the user to select individual files or entire folders. Checking a folder SHALL automatically check all descendant files and folders. The modal SHALL display the total byte size of selected items and compare it against available device storage.
 
-### Requirement: Show catalog with capacity bar
+#### Scenario: Select a folder
+- **WHEN** the user checks a directory containing multiple files
+- **THEN** all files within that directory are marked selected and the total size is updated
 
-The catalog sheet SHALL display each config as a card with its name, description, version, and file count, and SHALL show the device filesystem's live used/total capacity so the user can gauge available space before installing.
+### Requirement: Sequential upload to board LittleFS
 
-#### Scenario: Catalog opened with connected FS device
-- **WHEN** the user opens the config catalog sheet on a connected device with a declared repo
-- **THEN** the sheet lists config cards and a capacity indicator reflecting `DeviceFsService.getInfo()`
+Tapping "Upload to Board" SHALL fetch raw bytes for each selected file from GitHub and upload them sequentially to the connected board at the active destination directory using `DeviceFsService.writeFileUpload` (CRC32-verified).
 
-### Requirement: Install a config bundle to the device filesystem
+#### Scenario: Successful batch upload
+- **WHEN** the user selects 3 files and taps "Upload to Board"
+- **THEN** each file is uploaded with live progress indication, and on completion the modal closes and the file list refreshes
 
-Tapping a config card SHALL fetch each file from the repo and write it to the device via the CRC32-verified upload protocol at its declared target path, or `/config/<name>` when no path is declared. The install SHALL report per-file progress and a final success/failure summary, and the FS tab SHALL refresh after a successful install.
-
-#### Scenario: Successful install
-- **WHEN** the user taps a config with files `a.json` (path `/config/a.json`) and `b.html` (no path)
-- **THEN** `a.json` is written to `/config/a.json` and `b.html` to `/config/b.html`, each verified by CRC32, and the FS tab refreshes its listing
-
-#### Scenario: Partial install failure
-- **WHEN** the second file of a two-file config fails to upload after the first succeeded
-- **THEN** the sheet reports which files succeeded and which failed, offers retry, and leaves the successfully written files in place
-
-#### Scenario: Default path collision
-- **WHEN** an installed file targets a path that already exists on the device
-- **THEN** the existing file is overwritten (upload protocol truncates)
-
-### Requirement: FS tab browse trigger and no-repo hint
-
-The FS manager SHALL expose a config-browse action when the connected device declares a repo, and SHALL show a compact hint instead when it does not.
-
-#### Scenario: Repo declared
-- **WHEN** the FS tab is shown for a device with a declared repo
-- **THEN** the tab offers a CONFIGS action that opens the catalog sheet
-
-#### Scenario: No repo declared
-- **WHEN** the FS tab is shown for a device with no declared repo
-- **THEN** the tab shows a hint that the device does not declare a config repo, and no CONFIGS action is offered
+#### Scenario: Partial failure handling
+- **WHEN** one file in the batch fails network download or transfer
+- **THEN** the modal displays an error status, leaves successfully uploaded files on the board, and allows retrying remaining files

@@ -247,6 +247,18 @@ class JsonArduinoGenerator {
         buf.writeln('${indent}RadioKit.config.cloud_account = "${_escapeC(account)}";');
       }
     }
+
+    // ── Remote link config fields ──
+    final links = config['links'] as Map<String, dynamic>? ?? {};
+    final fsUrl = (links['fs'] as String?) ?? '';
+    final otaUrl = (links['ota'] as String?) ?? '';
+
+    if (fsUrl.isNotEmpty) {
+      buf.writeln('${indent}RadioKit.config.fs_url       = "${_escapeC(fsUrl)}";');
+    }
+    if (otaUrl.isNotEmpty) {
+      buf.writeln('${indent}RadioKit.config.ota_url      = "${_escapeC(otaUrl)}";');
+    }
   }
 
   // ── Widget generator ─────────────────────────────────────────────────────

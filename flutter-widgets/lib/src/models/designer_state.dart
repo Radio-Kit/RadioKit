@@ -48,6 +48,8 @@ class DesignerState extends ChangeNotifier {
   String _wifiPass = '';
   String _cloudAccount = '';
   String _cloudRelay = '';
+  String _fsUrl = '';
+  String _otaUrl = '';
   String _modelName = '';
   String _modelType = 'Locomotive';
   String _modelDescription = '';
@@ -119,6 +121,8 @@ class DesignerState extends ChangeNotifier {
   String get wifiPass => _wifiPass;
   String get cloudAccount => _cloudAccount;
   String get cloudRelay => _cloudRelay;
+  String get fsUrl => _fsUrl;
+  String get otaUrl => _otaUrl;
   String get modelName => _modelName;
   String get modelType => _modelType;
   String get modelDescription => _modelDescription;
@@ -701,6 +705,18 @@ class DesignerState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setFsUrl(String v) {
+    _mutationCount++;
+    _fsUrl = v;
+    notifyListeners();
+  }
+
+  void setOtaUrl(String v) {
+    _mutationCount++;
+    _otaUrl = v;
+    notifyListeners();
+  }
+
   void setModelName(String value) {
     _mutationCount++;
     _modelName = value;
@@ -1030,6 +1046,14 @@ class DesignerState extends ChangeNotifier {
       _cloudAccount = '';
       _cloudRelay = '';
     }
+    final links = decoded['config']?['links'] as Map<String, dynamic>?;
+    if (links != null) {
+      _fsUrl = (links['fs'] as String?) ?? '';
+      _otaUrl = (links['ota'] as String?) ?? '';
+    } else {
+      _fsUrl = '';
+      _otaUrl = '';
+    }
     _activeSkin = _normaliseSkin((decoded['config']?['theme'] as String?) ?? 'dragon');
     _connectionPassword = (decoded['config']?['password'] as String?) ?? '';
 
@@ -1236,6 +1260,10 @@ class DesignerState extends ChangeNotifier {
           'account': _cloudAccount,
           'relay': _cloudRelay,
         },
+      },
+      'links': {
+        'fs': _fsUrl,
+        'ota': _otaUrl,
       },
       'theme': _normaliseSkin(_activeSkin),
       'password': _connectionPassword,

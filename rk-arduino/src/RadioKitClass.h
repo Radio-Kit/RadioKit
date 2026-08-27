@@ -44,6 +44,10 @@ struct RK_Config {
     const char* cloud_url     = "";      ///< Cloud relay URL (e.g. "wss://relay.radiokit.com")
     const char* cloud_account = "";      ///< Account identifier for cloud relay
 
+    // ── Remote links ──────────────────────────────────────────
+    const char* fs_url        = "";      ///< Filesystem repo / subfolder URL
+    const char* ota_url       = "";      ///< OTA firmware update URL placeholder
+
     // ── Device icon (from kDesignerIcons registry) ────────────
     const char* device_icon   = "";      ///< Icon name for this device
 
@@ -252,6 +256,7 @@ private:
     void _handleSettingsSetWifi(const uint8_t* payload, uint16_t len);
     void _handleSettingsSetCloud(const uint8_t* payload, uint16_t len);
     void _handleSettingsGetCloudInfo();
+    void _handleSettingsGetLinksInfo();
     void _handleSettingsReboot();
     void _handleGetWifiInfo();
     void _handleSetPage(const uint8_t* payload, uint16_t len);
@@ -289,6 +294,10 @@ private:
     char _nvsStaPwd[RADIOKIT_MAX_WIFI_PWD + 1];
     char _nvsCloudUrl[RADIOKIT_MAX_CLOUD_URL + 1];
     char _nvsCloudAccount[RADIOKIT_MAX_CLOUD_ACCOUNT + 1];
+
+    // Remote links NVS buffers
+    char _nvsFsUrl[RADIOKIT_MAX_FS_URL + 1];
+    char _nvsOtaUrl[RADIOKIT_MAX_OTA_URL + 1];
 
     // Device icon name (from kDesignerIcons registry)
     char _nvsDeviceIcon[RADIOKIT_MAX_DEVICE_ICON + 1];

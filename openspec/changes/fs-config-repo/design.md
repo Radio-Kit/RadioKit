@@ -2,138 +2,122 @@
 
 ## Context
 
-The FS manager (`FsTabContent` in `device_config/filesystem_tab.dart`) currently supports manual local-file uploads, downloads, editing, rename, delete, and format. Firmware declares runtime-relevant configuration via `RK_Config` (name, cloud URL/account, WiFi creds), persisted to ESP32 NVS and exposed over the 0xDD settings protocol. The app has no HTTP client dependency today (`http` is only transitive), and the FS tab is gated on the device reporting the filesystem feature bit (`hasFs`).
+The FS manager (`FsTabContent` in `device_config/filesystem_tab.dart`) currently supports manual local-file uploads, downloads, editing, rename, delete, and format. Firmware declares runtime-relevant configuration via `RK_Config` (name, cloud URL/account, WiFi creds), persisted to ESP32 NVS and exposed over the 0xDD settings protocol.
 
-This change lets firmware declare a config repository (a GitHub repo + subdir). The app reads that declaration over the settings protocol, fetches a manifest of config bundles from the repo, and installs selected bundles onto the device filesystem.
+This change introduces multi-link configuration in the visual Designer and firmware (`config.links.fs` and `config.links.ota`), persists them to NVS, exposes them over the settings protocol, and provides an interactive remote repo/folder browser modal directly within the Filesystem tab file browser so users can selectively upload files and folders to the device LittleFS.
 
 ## Goals / Non-Goals
 
 **Goals:**
-- One-tap install of config bundles (multiple files, each at a declared target path) from a device-declared GitHub repo into the device LittleFS.
-- Device is the single source of truth for the repo (no app-side repo management).
-- Reuse existing infrastructure wherever possible: settings protocol framing, `DeviceFsService.writeFileUpload` (CRC32-verified), FS busy locking, themed bottom-sheet/card conventions.
-- Design `ConfigRepoService` so the same fetch/parse logic can later back a firmware marketplace (flasher), without committing to that surface now.
+- Configure remote links in the Designer UI (`LINKS` section) with code-generation and NVS persistence:
+  - **Filesystem Link (`fs_url`)**: GitHub repo or subfolder URL.
+  - **OTA Link (`ota_url`)**: URL placeholder for future OTA firmware updates.
+- Provide a remote browser modal launched from the Filesystem tab file browser (via a toolbar/FAB icon and empty-folder menu).
+- Allow users to browse remote files and folders, select specific items, and upload them sequentially to the board LittleFS with live progress and CRC32 verification.
+- Device is the single source of truth for the links, seeded on first boot or configured via the Designer.
+- Support direct URL editing in the modal if the user wants to test or load an alternate repository.
 
 **Non-Goals:**
-- Flasher firmware marketplace (deferred by the user).
-- Installing RadioKit designer UI layouts / reflashing firmware.
-- App-side repo editing or multiple saved repos.
-- sha256 or signature verification of downloaded content.
-- New Remote Access HTTP API endpoints for repo operations.
+- Full OTA firmware update execution (the `ota_url` is added as a schema/firmware placeholder now).
+- Local zip archive extraction (deferred to keep the scope focused on remote Git repository/subfolder links).
+- App-side persistent multi-repo bookmarks database.
 
 ## Decisions
 
-### D1: Manifest file catalog, not GitHub API listing
+### D1: `config.links` in Designer JSON & Codegen
 
-A `radiokit.json` manifest lives at the repo subdir root. The app fetches it (plus referenced files) from `raw.githubusercontent.com`.
-
-- Why manifest over the GitHub Contents API (`/repos/{o}/{r}/contents/{path}`): the API returns only name/size (no description, version, icon, or per-file target paths); is GitHub-only; and is rate-limited to 60 req/hr unauthenticated. A manifest is host-agnostic, metadata-rich, and unthrottled.
-- Alternative considered: GitHub API listing with file-name conventions (e.g. `{id}.json` + `{id}.meta.json`). Rejected — no metadata without an extra file per item, still GitHub-only.
-- Manifest is optional in the sense that the browse flow fails gracefully (error state) if absent; no fallback to API listing is implemented in this change.
-
-**Manifest schema** (fetched from `{subdir}/radiokit.json`):
+The designer JSON schema introduces `config.links`:
 
 ```json
-{
-  "version": 1,
-  "configs": [
-    {
-      "id": "sensor-dashboard",
-      "name": "Sensor Dashboard",
-      "description": "Live sensor readings dashboard",
-      "version": "1.2.0",
-      "icon": "gauge",
-      "files": [
-        { "name": "sensors.json",  "path": "/config/sensors.json" },
-        { "name": "dashboard.html", "path": "/web/index.html" }
-      ]
-    }
-  ]
+"config": {
+  "name": "My Device",
+  "transports": { ... },
+  "links": {
+    "fs": "https://github.com/owner/repo/tree/main/configs",
+    "ota": ""
+  }
 }
 ```
 
-- `files[].name` is relative to the subdir; `files[].path` is the absolute destination on the device. When `path` is omitted, the file lands at `/config/<name>`.
-- `icon` maps to the existing `kDesignerIcons` registry when present; otherwise a generic icon is used.
+- **Designer Inspector**: `designer_inspector.dart` adds a `LINKS` section with text inputs:
+  - **Filesystem Link**: URL input with hint `https://github.com/owner/repo/tree/main/configs`.
+  - **OTA Link**: URL input with helper text indicating OTA support is coming soon.
+- **Codegen**: `JsonArduinoGenerator` emits in `initRadioKit()`:
+  ```cpp
+  RadioKit.config.fs_url  = "https://github.com/owner/repo/tree/main/configs";
+  RadioKit.config.ota_url = "";
+  ```
+  Omitted when empty.
 
-### D2: GitHub URL auto-conversion with HEAD ref
+### D2: Firmware & NVS Persistence
 
-`config.repo_url` holds a normal GitHub URL (e.g. `https://github.com/rambros3d/RadioKit`). `ConfigRepoService.parseGithubUrl()` extracts `owner`, `repo`, and an optional ref from a `/tree/{ref}/` or `/blob/{ref}/` path segment. When no ref is present, `HEAD` is used:
+- `RK_Config` struct in `RadioKitClass.h` exposes:
+  - `const char* fs_url;`
+  - `const char* ota_url;`
+- Sized by `RADIOKIT_MAX_FS_URL (128)` and `RADIOKIT_MAX_OTA_URL (128)` in `RadioKitConfig.h`.
+- Persisted in NVS under keys `rk_fs_url` and `rk_ota_url`.
+- Seeded on first boot from `RK_Config` and loaded into RAM buffers (`_nvsFsUrl`, `_nvsOtaUrl`) during `RadioKit.begin()`.
+
+### D3: `GET_LINKS_INFO` Settings Command (0x0F)
+
+The 0xDD settings protocol adds a command pair:
 
 ```
-manifest: https://raw.githubusercontent.com/{owner}/{repo}/{ref}/{subdir}/radiokit.json
-file:     https://raw.githubusercontent.com/{owner}/{repo}/{ref}/{subdir}/{name}
+GET_LINKS_INFO    (0x0F, App → MCU)   — no payload
+LINKS_INFO_DATA   (0x8F, MCU → App)   — [FS_URL_LEN(1)][FS_URL…][OTA_URL_LEN(1)][OTA_URL…]
 ```
 
-- Why `HEAD`: it resolves on `raw.githubusercontent.com` regardless of whether the default branch is `main` or `master`, avoiding a branch-detection API call.
-- Why not require a raw URL in firmware: normal GitHub URLs are what firmware authors already know; the app converts.
-- Non-GitHub URLs are treated as an invalid repo (error state in the catalog sheet) — out of scope to support arbitrary raw hosts.
+- Wire shape mirrors `CLOUD_INFO_DATA`.
+- Handled on MCU by `_handleSettingsGetLinksInfo()`.
+- Parsed on the app by `SettingsProtocolService.parseLinksInfoData()` and cached in `DeviceProvider`.
 
-### D3: New `GET_REPO_INFO` settings command (0x0F), mirroring cloud-info
+### D4: GitHub URL & Subfolder Parsing
 
-Rather than extending `GET_DEVICE_INFO` (which would break payload layout for existing clients), a new request/response pair is added:
+`RepoTreeService.parseGithubUrl(String url)` parses URLs such as:
+- `https://github.com/owner/repo`
+- `https://github.com/owner/repo/tree/branch/subfolder/path`
 
-```
-GET_REPO_INFO    (0x0F, App → MCU)   — no payload
-REPO_INFO_DATA   (0x8F, MCU → App)   — [URL_LEN(1)][URL…][SUBDIR_LEN(1)][SUBDIR…]
-```
+Extracts: `owner`, `repo`, `ref` (defaults to `HEAD`), and `subfolder`.
 
-- Identical wire shape to `CLOUD_INFO_DATA`, reusing the same parsing approach in `SettingsProtocolService`.
-- Firmware adds `RK_Config.repo_url` / `repo_subdir`, NVS keys `rk_repo_url` / `rk_repo_subdir` (seeded on first boot from config, loaded by `_syncNvsToBuffers()`), and a handler mirroring `_handleSettingsGetCloudInfo`.
-- No new features bitmask flag: an unset repo simply returns empty strings.
+Raw file downloads resolve to:
+`https://raw.githubusercontent.com/{owner}/{repo}/{ref}/{subfolder}/{relativeFilePath}`
 
-### D4: `config.repo` in designer JSON + codegen emission
+### D5: Remote Repo Browser Modal in Filesystem Tab
 
-- `DesignerState` gains a `config.repo` object `{ "url": "", "subdir": "" }`, serialized in `toJson()` and parsed in `loadFromJson()` beside `transports`.
-- `JsonArduinoGenerator` emits `config.repo_url = "…";` and `config.repo_subdir = "…";` in the generated `RADIOKIT.h` only when non-empty (same pattern as cloud fields).
+- **Trigger**:
+  - A third button in the Filesystem Tab floating action bar (e.g. `Icons.cloud_download_outlined`, tooltip `"Import from Repo"`).
+  - An entry in `_showUploadMenu()` ("Download from Repo").
+- **Modal View (`RepoBrowserModal`)**:
+  - Displays the current repo/subfolder URL with an option to edit.
+  - Lists the files and directories fetched from GitHub in an expandable tree.
+  - Granular selection via checkboxes: selecting a folder checks all files inside it.
+  - Displays the destination path (defaults to current directory in FS browser) and device available storage vs. selected file bytes.
+  - Tapping "Upload to Board" iterates through selected files sequentially:
+    1. Downloads file bytes over HTTP.
+    2. Writes to the board using `DeviceFsService.writeFileUpload` (CRC32-verified).
+    3. Displays live progress bar and status.
+  - On completion, the modal closes and the Filesystem Tab file list automatically refreshes.
 
-### D5: Default install path `/config/<name>`
+### D6: `package:http` Direct Dependency
 
-Manifest entries without an explicit `path` land at `/config/<name>`. Predictable, avoids root clutter and cross-bundle collisions. Explicit paths are authoritative and may point anywhere (e.g. `/web/index.html`).
-
-### D6: No sha256 verification
-
-Downloaded bytes are written via `DeviceFsService.writeFileUpload`, which already verifies integrity end-to-end (CRC32 over the full file, computed on device and checked against the app's reference). The manifest does not carry hashes, keeping catalog publishing trivial.
-
-### D7: Sequential install, no rollback
-
-Install iterates a config's files in order: HTTP fetch → `writeFileUpload` → next. If a file fails, already-written files remain on the device; the sheet reports per-file success/failure and offers retry. No rollback/delete-on-failure.
-
-### D8: Full-screen catalog sheet with capacity bar
-
-`ConfigCatalogSheet` is a full-screen route pushed from the FS tab. It shows:
-- Header: repo identity (owner/repo + subdir) and close.
-- Capacity bar from `DeviceFsService.getInfo()` (total vs used) so users can judge space before installing.
-- Cards per manifest item (name, description, version, file count), tap to install.
-- Install progress per file and aggregated; error and empty states with retry.
-- After successful install, the FS tab refreshes its listing.
-
-Trigger: a "CONFIGS" action in the FS tab (info strip row). When the device declares no repo, the FS tab shows a compact hint instead.
-
-### D9: `package:http` becomes a direct dependency
-
-`http` is already in the transitive graph (via `shelf`). Adding it directly lets `ConfigRepoService` fetch over HTTP on all platforms (desktop, Android, iOS, web) — `dart:io HttpClient` is not web-compatible.
+Adding `http: ^1.2.0` (or compatible) directly to `radiokit-app/pubspec.yaml` enables cross-platform network fetches across Android, iOS, Linux, macOS, Windows, and Web.
 
 ## Risks / Trade-offs
 
-- **`raw.githubusercontent.com` availability / CORS**: the fetch may fail on restricted networks or from web without CORS headers. `raw.githubusercontent.com` and `api.github.com` send permissive CORS headers, so web is fine. → Catalog sheet surfaces a clean error state with retry; no cached catalog in this change.
-- **Rate / size limits**: GitHub hard-caps raw files at ~25 MB. Config bundles are expected to be small (KB–low MB). → The install flow reports size up front from `getInfo()` capacity; oversized files surface as an HTTP error.
-- **Stale NVS repo declaration after flash**: NVS persists `rk_repo_url` across reflashes unless erased (see flash-erase-policy). A device may advertise an old repo. → Acceptable; the firmware author's declared value is the source of truth and the sheet displays it so users see what they're browsing.
-- **Partial install state on device**: a mid-bundle failure leaves some files installed. → Deliberate (no rollback); the sheet reports exactly which files succeeded/failed.
-- **Protocol version skew**: older firmware won't answer `GET_REPO_INFO` (unknown sub-command → no response). → The app treats a timeout/absent response as "no repo declared", which is safe (hint shown).
-- **`config.repo` not authored in designer**: firmware authors who write `RADIOKIT.h` by hand can set `config.repo_url` directly; designer authors get the field in the config panel. Low risk.
+- **GitHub API Rate Limits for Tree Listing**:
+  - GitHub unauthenticated API allows 60 requests/hour. A single `git/trees` call fetches the entire repository tree hierarchy.
+  - Raw file downloads from `raw.githubusercontent.com` are unthrottled and not subject to API rate limits.
+- **Network Errors during Batch Upload**:
+  - If a file download or upload fails halfway through a batch, already transferred files remain intact on the board LittleFS. The modal reports the error and allows retrying remaining files.
+- **Stale NVS URLs after Flash**:
+  - Per the flash erase policy, flashing with erase ensures updated sketch links override previous NVS keys.
 
 ## Migration Plan
 
-1. Firmware: add fields/NVS/protocol; update `RadioKitConfig.h` size caps; add `GET_REPO_INFO` handler.
-2. Protocol service + `DeviceProvider` caching on the app.
-3. `ConfigRepoService` + manifest models + `http` dependency.
-4. `ConfigCatalogSheet` + FS tab trigger/hint.
-5. Designer JSON + codegen emission.
-6. Docs sync (protocol.mdx, app features, AGENTS.md schema section).
-7. Optional example: point one existing FS example's `RADIOKIT.h` at a public configs repo for end-to-end validation.
-
-Rollback: feature is additive; removing the FS tab trigger and skipping the `GET_REPO_INFO` fetch restores prior behavior without firmware changes.
-
-## Open Questions
-
-- None blocking. Minor: exact placement of the "CONFIGS" trigger in the FS info strip and hint copy will be settled during implementation against the real layout.
+1. Firmware: add `fs_url` / `ota_url` to `RK_Config`, NVS keys, and `GET_LINKS_INFO` handler.
+2. Protocol service + `DeviceProvider` caching of links on connect.
+3. Designer state & Inspector: `LINKS` section with FS and OTA inputs.
+4. Codegen: emit `RadioKit.config.fs_url` and `RadioKit.config.ota_url`.
+5. RepoTreeService & RepoBrowserModal in Flutter app.
+6. Filesystem tab trigger integration.
+7. Docs sync (protocol.mdx, app features, AGENTS.md).

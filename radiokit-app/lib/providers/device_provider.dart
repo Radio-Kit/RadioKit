@@ -304,6 +304,15 @@ class DeviceProvider extends ChangeNotifier {
   /// Whether the device has a LittleFS filesystem (detected via features bitmask).
   bool get hasFs => (_deviceFeatures & kFeatureFilesystem) != 0;
 
+  String _fsUrl = '';
+  String _otaUrl = '';
+
+  /// Configured filesystem repo / subfolder link from the device.
+  String get fsUrl => _fsUrl;
+
+  /// Configured OTA firmware link placeholder from the device.
+  String get otaUrl => _otaUrl;
+
   /// Current active page index (0-based).
   int get activePage => _activePage;
 
@@ -794,6 +803,9 @@ class DeviceProvider extends ChangeNotifier {
     // Request features after config loads — fire-and-forget
     // Auth timeout is started in _handleFeaturesData() when hasPassword is detected.
     unawaited(_requestFeatures());
+
+    // Request remote links (fs_url, ota_url) — fire-and-forget
+    unawaited(_requestLinksInfo());
 
     // Request chip info — will be fetched on first display
     unawaited(_requestChipInfo());
@@ -1496,6 +1508,9 @@ class DeviceProvider extends ChangeNotifier {
       case kSettingsRespCloudInfoData:
         _handleSettingsCloudInfoData(packet.payload);
         break;
+      case kSettingsRespLinksInfoData:
+        _handleSettingsLinksInfoData(packet.payload);
+        break;
       case kSettingsRespRebootAck:
         _log('Reboot ACK received — device rebooting', level: ConsoleLogLevel.success);
         break;
@@ -1756,6 +1771,62 @@ class DeviceProvider extends ChangeNotifier {
     final completer = _cloudInfoCompleter;
     if (completer != null && !completer.isCompleted) {
       completer.complete(parsed);
+    }
+  }
+
+  Completer<({String fsUrl, String otaUrl})>? _linksInfoCompleter;
+
+  /// Send GET_LINKS_INFO and wait for response.
+  /// Returns (fsUrl, otaUrl) or null on timeout.
+  Future<({String fsUrl, String otaUrl})?> sendGetLinksInfo() async {
+    if (!_transport.isConnected) return null;
+    final completer = Completer<({String fsUrl, String otaUrl})>();
+    _linksInfoCompleter = completer;
+    try {
+      await _writePacket(SettingsProtocolService.buildGetLinksInfo());
+    } catch (e) {
+      _linksInfoCompleter = null;
+      return null;
+    }
+    try {
+      return await completer.future.timeout(const Duration(seconds: 3));
+    } on TimeoutException catch (_) {
+      _linksInfoCompleter = null;
+      return null;
+    } catch (_) {
+      _linksInfoCompleter = null;
+      return null;
+    }
+  }
+
+  void _handleSettingsLinksInfoData(Uint8List payload) {
+    final parsed = SettingsProtocolService.parseLinksInfoData(payload.toList());
+    if (parsed == null) {
+      _log('LINKS_INFO_DATA parse failed', level: ConsoleLogLevel.error);
+      final completer = _linksInfoCompleter;
+      if (completer != null && !completer.isCompleted) {
+        completer.completeError(Exception('Parse failed'));
+      }
+      return;
+    }
+    _fsUrl = parsed.fsUrl;
+    _otaUrl = parsed.otaUrl;
+    _log('Remote links: fs="${parsed.fsUrl}" ota="${parsed.otaUrl}"',
+        level: ConsoleLogLevel.info);
+    notifyListeners();
+    final completer = _linksInfoCompleter;
+    if (completer != null && !completer.isCompleted) {
+      completer.complete(parsed);
+    }
+  }
+
+  /// Fire-and-forget: request remote links from device on connect.
+  Future<void> _requestLinksInfo() async {
+    if (!_transport.isConnected) return;
+    try {
+      await sendGetLinksInfo();
+    } catch (e) {
+      _log('Failed to fetch remote links: $e', level: ConsoleLogLevel.info);
     }
   }
 
@@ -2976,6 +3047,9 @@ class DeviceProvider extends ChangeNotifier {
     _otaCancelled     = false;
     _errorMessage     = null;
     _cloudTransport   = null;
+    _fsUrl            = '';
+    _otaUrl           = '';
+    _linksInfoCompleter = null;
     // Note: saved password is NOT cleared on disconnect so it persists
     // for reconnection. Clear only on factory reset or explicit unpair.
     notifyListeners();
