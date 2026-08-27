@@ -377,9 +377,9 @@ class FlasherProvider extends ChangeNotifier {
         type: FileType.any,
         allowMultiple: false,
       );
-      if (result == null || result.isEmpty) return;
+      if (result == null || result.files.isEmpty) return;
 
-      final file = result.first;
+      final file = result.files.first;
       if (file.path == null) {
         _addLogEntry('[ERROR] Could not access the selected file.');
         return;

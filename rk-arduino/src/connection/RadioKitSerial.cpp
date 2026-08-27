@@ -11,17 +11,8 @@
 #include "RadioKitPrint.h"
 
 // TinyUSB CDC connection guard for sendPacket.
-// Only active when Serial uses the native USB Serial/JTAG controller (ARDUINO_USB_MODE=1).
-// When MODE=0 (TinyUSB/USB-OTG), TinyUSB handles enumeration automatically
-// and the tud_cdc_connected() guard is not compiled in.
-//
-// NOTE: The ESP32-S3 has two USB controllers sharing a single internal PHY:
-//   ARDUINO_USB_MODE=1 → Native USB Serial/JTAG controller (fixed-function HW block)
-//   ARDUINO_USB_MODE=0 → USB-OTG controller (TinyUSB, software-controllable stack)
-//
-// The keepalive null byte in update() is only needed for MODE=1 (native controller)
-// to prevent the hardware IN endpoint from stalling. TinyUSB handles this properly.
-#if defined(ARDUINO_USB_MODE) && ARDUINO_USB_MODE == 1 && RK_ARCH_DETECTED == RK_ARCH_ESP32
+// Only active when Serial uses TinyUSB/USB-OTG (ARDUINO_USB_MODE=0).
+#if defined(ARDUINO_USB_MODE) && ARDUINO_USB_MODE == 0 && RK_ARCH_DETECTED == RK_ARCH_ESP32
 #include "tusb.h"
 #endif
 
@@ -96,27 +87,21 @@ void RadioKitSerialTransport::update() {
 #endif
     // --- End keepalive ---
 
-    // ── Drain TX ring buffer (non-blocking, atomic per frame) ──
-    // Only writes when the stream FIFO has space for the ENTIRE frame.
-    // Preserves frame integrity without blocking the loop or dropping partial bytes.
+    // ── Drain TX ring buffer ──
     while (_txCount > 0) {
-        uint16_t avail = _stream->availableForWrite();
         TxPendingFrame& frame = _txRing[_txTail];
-        if (avail < frame.len) break;  // FIFO cannot accept full frame — retry next iteration
-
         _stream->write(frame.data, frame.len);
+        _stream->flush();
         _txTail = (_txTail + 1) % kTxRingSize;
         _txCount--;
     }
 
-    // Diagnostic: log drops every 10 seconds (only if stream can write without blocking)
+    // Diagnostic: log drops every 10 seconds
     if (_txDropCount > 0) {
         static uint32_t s_lastSerialDiagMs = 0;
         uint32_t now = millis();
         if (now - s_lastSerialDiagMs >= 10000) {
-            if (_stream->availableForWrite() >= 32) {
-                Serial.printf("SERIAL: diag — drops=%u\n", _txDropCount);
-            }
+            RadioKit.printf("SERIAL: diag — drops=%u\n", _txDropCount);
             _txDropCount = 0;
             s_lastSerialDiagMs = now;
         }
@@ -130,45 +115,89 @@ void RadioKitSerialTransport::update() {
         uint8_t byte = (uint8_t)_stream->read();
         _lastByteMs = millis();
 
-        // Route to widget state machine (0x55)
+        // 1. If an explicit multi-byte protocol is currently active, route exclusively to it
+        if (rk_otaRxIsActive()) {
+            if (rk_otaRxFeedByte(byte, cmd, payload, payloadLen)) {
+                _everReceived = true;
+                _lastPacketMs = millis();
+                if (_otaCb) _otaCb(cmd, payload, payloadLen);
+            }
+            continue;
+        }
+
+        if (rk_fsRxIsActive()) {
+            if (rk_fsRxFeedByte(byte, cmd, payload, payloadLen)) {
+                _everReceived = true;
+                _lastPacketMs = millis();
+                if (_fsCb) _fsCb(cmd, payload, payloadLen);
+            }
+            continue;
+        }
+
+        if (rk_settingsRxIsActive()) {
+            if (rk_settingsRxFeedByte(byte, cmd, payload, payloadLen)) {
+                _everReceived = true;
+                _lastPacketMs = millis();
+                if (_settingsCb) _settingsCb(cmd, payload, payloadLen);
+            }
+            continue;
+        }
+
+        if (rk_printRxIsActive()) {
+            const uint8_t* printPayload;
+            uint16_t printPayloadLen;
+            if (rk_printRxFeedByte(byte, printPayload, printPayloadLen)) {
+                _everReceived = true;
+                _lastPacketMs = millis();
+                if (_printCb) _printCb(printPayload, printPayloadLen);
+            }
+            continue;
+        }
+
+        // 2. Not currently inside a frame — route based on start byte
+        if (byte == RK_OTA_START_BYTE) {
+            if (rk_otaRxFeedByte(byte, cmd, payload, payloadLen)) {
+                _everReceived = true;
+                _lastPacketMs = millis();
+                if (_otaCb) _otaCb(cmd, payload, payloadLen);
+            }
+            continue;
+        }
+
+        if (byte == RK_FS_START_BYTE) {
+            if (rk_fsRxFeedByte(byte, cmd, payload, payloadLen)) {
+                _everReceived = true;
+                _lastPacketMs = millis();
+                if (_fsCb) _fsCb(cmd, payload, payloadLen);
+            }
+            continue;
+        }
+
+        if (byte == RK_SETTINGS_START_BYTE) {
+            if (rk_settingsRxFeedByte(byte, cmd, payload, payloadLen)) {
+                _everReceived = true;
+                _lastPacketMs = millis();
+                if (_settingsCb) _settingsCb(cmd, payload, payloadLen);
+            }
+            continue;
+        }
+
+        if (byte == RK_PRINT_START_BYTE) {
+            const uint8_t* printPayload;
+            uint16_t printPayloadLen;
+            if (rk_printRxFeedByte(byte, printPayload, printPayloadLen)) {
+                _everReceived = true;
+                _lastPacketMs = millis();
+                if (_printCb) _printCb(printPayload, printPayloadLen);
+            }
+            continue;
+        }
+
+        // 3. Fallback: widget protocol (0x55)
         if (rk_rxFeedByte(byte, cmd, payload, payloadLen)) {
             _everReceived = true;
             _lastPacketMs = millis();
             if (_cb) _cb(cmd, payload, payloadLen);
-            continue;
-        }
-
-        // Route to FS state machine (0xAA)
-        if (rk_fsRxFeedByte(byte, cmd, payload, payloadLen)) {
-            _everReceived = true;
-            _lastPacketMs = millis();
-            if (_fsCb) _fsCb(cmd, payload, payloadLen);
-            continue;
-        }
-
-        // Route to OTA state machine (0xBB)
-        if (rk_otaRxFeedByte(byte, cmd, payload, payloadLen)) {
-            _everReceived = true;
-            _lastPacketMs = millis();
-            if (_otaCb) _otaCb(cmd, payload, payloadLen);
-            continue;
-        }
-
-        // Route to Settings state machine (0xDD)
-        if (rk_settingsRxFeedByte(byte, cmd, payload, payloadLen)) {
-            _everReceived = true;
-            _lastPacketMs = millis();
-            if (_settingsCb) _settingsCb(cmd, payload, payloadLen);
-            continue;
-        }
-
-        // Route to Print stream state machine (0xEE — unidirectional)
-        const uint8_t* printPayload;
-        uint16_t printPayloadLen;
-        if (rk_printRxFeedByte(byte, printPayload, printPayloadLen)) {
-            _everReceived = true;
-            _lastPacketMs = millis();
-            if (_printCb) _printCb(printPayload, printPayloadLen);
         }
     }
 
@@ -184,25 +213,24 @@ void RadioKitSerialTransport::update() {
 }
 
 void RadioKitSerialTransport::sendPacket(const uint8_t* buf, uint16_t len) {
-    if (!_stream) return;
-#if defined(ARDUINO_USB_MODE) && ARDUINO_USB_MODE == 1 && RK_ARCH_DETECTED == RK_ARCH_ESP32
+    if (!_stream || !buf || len == 0) return;
+#if defined(ARDUINO_USB_MODE) && ARDUINO_USB_MODE == 0 && RK_ARCH_DETECTED == RK_ARCH_ESP32
     // TinyUSB CDC mode: only write if host has finished enumeration.
-    // Writing before the host is ready causes the IN endpoint to STALL,
-    // which Android may never recover from even with clearHalt.
     if (!tud_cdc_connected()) {
         return;
     }
 #endif
-    // Non-blocking enqueue: copy frame into ring buffer.
-    // update() drains the ring buffer to _stream without blocking the main loop.
-    if (_txCount < kTxRingSize && len <= RK_MAX_PACKET_SIZE) {
-        memcpy(_txRing[_txHead].data, buf, len);
-        _txRing[_txHead].len = len;
-        _txHead = (_txHead + 1) % kTxRingSize;
-        _txCount++;
-    } else {
-        _txDropCount++;
+    size_t totalWritten = 0;
+    uint32_t startMs = millis();
+    while (totalWritten < len && (millis() - startMs) < 100) {
+        size_t n = _stream->write(buf + totalWritten, len - totalWritten);
+        if (n > 0) {
+            totalWritten += n;
+        } else {
+            delayMicroseconds(100);
+        }
     }
+    _stream->flush();
 }
 
 bool RadioKitSerialTransport::isConnected() const {

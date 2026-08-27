@@ -253,6 +253,7 @@ No CRC — transport reliability is assumed.
 | `0x0C` | `GET_CLOUD_INFO` | (empty) | Request cloud relay config |
 | `0x0D` | `REBOOT` | (empty) | Reboot device (NVS preserved) |
 | `0x0E` | `SET_CLOUD_INFO` | `[MASK(2 LE)][DATA...]` | Update cloud relay config |
+| `0x0F` | `GET_LINKS_INFO` | (empty) | Request remote links (FS and OTA URLs) |
 
 ### Sub-Commands (MCU -> App)
 
@@ -274,6 +275,7 @@ Response = subCmd | 0x80.
 | `0x8C` | `CLOUD_INFO_DATA` | `[URL_LEN][URL...][ACC_LEN][ACC...]` | Cloud config |
 | `0x8D` | `REBOOT_ACK` | `[STATUS(1)]` | Reboot confirm |
 | `0x8E` | `SET_CLOUD_INFO_ACK` | `[STATUS(1)]` | Cloud config result |
+| `0x8F` | `LINKS_INFO_DATA` | `[FS_LEN][FS_URL...][OTA_LEN][OTA_URL...]` | Remote links payload (streamed directly from `RadioKit.config.fs_url` and `RadioKit.config.ota_url`) |
 
 ### SET_CONF Field Mask
 
@@ -318,7 +320,7 @@ Response = subCmd | 0x80.
 
 ## OTA Protocol (0xBB)
 
-Over-the-air firmware updates using ESP32's `Update` library.
+Over-the-air firmware updates using ESP32's `Update` library. OTA update support is activated at runtime by calling `RadioKit.enableOTA()` in the sketch, which dynamically sets the `RK_SETTINGS_FEATURE_OTA` bit in `FEATURES_DATA`.
 
 ### Frame Structure
 

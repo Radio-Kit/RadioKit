@@ -2,14 +2,15 @@ name: Release iOS
 
 on:
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Release version tag (e.g. v2.1.0)'
-        required: false
-        default: ''
   push:
+    branches: [main]
     tags:
       - 'v*'
+    tags-ignore:
+      - 'v*-apk'
+      - 'v*-linux'
+      - 'v*-win'
+      - 'v*-mac'
 
 jobs:
   ios:
@@ -30,36 +31,29 @@ jobs:
         run: |
           cd radiokit-app
           flutter pub get
-          cd ../flutter-widgets
-          flutter pub get
 
       - name: Build iOS IPA
         run: |
           cd radiokit-app
           flutter build ios --release --no-codesign
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r radiokit.ipa Payload
 
-      - name: Package iOS IPA
-        id: package
+      - name: Rename IPA
         run: |
-          TAG="${{ github.event.inputs.version }}"
-          if [ -z "$TAG" ]; then
-            TAG="${GITHUB_REF_NAME}"
-          fi
-          
-          mkdir -p dist
-          mkdir -p /tmp/Payload
-          cp -r radiokit-app/build/ios/iphoneos/Runner.app /tmp/Payload/
-          (cd /tmp && zip -r "${OLDPWD}/dist/radiokit-${TAG}-ios-unsigned.ipa" Payload)
-          
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          VERSION=${GITHUB_REF_NAME}
+          IPA_PATH=$(find . -name "*.ipa" | head -n 1)
+          echo "Found IPA at: $IPA_PATH"
+          cp "$IPA_PATH" "radiokit-${VERSION}.ipa"
 
-      - name: Publish to GitHub Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref_name, 'v') || github.event_name == 'workflow_dispatch'
-        with:
-          tag_name: ${{ steps.package.outputs.tag }}
-          files: |
-            dist/radiokit-*-ios-unsigned.ipa
-          generate_release_notes: true
-          draft: false
-          prerelease: false
+      - name: Create or update GitHub Release
+        if: startsWith(github.ref_name, 'v')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" --json id >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" radiokit-*.ipa --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" radiokit-*.ipa --generate-notes
+          fi

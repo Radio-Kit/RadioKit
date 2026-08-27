@@ -304,6 +304,19 @@ class DeviceProvider extends ChangeNotifier {
   /// Whether the device has a LittleFS filesystem (detected via features bitmask).
   bool get hasFs => (_deviceFeatures & kFeatureFilesystem) != 0;
 
+  String _fsUrl = '';
+  String _otaUrl = '';
+  String? _firmwareVersion;
+
+  /// Configured filesystem repo / subfolder link from the device.
+  String get fsUrl => _fsUrl;
+
+  /// Configured OTA firmware link placeholder from the device.
+  String get otaUrl => _otaUrl;
+
+  /// Firmware version reported by the device (e.g. "1.0.0").
+  String? get firmwareVersion => _firmwareVersion;
+
   /// Current active page index (0-based).
   int get activePage => _activePage;
 
@@ -794,6 +807,9 @@ class DeviceProvider extends ChangeNotifier {
     // Request features after config loads — fire-and-forget
     // Auth timeout is started in _handleFeaturesData() when hasPassword is detected.
     unawaited(_requestFeatures());
+
+    // Request remote links (fs_url, ota_url) — fire-and-forget
+    unawaited(_requestLinksInfo());
 
     // Request chip info — will be fetched on first display
     unawaited(_requestChipInfo());
@@ -1496,6 +1512,9 @@ class DeviceProvider extends ChangeNotifier {
       case kSettingsRespCloudInfoData:
         _handleSettingsCloudInfoData(packet.payload);
         break;
+      case kSettingsRespLinksInfoData:
+        _handleSettingsLinksInfoData(packet.payload);
+        break;
       case kSettingsRespRebootAck:
         _log('Reboot ACK received — device rebooting', level: ConsoleLogLevel.success);
         break;
@@ -1759,6 +1778,62 @@ class DeviceProvider extends ChangeNotifier {
     }
   }
 
+  Completer<({String fsUrl, String otaUrl})>? _linksInfoCompleter;
+
+  /// Send GET_LINKS_INFO and wait for response.
+  /// Returns (fsUrl, otaUrl) or null on timeout.
+  Future<({String fsUrl, String otaUrl})?> sendGetLinksInfo() async {
+    if (!_transport.isConnected) return null;
+    final completer = Completer<({String fsUrl, String otaUrl})>();
+    _linksInfoCompleter = completer;
+    try {
+      await _writePacket(SettingsProtocolService.buildGetLinksInfo());
+    } catch (e) {
+      _linksInfoCompleter = null;
+      return null;
+    }
+    try {
+      return await completer.future.timeout(const Duration(seconds: 3));
+    } on TimeoutException catch (_) {
+      _linksInfoCompleter = null;
+      return null;
+    } catch (_) {
+      _linksInfoCompleter = null;
+      return null;
+    }
+  }
+
+  void _handleSettingsLinksInfoData(Uint8List payload) {
+    final parsed = SettingsProtocolService.parseLinksInfoData(payload.toList());
+    if (parsed == null) {
+      _log('LINKS_INFO_DATA parse failed', level: ConsoleLogLevel.error);
+      final completer = _linksInfoCompleter;
+      if (completer != null && !completer.isCompleted) {
+        completer.completeError(Exception('Parse failed'));
+      }
+      return;
+    }
+    _fsUrl = parsed.fsUrl;
+    _otaUrl = parsed.otaUrl;
+    _log('Remote links: fs="${parsed.fsUrl}" ota="${parsed.otaUrl}"',
+        level: ConsoleLogLevel.info);
+    notifyListeners();
+    final completer = _linksInfoCompleter;
+    if (completer != null && !completer.isCompleted) {
+      completer.complete(parsed);
+    }
+  }
+
+  /// Fire-and-forget: request remote links from device on connect.
+  Future<void> _requestLinksInfo() async {
+    if (!_transport.isConnected) return;
+    try {
+      await sendGetLinksInfo();
+    } catch (e) {
+      _log('Failed to fetch remote links: $e', level: ConsoleLogLevel.info);
+    }
+  }
+
   /// Migrate saved password from old device ID to new UID.
   Future<void> _migratePassword(String oldId, String newId) async {
     if (oldId == newId) return;
@@ -1775,10 +1850,13 @@ class DeviceProvider extends ChangeNotifier {
       _log('DEVICE_INFO_DATA parse failed', level: ConsoleLogLevel.error);
       return;
     }
-    _log('Device info: v${parsed.version} "${parsed.name}" "${parsed.description}" uid="${parsed.uid}"',
+    _log('Device info: v${parsed.version} "${parsed.name}" "${parsed.description}" uid="${parsed.uid}" ver="${parsed.firmwareVersion ?? ''}"',
         level: ConsoleLogLevel.success);
     _configName = parsed.name.isNotEmpty ? parsed.name : _configName;
     _description = parsed.description.isNotEmpty ? parsed.description : _description;
+    if (parsed.firmwareVersion != null && parsed.firmwareVersion!.isNotEmpty) {
+      _firmwareVersion = parsed.firmwareVersion;
+    }
 
     // Update DeviceInfo name to match the device's configured name,
     // not the transport address (e.g. "WiFi_Cloud_Switch", not "10.0.0.5").
@@ -2976,6 +3054,10 @@ class DeviceProvider extends ChangeNotifier {
     _otaCancelled     = false;
     _errorMessage     = null;
     _cloudTransport   = null;
+    _fsUrl            = '';
+    _otaUrl           = '';
+    _firmwareVersion  = null;
+    _linksInfoCompleter = null;
     // Note: saved password is NOT cleared on disconnect so it persists
     // for reconnection. Clear only on factory reset or explicit unpair.
     notifyListeners();

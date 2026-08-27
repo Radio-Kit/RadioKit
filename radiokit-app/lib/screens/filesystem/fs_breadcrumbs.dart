@@ -8,11 +8,15 @@ import 'fs_helpers.dart';
 class FsBreadcrumbs extends StatelessWidget {
   final String currentPath;
   final ValueChanged<int> onJumpTo;
+  final VoidCallback? onOpenRepoBrowser;
+  final Widget? trailing;
 
   const FsBreadcrumbs({
     super.key,
     required this.currentPath,
     required this.onJumpTo,
+    this.onOpenRepoBrowser,
+    this.trailing,
   });
 
   @override
@@ -22,10 +26,13 @@ class FsBreadcrumbs extends StatelessWidget {
 
     return SizedBox(
       height: 44,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        itemCount: segments.length,
+      child: Row(
+        children: [
+          Expanded(
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              itemCount: segments.length,
         separatorBuilder: (_, __) => Padding(
           padding: const EdgeInsets.symmetric(horizontal: 2),
           child: Icon(
@@ -73,6 +80,31 @@ class FsBreadcrumbs extends StatelessWidget {
             onPressed: () => onJumpTo(i),
           );
         },
+      ),
+    ),
+          if (trailing != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: trailing!,
+            )
+          else if (onOpenRepoBrowser != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: FilledButton.tonalIcon(
+                icon: const Icon(Icons.public_rounded, size: 16),
+                label: const Text(
+                  'Upload',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+                onPressed: onOpenRepoBrowser,
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                  minimumSize: const Size(0, 32),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

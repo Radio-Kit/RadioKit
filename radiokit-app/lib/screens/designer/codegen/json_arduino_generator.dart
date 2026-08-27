@@ -27,12 +27,25 @@ class JsonArduinoGenerator {
     final wifiEnabled = (transports['wifi']?['enabled'] as bool?) ?? false;
     final cloudEnabled = (transports['cloud']?['enabled'] as bool?) ?? false;
 
+    // ─── Remote Link defines ───
+    final links = config['links'] as Map<String, dynamic>? ?? {};
+    final fsUrl = (links['fs'] as String?) ?? '';
+    final otaUrl = (links['ota'] as String?) ?? '';
+    final hasFsUrl = fsUrl.isNotEmpty;
+    final hasOtaUrl = otaUrl.isNotEmpty;
+
     // ─── Feature defines (must precede #include) ───
-    if (enableOta) {
+    if (enableOta || hasOtaUrl) {
       buf.writeln('#define RK_ENABLE_OTA');
     }
     if (enableFs) {
       buf.writeln('#define RK_ENABLE_FS');
+    }
+    if (hasFsUrl) {
+      buf.writeln('#define RK_FS_URL "${_escapeC(fsUrl)}"');
+    }
+    if (hasOtaUrl) {
+      buf.writeln('#define RK_OTA_URL "${_escapeC(otaUrl)}"');
     }
     if (bleEnabled) {
       buf.writeln('#define RK_ENABLE_BLE');
@@ -43,7 +56,7 @@ class JsonArduinoGenerator {
     if (cloudEnabled) {
       buf.writeln('#define RK_ENABLE_CLOUD');
     }
-    if (enableOta || enableFs || bleEnabled || wifiEnabled || cloudEnabled) buf.writeln();
+    if (enableOta || hasOtaUrl || enableFs || hasFsUrl || bleEnabled || wifiEnabled || cloudEnabled) buf.writeln();
     buf.writeln('#include <RadioKitLib.h>');
     buf.writeln();
 
@@ -183,6 +196,10 @@ class JsonArduinoGenerator {
       buf.writeln('');
       buf.writeln('  RadioKit.enableFS();');
     }
+    if (enableOta || hasOtaUrl) {
+      if (!enableFs) buf.writeln('');
+      buf.writeln('  RadioKit.enableOTA();');
+    }
 
     buf.writeln('}');
     buf.writeln();
@@ -246,6 +263,18 @@ class JsonArduinoGenerator {
       if (account.isNotEmpty) {
         buf.writeln('${indent}RadioKit.config.cloud_account = "${_escapeC(account)}";');
       }
+    }
+
+    // ── Remote link config fields ──
+    final links = config['links'] as Map<String, dynamic>? ?? {};
+    final fsUrl = (links['fs'] as String?) ?? '';
+    final otaUrl = (links['ota'] as String?) ?? '';
+
+    if (fsUrl.isNotEmpty) {
+      buf.writeln('${indent}RadioKit.config.fs_url       = RK_FS_URL;');
+    }
+    if (otaUrl.isNotEmpty) {
+      buf.writeln('${indent}RadioKit.config.ota_url      = RK_OTA_URL;');
     }
   }
 

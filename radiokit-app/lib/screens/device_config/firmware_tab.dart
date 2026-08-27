@@ -8,18 +8,21 @@ import 'package:file_picker/file_picker.dart';
 import '../../providers/device_provider.dart';
 import '../../models/device_info.dart';
 import '../../theme/app_theme.dart';
+import '../../services/firmware_release_service.dart';
 
 class FirmwareTabContent extends StatefulWidget {
   final DeviceInfo device;
   final DeviceProvider? deviceProvider;
 
-  const FirmwareTabContent({required this.device, this.deviceProvider});
+  const FirmwareTabContent({super.key, required this.device, this.deviceProvider});
 
   @override
   State<FirmwareTabContent> createState() => _FirmwareTabContentState();
 }
 
 class _FirmwareTabContentState extends State<FirmwareTabContent> {
+  final _releaseService = FirmwareReleaseService();
+
   int _received = 0;
   int _total = 0;
   String _status = 'Ready';
@@ -34,6 +37,113 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
   String? _selectedFileName;
   Uint8List? _selectedFirmwareBytes;
   bool _eraseAll = false;
+
+  // ── Remote Release / Update check state ───────────────────────────
+  bool _checkingUpdate = false;
+  FirmwareRelease? _latestRelease;
+  String? _checkError;
+  ReleaseAsset? _selectedReleaseAsset;
+  bool _changelogExpanded = false;
+  bool _hasCheckedOnMount = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_hasCheckedOnMount) {
+        _hasCheckedOnMount = true;
+        _checkForUpdates();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _releaseService.close();
+    super.dispose();
+  }
+
+  Future<void> _checkForUpdates({bool force = false}) async {
+    final dp = widget.deviceProvider ?? context.read<DeviceProvider>();
+    final otaUrl = dp.otaUrl;
+    if (otaUrl.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _latestRelease = null;
+          _checkError = null;
+          _checkingUpdate = false;
+        });
+      }
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _checkingUpdate = true;
+        _checkError = null;
+      });
+    }
+
+    try {
+      final release = await _releaseService.fetchLatestRelease(otaUrl);
+      if (!mounted) return;
+      setState(() {
+        _latestRelease = release;
+        _checkingUpdate = false;
+        if (release != null) {
+          final configName = dp.configName ?? widget.device.name;
+          _selectedReleaseAsset = release.findBestAsset(configName);
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _checkingUpdate = false;
+        _checkError = '$e';
+      });
+    }
+  }
+
+  Future<void> _downloadAndFlash(ReleaseAsset asset) async {
+    setState(() {
+      _uploading = true;
+      _complete = false;
+      _error = false;
+      _status = 'Downloading ${asset.name}...';
+      _received = 0;
+      _total = asset.size;
+      _started = DateTime.now();
+      _cancelled = false;
+      _errorMessage = null;
+    });
+
+    Uint8List firmwareBytes;
+    try {
+      firmwareBytes = await _releaseService.downloadAsset(
+        asset.downloadUrl,
+        onProgress: (received, total) {
+          if (!mounted || _cancelled) return;
+          setState(() {
+            _received = received;
+            _total = total;
+            _status = 'Downloading asset (${_formatBytes(received)} / ${_formatBytes(total)})...';
+          });
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = true;
+        _uploading = false;
+        _status = 'Download failed';
+        _errorMessage = 'Download error: $e';
+      });
+      return;
+    }
+
+    if (_cancelled || !mounted) return;
+    await _startUpload(firmwareBytes);
+  }
 
   Future<void> _selectFile() async {
     final result = await FilePicker.pickFiles(
@@ -173,6 +283,7 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
   Widget build(BuildContext context) {
     final dp = widget.deviceProvider ?? context.watch<DeviceProvider>();
     final configName = dp.configName ?? 'Unknown';
+    final currentVersion = dp.firmwareVersion ?? '1.0.0';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
@@ -212,17 +323,134 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
               ),
             ),
           ]),
-          SizedBox(height: 24),
+          const SizedBox(height: 24),
           Divider(height: 1, color: context.tokens.onSurface.withValues(alpha: 0.12)),
           const SizedBox(height: 24),
 
           // ── Firmware info ────────────────────────────────────
           _infoRow('DEVICE', configName),
-          _infoRow('VERSION', dp.connectedDevice?.id ?? '--'),
+          _infoRow('VERSION', currentVersion),
+          if (dp.otaUrl.isNotEmpty) _infoRow('OTA SOURCE', dp.otaUrl),
           const SizedBox(height: 24),
 
-          if (!_uploading && !_complete && !_error) ...[
-            // ── Confirm upload phase (file selected) ────────────
+          // ── Uploading / Progress State ───────────────────────
+          if (_uploading) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: _total > 0 ? _received / _total : null,
+                minHeight: 6,
+                backgroundColor: context.tokens.onSurface.withValues(alpha: 0.12),
+                valueColor: AlwaysStoppedAnimation(context.tokens.primary),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(_status,
+                      style:
+                          TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.7), fontSize: 12)),
+                ),
+                Text('${_total > 0 ? (_received * 100 ~/ _total) : 0}%',
+                    style: GoogleFonts.martianMono(
+                        color: context.tokens.primary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: context.tokens.error,
+                  foregroundColor: context.tokens.onSurface,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6)),
+                ),
+                onPressed: _cancel,
+                child: const Text('CANCEL'),
+              ),
+            ),
+          ] else if (_complete) ...[
+            // ── Complete state ─────────────────────────────────
+            Row(children: [
+              Icon(Icons.check_circle_rounded,
+                  color: context.tokens.success, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('Device is rebooting with new firmware.',
+                    style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.7), fontSize: 12)),
+              ),
+            ]),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: context.tokens.onSurface.withValues(alpha: 0.54),
+                  side: BorderSide(color: context.tokens.onSurface.withValues(alpha: 0.24)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6)),
+                ),
+                onPressed: () => Navigator.of(context).maybePop(),
+                child: const Text('CLOSE'),
+              ),
+            ),
+          ] else if (_error) ...[
+            // ── Error state ────────────────────────────────────
+            Row(children: [
+              Icon(Icons.error_rounded,
+                  color: context.tokens.error, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(_errorMessage ?? 'Unknown error',
+                    style:
+                        TextStyle(color: context.tokens.error, fontSize: 12)),
+              ),
+            ]),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: context.tokens.primary,
+                  side: BorderSide(
+                      color: context.tokens.primary.withValues(alpha: 0.6)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6)),
+                ),
+                onPressed: () => setState(() {
+                  _error = false;
+                  _status = 'Ready';
+                  _errorMessage = null;
+                }),
+                child: const Text('RETRY'),
+              ),
+            ),
+          ] else ...[
+            // ── Remote Update / Release Section ────────────────
+            if (dp.otaUrl.isNotEmpty) ...[
+              _buildRemoteUpdateSection(context, dp, currentVersion),
+              const SizedBox(height: 24),
+              Row(children: [
+                Expanded(child: Divider(color: context.tokens.onSurface.withValues(alpha: 0.12))),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text('OR LOCAL FILE',
+                      style: TextStyle(
+                          color: context.tokens.onSurface.withValues(alpha: 0.38),
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1)),
+                ),
+                Expanded(child: Divider(color: context.tokens.onSurface.withValues(alpha: 0.12))),
+              ]),
+              const SizedBox(height: 24),
+            ],
+
+            // ── Confirm upload phase (file selected) ───────────
             if (_selectedFileName != null &&
                 _selectedFirmwareBytes != null) ...[
               Container(
@@ -272,46 +500,8 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
                 ),
               ),
               const SizedBox(height: 16),
-              // ── Erase all toggle ──────────────────────────────
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: context.tokens.onSurface.withValues(alpha: 0.03),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.delete_sweep_rounded,
-                        size: 18,
-                        color: _eraseAll ? context.tokens.error : context.tokens.onSurface.withValues(alpha: 0.38)),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('ERASE ALL',
-                              style: TextStyle(
-                                  color: context.tokens.onSurface,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600)),
-                          Text(
-                              'Reset to factory defaults after reboot (NVS + filesystem)',
-                              style: TextStyle(
-                                  color: context.tokens.onSurface.withValues(alpha: 0.38), fontSize: 10)),
-                        ],
-                      ),
-                    ),
-                    Switch(
-                      value: _eraseAll,
-                      onChanged: (v) => setState(() => _eraseAll = v),
-                      activeThumbColor: context.tokens.error,
-                    ),
-                  ],
-                ),
-              ),
+              _buildEraseToggle(context),
               const SizedBox(height: 16),
-              // ── Confirm upload button ─────────────────────────
               SizedBox(
                 width: double.infinity,
                 height: 52,
@@ -333,7 +523,8 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
               ),
               const SizedBox(height: 12),
             ],
-            // ── Select file button (always visible when idle) ───
+
+            // ── Select file button (always visible when idle) ──
             SizedBox(
               width: double.infinity,
               height: 52,
@@ -359,111 +550,466 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
               style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.38), fontSize: 11),
             ),
           ],
-
-          // ── Upload progress ──────────────────────────────────
-          if (_uploading) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: _total > 0 ? _received / _total : null,
-                minHeight: 6,
-                backgroundColor: context.tokens.onSurface.withValues(alpha: 0.12),
-                valueColor: AlwaysStoppedAnimation(context.tokens.primary),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(_status,
-                      style:
-                          TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.7), fontSize: 12)),
-                ),
-                Text('${(_received * 100 ~/ _total)}%',
-                    style: GoogleFonts.martianMono(
-                        color: context.tokens.primary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: context.tokens.error,
-                  foregroundColor: context.tokens.onSurface,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6)),
-                ),
-                onPressed: _cancel,
-                child: const Text('CANCEL'),
-              ),
-            ),
-          ],
-
-          // ── Error state ──────────────────────────────────────
-          if (_error) ...[
-            Row(children: [
-              Icon(Icons.error_rounded,
-                  color: context.tokens.error, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(_errorMessage ?? 'Unknown error',
-                    style:
-                        TextStyle(color: context.tokens.error, fontSize: 12)),
-              ),
-            ]),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: context.tokens.primary,
-                  side: BorderSide(
-                      color: context.tokens.primary.withValues(alpha: 0.6)),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6)),
-                ),
-                onPressed: () => setState(() {
-                  _error = false;
-                  _status = 'Ready';
-                  _errorMessage = null;
-                }),
-                child: const Text('RETRY'),
-              ),
-            ),
-          ],
-
-          // ── Complete state ───────────────────────────────────
-          if (_complete) ...[
-            Row(children: [
-              Icon(Icons.check_circle_rounded,
-                  color: context.tokens.success, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text('Device is rebooting with new firmware.',
-                    style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.7), fontSize: 12)),
-              ),
-            ]),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: context.tokens.onSurface.withValues(alpha: 0.54),
-                  side: BorderSide(color: context.tokens.onSurface.withValues(alpha: 0.24)),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6)),
-                ),
-                onPressed: () => Navigator.of(context).maybePop(),
-                child: const Text('CLOSE'),
-              ),
-            ),
-          ],
         ],
       ),
     );
+  }
+
+  Widget _buildRemoteUpdateSection(
+    BuildContext context,
+    DeviceProvider dp,
+    String currentVersion,
+  ) {
+    if (_checkingUpdate) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: context.tokens.surface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: context.tokens.onSurface.withValues(alpha: 0.08)),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation(context.tokens.primary),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Checking for remote updates...',
+                style: TextStyle(
+                  color: context.tokens.onSurface.withValues(alpha: 0.7),
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_checkError != null) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: context.tokens.error.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: context.tokens.error.withValues(alpha: 0.25)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Icon(Icons.sync_problem_rounded, color: context.tokens.error, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('Could not check remote releases',
+                    style: TextStyle(color: context.tokens.error, fontSize: 12, fontWeight: FontWeight.w600)),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                color: context.tokens.onSurface.withValues(alpha: 0.7),
+                onPressed: () => _checkForUpdates(force: true),
+              ),
+            ]),
+            Text(_checkError!,
+                style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.54), fontSize: 11)),
+          ],
+        ),
+      );
+    }
+
+    if (_latestRelease == null) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: context.tokens.surface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: context.tokens.onSurface.withValues(alpha: 0.08)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline_rounded,
+                size: 18, color: context.tokens.onSurface.withValues(alpha: 0.54)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'No releases found on remote repository.',
+                style: TextStyle(
+                  color: context.tokens.onSurface.withValues(alpha: 0.7),
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => _checkForUpdates(force: true),
+              child: const Text('CHECK AGAIN'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final release = _latestRelease!;
+    final isNewer = FirmwareReleaseService.isNewerVersion(release.version, currentVersion);
+    final binAssets = release.binAssets;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isNewer
+            ? context.tokens.primary.withValues(alpha: 0.06)
+            : context.tokens.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isNewer
+              ? context.tokens.primary.withValues(alpha: 0.3)
+              : context.tokens.onSurface.withValues(alpha: 0.12),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Card Header ──────────────────────────────────────
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isNewer
+                      ? context.tokens.primary.withValues(alpha: 0.15)
+                      : context.tokens.success.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  isNewer ? Icons.system_update_rounded : Icons.check_circle_rounded,
+                  color: isNewer ? context.tokens.primary : context.tokens.success,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          isNewer ? 'UPDATE AVAILABLE' : 'FIRMWARE UP TO DATE',
+                          style: TextStyle(
+                            color: isNewer ? context.tokens.primary : context.tokens.success,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        if (isNewer) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: context.tokens.primary,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'NEW',
+                              style: TextStyle(
+                                color: context.tokens.onPrimary,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${release.title} (${release.tagName})',
+                      style: GoogleFonts.exo2(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: context.tokens.onSurface,
+                      ),
+                    ),
+                    if (release.publishedAt != null)
+                      Text(
+                        'Published: ${_formatDate(release.publishedAt!)}',
+                        style: TextStyle(
+                          color: context.tokens.onSurface.withValues(alpha: 0.5),
+                          fontSize: 11,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                color: context.tokens.onSurface.withValues(alpha: 0.6),
+                tooltip: 'Check again',
+                onPressed: () => _checkForUpdates(force: true),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // ── Asset Selection ──────────────────────────────────
+          if (binAssets.isNotEmpty) ...[
+            Text(
+              'TARGET FIRMWARE BINARY',
+              style: TextStyle(
+                color: context.tokens.onSurface.withValues(alpha: 0.54),
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.8,
+              ),
+            ),
+            const SizedBox(height: 6),
+            if (binAssets.length == 1) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: context.tokens.onSurface.withValues(alpha: 0.04),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: context.tokens.onSurface.withValues(alpha: 0.08)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.developer_board_rounded,
+                        size: 16, color: context.tokens.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        binAssets.first.name,
+                        style: GoogleFonts.martianMono(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: context.tokens.onSurface,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      _formatBytes(binAssets.first.size),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: context.tokens.onSurface.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                decoration: BoxDecoration(
+                  color: context.tokens.onSurface.withValues(alpha: 0.04),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: context.tokens.onSurface.withValues(alpha: 0.08)),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<ReleaseAsset>(
+                    value: _selectedReleaseAsset ?? binAssets.first,
+                    isExpanded: true,
+                    dropdownColor: context.tokens.surface,
+                    icon: Icon(Icons.arrow_drop_down, color: context.tokens.onSurface),
+                    items: binAssets.map((asset) {
+                      return DropdownMenuItem<ReleaseAsset>(
+                        value: asset,
+                        child: Row(
+                          children: [
+                            Icon(Icons.developer_board_rounded,
+                                size: 16, color: context.tokens.primary),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                asset.name,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.martianMono(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: context.tokens.onSurface,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              _formatBytes(asset.size),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: context.tokens.onSurface.withValues(alpha: 0.5),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (asset) {
+                      if (asset != null) {
+                        setState(() => _selectedReleaseAsset = asset);
+                      }
+                    },
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+          ],
+
+          // ── Expandable Changelog ──────────────────────────────
+          if (release.changelog.trim().isNotEmpty) ...[
+            InkWell(
+              onTap: () => setState(() => _changelogExpanded = !_changelogExpanded),
+              borderRadius: BorderRadius.circular(6),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Icon(
+                      _changelogExpanded
+                          ? Icons.keyboard_arrow_down_rounded
+                          : Icons.keyboard_arrow_right_rounded,
+                      size: 18,
+                      color: context.tokens.primary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Release Notes',
+                      style: TextStyle(
+                        color: context.tokens.primary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (_changelogExpanded) ...[
+              const SizedBox(height: 6),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: context.tokens.onSurface.withValues(alpha: 0.03),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: context.tokens.onSurface.withValues(alpha: 0.06)),
+                ),
+                child: Text(
+                  release.changelog.trim(),
+                  style: TextStyle(
+                    color: context.tokens.onSurface.withValues(alpha: 0.8),
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+          ],
+
+          // ── Erase All Option ──────────────────────────────────
+          _buildEraseToggle(context),
+          const SizedBox(height: 16),
+
+          // ── Download & Flash Button ───────────────────────────
+          if (binAssets.isNotEmpty)
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isNewer ? context.tokens.primary : context.tokens.surface,
+                  foregroundColor: isNewer ? context.tokens.onPrimary : context.tokens.onSurface,
+                  side: isNewer
+                      ? null
+                      : BorderSide(color: context.tokens.onSurface.withValues(alpha: 0.2)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+                icon: Icon(
+                  isNewer ? Icons.download_rounded : Icons.replay_rounded,
+                  size: 20,
+                ),
+                label: Text(
+                  isNewer ? 'DOWNLOAD & FLASH (v${release.version})' : 'REFLASH RELEASE (v${release.version})',
+                  style: GoogleFonts.changa(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                    fontSize: 12,
+                  ),
+                ),
+                onPressed: () {
+                  final target = _selectedReleaseAsset ?? binAssets.first;
+                  _downloadAndFlash(target);
+                },
+              ),
+            )
+          else
+            Text(
+              'No .bin firmware binary assets found in this release.',
+              style: TextStyle(
+                color: context.tokens.error,
+                fontSize: 12,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEraseToggle(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: context.tokens.onSurface.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.delete_sweep_rounded,
+              size: 18,
+              color: _eraseAll
+                  ? context.tokens.error
+                  : context.tokens.onSurface.withValues(alpha: 0.38)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('ERASE ALL',
+                    style: TextStyle(
+                        color: context.tokens.onSurface,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600)),
+                Text('Reset to factory defaults after reboot (NVS + filesystem)',
+                    style: TextStyle(
+                        color: context.tokens.onSurface.withValues(alpha: 0.38),
+                        fontSize: 10)),
+              ],
+            ),
+          ),
+          Switch(
+            value: _eraseAll,
+            onChanged: (v) => setState(() => _eraseAll = v),
+            activeThumbColor: context.tokens.error,
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime dt) {
+    final months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }
 
   Widget _infoRow(String label, String value) {
@@ -474,18 +1020,17 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
         children: [
           Text(label,
               style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.54), fontSize: 12)),
-          Text(value,
-              style: GoogleFonts.martianMono(
-                  color: context.tokens.onSurface,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500)),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(value,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.martianMono(
+                    color: context.tokens.onSurface,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500)),
+          ),
         ],
       ),
     );
   }
 }
-
-// ── Transport Badge Widget ──────────────────────────────────────────────────
-
-/// Compact transport status pill shown in the Info tab.
-/// Shows an icon, label, green dot if connected, gray if available, dimmed if not.

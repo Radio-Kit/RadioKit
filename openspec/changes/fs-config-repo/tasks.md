@@ -2,52 +2,49 @@
 
 ## 1. Firmware: Config Fields and NVS
 
-- [ ] 1.1 Add `RADIOKIT_MAX_REPO_URL` (128) and `RADIOKIT_MAX_REPO_SUBDIR` (64) caps to `rk-arduino/src/RadioKitConfig.h`
-- [ ] 1.2 Add `const char* repo_url` and `const char* repo_subdir` to `RK_Config` in `rk-arduino/src/RadioKitClass.h`
-- [ ] 1.3 Add `RK_NVS_KEY_REPO_URL` ("rk_repo_url") and `RK_NVS_KEY_REPO_SUBDIR` ("rk_repo_subdir") to `rk-arduino/src/connection/RadioKitNVS.h`
-- [ ] 1.4 Add `_nvsRepoUrl` / `_nvsRepoSubdir` buffers to `RadioKitClass` (RadioKitClass.h) and memset them in the constructor (RadioKit.cpp)
-- [ ] 1.5 Seed NVS from config on first boot and add `RKNvs::readString` loads to `_syncNvsToBuffers()` (RadioKit.cpp begin())
+- [x] 1.1 Add `RADIOKIT_MAX_FS_URL` (128) and `RADIOKIT_MAX_OTA_URL` (128) caps to `rk-arduino/src/RadioKitConfig.h`
+- [x] 1.2 Add `const char* fs_url` and `const char* ota_url` to `RK_Config` in `rk-arduino/src/RadioKitClass.h`
+- [x] 1.3 Add `RK_NVS_KEY_FS_URL` ("rk_fs_url") and `RK_NVS_KEY_OTA_URL` ("rk_ota_url") to `rk-arduino/src/connection/RadioKitNVS.h`
+- [x] 1.4 Add `_nvsFsUrl` / `_nvsOtaUrl` buffers to `RadioKitClass` (RadioKitClass.h) and initialize them in constructor
+- [x] 1.5 Seed NVS from config on first boot and load string values into buffers in `_syncNvsToBuffers()` (RadioKit.cpp begin())
 
-## 2. Firmware: GET_REPO_INFO Settings Command
+## 2. Firmware: GET_LINKS_INFO Settings Command
 
-- [ ] 2.1 Add `RK_SETTINGS_CMD_GET_REPO_INFO 0x0F` and `RK_SETTINGS_RESP_REPO_INFO_DATA 0x8F` to `rk-arduino/src/connection/RadioKitSettings.h` and `RadioKitProtocol.h`
-- [ ] 2.2 Add `_handleSettingsGetRepoInfo()` to RadioKitClass and wire it in the settings dispatcher (RadioKit.cpp), mirroring `_handleSettingsGetCloudInfo` with `[URL_LEN(1)][URL][SUBDIR_LEN(1)][SUBDIR]` payload
+- [x] 2.1 Add `RK_SETTINGS_CMD_GET_LINKS_INFO 0x0F` and `RK_SETTINGS_RESP_LINKS_INFO_DATA 0x8F` to `rk-arduino/src/connection/RadioKitSettings.h` and `RadioKitProtocol.h`
+- [x] 2.2 Implement `_handleSettingsGetLinksInfo()` in RadioKitClass and dispatch in `RadioKit.cpp` settings handler (`[FS_LEN(1)][FS_URL][OTA_LEN(1)][OTA_URL]`)
 
 ## 3. App: Protocol and DeviceProvider Caching
 
-- [ ] 3.1 Add `kSettingsCmdGetRepoInfo = 0x0F` and `kSettingsRespRepoInfoData = 0x8F` to `radiokit-app/lib/models/protocol.dart`
-- [ ] 3.2 Add `buildGetRepoInfo()` and `parseRepoInfoData()` to `radiokit-app/lib/services/settings_protocol_service.dart`
-- [ ] 3.3 Add `_repoUrl` / `_repoSubdir` fields, getters, fetch-on-connect (fire-and-forget after features), and `_handleSettingsRepoInfoData` dispatch in `radiokit-app/lib/providers/device_provider.dart`
+- [x] 3.1 Add `kSettingsCmdGetLinksInfo = 0x0F` and `kSettingsRespLinksInfoData = 0x8F` to `radiokit-app/lib/models/protocol.dart`
+- [x] 3.2 Add `buildGetLinksInfo()` and `parseLinksInfoData()` to `radiokit-app/lib/services/settings_protocol_service.dart`
+- [x] 3.3 Add `_fsUrl` and `_otaUrl` fields, getters, fetch-on-connect, and `_handleSettingsLinksInfoData` in `radiokit-app/lib/providers/device_provider.dart`
 
-## 4. App: ConfigRepoService and Manifest Models
+## 4. App: RepoTreeService and URL Parsing
 
-- [ ] 4.1 Add `http` as a direct dependency in `radiokit-app/pubspec.yaml`
-- [ ] 4.2 Create manifest models (`ConfigManifest`, `ConfigItem`, `ConfigFile`) in `radiokit-app/lib/models/`
-- [ ] 4.3 Create `ConfigRepoService` in `radiokit-app/lib/services/` with `parseGithubUrl()` (owner/repo/ref, HEAD default), `fetchManifest()`, and `fetchFile()` via raw.githubusercontent.com
-- [ ] 4.4 Add unit tests for URL parsing (plain, branch-qualified, non-GitHub) and manifest parsing (valid, missing, malformed)
+- [x] 4.1 Ensure `http` dependency in `radiokit-app/pubspec.yaml`
+- [x] 4.2 Create `RepoTreeService` in `radiokit-app/lib/services/` with GitHub URL/subfolder parsing, tree fetching via GitHub Trees API, and raw file downloading
+- [x] 4.3 Add unit tests for URL parsing (repo, tree branch, subfolder) and tree responses
 
-## 5. App: Catalog Sheet and FS Tab Integration
+## 5. App: Filesystem Tab Repo Browser Modal
 
-- [ ] 5.1 Create `ConfigCatalogSheet` full-screen route in `radiokit-app/lib/screens/filesystem/` with repo header, capacity bar (`DeviceFsService.getInfo()`), config cards, install progress, and error/empty states with retry
-- [ ] 5.2 Implement install flow: per-file HTTP fetch -> `writeFileUpload` to `path ?? '/config/<name>'`, reporting per-file success/failure and a final summary with retry
-- [ ] 5.3 Add the CONFIGS trigger (info strip row) and the no-repo hint to `radiokit-app/lib/screens/device_config/filesystem_tab.dart`
-- [ ] 5.4 Refresh the FS listing after a successful install
+- [x] 5.1 Create `RepoBrowserModal` bottom sheet / dialog with editable URL header, folder tree view, cascading file/directory selection checkboxes, and storage capacity bar
+- [x] 5.2 Implement batch upload flow using `DeviceFsService.writeFileUpload` with per-file progress reporting and error retry handling
+- [x] 5.3 Add the "Import from Repo" action icon to the Filesystem tab floating action bar and `_showUploadMenu`
+- [x] 5.4 Automatically refresh the file list in `filesystem_tab.dart` after upload completion
 
-## 6. Designer JSON Schema and Codegen
+## 6. Designer UI and Codegen
 
-- [ ] 6.1 Add `config.repo` (`{ url, subdir }`) load/save to `flutter-widgets/lib/src/models/designer_state.dart` beside `transports`
-- [ ] 6.2 Emit `config.repo_url = "...";` / `config.repo_subdir = "...";` only when non-empty in `radiokit-app/lib/screens/designer/codegen/json_arduino_generator.dart`
-- [ ] 6.3 Add the repo field editor to the designer config panel (inspector) with `buildTextField` builders
+- [x] 6.1 Add `config.links` (`{ fs, ota }`) getters, setters, and `toJson()` / `loadFromJson()` to `flutter-widgets/lib/src/models/designer_state.dart`
+- [x] 6.2 Add the `LINKS` section to `radiokit-app/lib/screens/designer/widgets/designer_inspector.dart` with text inputs for Filesystem Link and OTA Link
+- [x] 6.3 Emit `RadioKit.config.fs_url = "...";` and `RadioKit.config.ota_url = "...";` in `radiokit-app/lib/screens/designer/codegen/json_arduino_generator.dart`
 
 ## 7. Example and End-to-End Validation
 
-- [ ] 7.1 Update one existing FS example (`Filesystem_LED` or a demo) to declare `config.repo_url` / `config.repo_subdir` pointing at a public configs repo
-- [ ] 7.2 Add a manifest (`radiokit.json`) to the referenced repo subdir with at least one multi-file config
-- [ ] 7.3 Verify end-to-end: connect -> GET_REPO_INFO -> catalog sheet -> install -> files land on device FS (with flash erase per firmware flash policy)
+- [x] 7.1 Update an FS example sketch to configure `RadioKit.config.fs_url` pointing to a sample repository subfolder
+- [x] 7.2 Verify end-to-end: connect -> receive links info -> open repo modal in FS tab -> select files/folders -> batch upload to LittleFS -> verify on device (with flash erase per policy)
 
 ## 8. Documentation Sync
 
-- [ ] 8.1 Update `website/src/content/docs/arduino/protocol.mdx` with the GET_REPO_INFO command table entries
-- [ ] 8.2 Update the app filesystem/features docs with the config-repo browse flow and manifest format
-- [ ] 8.3 Update `AGENTS.md` JSON config conventions (section 3) with the `config.repo` schema
-- [ ] 8.4 Update relevant skill file (`radiokit-filesystem` or a new section) describing the feature
+- [x] 8.1 Update `website/src/content/docs/arduino/protocol.mdx` with `GET_LINKS_INFO` (0x0F / 0x8F)
+- [x] 8.2 Update app filesystem documentation with the repo browser modal flow
+- [x] 8.3 Update `AGENTS.md` JSON config conventions (section 3) with `config.links`

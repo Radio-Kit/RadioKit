@@ -157,12 +157,29 @@
 #define RADIOKIT_MAX_ITEMS    8  ///< MultipleButton/Select item pool size
 
 // ─────────────────────────────────────────────
-//  WiFi / Cloud config limits
+//  WiFi / Cloud / Links config limits
 // ─────────────────────────────────────────────
 #define RADIOKIT_MAX_SSID           32  ///< STA SSID max chars
 #define RADIOKIT_MAX_WIFI_PWD       64  ///< STA WiFi password max chars
 #define RADIOKIT_MAX_CLOUD_URL      128 ///< Cloud relay URL max chars
 #define RADIOKIT_MAX_CLOUD_ACCOUNT  64  ///< Account identifier max chars
+#define RADIOKIT_MAX_FS_URL         128 ///< Filesystem repo URL max chars
+#define RADIOKIT_MAX_OTA_URL        128 ///< OTA firmware URL max chars
+
+#define RADIOKIT_MAX_VERSION        32  ///< Firmware version string max chars
+
+// ─────────────────────────────────────────────
+//  Default Link / Version Macros (can be defined in sketch or platformio.ini)
+// ─────────────────────────────────────────────
+#ifndef RK_FS_URL
+#define RK_FS_URL ""
+#endif
+#ifndef RK_OTA_URL
+#define RK_OTA_URL ""
+#endif
+#ifndef RK_VERSION
+#define RK_VERSION "1.0.0"
+#endif
 
 // ─────────────────────────────────────────────
 //  Device icon limits
@@ -196,8 +213,11 @@
 // WiFi pulls in large headers (WebSocketsServer, ESPmDNS) that many
 // examples don't need.
 
-// RK_ENABLE_OTA: user opt-in only (requires -DRK_ENABLE_OTA build flag
-// or #define RK_ENABLE_OTA in RADIOKIT.h). ESP32-only (Update.h + esp_ota_ops.h).
+#ifndef RK_ENABLE_OTA
+  #if RK_ARCH_DETECTED == RK_ARCH_ESP32
+    #define RK_ENABLE_OTA
+  #endif
+#endif
 
 // ─────────────────────────────────────────────
 //  Print stream buffer size

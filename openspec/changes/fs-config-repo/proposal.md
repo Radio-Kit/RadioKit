@@ -2,36 +2,54 @@
 
 ## Why
 
-The filesystem manager only supports manual local-file uploads, so installing configuration bundles (e.g. sensor calibration JSON, web assets, device data files) onto an ESP32 is tedious and error-prone. Users must hand-craft files and upload them one at a time. By letting firmware declare a config repository URL and subdirectory, the app can list and install ready-made config bundles directly into the device filesystem with one tap.
+The filesystem manager only supports manual local-file uploads, making the installation of configuration bundles, web assets, or device assets onto an ESP32 LittleFS tedious and error-prone. Users must hand-craft files and upload them one at a time. By enabling firmware and the visual Designer to configure remote links (Filesystem Link and an OTA Link placeholder), users can easily browse remote repository/subfolder contents directly from the Filesystem tab and select specific files or folders to upload to the board in one go.
 
 ## What Changes
 
-- Firmware gains two new configurable fields: `config.repo_url` (a normal GitHub URL) and `config.repo_subdir`, persisted to NVS (`rk_repo_url`, `rk_repo_subdir`).
-- A new settings protocol command `GET_REPO_INFO` (0x0F) returns `[URL_LEN(1)][URL][SUBDIR_LEN(1)][SUBDIR]`, mirroring the existing cloud-info command.
-- The Flutter app fetches repo info on connect and caches it in `DeviceProvider`.
-- A new `ConfigRepoService` fetches a manifest file (`radiokit.json`) from the device-declared GitHub repo subdir (GitHub URLs auto-converted to `raw.githubusercontent.com`), plus the config file bytes referenced by the manifest.
-- The FS manager gains a full-screen config catalog sheet: cards with name/description/version/file count, a live FS capacity bar, and tap-to-install. Install writes each file to its declared target path (default `/config/<name>`) via the existing CRC32-verified upload protocol.
-- When a connected device declares no repo, the FS manager shows a hint.
-- Designer JSON schema and codegen emit `config.repo_url` / `config.repo_subdir` so generated `RADIOKIT.h` files can declare a repo.
-- Add `package:http` as a direct Flutter dependency (already transitive).
-- Documentation updated per the docs-sync rule (protocol, app features, AGENTS.md).
+- **Designer UI Configuration**:
+  - The Designer Inspector gains a `LINKS` section to configure **Filesystem Link** (URL to a GitHub repo or subfolder) and an **OTA Link** (placeholder for future OTA updates).
+  - Serialized in Designer JSON schema under `config.links` (`{ "fs": "...", "ota": "..." }`).
+  - `JsonArduinoGenerator` emits `RadioKit.config.fs_url` and `RadioKit.config.ota_url` in the generated `RADIOKIT.h`.
+- **Firmware & NVS Persistence**:
+  - `RK_Config` struct exposes `fs_url` and `ota_url`, persisted to NVS under keys `rk_fs_url` and `rk_ota_url`.
+  - Settings protocol command `GET_LINKS_INFO` (0x0F / 0x8F) returns the configured link URLs to the app upon connection.
+- **Filesystem Tab File Browser Integration**:
+  - Adds a remote repo browse action icon (e.g. `Icons.cloud_download_outlined`) to the Filesystem tab toolbar/FAB and empty-folder menu.
+  - Tapping opens a modal window displaying the contents (files and directories) of the configured repo/subfolder URL.
+  - Supports selecting individual files or entire folders with cascading checkboxes.
+  - Displays device free storage capacity vs. selected file sizes.
+  - Tapping "Upload to Board" downloads the selected files via HTTP and uploads them sequentially to the device filesystem using the CRC32-verified upload protocol (`DeviceFsService.writeFileUpload`).
+- **Dependencies & Docs**:
+  - Adds direct `package:http` dependency (already transitive via `shelf`).
+  - Documentation and schema guides updated per the docs-sync rule.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `fs-config-repo`: App-side FS manager feature — manifest-based config catalog fetched from a device-declared GitHub repo, full-screen catalog sheet, install-to-device flow, and hint when no repo is declared.
-- `repo-info-protocol`: Device-declared config repo support across the stack — `RK_Config` fields, NVS persistence, `GET_REPO_INFO` settings command, `DeviceProvider` caching, designer JSON `config.repo`, and codegen emission.
+- `fs-config-repo`: Filesystem tab remote repository browser modal — browse remote folders/files, granular selection, capacity check, and sequential batch upload to board LittleFS.
+- `repo-info-protocol`: Multi-link configuration across Designer UI, codegen, firmware `RK_Config` (`fs_url`, `ota_url`), NVS persistence, and the 0xDD settings protocol exchange.
 
 ### Modified Capabilities
 
-<!-- No existing spec-level requirements change; all additions are new capabilities. -->
+<!-- No existing spec-level requirements break; all additions are backward-compatible. -->
 
 ## Impact
 
-- **Firmware** (`rk-arduino/src`): `RadioKitClass.h` (RK_Config struct), `RadioKitConfig.h` (size caps), `RadioKitNVS.h` (keys), `RadioKit.cpp` (first-boot seeding, `_syncNvsToBuffers`, new `_handleSettingsGetRepoInfo`), `RadioKitProtocol.h` (command codes), `RadioKitSettings.h` (command constants).
-- **Protocol** (`radiokit-app/lib/models/protocol.dart`, `settings_protocol_service.dart`): new `kSettingsCmdGetRepoInfo = 0x0F`, `kSettingsRespRepoInfoData = 0x8F`, builder + parser.
-- **Flutter app** (`radiokit-app/lib`): new `ConfigRepoService`, manifest models, `DeviceProvider` repo fields, new `ConfigCatalogSheet`, FS tab trigger + hint, `pubspec.yaml` (http dependency).
-- **Designer / codegen**: `flutter-widgets/lib/src/models/designer_state.dart` (`config.repo` load/toJson), `json_arduino_generator.dart` (emit `config.repo_url` / `config.repo_subdir`).
-- **Docs**: `website/src/content/docs/arduino/protocol.mdx`, app features docs, `AGENTS.md` (schema section for `config.repo`).
-- **Dependencies**: add `http` to `radiokit-app/pubspec.yaml` (already present in the transitive dependency graph).
+- **Designer & Codegen** (`flutter-widgets`, `radiokit-app`):
+  - `designer_state.dart`: `config.links` (`fs`, `ota`) getters, setters, serialization (`toJson` / `loadFromJson`).
+  - `designer_inspector.dart`: New `LINKS` section with text inputs for Filesystem Link and OTA Link.
+  - `json_arduino_generator.dart`: Emission of `RadioKit.config.fs_url` and `RadioKit.config.ota_url`.
+- **Firmware** (`rk-arduino/src`):
+  - `RadioKitClass.h`: `RK_Config` fields (`fs_url`, `ota_url`), internal buffers (`_nvsFsUrl`, `_nvsOtaUrl`).
+  - `RadioKitConfig.h`: Buffer caps (`RADIOKIT_MAX_FS_URL 128`, `RADIOKIT_MAX_OTA_URL 128`).
+  - `RadioKitNVS.h`: NVS keys `rk_fs_url`, `rk_ota_url`.
+  - `RadioKit.cpp`: First-boot seeding, `_syncNvsToBuffers()`, `_handleSettingsGetLinksInfo()`.
+  - `RadioKitProtocol.h` / `RadioKitSettings.h`: Command codes `0x0F` / `0x8F`.
+- **Protocol & State** (`radiokit-app/lib`):
+  - `protocol.dart` & `settings_protocol_service.dart`: `kSettingsCmdGetLinksInfo = 0x0F`, parser & builder.
+  - `device_provider.dart`: Caching of `fsUrl` and `otaUrl` on connect.
+- **Filesystem UI & Services** (`radiokit-app/lib`):
+  - `RepoTreeService`: GitHub URL parsing and tree fetcher.
+  - `RepoBrowserModal`: Interactive folder/file tree browser, selection state, and batch upload flow.
+  - `filesystem_tab.dart`: Remote browse trigger in toolbar/FAB and upload menu.

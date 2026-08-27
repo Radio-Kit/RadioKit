@@ -16,6 +16,7 @@ import '../filesystem/fs_info_strip.dart';
 import '../filesystem/fs_action_sheet.dart';
 import '../filesystem/file_editor_cache.dart';
 import '../filesystem/file_editor_dialog.dart';
+import '../filesystem/repo_browser_modal.dart';
 
 class FsTabContent extends StatefulWidget {
   final DeviceProvider? deviceProvider;
@@ -152,6 +153,7 @@ class _FsTabContentState extends State<FsTabContent> {
               final segs = ['/', ...pathSegments(_currentPath)];
               _navigateTo(idx == 0 ? '/' : segs.take(idx + 1).join('/'));
             },
+            onOpenRepoBrowser: _openRepoBrowser,
           ),
           const Divider(height: 1),
           Expanded(child: _buildList()),
@@ -375,6 +377,22 @@ class _FsTabContentState extends State<FsTabContent> {
 
   // ── FS Operations ────────────────────────────────────────────────────
 
+  void _openRepoBrowser() async {
+    final dp = _dp ?? widget.deviceProvider ?? context.read<DeviceProvider>();
+    if (_fs == null) return;
+    final initialUrl = dp.fsUrl;
+    final success = await RepoBrowserModal.show(
+      context,
+      initialUrl: initialUrl,
+      targetPath: _currentPath,
+      fsService: _fs!,
+      fsInfo: _fsInfo,
+    );
+    if (success == true) {
+      _refresh();
+    }
+  }
+
   void _showUploadMenu() {
     showThemedBottomSheet<_NewChoice>(
       context: context,
@@ -395,6 +413,12 @@ class _FsTabContentState extends State<FsTabContent> {
               subtitle: const Text('Create a directory here'),
               onTap: () => Navigator.of(ctx).pop(_NewChoice.mkdir),
             ),
+            ListTile(
+              leading: const Icon(Icons.cloud_download_outlined),
+              title: const Text('Download from Repo'),
+              subtitle: const Text('Browse remote repository / subfolder'),
+              onTap: () => Navigator.of(ctx).pop(_NewChoice.repo),
+            ),
             const SizedBox(height: 8),
           ],
         ),
@@ -406,6 +430,9 @@ class _FsTabContentState extends State<FsTabContent> {
           break;
         case _NewChoice.mkdir:
           _createFolder();
+          break;
+        case _NewChoice.repo:
+          _openRepoBrowser();
           break;
         default:
           break;
@@ -880,7 +907,7 @@ class _FsTabContentState extends State<FsTabContent> {
       );
 }
 
-enum _NewChoice { upload, mkdir }
+enum _NewChoice { upload, mkdir, repo }
 
 // ── Firmware Tab Content ─────────────────────────────────────────────────────
 

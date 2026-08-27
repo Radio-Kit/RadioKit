@@ -63,6 +63,7 @@
 #define RK_SETTINGS_CMD_GET_CLOUD_INFO  0x0C
 #define RK_SETTINGS_CMD_REBOOT            0x0D
 #define RK_SETTINGS_CMD_SET_CLOUD_INFO   0x0E
+#define RK_SETTINGS_CMD_GET_LINKS_INFO   0x0F
 
 // ── Sub-commands (MCU → App) ────────────────────────────────────────────────
 // Response = subCmd | 0x80
@@ -80,6 +81,7 @@
 #define RK_SETTINGS_RESP_CLOUD_INFO_DATA    0x8C
 #define RK_SETTINGS_RESP_REBOOT_ACK          0x8D
 #define RK_SETTINGS_RESP_SET_CLOUD_INFO_ACK   0x8E
+#define RK_SETTINGS_RESP_LINKS_INFO_DATA    0x8F
 
 // ── SET_CLOUD_INFO field mask bits ──────────────────────────────────────────
 #define RK_SETTINGS_SET_CLOUD_URL       (1 << 0)

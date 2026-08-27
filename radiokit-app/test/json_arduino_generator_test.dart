@@ -685,6 +685,42 @@ void main() {
         expect(output, contains('multi_button_1.rk.items[2] = {"R", nullptr, 2};'));
         expect(output, contains('multi_button_1.rk.itemCount = 3;'));
       });
+
+      test('emits fs_url and ota_url when present in config.links', () {
+        final json = {
+          'version': 1,
+          'config': {
+            'name': 'LinkedDevice',
+            'transports': {'ble': {'enabled': true}},
+            'links': {
+              'fs': 'https://github.com/rambros3d/RadioKit/tree/main/configs',
+              'ota': 'https://example.com/firmware.bin',
+            },
+          },
+          'canvas': {'size': [200, 100]},
+          'widgets': [],
+        };
+        final output = JsonArduinoGenerator.generate(json);
+        expect(output, contains('#define RK_FS_URL "https://github.com/rambros3d/RadioKit/tree/main/configs"'));
+        expect(output, contains('#define RK_OTA_URL "https://example.com/firmware.bin"'));
+        expect(output, contains('#define RK_ENABLE_OTA'));
+        expect(output, contains('RadioKit.config.fs_url       = RK_FS_URL;'));
+        expect(output, contains('RadioKit.config.ota_url      = RK_OTA_URL;'));
+        expect(output, contains('RadioKit.enableOTA();'));
+      });
+
+      test('emits enableOTA when features.ota is true', () {
+        final json = {
+          'version': 1,
+          'config': {'name': 'OtaDevice'},
+          'features': {'ota': true},
+          'canvas': {'size': [200, 100]},
+          'widgets': [],
+        };
+        final output = JsonArduinoGenerator.generate(json);
+        expect(output, contains('#define RK_ENABLE_OTA'));
+        expect(output, contains('RadioKit.enableOTA();'));
+      });
     });
   });
 }
