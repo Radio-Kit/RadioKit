@@ -2,19 +2,18 @@ name: Release Windows
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version tag (e.g. v2.1.0)'
+        required: false
+        default: ''
   push:
-    branches: [main]
     tags:
       - 'v*'
-    tags-ignore:
-      - 'v*-apk'
-      - 'v*-ios'
-      - 'v*-linux'
-      - 'v*-mac'
 
 jobs:
   windows:
-    name: Build Windows
+    name: Build Windows (x64)
     runs-on: windows-latest
     permissions:
       contents: write
@@ -31,25 +30,40 @@ jobs:
         run: |
           cd radiokit-app
           flutter pub get
+          cd ../flutter-widgets
+          flutter pub get
 
       - name: Build Windows
         run: |
           cd radiokit-app
           flutter build windows --release
 
-      - name: Rename artifact
+      - name: Package Windows Artifacts
+        id: package
+        shell: pwsh
         run: |
-          $VERSION = $env:GITHUB_REF_NAME
-          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath "radiokit-${VERSION}.zip"
+          $TAG = if ("${{ github.event.inputs.version }}" -ne "") { "${{ github.event.inputs.version }}" } else { "$env:GITHUB_REF_NAME" }
+          $CLEAN_VER = $TAG.TrimStart('v')
+          if (-not $CLEAN_VER) { $CLEAN_VER = "0.0.0" }
+          
+          New-Item -ItemType Directory -Force -Path "dist" | Out-Null
+          
+          # Create Portable Zip
+          Compress-Archive -Path "radiokit-app\build\windows\x64\runner\Release\*" -DestinationPath "dist\radiokit-$TAG-windows-x64.zip" -Force
+          
+          # Compile Inno Setup Installer
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion="$CLEAN_VER" /O"dist" /F"radiokit-$TAG-windows-x64-setup" "radiokit-app\windows\installer\RadioKit.iss"
+          
+          echo "tag=$TAG" >> $env:GITHUB_OUTPUT
 
-      - name: Create or update GitHub Release
-        if: startsWith(github.ref_name, 'v')
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release view "$env:GITHUB_REF_NAME" --json id
-          if ($LASTEXITCODE -eq 0) {
-            gh release upload "$env:GITHUB_REF_NAME" radiokit-*.zip --clobber
-          } else {
-            gh release create "$env:GITHUB_REF_NAME" radiokit-*.zip --generate-notes
-          }
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref_name, 'v') || github.event_name == 'workflow_dispatch'
+        with:
+          tag_name: ${{ steps.package.outputs.tag }}
+          files: |
+            dist/radiokit-*-windows-x64-setup.exe
+            dist/radiokit-*-windows-x64.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: false

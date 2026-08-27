@@ -2,15 +2,14 @@ name: Release Android
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version tag (e.g. v2.1.0)'
+        required: false
+        default: ''
   push:
-    branches: [main]
     tags:
       - 'v*'
-    tags-ignore:
-      - 'v*-linux'
-      - 'v*-ios'
-      - 'v*-win'
-      - 'v*-mac'
 
 jobs:
   android:
@@ -37,26 +36,36 @@ jobs:
         run: |
           cd radiokit-app
           flutter pub get
+          cd ../flutter-widgets
+          flutter pub get
 
       - name: Build Android APK
         run: |
           cd radiokit-app
           flutter build apk --release
 
-      - name: Rename APK
+      - name: Package Android APK
+        id: package
         run: |
-          VERSION=${GITHUB_REF_NAME}
-          APK_PATH=$(find . -name "app-release.apk" | head -n 1)
-          echo "Found APK at: $APK_PATH"
-          cp "$APK_PATH" "radiokit-${VERSION}.apk"
-
-      - name: Create or update GitHub Release
-        if: startsWith(github.ref_name, 'v')
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if gh release view "${GITHUB_REF_NAME}" --json id >/dev/null 2>&1; then
-            gh release upload "${GITHUB_REF_NAME}" radiokit-*.apk --clobber
-          else
-            gh release create "${GITHUB_REF_NAME}" radiokit-*.apk --generate-notes
+          TAG="${{ github.event.inputs.version }}"
+          if [ -z "$TAG" ]; then
+            TAG="${GITHUB_REF_NAME}"
           fi
+          
+          mkdir -p dist
+          APK_PATH=$(find radiokit-app/build/app/outputs/flutter-apk -name "app-release.apk" -o -name "app-*.apk" | head -n 1)
+          echo "Found APK at: $APK_PATH"
+          
+          cp "$APK_PATH" "dist/radiokit-${TAG}-android.apk"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref_name, 'v') || github.event_name == 'workflow_dispatch'
+        with:
+          tag_name: ${{ steps.package.outputs.tag }}
+          files: |
+            dist/radiokit-*-android.apk
+          generate_release_notes: true
+          draft: false
+          prerelease: false

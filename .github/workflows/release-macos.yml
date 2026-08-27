@@ -2,19 +2,18 @@ name: Release macOS
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version tag (e.g. v2.1.0)'
+        required: false
+        default: ''
   push:
-    branches: [main]
     tags:
       - 'v*'
-    tags-ignore:
-      - 'v*-apk'
-      - 'v*-ios'
-      - 'v*-linux'
-      - 'v*-win'
 
 jobs:
   macos:
-    name: Build macOS
+    name: Build macOS (Apple Silicon ARM64)
     runs-on: macos-latest
     permissions:
       contents: write
@@ -31,25 +30,56 @@ jobs:
         run: |
           cd radiokit-app
           flutter pub get
+          cd ../flutter-widgets
+          flutter pub get
 
       - name: Build macOS
         run: |
           cd radiokit-app
           flutter build macos --release
 
-      - name: Rename artifact
-        run: |
-          VERSION=${GITHUB_REF_NAME}
-          cd radiokit-app/build/macos/Build/Products/Release
-          zip -r "${OLDPWD}/radiokit-${VERSION}.zip" Runner.app
+      - name: Install create-dmg
+        run: brew install create-dmg || true
 
-      - name: Create or update GitHub Release
-        if: startsWith(github.ref_name, 'v')
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Package macOS DMG
+        id: package
         run: |
-          if gh release view "${GITHUB_REF_NAME}" --json id >/dev/null 2>&1; then
-            gh release upload "${GITHUB_REF_NAME}" radiokit-*.zip --clobber
-          else
-            gh release create "${GITHUB_REF_NAME}" radiokit-*.zip --generate-notes
+          TAG="${{ github.event.inputs.version }}"
+          if [ -z "$TAG" ]; then
+            TAG="${GITHUB_REF_NAME}"
           fi
+          
+          mkdir -p dist
+          APP_PATH=$(find radiokit-app/build/macos/Build/Products/Release -name "*.app" -maxdepth 1 | head -n 1)
+          echo "Found app at: $APP_PATH"
+          
+          DMG_NAME="radiokit-${TAG}-macos-arm64.dmg"
+          
+          # Try create-dmg for styled disk image, fallback to hdiutil if needed
+          create-dmg \
+            --volname "RadioKit" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --app-drop-link 450 185 \
+            --no-internet-enable \
+            "dist/${DMG_NAME}" \
+            "$APP_PATH" || \
+          hdiutil create -volname "RadioKit" -srcfolder "$APP_PATH" -ov -format UDZO "dist/${DMG_NAME}"
+          
+          # Also package portable .zip for headless environments
+          (cd radiokit-app/build/macos/Build/Products/Release && zip -r -X "${OLDPWD}/dist/radiokit-${TAG}-macos-arm64.zip" "$(basename "$APP_PATH")")
+          
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref_name, 'v') || github.event_name == 'workflow_dispatch'
+        with:
+          tag_name: ${{ steps.package.outputs.tag }}
+          files: |
+            dist/radiokit-*-macos-arm64.dmg
+            dist/radiokit-*-macos-arm64.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: false

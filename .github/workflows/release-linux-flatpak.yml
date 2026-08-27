@@ -2,19 +2,18 @@ name: Release Flatpak
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version tag (e.g. v2.1.0)'
+        required: false
+        default: ''
   push:
-    branches: [main]
     tags:
       - 'v*'
-    tags-ignore:
-      - 'v*-apk'
-      - 'v*-ios'
-      - 'v*-win'
-      - 'v*-mac'
 
 jobs:
   flatpak:
-    name: Build Flatpak
+    name: Build Linux Flatpak (x86_64)
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -48,16 +47,26 @@ jobs:
             build-dir com.rambros3d.radiokit.yml
 
       - name: Export .flatpak bundle
+        id: package
         run: |
-          flatpak build-bundle repo radiokit.flatpak com.rambros3d.radiokit
-
-      - name: Create or update GitHub Release
-        if: startsWith(github.ref_name, 'v')
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if gh release view "${GITHUB_REF_NAME}" --json id >/dev/null 2>&1; then
-            gh release upload "${GITHUB_REF_NAME}" radiokit.flatpak --clobber
-          else
-            gh release create "${GITHUB_REF_NAME}" radiokit.flatpak --generate-notes
+          TAG="${{ github.event.inputs.version }}"
+          if [ -z "$TAG" ]; then
+            TAG="${GITHUB_REF_NAME}"
           fi
+          
+          mkdir -p dist
+          BUNDLE_NAME="radiokit-${TAG}-linux-x86_64.flatpak"
+          flatpak build-bundle repo "dist/${BUNDLE_NAME}" com.rambros3d.radiokit
+          
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref_name, 'v') || github.event_name == 'workflow_dispatch'
+        with:
+          tag_name: ${{ steps.package.outputs.tag }}
+          files: |
+            dist/radiokit-*-linux-x86_64.flatpak
+          generate_release_notes: true
+          draft: false
+          prerelease: false
