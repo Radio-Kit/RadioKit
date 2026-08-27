@@ -16,6 +16,10 @@
 #ifndef RADIOKIT_H
 #define RADIOKIT_H
 
+#include "RadioKitConfig.h"
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
+#include <Update.h>
+#endif
 #include "RadioKitClass.h"
 #include "core/ICommandHandler.h"
 #include "core/TransportManager.h"

@@ -45,8 +45,8 @@ struct RK_Config {
     const char* cloud_account = "";      ///< Account identifier for cloud relay
 
     // ── Remote links ──────────────────────────────────────────
-    const char* fs_url        = "";      ///< Filesystem repo / subfolder URL
-    const char* ota_url       = "";      ///< OTA firmware update URL placeholder
+    const char* fs_url        = RK_FS_URL;      ///< Filesystem repo / subfolder URL
+    const char* ota_url       = RK_OTA_URL;     ///< OTA firmware update URL placeholder
 
     // ── Device icon (from kDesignerIcons registry) ────────────
     const char* device_icon   = "";      ///< Icon name for this device
@@ -161,6 +161,10 @@ public:
     bool isFsReady() const;
     bool formatFs();
     void sendFsFrame(const uint8_t* buf, uint16_t len);
+
+    // ── OTA (firmware update protocol) ────────────────────────
+    void enableOTA();
+    bool isOtaReady() const { return _otaReady; }
 
     // ── Internal ─────────────────────────────────────────────
     void _registerWidget(RadioKit_Widget* widget);
@@ -295,9 +299,8 @@ private:
     char _nvsCloudUrl[RADIOKIT_MAX_CLOUD_URL + 1];
     char _nvsCloudAccount[RADIOKIT_MAX_CLOUD_ACCOUNT + 1];
 
-    // Remote links NVS buffers
-    char _nvsFsUrl[RADIOKIT_MAX_FS_URL + 1];
-    char _nvsOtaUrl[RADIOKIT_MAX_OTA_URL + 1];
+    // OTA runtime state
+    bool _otaReady;
 
     // Device icon name (from kDesignerIcons registry)
     char _nvsDeviceIcon[RADIOKIT_MAX_DEVICE_ICON + 1];

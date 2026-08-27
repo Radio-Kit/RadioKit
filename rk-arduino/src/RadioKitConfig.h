@@ -167,6 +167,16 @@
 #define RADIOKIT_MAX_OTA_URL        128 ///< OTA firmware URL max chars
 
 // ─────────────────────────────────────────────
+//  Default Link Macros (can be defined in sketch or platformio.ini)
+// ─────────────────────────────────────────────
+#ifndef RK_FS_URL
+#define RK_FS_URL ""
+#endif
+#ifndef RK_OTA_URL
+#define RK_OTA_URL ""
+#endif
+
+// ─────────────────────────────────────────────
 //  Device icon limits
 // ─────────────────────────────────────────────
 #define RADIOKIT_MAX_DEVICE_ICON   32  ///< Device icon name max chars

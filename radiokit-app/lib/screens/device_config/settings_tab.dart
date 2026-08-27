@@ -94,29 +94,35 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
 
   Future<void> _loadTransportNvsKeys(DeviceProvider dp) async {
     if (!dp.isConnected) return;
-    final bleResult = await dp.readNvsRawKey('rk_ble_on');
-    final wifiResult = await dp.readNvsRawKey('rk_wifi_on');
-    final cloudResult = await dp.readNvsRawKey('rk_cloud_on');
+    final bleResult = dp.hasBle ? await dp.readNvsRawKey('rk_ble_on') : null;
+    final wifiResult = dp.hasWifi ? await dp.readNvsRawKey('rk_wifi_on') : null;
+    final cloudResult =
+        (dp.hasWifi && dp.hasCloud) ? await dp.readNvsRawKey('rk_cloud_on') : null;
 
-    // Load STA WiFi and Cloud config
-    final staSsidResult = await dp.readNvsRawKey('rk_sta_ssid');
-    await dp.readNvsRawKey('rk_sta_pwd');
-    final cloudUrlResult = await dp.readNvsRawKey('rk_cloud_url');
-    final cloudAccountResult = await dp.readNvsRawKey('rk_cloud_account');
+    // Load STA WiFi and Cloud config only when supported
+    final staSsidResult = dp.hasWifi ? await dp.readNvsRawKey('rk_sta_ssid') : null;
+    if (dp.hasWifi) {
+      await dp.readNvsRawKey('rk_sta_pwd');
+    }
+    final cloudUrlResult =
+        (dp.hasWifi && dp.hasCloud) ? await dp.readNvsRawKey('rk_cloud_url') : null;
+    final cloudAccountResult =
+        (dp.hasWifi && dp.hasCloud) ? await dp.readNvsRawKey('rk_cloud_account') : null;
 
     if (!mounted) return;
     setState(() {
-      _bleEnabled = (bleResult.value ?? 1) != 0;
-      _wifiEnabled = (wifiResult.value ?? 0) != 0;
-      _cloudEnabled = (cloudResult.value ?? 0) != 0;
+      _bleEnabled = dp.hasBle ? ((bleResult?.value ?? 1) != 0) : false;
+      _wifiEnabled = dp.hasWifi ? ((wifiResult?.value ?? 0) != 0) : false;
+      _cloudEnabled =
+          (dp.hasWifi && dp.hasCloud) ? ((cloudResult?.value ?? 0) != 0) : false;
 
       // Pre-fill STA fields (password left empty — security)
-      _originalStaSsid = staSsidResult.rawString ?? '';
+      _originalStaSsid = staSsidResult?.rawString ?? '';
       _staSsidCtrl.text = _originalStaSsid;
 
       // Pre-fill cloud fields
-      _originalRelayUrl = cloudUrlResult.rawString ?? '';
-      _originalAccountKey = cloudAccountResult.rawString ?? '';
+      _originalRelayUrl = cloudUrlResult?.rawString ?? '';
+      _originalAccountKey = cloudAccountResult?.rawString ?? '';
       _relayHostCtrl.text = _originalRelayUrl;
 
       // Match account from stored public key
@@ -131,15 +137,17 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
     });
 
     // Check cloud account match
-    try {
-      final cloudInfo = await dp.sendGetCloudInfo();
-      if (cloudInfo != null && mounted) {
-        final identityService = CloudIdentityService();
-        await identityService.initialize();
-        _cloudMatched =
-            identityService.hasIdentity && identityService.account == cloudInfo.account;
-      }
-    } catch (_) {}
+    if (dp.hasWifi && dp.hasCloud) {
+      try {
+        final cloudInfo = await dp.sendGetCloudInfo();
+        if (cloudInfo != null && mounted) {
+          final identityService = CloudIdentityService();
+          await identityService.initialize();
+          _cloudMatched =
+              identityService.hasIdentity && identityService.account == cloudInfo.account;
+        }
+      } catch (_) {}
+    }
   }
 
   @override
@@ -309,132 +317,140 @@ class _SettingsTabContentState extends State<SettingsTabContent> {
             isAdmin: true,
           ),
           ],
-          const SizedBox(height: 32),
-          _buildSectionTag('CONNECTION'),
-          const SizedBox(height: 16),
-          _buildTransportRow(
-            icon: Icons.bluetooth_rounded,
-            label: 'BLE',
-            subtitle: 'Bluetooth Low Energy',
-            enabled: _bleEnabled,
-            onChanged: (v) async {
-              if (!v) {
-                if (_willAllTransportsDisabled('BLE')) {
-                  final ok = await _confirmDisableAllTransports('BLE');
-                  if (!ok) return;
-                } else {
-                  final ok = await _confirmDisableTransport(dp, 'BLE');
-                  if (!ok) return;
-                }
-              }
-              setState(() => _bleEnabled = v);
-              await _writeTransportKey(dp, 'rk_ble_on', v ? 1 : 0);
-            },
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: context.tokens.onSurface.withValues(alpha: 0.04),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
-              children: [
-                Row(
+          if (dp.hasBle || dp.hasWifi) ...[
+            const SizedBox(height: 32),
+            _buildSectionTag('CONNECTION'),
+            if (dp.hasBle) ...[
+              const SizedBox(height: 16),
+              _buildTransportRow(
+                icon: Icons.bluetooth_rounded,
+                label: 'BLE',
+                subtitle: 'Bluetooth Low Energy',
+                enabled: _bleEnabled,
+                onChanged: (v) async {
+                  if (!v) {
+                    if (_willAllTransportsDisabled('BLE')) {
+                      final ok = await _confirmDisableAllTransports('BLE');
+                      if (!ok) return;
+                    } else {
+                      final ok = await _confirmDisableTransport(dp, 'BLE');
+                      if (!ok) return;
+                    }
+                  }
+                  setState(() => _bleEnabled = v);
+                  await _writeTransportKey(dp, 'rk_ble_on', v ? 1 : 0);
+                },
+              ),
+            ],
+            if (dp.hasWifi) ...[
+              SizedBox(height: dp.hasBle ? 12 : 16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: context.tokens.onSurface.withValues(alpha: 0.04),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
                   children: [
-                    Icon(Icons.wifi_rounded,
-                        size: 20,
-                        color: _wifiEnabled
-                            ? context.tokens.primary
-                            : context.tokens.onSurface.withValues(alpha: 0.38)),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('WIFI',
-                              style: TextStyle(
-                                  color: _wifiEnabled
-                                      ? context.tokens.onSurface
-                                      : context.tokens.onSurface.withValues(alpha: 0.4),
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 2),
-                          Text('Wireless network',
-                              style: TextStyle(
-                                  color: context.tokens.onSurface.withValues(alpha: 0.4),
-                                  fontSize: 11)),
-                        ],
-                      ),
-                    ),
-                    Switch(
-                      value: _wifiEnabled,
-                      onChanged: (v) async {
-                        if (!v) {
-                          if (_willAllTransportsDisabled('WIFI')) {
-                            final ok = await _confirmDisableAllTransports('WIFI');
-                            if (!ok) return;
-                          } else {
-                            final ok = await _confirmDisableTransport(dp, 'WIFI');
-                            if (!ok) return;
-                          }
-                        }
-                        setState(() {
-                          _wifiEnabled = v;
-                          if (!v) _cloudEnabled = false;
-                        });
-                        await _writeTransportKey(dp, 'rk_wifi_on', v ? 1 : 0);
-                      },
-                      activeThumbColor: context.tokens.primary,
-                    ),
-                  ],
-                ),
-                if (_wifiEnabled) ...[
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Divider(height: 1, color: context.tokens.onSurface.withValues(alpha: 0.1)),
-                ),
-                  _buildSettingRow(
-                    Icons.cloud_rounded,
-                    'CLOUD',
-                    _cloudMatched
-                        ? 'Remote access over internet'
-                        : 'Configure in Pairing',
-                    Switch(
-                      value: _cloudEnabled && _cloudMatched,
-                      onChanged: _cloudMatched
-                          ? (v) async {
-                              if (!v && _willAllTransportsDisabled('CLOUD')) {
-                                final ok = await _confirmDisableAllTransports('CLOUD');
+                    Row(
+                      children: [
+                        Icon(Icons.wifi_rounded,
+                            size: 20,
+                            color: _wifiEnabled
+                                ? context.tokens.primary
+                                : context.tokens.onSurface.withValues(alpha: 0.38)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('WIFI',
+                                  style: TextStyle(
+                                      color: _wifiEnabled
+                                          ? context.tokens.onSurface
+                                          : context.tokens.onSurface.withValues(alpha: 0.4),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600)),
+                              const SizedBox(height: 2),
+                              Text('Wireless network',
+                                  style: TextStyle(
+                                      color: context.tokens.onSurface.withValues(alpha: 0.4),
+                                      fontSize: 11)),
+                            ],
+                          ),
+                        ),
+                        Switch(
+                          value: _wifiEnabled,
+                          onChanged: (v) async {
+                            if (!v) {
+                              if (_willAllTransportsDisabled('WIFI')) {
+                                final ok = await _confirmDisableAllTransports('WIFI');
+                                if (!ok) return;
+                              } else {
+                                final ok = await _confirmDisableTransport(dp, 'WIFI');
                                 if (!ok) return;
                               }
-                              setState(() => _cloudEnabled = v);
-                              await _writeTransportKey(dp, 'rk_cloud_on', v ? 1 : 0);
                             }
-                          : null,
-                      activeThumbColor: context.tokens.primary,
+                            setState(() {
+                              _wifiEnabled = v;
+                              if (!v) _cloudEnabled = false;
+                            });
+                            await _writeTransportKey(dp, 'rk_wifi_on', v ? 1 : 0);
+                          },
+                          activeThumbColor: context.tokens.primary,
+                        ),
+                      ],
                     ),
-                  ),
+                    if (_wifiEnabled) ...[
+                      if (dp.hasCloud) ...[
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Divider(height: 1, color: context.tokens.onSurface.withValues(alpha: 0.1)),
+                        ),
+                        _buildSettingRow(
+                          Icons.cloud_rounded,
+                          'CLOUD',
+                          _cloudMatched
+                              ? 'Remote access over internet'
+                              : 'Configure in Pairing',
+                          Switch(
+                            value: _cloudEnabled && _cloudMatched,
+                            onChanged: _cloudMatched
+                                ? (v) async {
+                                    if (!v && _willAllTransportsDisabled('CLOUD')) {
+                                      final ok = await _confirmDisableAllTransports('CLOUD');
+                                      if (!ok) return;
+                                    }
+                                    setState(() => _cloudEnabled = v);
+                                    await _writeTransportKey(dp, 'rk_cloud_on', v ? 1 : 0);
+                                  }
+                                : null,
+                            activeThumbColor: context.tokens.primary,
+                          ),
+                        ),
+                      ],
 
-                  // ── STA WiFi ─────────────────────────────────────
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Divider(height: 1, color: context.tokens.onSurface.withValues(alpha: 0.1)),
-                  ),
-                  _buildStaWifiSection(dp),
+                      // ── STA WiFi ─────────────────────────────────────
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Divider(height: 1, color: context.tokens.onSurface.withValues(alpha: 0.1)),
+                      ),
+                      _buildStaWifiSection(dp),
 
-                  // ── Cloud config ────────────────────────────────
-                  if (_cloudEnabled) ...[
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Divider(height: 1, color: context.tokens.onSurface.withValues(alpha: 0.1)),
-                    ),
-                    _buildCloudConfigSection(dp),
+                      // ── Cloud config ────────────────────────────────
+                      if (_cloudEnabled && dp.hasCloud) ...[
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Divider(height: 1, color: context.tokens.onSurface.withValues(alpha: 0.1)),
+                        ),
+                        _buildCloudConfigSection(dp),
+                      ],
+                    ],
                   ],
-                ],
-              ],
-            ),
-          ),
+                ),
+              ),
+            ],
+          ],
           if (_transportChanged) ...[
             const SizedBox(height: 16),
             SizedBox(

@@ -11,7 +11,7 @@
 #include <stdarg.h>
 
 // ── OTA support (ESP32 Update.h + esp_ota_ops) ──────────────────────────────
-#if defined(RK_ENABLE_OTA)
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
 #include <Update.h>
 #include <esp_ota_ops.h>
 #endif
@@ -77,6 +77,7 @@ RadioKitClass::RadioKitClass()
     , _serialActive(false)
     , _deviceAuthenticated(false)
     , _userAuthenticated(false)
+    , _otaReady(false)
     , _packetSource(RK_SOURCE_NONE)
     , _printHead(0)
     , _printTail(0)
@@ -94,8 +95,6 @@ RadioKitClass::RadioKitClass()
     memset(_nvsStaPwd, 0, sizeof(_nvsStaPwd));
     memset(_nvsCloudUrl, 0, sizeof(_nvsCloudUrl));
     memset(_nvsCloudAccount, 0, sizeof(_nvsCloudAccount));
-    memset(_nvsFsUrl, 0, sizeof(_nvsFsUrl));
-    memset(_nvsOtaUrl, 0, sizeof(_nvsOtaUrl));
     memset(_nvsDeviceIcon, 0, sizeof(_nvsDeviceIcon));
     memset(_nvsDeviceUid, 0, sizeof(_nvsDeviceUid));
     memset(_printBuf, 0, sizeof(_printBuf));
@@ -170,13 +169,23 @@ void RadioKitClass::begin() {
             RKNvs::writeString(RK_NVS_KEY_STA_PWD, config.sta_password ? config.sta_password : "");
             RKNvs::writeString(RK_NVS_KEY_CLOUD_URL, config.cloud_url ? config.cloud_url : "");
             RKNvs::writeString(RK_NVS_KEY_CLOUD_ACCOUNT, config.cloud_account ? config.cloud_account : "");
-            RKNvs::writeString(RK_NVS_KEY_FS_URL, config.fs_url ? config.fs_url : "");
-            RKNvs::writeString(RK_NVS_KEY_OTA_URL, config.ota_url ? config.ota_url : "");
             RKNvs::writeString(RK_NVS_KEY_DEVICE_ICON, config.device_icon ? config.device_icon : "");
-            // Transport enable defaults: BLE on, WiFi on, Cloud off
+            // Transport enable defaults: BLE (if enabled), WiFi (if enabled), Cloud off
+#if defined(RK_ENABLE_BLE)
             RKNvs::writeU8("rk_ble_on", 1);
+#else
+            RKNvs::writeU8("rk_ble_on", 0);
+#endif
+#if defined(RK_ENABLE_WIFI)
             RKNvs::writeU8("rk_wifi_on", 1);
+#else
+            RKNvs::writeU8("rk_wifi_on", 0);
+#endif
+#if defined(RK_ENABLE_CLOUD)
+            RKNvs::writeU8("rk_cloud_on", 1);
+#else
             RKNvs::writeU8("rk_cloud_on", 0);
+#endif
             RKNvs::commit();
         }
 
@@ -909,9 +918,9 @@ void RadioKitClass::_handleSettingsBleInfo() {
 void RadioKitClass::_handleSettingsGetFeatures() {
     if (!_transport) return;
     uint8_t bitmask = 0;
-#if defined(RK_ENABLE_OTA)
-    bitmask |= RK_SETTINGS_FEATURE_OTA;
-#endif
+    if (isOtaReady()) {
+        bitmask |= RK_SETTINGS_FEATURE_OTA;
+    }
     if (isFsReady()) {
         bitmask |= RK_SETTINGS_FEATURE_FILESYSTEM;
     }
@@ -921,16 +930,12 @@ void RadioKitClass::_handleSettingsGetFeatures() {
     if (_nvsActive && _nvsUserPwd[0] != '\0') {
         bitmask |= RK_SETTINGS_FEATURE_HAS_USER_PWD;
     }
-    if (_wifiActive) {
-        bitmask |= RK_SETTINGS_FEATURE_WIFI;
-        // Cloud depends on WiFi — only report cloud capability when WiFi is active.
-        // This avoids confusion when rk_wifi_on=0 disables WiFi: the cloud bit
-        // is suppressed even if rk_cloud_on=1, because cloud cannot function
-        // without a WiFi transport.
-        if (_cloudActive) {
-            bitmask |= RK_SETTINGS_FEATURE_CLOUD;
-        }
-    }
+#if defined(RK_ENABLE_WIFI)
+    bitmask |= RK_SETTINGS_FEATURE_WIFI;
+    #if defined(RK_ENABLE_CLOUD)
+    bitmask |= RK_SETTINGS_FEATURE_CLOUD;
+    #endif
+#endif
 #if defined(RK_ENABLE_BLE)
     bitmask |= RK_SETTINGS_FEATURE_BLE;   // BLE transport compiled-in
 #endif
@@ -963,16 +968,18 @@ void RadioKitClass::_handleSettingsGetCloudInfo() {
 void RadioKitClass::_handleSettingsGetLinksInfo() {
     uint8_t buf[1 + RADIOKIT_MAX_FS_URL + 1 + RADIOKIT_MAX_OTA_URL];
     uint16_t offset = 0;
-    uint8_t fsLen = (uint8_t)strnlen(_nvsFsUrl, RADIOKIT_MAX_FS_URL);
+    const char* fs = config.fs_url ? config.fs_url : "";
+    uint8_t fsLen = (uint8_t)strnlen(fs, RADIOKIT_MAX_FS_URL);
     buf[offset++] = fsLen;
     if (fsLen > 0) {
-        memcpy(&buf[offset], _nvsFsUrl, fsLen);
+        memcpy(&buf[offset], fs, fsLen);
         offset += fsLen;
     }
-    uint8_t otaLen = (uint8_t)strnlen(_nvsOtaUrl, RADIOKIT_MAX_OTA_URL);
+    const char* ota = config.ota_url ? config.ota_url : "";
+    uint8_t otaLen = (uint8_t)strnlen(ota, RADIOKIT_MAX_OTA_URL);
     buf[offset++] = otaLen;
     if (otaLen > 0) {
-        memcpy(&buf[offset], _nvsOtaUrl, otaLen);
+        memcpy(&buf[offset], ota, otaLen);
         offset += otaLen;
     }
     uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
@@ -1480,6 +1487,14 @@ void RadioKitClass::_onFsPacket(uint8_t subCmd,
 
 // ── OTA protocol ────────────────────────────────────────────────────────────
 
+void RadioKitClass::enableOTA() {
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
+    _otaReady = true;
+#else
+    _otaReady = false;
+#endif
+}
+
 // Progress tracking for OTA — persisted across Begin/Chunk calls
 static uint32_t s_otaLastProgressPct = 0;
 static uint32_t s_otaLastProgressChunk = 0;
@@ -1495,6 +1510,14 @@ void RadioKitClass::_onOtaPacket(uint8_t subCmd,
                                  uint16_t payloadLen)
 {
     if (!s_instance) return;
+    
+    if (!s_instance->isOtaReady()) {
+        RK_DEBUG_PRINT("RK: Rejected OTA 0x%02X — OTA not enabled\n", subCmd);
+        uint8_t err = RK_OTA_ERR_NOT_SUPPORTED;
+        uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
+        s_instance->_sendOtaFrame(rk_otaTxBuf(), frameLen);
+        return;
+    }
     
     // ── Device-level gate ──────────────────────────────────────────────
     // OTA operations require device-level authentication.
@@ -1531,7 +1554,14 @@ void RadioKitClass::_sendOtaFrame(const uint8_t* buf, uint16_t len) {
 }
 
 void RadioKitClass::_handleOtaBegin(const uint8_t* payload, uint16_t len) {
-#if defined(RK_ENABLE_OTA)
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
+    if (!_otaReady) {
+        uint8_t err = RK_OTA_ERR_NOT_SUPPORTED;
+        uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
+        _sendOtaFrame(rk_otaTxBuf(), frameLen);
+        return;
+    }
+
     if (len < 4) {
         uint8_t err = RK_OTA_ERR_INVALID_STATE;
         uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
@@ -1577,7 +1607,14 @@ void RadioKitClass::_handleOtaBegin(const uint8_t* payload, uint16_t len) {
 }
 
 void RadioKitClass::_handleOtaChunk(const uint8_t* payload, uint16_t len) {
-#if defined(RK_ENABLE_OTA)
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
+    if (!_otaReady) {
+        uint8_t err = RK_OTA_ERR_NOT_SUPPORTED;
+        uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
+        _sendOtaFrame(rk_otaTxBuf(), frameLen);
+        return;
+    }
+
     if (len < 4) {
         uint8_t err = RK_OTA_ERR_INVALID_STATE;
         uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
@@ -1659,7 +1696,14 @@ void RadioKitClass::_handleOtaChunk(const uint8_t* payload, uint16_t len) {
 }
 
 void RadioKitClass::_handleOtaEnd(const uint8_t* payload, uint16_t len) {
-#if defined(RK_ENABLE_OTA)
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
+    if (!_otaReady) {
+        uint8_t err = RK_OTA_ERR_NOT_SUPPORTED;
+        uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
+        _sendOtaFrame(rk_otaTxBuf(), frameLen);
+        return;
+    }
+
     if (len < 4) {
         uint8_t err = RK_OTA_ERR_INVALID_STATE;
         uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
@@ -1734,7 +1778,12 @@ void RadioKitClass::_handleOtaEnd(const uint8_t* payload, uint16_t len) {
 }
 
 void RadioKitClass::_handleOtaAbort() {
-#if defined(RK_ENABLE_OTA)
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
+    if (!_otaReady) {
+        RadioKit.print("OTA: Abort ignored — OTA not enabled\n");
+        Serial.println("OTA: Abort ignored — OTA not enabled");
+        return;
+    }
     RK_DEBUG_PRINT("OTA: Abort requested\n");
     Update.abort();
     s_otaBytesWritten = 0;
@@ -1747,7 +1796,14 @@ void RadioKitClass::_handleOtaAbort() {
 }
 
 void RadioKitClass::_handleOtaSetEraseFlag(const uint8_t* payload, uint16_t len) {
-#if defined(RK_ENABLE_OTA)
+#if RK_ARCH_DETECTED == RK_ARCH_ESP32
+    if (!_otaReady) {
+        uint8_t err = RK_OTA_ERR_NOT_SUPPORTED;
+        uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
+        _sendOtaFrame(rk_otaTxBuf(), frameLen);
+        return;
+    }
+
     if (len < 1) {
         uint8_t err = RK_OTA_ERR_INVALID_STATE;
         uint16_t frameLen = rk_otaBuildFrame(rk_otaTxBuf(), RK_OTA_RESP_ACK, &err, 1);
@@ -1877,6 +1933,42 @@ void RadioKitClass::_handleSettingsNvsRawWrite(const uint8_t* payload, uint16_t 
     char key[32];
     memcpy(key, &payload[1], keyLen);
     key[keyLen] = '\0';
+
+#if !defined(RK_ENABLE_WIFI)
+    if (strcmp(key, "rk_wifi_on") == 0 || strcmp(key, "rk_sta_ssid") == 0 || strcmp(key, "rk_sta_pwd") == 0) {
+        uint8_t resp = RK_SETTINGS_NVS_RAW_ERROR;
+        uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+            RK_SETTINGS_RESP_NVS_RAW_WRITE_ACK, &resp, 1);
+        _sendSettingsFrame(frameLen);
+        RadioKit.printf("NVS: Raw write rejected for uncompiled WiFi key='%s'\n", key);
+        Serial.printf("NVS: Raw write rejected for uncompiled WiFi key='%s'\n", key);
+        return;
+    }
+#endif
+
+#if !defined(RK_ENABLE_BLE)
+    if (strcmp(key, "rk_ble_on") == 0) {
+        uint8_t resp = RK_SETTINGS_NVS_RAW_ERROR;
+        uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+            RK_SETTINGS_RESP_NVS_RAW_WRITE_ACK, &resp, 1);
+        _sendSettingsFrame(frameLen);
+        RadioKit.printf("NVS: Raw write rejected for uncompiled BLE key='%s'\n", key);
+        Serial.printf("NVS: Raw write rejected for uncompiled BLE key='%s'\n", key);
+        return;
+    }
+#endif
+
+#if !defined(RK_ENABLE_CLOUD) || !defined(RK_ENABLE_WIFI)
+    if (strcmp(key, "rk_cloud_on") == 0 || strcmp(key, "rk_cloud_url") == 0 || strcmp(key, "rk_cloud_account") == 0) {
+        uint8_t resp = RK_SETTINGS_NVS_RAW_ERROR;
+        uint16_t frameLen = rk_settingsBuildFrame(rk_settingsTxBuf(),
+            RK_SETTINGS_RESP_NVS_RAW_WRITE_ACK, &resp, 1);
+        _sendSettingsFrame(frameLen);
+        RadioKit.printf("NVS: Raw write rejected for uncompiled Cloud key='%s'\n", key);
+        Serial.printf("NVS: Raw write rejected for uncompiled Cloud key='%s'\n", key);
+        return;
+    }
+#endif
 
     uint8_t value = payload[1 + keyLen];
 
@@ -2018,14 +2110,6 @@ void RadioKitClass::_syncNvsToBuffers() {
     // ── Device icon ───────────────────────────────────────────────────
     if (!RKNvs::readString(RK_NVS_KEY_DEVICE_ICON, _nvsDeviceIcon, sizeof(_nvsDeviceIcon))) {
         strncpy(_nvsDeviceIcon, config.device_icon ? config.device_icon : "", sizeof(_nvsDeviceIcon) - 1);
-    }
-
-    // ── Remote links ──────────────────────────────────────────────────
-    if (!RKNvs::readString(RK_NVS_KEY_FS_URL, _nvsFsUrl, sizeof(_nvsFsUrl))) {
-        strncpy(_nvsFsUrl, config.fs_url ? config.fs_url : "", sizeof(_nvsFsUrl) - 1);
-    }
-    if (!RKNvs::readString(RK_NVS_KEY_OTA_URL, _nvsOtaUrl, sizeof(_nvsOtaUrl))) {
-        strncpy(_nvsOtaUrl, config.ota_url ? config.ota_url : "", sizeof(_nvsOtaUrl) - 1);
     }
 
     RK_DEBUG_PRINT("NVS: Loaded name='%s', desc='%s', device_pwd=%s, user_pwd=%s, uid='%s', icon='%s'\n",

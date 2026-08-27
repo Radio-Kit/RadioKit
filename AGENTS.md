@@ -149,8 +149,8 @@ The `config` object includes a `links` map for remote repository and firmware UR
 }
 ```
 
-- `fs`: Remote GitHub repository or subfolder link used by the app's Filesystem Tab repository browser. Written to NVS as `rk_fs_url` on first boot.
-- `ota`: Remote OTA firmware update link placeholder. Written to NVS as `rk_ota_url` on first boot.
+- `fs`: Remote GitHub repository or subfolder link used by the app's Filesystem Tab repository browser. Emitted as `#define RK_FS_URL "..."` and set to `RadioKit.config.fs_url`.
+- `ota`: Remote OTA firmware update link. Emitted as `#define RK_OTA_URL "..."` and set to `RadioKit.config.ota_url`.
 
 ## 4. State Management Patterns
 
