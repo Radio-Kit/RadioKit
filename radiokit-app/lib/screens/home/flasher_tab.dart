@@ -1,11 +1,18 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import 'package:intl/intl.dart';
 
 import '../../theme/app_theme.dart';
 import '../../models/tab_index.dart';
 import '../../widgets/radiokit_app_bar.dart';
 import '../../providers/flasher_provider.dart';
+import '../../services/firmware_marketplace_service.dart';
+import '../../services/firmware_release_service.dart';
+import 'qr_repo_scanner_modal.dart';
 
 class FlasherTab extends StatefulWidget {
   const FlasherTab({super.key});
@@ -68,7 +75,7 @@ class _FlasherTabState extends State<FlasherTab> {
                 const SizedBox(height: 16),
                 _FirmwareSection(),
                 const SizedBox(height: 16),
-                _MarketplacePlaceholder(),
+                _MarketplaceSection(),
                 const SizedBox(height: 16),
               ],
             ),
@@ -857,39 +864,651 @@ class _FirmwareSection extends StatelessWidget {
   }
 }
 
-// ── Marketplace Placeholder ─────────────────────────────────────────────────
+// ── Firmware Marketplace Section ───────────────────────────────────────────
 
-class _MarketplacePlaceholder extends StatelessWidget {
+class _MarketplaceSection extends StatefulWidget {
+  @override
+  State<_MarketplaceSection> createState() => _MarketplaceSectionState();
+}
+
+class _MarketplaceSectionState extends State<_MarketplaceSection> {
+  final FirmwareMarketplaceService _marketplaceService = FirmwareMarketplaceService();
+  List<String> _repos = [];
+  final Map<String, MarketplaceRelease?> _releases = {};
+  final Map<String, bool> _loading = {};
+  final Map<String, MarketplaceBinaryInfo?> _selectedBinaries = {};
+  final Map<String, double> _downloadProgress = {};
+  final Map<String, bool> _isDownloading = {};
+  final Set<String> _expandedChangelogs = {};
+  final Set<String> _expandedCards = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRepos();
+  }
+
+  Future<void> _loadRepos() async {
+    final repos = await _marketplaceService.getSavedRepos();
+    if (!mounted) return;
+    setState(() {
+      _repos = repos;
+    });
+
+    for (final repo in repos) {
+      _fetchRelease(repo);
+    }
+  }
+
+  Future<void> _fetchRelease(String repoUrl, {bool force = false}) async {
+    setState(() => _loading[repoUrl] = true);
+    final release = await _marketplaceService.fetchRelease(repoUrl, forceRefresh: force);
+    if (!mounted) return;
+    setState(() {
+      _loading[repoUrl] = false;
+      _releases[repoUrl] = release;
+
+      // Auto-select best binary if available
+      if (release != null && release.binaries.isNotEmpty) {
+        final flasher = context.read<FlasherProvider>();
+        final connectedChip = flasher.chipInfo?.model;
+        final best = release.findBestBinary(
+          connectedChip: connectedChip,
+          preferFactory: true,
+        );
+        final nonOtaBinaries = release.binaries.where((b) => !b.isOta).toList();
+        _selectedBinaries[repoUrl] = best ?? (nonOtaBinaries.isNotEmpty ? nonOtaBinaries.first : release.binaries.first);
+      }
+    });
+  }
+
+  Future<void> _onAddOrScanRepo() async {
+    final result = await QrRepoScannerModal.show(context);
+    if (result == null || !mounted) return;
+
+    final added = await _marketplaceService.addRepo(result.repoUrl);
+    if (added) {
+      await _loadRepos();
+      if (result.preselectedAsset != null) {
+        final release = _releases[result.repoUrl];
+        if (release != null) {
+          for (final b in release.binaries) {
+            if (b.assetName == result.preselectedAsset) {
+              setState(() => _selectedBinaries[result.repoUrl] = b);
+              break;
+            }
+          }
+        }
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Repository added: ${result.repoUrl}'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _onRemoveRepo(String repoUrl) async {
+    await _marketplaceService.removeRepo(repoUrl);
+    await _loadRepos();
+  }
+
+  Future<void> _selectFirmware(String repoUrl, MarketplaceBinaryInfo binary) async {
+    setState(() {
+      _isDownloading[repoUrl] = true;
+      _downloadProgress[repoUrl] = 0.0;
+    });
+
+    try {
+      final releaseService = FirmwareReleaseService();
+      final bytes = await releaseService.downloadAsset(
+        binary.downloadUrl,
+        onProgress: (received, total) {
+          if (total > 0 && mounted) {
+            setState(() {
+              _downloadProgress[repoUrl] = received / total;
+            });
+          }
+        },
+      );
+
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/${binary.assetName}');
+      await tempFile.writeAsBytes(bytes);
+
+      if (!mounted) return;
+      final flasher = context.read<FlasherProvider>();
+      flasher.setSelectedFirmwareDirect(
+        name: binary.assetName,
+        path: tempFile.path,
+        bytes: bytes.length,
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Selected ${binary.displayName} (${binary.assetName}). Ready to flash in the FIRMWARE section above.'),
+          backgroundColor: context.tokens.success,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Download failed: $e'),
+            backgroundColor: context.tokens.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isDownloading[repoUrl] = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: context.tokens.onSurface.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-            color: context.tokens.onSurface.withValues(alpha: 0.08)),
-      ),
-      child: Column(
-        children: [
-          Icon(Icons.store_outlined,
-              size: 32,
-              color: context.tokens.onSurface.withValues(alpha: 0.24)),
-          const SizedBox(height: 12),
-          Text('FIRMWARE MARKETPLACE',
-              style: GoogleFonts.changa(
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.5,
-                  fontSize: 11,
-                  color: context.tokens.onSurface.withValues(alpha: 0.38))),
-          const SizedBox(height: 6),
-          Text('Coming soon — browse and download curated firmwares.',
-              style: TextStyle(
-                  color: context.tokens.onSurface.withValues(alpha: 0.3),
-                  fontSize: 10)),
-        ],
-      ),
+    final tokens = context.tokens;
+    final flasher = context.watch<FlasherProvider>();
+    final connectedChip = flasher.chipInfo?.model;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section header
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(PhosphorIcons.storefront,
+                    size: 18, color: tokens.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'FIRMWARE MARKETPLACE',
+                  style: GoogleFonts.changa(
+                    color: tokens.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                IconButton(
+                  icon: Icon(PhosphorIcons.arrowsClockwise,
+                      size: 16, color: tokens.onSurface.withValues(alpha: 0.7)),
+                  tooltip: 'Refresh releases',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () {
+                    for (final r in _repos) {
+                      _fetchRelease(r, force: true);
+                    }
+                  },
+                ),
+                const SizedBox(width: 4),
+                FilledButton.tonalIcon(
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    minimumSize: Size.zero,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    backgroundColor: tokens.primary.withValues(alpha: 0.15),
+                    foregroundColor: tokens.primary,
+                  ),
+                  onPressed: _onAddOrScanRepo,
+                  icon: const Icon(PhosphorIcons.plus, size: 14),
+                  label: Text('ADD / SCAN',
+                      style: GoogleFonts.changa(
+                          fontWeight: FontWeight.w700, fontSize: 10, letterSpacing: 0.5)),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Repositories list
+        if (_repos.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: tokens.onSurface.withValues(alpha: 0.03),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: tokens.onSurface.withValues(alpha: 0.08)),
+            ),
+            child: Center(
+              child: Text(
+                'No firmware repositories added.',
+                style: TextStyle(color: tokens.onSurface.withValues(alpha: 0.4), fontSize: 11),
+              ),
+            ),
+          )
+        else
+          ..._repos.map((repoUrl) {
+            final isLoading = _loading[repoUrl] ?? false;
+            final release = _releases[repoUrl];
+            final selectedBinary = _selectedBinaries[repoUrl];
+            final isDownloading = _isDownloading[repoUrl] ?? false;
+            final progress = _downloadProgress[repoUrl] ?? 0.0;
+            final isDefault = FirmwareMarketplaceService.defaultRepos.contains(repoUrl);
+            final isExpanded = _expandedCards.contains(repoUrl);
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: tokens.surface,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: tokens.onSurface.withValues(alpha: 0.12)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Repository card header
+                  InkWell(
+                    borderRadius: BorderRadius.vertical(
+                      top: const Radius.circular(10),
+                      bottom: isExpanded ? Radius.zero : const Radius.circular(10),
+                    ),
+                    onTap: () {
+                      setState(() {
+                        if (isExpanded) {
+                          _expandedCards.remove(repoUrl);
+                        } else {
+                          _expandedCards.add(repoUrl);
+                        }
+                      });
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        children: [
+                          Icon(PhosphorIcons.githubLogo,
+                              size: 20, color: tokens.primary),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  repoUrl.replaceAll('https://github.com/', ''),
+                                  style: GoogleFonts.martianMono(
+                                    color: tokens.onSurface,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                if (release != null) ...[
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: tokens.primary.withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          release.tagName,
+                                          style: GoogleFonts.martianMono(
+                                            color: tokens.primary,
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                      if (release.publishedAt != null) ...[
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          DateFormat.yMMMd().format(release.publishedAt!),
+                                          style: TextStyle(
+                                            color: tokens.onSurface.withValues(alpha: 0.4),
+                                            fontSize: 10,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          if (isLoading)
+                            SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                color: tokens.primary,
+                              ),
+                            )
+                          else if (!isDefault)
+                            IconButton(
+                              icon: Icon(PhosphorIcons.trash,
+                                  size: 16, color: tokens.error.withValues(alpha: 0.7)),
+                              tooltip: 'Remove repository',
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () => _onRemoveRepo(repoUrl),
+                            ),
+                          Icon(
+                            isExpanded
+                                ? PhosphorIcons.caretUp
+                                : PhosphorIcons.caretDown,
+                            size: 16,
+                            color: tokens.onSurface.withValues(alpha: 0.5),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Expanded contents
+                  if (isExpanded && release != null) ...[
+                    const Divider(height: 1),
+                    Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Changelog expandable viewer
+                          if (release.changelog.trim().isNotEmpty) ...[
+                            InkWell(
+                              onTap: () {
+                                setState(() {
+                                  if (_expandedChangelogs.contains(repoUrl)) {
+                                    _expandedChangelogs.remove(repoUrl);
+                                  } else {
+                                    _expandedChangelogs.add(repoUrl);
+                                  }
+                                });
+                              },
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    _expandedChangelogs.contains(repoUrl)
+                                        ? Icons.expand_less_rounded
+                                        : Icons.expand_more_rounded,
+                                    size: 16,
+                                    color: tokens.primary,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _expandedChangelogs.contains(repoUrl)
+                                        ? 'HIDE RELEASE NOTES'
+                                        : 'VIEW RELEASE NOTES',
+                                    style: GoogleFonts.changa(
+                                      color: tokens.primary,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (_expandedChangelogs.contains(repoUrl)) ...[
+                              const SizedBox(height: 8),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: tokens.onSurface.withValues(alpha: 0.04),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  release.changelog,
+                                  style: TextStyle(
+                                    color: tokens.onSurface.withValues(alpha: 0.7),
+                                    fontSize: 11,
+                                    height: 1.3,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 12),
+                          ],
+
+                          // Binaries list
+                          Text(
+                            'AVAILABLE FIRMWARE',
+                            style: TextStyle(
+                              color: tokens.onSurface.withValues(alpha: 0.54),
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+
+                          Builder(
+                            builder: (context) {
+                              final flashableBinaries = release.binaries.where((b) => !b.isOta).toList();
+
+                              if (flashableBinaries.isEmpty) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  child: Text(
+                                    'No flashable .bin assets found in this release.',
+                                    style: TextStyle(
+                                      color: tokens.onSurface.withValues(alpha: 0.4),
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                );
+                              }
+
+                              return Column(
+                                children: flashableBinaries.map((binary) {
+                                  final isSelected = selectedBinary?.assetName == binary.assetName;
+                                  final matchesConnectedChip = binary.matchesChip(connectedChip);
+
+                                  return InkWell(
+                                    borderRadius: BorderRadius.circular(8),
+                                    onTap: () {
+                                      setState(() => _selectedBinaries[repoUrl] = binary);
+                                    },
+                                    child: Container(
+                                      margin: const EdgeInsets.only(bottom: 8),
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: isSelected
+                                            ? tokens.primary.withValues(alpha: 0.08)
+                                            : tokens.onSurface.withValues(alpha: 0.03),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: isSelected
+                                              ? tokens.primary
+                                              : tokens.onSurface.withValues(alpha: 0.08),
+                                          width: isSelected ? 1.5 : 1.0,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 2),
+                                            child: Icon(
+                                              isSelected
+                                                  ? Icons.radio_button_checked_rounded
+                                                  : Icons.radio_button_off_rounded,
+                                              size: 18,
+                                              color: isSelected
+                                                  ? tokens.primary
+                                                  : tokens.onSurface.withValues(alpha: 0.4),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                // Primary title: Board / Display Name
+                                                Text(
+                                                  binary.displayName,
+                                                  style: GoogleFonts.martianMono(
+                                                    color: tokens.onSurface,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                // Metadata tags: Chip, Variant, Size, Compatibility
+                                                Wrap(
+                                                  spacing: 6,
+                                                  runSpacing: 4,
+                                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                                  children: [
+                                                    if (binary.chip != null)
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                                        decoration: BoxDecoration(
+                                                          color: tokens.primary.withValues(alpha: 0.12),
+                                                          borderRadius: BorderRadius.circular(4),
+                                                        ),
+                                                        child: Text(
+                                                          'Chip: ${binary.chip!.toUpperCase()}',
+                                                          style: TextStyle(
+                                                            color: tokens.primary,
+                                                            fontSize: 9,
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    if (binary.variant != null)
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                                        decoration: BoxDecoration(
+                                                          color: Colors.purple.withValues(alpha: 0.15),
+                                                          borderRadius: BorderRadius.circular(4),
+                                                        ),
+                                                        child: Text(
+                                                          'Variant: ${binary.variant}',
+                                                          style: const TextStyle(
+                                                            color: Colors.purple,
+                                                            fontSize: 9,
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    if (matchesConnectedChip)
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                                        decoration: BoxDecoration(
+                                                          color: tokens.success.withValues(alpha: 0.15),
+                                                          borderRadius: BorderRadius.circular(4),
+                                                        ),
+                                                        child: Row(
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: [
+                                                            Icon(Icons.check_rounded, size: 10, color: tokens.success),
+                                                            const SizedBox(width: 3),
+                                                            Text(
+                                                              'MATCHES ${connectedChip?.toUpperCase()}',
+                                                              style: TextStyle(
+                                                                color: tokens.success,
+                                                                fontSize: 9,
+                                                                fontWeight: FontWeight.bold,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    Text(
+                                                      binary.formattedSize,
+                                                      style: TextStyle(
+                                                        color: tokens.onSurface.withValues(alpha: 0.4),
+                                                        fontSize: 10,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 4),
+                                                // Subtle asset filename
+                                                Text(
+                                                  binary.assetName,
+                                                  style: GoogleFonts.martianMono(
+                                                    color: tokens.onSurface.withValues(alpha: 0.35),
+                                                    fontSize: 9,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              );
+                            },
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          // Select firmware action button
+                          if (selectedBinary != null) ...[
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton.icon(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: tokens.primary,
+                                  foregroundColor: tokens.onPrimary,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                ),
+                                onPressed: isDownloading
+                                    ? null
+                                    : () => _selectFirmware(repoUrl, selectedBinary),
+                                icon: isDownloading
+                                    ? SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: tokens.onPrimary,
+                                        ),
+                                      )
+                                    : const Icon(Icons.download_done_rounded, size: 18),
+                                label: Text(
+                                  isDownloading
+                                      ? 'DOWNLOADING ${(progress * 100).toInt()}%...'
+                                      : 'SELECT FIRMWARE',
+                                  style: GoogleFonts.changa(
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (isDownloading) ...[
+                              const SizedBox(height: 6),
+                              LinearProgressIndicator(
+                                value: progress > 0 ? progress : null,
+                                backgroundColor: tokens.onSurface.withValues(alpha: 0.1),
+                                valueColor: AlwaysStoppedAnimation(tokens.primary),
+                                minHeight: 4,
+                              ),
+                            ],
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          }),
+      ],
     );
   }
 }

@@ -1632,7 +1632,6 @@ class _DesignerInspectorState extends State<DesignerInspector> {
             'Haptics',
             el.properties['haptic'] ?? true,
             (v) => widget.state.updateElementProperty(el.id, 'haptic', v)));
-        fields.add(_buildMultiItemCountField(tokens, el));
         fields.add(_DesignerMultiItemEditor(
           elementId: el.id,
           items: _getMultiItems(el),
@@ -1655,7 +1654,6 @@ class _DesignerInspectorState extends State<DesignerInspector> {
             'Haptics',
             el.properties['haptic'] ?? true,
             (v) => widget.state.updateElementProperty(el.id, 'haptic', v)));
-        fields.add(_buildMultiItemCountField(tokens, el));
         fields.add(_DesignerMultiItemEditor(
           elementId: el.id,
           items: _getMultiItems(el),
@@ -1811,55 +1809,6 @@ class _DesignerInspectorState extends State<DesignerInspector> {
       };
     });
   }
-
-  /// Keeps the `items` list in sync with count and resizes to maintain
-  /// the correct fixed aspect ratio for the new count.
-  Widget _buildMultiItemCountField(RKTokens tokens, DesignerElement el) {
-    final count = (el.properties['itemCount'] as num?)?.toInt() ?? 3;
-    return InspectorFieldBuilders.buildNumField(
-      tokens,
-      'Items',
-      count,
-      (newCount) {
-        // Sync items list.
-        final current = _getMultiItems(el);
-        final List<Map<String, dynamic>> synced;
-        if (newCount > current.length) {
-          synced = [
-            ...current,
-            ...List.generate(
-              newCount - current.length,
-              (i) => <String, dynamic>{
-                'onLabel': String.fromCharCode(65 + current.length + i),
-                'onIcon': null,
-                'offLabel': null,
-                'offIcon': null,
-              },
-            ),
-          ];
-        } else {
-          synced = current.sublist(0, newCount);
-        }
-        widget.state.updateElementProperty(el.id, 'itemCount', newCount);
-        widget.state.updateElementProperty(el.id, 'items', synced);
-
-        // Resize to maintain correct proportions for the new count.
-        const double ratio = 0.67;
-        final newAr = (newCount * ratio).clamp(0.5, 10.0);
-        final isHorizontal = el.width >= el.height;
-        if (isHorizontal) {
-          final autoW = (el.height * newAr).round().clamp(5, 999);
-          widget.state
-              .updateElementSize(el.id, width: autoW, height: el.height);
-        } else {
-          final autoH = (el.width * newAr).round().clamp(5, 999);
-          widget.state.updateElementSize(el.id, width: el.width, height: autoH);
-        }
-      },
-      min: 1,
-      max: 8,
-    );
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1891,6 +1840,23 @@ class _DesignerMultiItemEditor extends StatefulWidget {
 class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
   List<Map<String, dynamic>> get _items => widget.items;
 
+  void _resizeForCount(int newCount) {
+    const double ratio = 0.67;
+    final newAr = (newCount * ratio).clamp(0.5, 10.0);
+    final el = widget.state.elements
+        .where((e) => e.id == widget.elementId)
+        .firstOrNull;
+    if (el == null) return;
+    final isHorizontal = el.width >= el.height;
+    if (isHorizontal) {
+      final autoW = (el.height * newAr).round().clamp(5, 999);
+      widget.state.updateElementSize(el.id, width: autoW, height: el.height);
+    } else {
+      final autoH = (el.width * newAr).round().clamp(5, 999);
+      widget.state.updateElementSize(el.id, width: el.width, height: autoH);
+    }
+  }
+
   void _updateItemIndex(int index, Map<String, dynamic> updated) {
     final newList = List<Map<String, dynamic>>.from(
       _items.map((m) => Map<String, dynamic>.from(m)),
@@ -1899,9 +1865,66 @@ class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
     widget.state.updateElementProperty(widget.elementId, 'items', newList);
   }
 
+  void _onReorder(int oldIndex, int newIndex) {
+    if (oldIndex == newIndex) return;
+    final newList = List<Map<String, dynamic>>.from(
+      _items.map((m) => Map<String, dynamic>.from(m)),
+    );
+    if (newIndex > oldIndex) {
+      newIndex -= 1;
+    }
+    final item = newList.removeAt(oldIndex);
+    newList.insert(newIndex, item);
+    widget.state.updateElementProperty(widget.elementId, 'items', newList);
+  }
+
+  void _addItem() {
+    if (_items.length >= 8) return;
+    final newCount = _items.length + 1;
+    final usedLabels = _items
+        .map((m) => (m['onLabel'] as String?)?.toUpperCase() ?? '')
+        .toSet();
+    String nextLabel = String.fromCharCode(65 + _items.length);
+    for (int code = 65; code <= 90; code++) {
+      final char = String.fromCharCode(code);
+      if (!usedLabels.contains(char)) {
+        nextLabel = char;
+        break;
+      }
+    }
+    final newItem = <String, dynamic>{
+      'onLabel': nextLabel,
+      'onIcon': null,
+      'offLabel': null,
+      'offIcon': null,
+    };
+    final newList = [
+      ..._items.map((m) => Map<String, dynamic>.from(m)),
+      newItem,
+    ];
+    widget.state.updateElementProperty(widget.elementId, 'itemCount', newCount);
+    widget.state.updateElementProperty(widget.elementId, 'items', newList);
+    _resizeForCount(newCount);
+  }
+
+  void _deleteItem(int index) {
+    if (_items.length <= 1) return;
+    final newCount = _items.length - 1;
+    final newList = List<Map<String, dynamic>>.from(
+      _items.map((m) => Map<String, dynamic>.from(m)),
+    );
+    newList.removeAt(index);
+    widget.state.updateElementProperty(widget.elementId, 'itemCount', newCount);
+    widget.state.updateElementProperty(widget.elementId, 'items', newList);
+    _resizeForCount(newCount);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_items.isEmpty) return const SizedBox.shrink();
+
+    final canAdd = _items.length < 8;
+    final canDelete = _items.length > 1;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
@@ -1911,47 +1934,129 @@ class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
           Row(
             children: [
               Icon(PhosphorIconsFill.list, color: widget.tokens.primary, size: 12),
-              SizedBox(width: 6),
+              const SizedBox(width: 6),
               Text(
-                'ITEMS',
+                'ITEMS (${_items.length}/8)',
                 style: TextStyle(
                   color: widget.tokens.onSurface.withValues(alpha: 0.5),
                   fontSize: 10,
                   fontFamily: 'monospace',
                   fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
                 ),
               ),
-            ],
-          ),
-          SizedBox(height: 10),
-          ...List.generate(_items.length, (i) {
-            final item = _items[i];
-            final onLabel = item['onLabel'] as String?;
-            final onIconName = item['onIcon'] as String?;
-            final offLabel = item['offLabel'] as String?;
-            final offIconName = item['offIcon'] as String?;
-
-            const showOn = true;
-            final showOff = widget.showOffState;
-
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'ITEM ${i + 1}',
-                    style: TextStyle(
-                      color: widget.tokens.onSurface.withValues(alpha: 0.88),
-                      fontSize: 10,
-                      fontFamily: 'monospace',
-                      fontWeight: FontWeight.bold,
+              const Spacer(),
+              if (canAdd)
+                InkWell(
+                  onTap: _addItem,
+                  borderRadius: BorderRadius.circular(4),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: widget.tokens.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: widget.tokens.primary.withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(PhosphorIconsFill.plus,
+                            color: widget.tokens.primary, size: 11),
+                        const SizedBox(width: 4),
+                        Text(
+                          'ADD',
+                          style: TextStyle(
+                            color: widget.tokens.primary,
+                            fontSize: 10,
+                            fontFamily: 'monospace',
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  if (showOn) ...[
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ReorderableListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            buildDefaultDragHandles: false,
+            itemCount: _items.length,
+            onReorder: _onReorder,
+            itemBuilder: (context, i) {
+              final item = _items[i];
+              final onLabel = item['onLabel'] as String?;
+              final onIconName = item['onIcon'] as String?;
+              final offLabel = item['offLabel'] as String?;
+              final offIconName = item['offIcon'] as String?;
+
+              return Container(
+                key: ValueKey('multi_item_${widget.elementId}_$i'),
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: widget.tokens.base200.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: widget.tokens.effectiveOutline.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        ReorderableDragStartListener(
+                          index: i,
+                          child: MouseRegion(
+                            cursor: SystemMouseCursors.grab,
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: Icon(
+                                PhosphorIconsFill.dotsSixVertical,
+                                size: 14,
+                                color: widget.tokens.onSurface
+                                    .withValues(alpha: 0.45),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Text(
+                          'ITEM ${i + 1}',
+                          style: TextStyle(
+                            color:
+                                widget.tokens.onSurface.withValues(alpha: 0.88),
+                            fontSize: 10,
+                            fontFamily: 'monospace',
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const Spacer(),
+                        if (canDelete)
+                          InkWell(
+                            onTap: () => _deleteItem(i),
+                            borderRadius: BorderRadius.circular(3),
+                            child: Padding(
+                              padding: const EdgeInsets.all(3),
+                              child: Icon(
+                                PhosphorIconsFill.trash,
+                                size: 13,
+                                color: widget.tokens.onSurface
+                                    .withValues(alpha: 0.4),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                     const SizedBox(height: 6),
                     _ItemStateRowWidget(
-                      key: ValueKey('item_${i}_on'),
+                      key: ValueKey('item_${widget.elementId}_${i}_on'),
                       label: 'ON',
                       textValue: onLabel ?? '',
                       iconName: onIconName,
@@ -1963,27 +2068,27 @@ class _DesignerMultiItemEditorState extends State<_DesignerMultiItemEditor> {
                       }),
                       tokens: widget.tokens,
                     ),
+                    if (widget.showOffState) ...[
+                      const SizedBox(height: 6),
+                      _ItemStateRowWidget(
+                        key: ValueKey('item_${widget.elementId}_${i}_off'),
+                        label: 'OFF',
+                        textValue: offLabel ?? '',
+                        iconName: offIconName,
+                        onTextChanged: (v) => _updateItemIndex(
+                            i, {...item, 'offLabel': v.isEmpty ? null : v}),
+                        onIconChanged: (v) => _updateItemIndex(i, {
+                          ...item,
+                          'offIcon': (v == null || v.isEmpty) ? null : v
+                        }),
+                        tokens: widget.tokens,
+                      ),
+                    ],
                   ],
-                  if (showOff) ...[
-                    const SizedBox(height: 6),
-                    _ItemStateRowWidget(
-                      key: ValueKey('item_${i}_off'),
-                      label: 'OFF',
-                      textValue: offLabel ?? '',
-                      iconName: offIconName,
-                      onTextChanged: (v) => _updateItemIndex(
-                          i, {...item, 'offLabel': v.isEmpty ? null : v}),
-                      onIconChanged: (v) => _updateItemIndex(i, {
-                        ...item,
-                        'offIcon': (v == null || v.isEmpty) ? null : v
-                      }),
-                      tokens: widget.tokens,
-                    ),
-                  ],
-                ],
-              ),
-            );
-          }),
+                ),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -2024,8 +2129,7 @@ class _ItemStateRowWidgetState extends State<_ItemStateRowWidget> {
   @override
   void didUpdateWidget(covariant _ItemStateRowWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.textValue != _controller.text &&
-        widget.textValue != oldWidget.textValue) {
+    if (widget.textValue != _controller.text) {
       _controller.text = widget.textValue;
       _controller.selection =
           TextSelection.collapsed(offset: _controller.text.length);
