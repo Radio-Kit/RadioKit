@@ -286,7 +286,7 @@ packages:
     description:
       path: "."
       ref: "fix/find-comm-interface-id-return-minus-one"
-      resolved-ref: e115614374acb6cf482adcf301805a1b3ad572a8
+      resolved-ref: "124187a48b26215e148d4258bb5c163ff48f30e7"
       url: "https://github.com/rambros3d/flserial.git"
     source: git
     version: "0.7.1"
