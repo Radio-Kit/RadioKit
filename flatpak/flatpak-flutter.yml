@@ -1,8 +1,7 @@
 app-id: com.rambros3d.radiokit
-runtime: org.freedesktop.Platform//24.08
-sdk: org.freedesktop.Sdk//24.08
-sdk-extensions:
-  - org.freedesktop.Sdk.Extension.llvm18
+runtime: org.gnome.Platform
+runtime-version: '47'
+sdk: org.gnome.Sdk
 command: radiokit
 finish-args:
   - --socket=wayland
@@ -14,18 +13,6 @@ finish-args:
   - --filesystem=host
 
 modules:
-  - name: libsecret
-    buildsystem: meson
-    config-opts:
-      - -Dmanpage=false
-      - -Dvapi=false
-      - -Dgtk_doc=false
-      - -Dintrospection=false
-    sources:
-      - type: git
-        url: https://gitlab.gnome.org/GNOME/libsecret.git
-        tag: 0.21.4
-
   - name: radiokit
     buildsystem: simple
     build-commands:
@@ -40,10 +27,8 @@ modules:
       - install -Dm644 flatpak/com.rambros3d.radiokit.desktop /app/share/applications/com.rambros3d.radiokit.desktop
       - install -Dm644 flatpak/com.rambros3d.radiokit.metainfo.xml /app/share/metainfo/com.rambros3d.radiokit.metainfo.xml
     build-options:
-      append-path: /usr/lib/sdk/llvm18/bin:/run/build/radiokit/flutter/bin
+      append-path: /run/build/radiokit/flutter/bin
       env:
-        CC: clang
-        CXX: clang++
         PUB_CACHE: /run/build/radiokit/.pub-cache
     sources:
       - type: git
