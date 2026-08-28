@@ -24,6 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd radiokit-app
+          flutter config --enable-windows-desktop
           flutter pub get
 
       - name: Build Windows

@@ -24,6 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd radiokit-app
+          flutter config --enable-macos-desktop
           flutter pub get
 
       - name: Build macOS
