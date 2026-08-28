@@ -1,5 +1,8 @@
-## MODIFIED Requirements
+# repo-info-protocol Specification
 
+## Purpose
+TBD - created by archiving change fs-config-repo. Update Purpose after archive.
+## Requirements
 ### Requirement: Firmware config fields for remote links
 The `RK_Config` struct SHALL expose `fs_url` and `ota_url` string pointers defaulting to `RK_FS_URL` and `RK_OTA_URL` preprocessor macros. The device SHALL read the link values directly from `RK_Config` without NVS involvement.
 
@@ -25,8 +28,3 @@ The designer JSON schema SHALL support an optional `config.links` object (`{ "fs
 - **WHEN** a design has `config.links = { "fs": "https://github.com/owner/repo/tree/main/configs", "ota": "" }` and the user generates Arduino code
 - **THEN** the generated header contains `#define RK_FS_URL "https://github.com/owner/repo/tree/main/configs"` and `RadioKit.config.fs_url = RK_FS_URL;`
 
-## REMOVED Requirements
-
-### Requirement: NVS persistence of remote links
-**Reason**: Remote links are compile-time project properties. Storing them in NVS created flash overhead and stale settings across flash cycles.
-**Migration**: Define `RK_FS_URL` / `RK_OTA_URL` in `RADIOKIT.h` or pass `-D RK_FS_URL=...` in `platformio.ini`.

@@ -1,11 +1,8 @@
 # fs-config-repo Specification
 
 ## Purpose
-
-The Filesystem tab SHALL let users browse a remote GitHub repository or subfolder directly from the file browser and selectively upload files and folders to the device LittleFS.
-
-## ADDED Requirements
-
+TBD - created by archiving change fs-config-repo. Update Purpose after archive.
+## Requirements
 ### Requirement: Cache device-declared links on connect
 
 The app SHALL request the device's remote link information via the settings protocol after connection and SHALL cache the filesystem link (`fsUrl`) and OTA link (`otaUrl`) in `DeviceProvider`.
@@ -61,3 +58,4 @@ Tapping "Upload to Board" SHALL fetch raw bytes for each selected file from GitH
 #### Scenario: Partial failure handling
 - **WHEN** one file in the batch fails network download or transfer
 - **THEN** the modal displays an error status, leaves successfully uploaded files on the board, and allows retrying remaining files
+

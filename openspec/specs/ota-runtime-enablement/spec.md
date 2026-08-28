@@ -1,5 +1,8 @@
-## ADDED Requirements
+# ota-runtime-enablement Specification
 
+## Purpose
+TBD - created by archiving change define-urls-ota. Update Purpose after archive.
+## Requirements
 ### Requirement: Runtime OTA Enablement API
 The RadioKit library SHALL provide a `RadioKit.enableOTA()` method to enable OTA firmware update processing at runtime on supported architectures.
 
@@ -13,3 +16,4 @@ The Settings protocol handler SHALL dynamically report the `RK_SETTINGS_FEATURE_
 #### Scenario: App queries features with OTA enabled
 - **WHEN** companion app sends `SETTINGS_CMD_GET_FEATURES` (0x03) to a device with `enableOTA()` called
 - **THEN** device responds with `FEATURES_DATA` where bit 0 is set to 1
+
