@@ -14,9 +14,22 @@ finish-args:
   - --filesystem=host
 
 modules:
+  - name: libsecret
+    buildsystem: meson
+    config-opts:
+      - -Dmanpage=false
+      - -Dvapi=false
+      - -Dgtk_doc=false
+      - -Dintrospection=false
+    sources:
+      - type: git
+        url: https://gitlab.gnome.org/GNOME/libsecret.git
+        tag: 0.21.4
+
   - name: radiokit
     buildsystem: simple
     build-commands:
+      - bash scripts/build-library-zip.sh
       - cd radiokit-app && flutter build linux --release --no-pub
       - mkdir -p /app/share/radiokit /app/bin
       - cp -r radiokit-app/build/linux/*/release/bundle/lib /app/share/radiokit/

@@ -21,6 +21,11 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Build library zip
+        run: |
+          mkdir -p radiokit-app/assets -ErrorAction SilentlyContinue
+          Compress-Archive -Path rk-arduino\* -DestinationPath radiokit-app\assets\rk-arduino.zip -Force
+
       - name: Install dependencies
         run: |
           cd radiokit-app
