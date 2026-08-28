@@ -12,6 +12,8 @@ class MarketplaceBinaryInfo {
   final String? project;
   final String? version;
   final String? chip;
+  final String? board;
+  final String? variant;
   final String? boardOrVariant;
   final String? flashType; // 'factory' | 'ota' | null
 
@@ -22,12 +24,31 @@ class MarketplaceBinaryInfo {
     this.project,
     this.version,
     this.chip,
+    this.board,
+    this.variant,
     this.boardOrVariant,
     this.flashType,
   });
 
   bool get isFactory => flashType == 'factory';
   bool get isOta => flashType == 'ota';
+
+  /// User-facing primary title (Board Name, Project Name, or base filename).
+  String get displayName {
+    if (board != null && board!.trim().isNotEmpty) {
+      return board!;
+    }
+    if (boardOrVariant != null && boardOrVariant!.trim().isNotEmpty) {
+      return boardOrVariant!;
+    }
+    if (project != null && project!.trim().isNotEmpty) {
+      return project!;
+    }
+    if (assetName.toLowerCase().endsWith('.bin')) {
+      return assetName.substring(0, assetName.length - 4);
+    }
+    return assetName;
+  }
 
   /// Normalized chip token (e.g. 'esp32s3', 'esp32c3', 'esp32', etc.)
   static String normalizeChipName(String? rawChip) {
@@ -74,7 +95,7 @@ class MarketplaceBinaryInfo {
 
   @override
   String toString() =>
-      'MarketplaceBinaryInfo(name: $assetName, chip: $chip, board: $boardOrVariant, type: $flashType)';
+      'MarketplaceBinaryInfo(name: $assetName, chip: $chip, board: $board, variant: $variant, type: $flashType)';
 }
 
 /// Release metadata and parsed binary assets for a marketplace repository.
@@ -347,6 +368,8 @@ class FirmwareMarketplaceService {
       }
     }
 
+    final board = otherSegments.isNotEmpty ? otherSegments[0] : null;
+    final variant = otherSegments.length > 1 ? otherSegments.sublist(1).join('-') : null;
     final boardOrVariant = otherSegments.isNotEmpty ? otherSegments.join('-') : null;
 
     return MarketplaceBinaryInfo(
@@ -356,6 +379,8 @@ class FirmwareMarketplaceService {
       project: project,
       version: version,
       chip: chip,
+      board: board,
+      variant: variant,
       boardOrVariant: boardOrVariant,
       flashType: flashType,
     );

@@ -37,7 +37,7 @@ void main() {
   });
 
   group('FirmwareMarketplaceService Binary Filename Parsing', () {
-    test('parses standard factory binary with version, chip, board, and factory type', () {
+    test('parses standard binary with version, chip, board, and factory type', () {
       final info = FirmwareMarketplaceService.parseBinaryFilename(
         'RC_Engine-v1.0.0-esp32s3-MIKRO_V2-factory.bin',
         downloadUrl: 'https://example.com/bin',
@@ -47,9 +47,28 @@ void main() {
       expect(info.project, equals('RC_Engine'));
       expect(info.version, equals('v1.0.0'));
       expect(info.chip, equals('esp32s3'));
+      expect(info.board, equals('MIKRO_V2'));
+      expect(info.variant, isNull);
+      expect(info.displayName, equals('MIKRO_V2'));
       expect(info.boardOrVariant, equals('MIKRO_V2'));
       expect(info.flashType, equals('factory'));
       expect(info.isFactory, isTrue);
+      expect(info.isOta, isFalse);
+    });
+
+    test('parses clean binary without factory suffix', () {
+      final info = FirmwareMarketplaceService.parseBinaryFilename(
+        'RC_Engine-v1.0.0-esp32s3-GTRACK.bin',
+        downloadUrl: 'https://example.com/bin',
+        sizeBytes: 1400000,
+      );
+
+      expect(info.project, equals('RC_Engine'));
+      expect(info.version, equals('v1.0.0'));
+      expect(info.chip, equals('esp32s3'));
+      expect(info.board, equals('GTRACK'));
+      expect(info.variant, isNull);
+      expect(info.displayName, equals('GTRACK'));
       expect(info.isOta, isFalse);
     });
 
@@ -63,6 +82,9 @@ void main() {
       expect(info.project, equals('BasicSwitch'));
       expect(info.version, equals('v2.1.0'));
       expect(info.chip, equals('esp32s3'));
+      expect(info.board, isNull);
+      expect(info.variant, isNull);
+      expect(info.displayName, equals('BasicSwitch'));
       expect(info.boardOrVariant, isNull);
       expect(info.flashType, equals('ota'));
       expect(info.isFactory, isFalse);
@@ -79,6 +101,9 @@ void main() {
       expect(info.project, equals('RC_Engine'));
       expect(info.version, equals('v1.0.0'));
       expect(info.chip, equals('esp32c3'));
+      expect(info.board, equals('GTRACK'));
+      expect(info.variant, equals('sound'));
+      expect(info.displayName, equals('GTRACK'));
       expect(info.boardOrVariant, equals('GTRACK-sound'));
       expect(info.flashType, equals('factory'));
     });
@@ -91,6 +116,7 @@ void main() {
       );
 
       expect(info.assetName, equals('firmware_custom_esp32s3.bin'));
+      expect(info.displayName, equals('firmware_custom_esp32s3'));
       expect(info.chip, equals('esp32s3'));
       expect(info.formattedSize, isNotEmpty);
     });

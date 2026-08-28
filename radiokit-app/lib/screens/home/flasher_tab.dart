@@ -880,7 +880,7 @@ class _MarketplaceSectionState extends State<_MarketplaceSection> {
   final Map<String, double> _downloadProgress = {};
   final Map<String, bool> _isDownloading = {};
   final Set<String> _expandedChangelogs = {};
-  final Set<String> _collapsedCards = {};
+  final Set<String> _expandedCards = {};
 
   @override
   void initState() {
@@ -916,7 +916,8 @@ class _MarketplaceSectionState extends State<_MarketplaceSection> {
           connectedChip: connectedChip,
           preferFactory: true,
         );
-        _selectedBinaries[repoUrl] = best ?? release.binaries.first;
+        final nonOtaBinaries = release.binaries.where((b) => !b.isOta).toList();
+        _selectedBinaries[repoUrl] = best ?? (nonOtaBinaries.isNotEmpty ? nonOtaBinaries.first : release.binaries.first);
       }
     });
   }
@@ -955,7 +956,7 @@ class _MarketplaceSectionState extends State<_MarketplaceSection> {
     await _loadRepos();
   }
 
-  Future<void> _downloadAndFlash(String repoUrl, MarketplaceBinaryInfo binary) async {
+  Future<void> _selectFirmware(String repoUrl, MarketplaceBinaryInfo binary) async {
     setState(() {
       _isDownloading[repoUrl] = true;
       _downloadProgress[repoUrl] = 0.0;
@@ -986,23 +987,13 @@ class _MarketplaceSectionState extends State<_MarketplaceSection> {
         bytes: bytes.length,
       );
 
-      if (flasher.isConnected) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Downloaded ${binary.assetName}. Starting flash...'),
-            backgroundColor: context.tokens.success,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        await flasher.startFlashing();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Downloaded ${binary.assetName}. Connect your ESP32 board above to flash.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Selected ${binary.displayName} (${binary.assetName}). Ready to flash in the FIRMWARE section above.'),
+          backgroundColor: context.tokens.success,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1074,7 +1065,7 @@ class _MarketplaceSectionState extends State<_MarketplaceSection> {
                     foregroundColor: tokens.primary,
                   ),
                   onPressed: _onAddOrScanRepo,
-                  icon: Icon(PhosphorIcons.plus, size: 14),
+                  icon: const Icon(PhosphorIcons.plus, size: 14),
                   label: Text('ADD / SCAN',
                       style: GoogleFonts.changa(
                           fontWeight: FontWeight.w700, fontSize: 10, letterSpacing: 0.5)),
@@ -1110,7 +1101,7 @@ class _MarketplaceSectionState extends State<_MarketplaceSection> {
             final isDownloading = _isDownloading[repoUrl] ?? false;
             final progress = _downloadProgress[repoUrl] ?? 0.0;
             final isDefault = FirmwareMarketplaceService.defaultRepos.contains(repoUrl);
-            final isCollapsed = _collapsedCards.contains(repoUrl);
+            final isExpanded = _expandedCards.contains(repoUrl);
 
             return Container(
               margin: const EdgeInsets.only(bottom: 12),
@@ -1126,14 +1117,14 @@ class _MarketplaceSectionState extends State<_MarketplaceSection> {
                   InkWell(
                     borderRadius: BorderRadius.vertical(
                       top: const Radius.circular(10),
-                      bottom: isCollapsed ? const Radius.circular(10) : Radius.zero,
+                      bottom: isExpanded ? Radius.zero : const Radius.circular(10),
                     ),
                     onTap: () {
                       setState(() {
-                        if (isCollapsed) {
-                          _collapsedCards.remove(repoUrl);
+                        if (isExpanded) {
+                          _expandedCards.remove(repoUrl);
                         } else {
-                          _collapsedCards.add(repoUrl);
+                          _expandedCards.add(repoUrl);
                         }
                       });
                     },
@@ -1209,9 +1200,9 @@ class _MarketplaceSectionState extends State<_MarketplaceSection> {
                               onPressed: () => _onRemoveRepo(repoUrl),
                             ),
                           Icon(
-                            isCollapsed
-                                ? PhosphorIcons.caretDown
-                                : PhosphorIcons.caretUp,
+                            isExpanded
+                                ? PhosphorIcons.caretUp
+                                : PhosphorIcons.caretDown,
                             size: 16,
                             color: tokens.onSurface.withValues(alpha: 0.5),
                           ),
@@ -1221,7 +1212,7 @@ class _MarketplaceSectionState extends State<_MarketplaceSection> {
                   ),
 
                   // Expanded contents
-                  if (!isCollapsed && release != null) ...[
+                  if (isExpanded && release != null) ...[
                     const Divider(height: 1),
                     Padding(
                       padding: const EdgeInsets.all(14),
@@ -1288,7 +1279,7 @@ class _MarketplaceSectionState extends State<_MarketplaceSection> {
 
                           // Binaries list
                           Text(
-                            'AVAILABLE BINARIES',
+                            'AVAILABLE FIRMWARE',
                             style: TextStyle(
                               color: tokens.onSurface.withValues(alpha: 0.54),
                               fontSize: 10,
@@ -1298,152 +1289,172 @@ class _MarketplaceSectionState extends State<_MarketplaceSection> {
                           ),
                           const SizedBox(height: 8),
 
-                          if (release.binaries.isEmpty)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              child: Text(
-                                'No .bin assets found in this release.',
-                                style: TextStyle(
-                                  color: tokens.onSurface.withValues(alpha: 0.4),
-                                  fontSize: 11,
-                                ),
-                              ),
-                            )
-                          else
-                            ...release.binaries.map((binary) {
-                              final isSelected = selectedBinary?.assetName == binary.assetName;
-                              final matchesConnectedChip = binary.matchesChip(connectedChip);
+                          Builder(
+                            builder: (context) {
+                              final flashableBinaries = release.binaries.where((b) => !b.isOta).toList();
 
-                              return InkWell(
-                                borderRadius: BorderRadius.circular(8),
-                                onTap: () {
-                                  setState(() => _selectedBinaries[repoUrl] = binary);
-                                },
-                                child: Container(
-                                  margin: const EdgeInsets.only(bottom: 6),
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? tokens.primary.withValues(alpha: 0.08)
-                                        : tokens.onSurface.withValues(alpha: 0.03),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: isSelected
-                                          ? tokens.primary
-                                          : tokens.onSurface.withValues(alpha: 0.08),
+                              if (flashableBinaries.isEmpty) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  child: Text(
+                                    'No flashable .bin assets found in this release.',
+                                    style: TextStyle(
+                                      color: tokens.onSurface.withValues(alpha: 0.4),
+                                      fontSize: 11,
                                     ),
                                   ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        isSelected
-                                            ? Icons.radio_button_checked_rounded
-                                            : Icons.radio_button_off_rounded,
-                                        size: 16,
-                                        color: isSelected
-                                            ? tokens.primary
-                                            : tokens.onSurface.withValues(alpha: 0.4),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              binary.assetName,
-                                              style: GoogleFonts.martianMono(
-                                                color: tokens.onSurface,
-                                                fontSize: 11,
-                                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Wrap(
-                                              spacing: 6,
-                                              runSpacing: 4,
-                                              children: [
-                                                // Factory vs OTA badge
-                                                if (binary.flashType != null)
-                                                  Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                                    decoration: BoxDecoration(
-                                                      color: binary.isFactory
-                                                          ? Colors.cyan.withValues(alpha: 0.15)
-                                                          : Colors.amber.withValues(alpha: 0.15),
-                                                      borderRadius: BorderRadius.circular(4),
-                                                    ),
-                                                    child: Text(
-                                                      binary.flashType!.toUpperCase(),
-                                                      style: TextStyle(
-                                                        color: binary.isFactory ? Colors.cyan : Colors.amber,
-                                                        fontSize: 9,
-                                                        fontWeight: FontWeight.bold,
-                                                      ),
-                                                    ),
-                                                  ),
+                                );
+                              }
 
-                                                // Chip compatibility badge
-                                                if (matchesConnectedChip)
-                                                  Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                                    decoration: BoxDecoration(
-                                                      color: tokens.success.withValues(alpha: 0.15),
-                                                      borderRadius: BorderRadius.circular(4),
-                                                    ),
-                                                    child: Row(
-                                                      mainAxisSize: MainAxisSize.min,
-                                                      children: [
-                                                        Icon(Icons.check_rounded, size: 10, color: tokens.success),
-                                                        const SizedBox(width: 3),
-                                                        Text(
-                                                          'MATCHES ${connectedChip?.toUpperCase()}',
+                              return Column(
+                                children: flashableBinaries.map((binary) {
+                                  final isSelected = selectedBinary?.assetName == binary.assetName;
+                                  final matchesConnectedChip = binary.matchesChip(connectedChip);
+
+                                  return InkWell(
+                                    borderRadius: BorderRadius.circular(8),
+                                    onTap: () {
+                                      setState(() => _selectedBinaries[repoUrl] = binary);
+                                    },
+                                    child: Container(
+                                      margin: const EdgeInsets.only(bottom: 8),
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: isSelected
+                                            ? tokens.primary.withValues(alpha: 0.08)
+                                            : tokens.onSurface.withValues(alpha: 0.03),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: isSelected
+                                              ? tokens.primary
+                                              : tokens.onSurface.withValues(alpha: 0.08),
+                                          width: isSelected ? 1.5 : 1.0,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 2),
+                                            child: Icon(
+                                              isSelected
+                                                  ? Icons.radio_button_checked_rounded
+                                                  : Icons.radio_button_off_rounded,
+                                              size: 18,
+                                              color: isSelected
+                                                  ? tokens.primary
+                                                  : tokens.onSurface.withValues(alpha: 0.4),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                // Primary title: Board / Display Name
+                                                Text(
+                                                  binary.displayName,
+                                                  style: GoogleFonts.martianMono(
+                                                    color: tokens.onSurface,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                // Metadata tags: Chip, Variant, Size, Compatibility
+                                                Wrap(
+                                                  spacing: 6,
+                                                  runSpacing: 4,
+                                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                                  children: [
+                                                    if (binary.chip != null)
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                                        decoration: BoxDecoration(
+                                                          color: tokens.primary.withValues(alpha: 0.12),
+                                                          borderRadius: BorderRadius.circular(4),
+                                                        ),
+                                                        child: Text(
+                                                          'Chip: ${binary.chip!.toUpperCase()}',
                                                           style: TextStyle(
-                                                            color: tokens.success,
+                                                            color: tokens.primary,
                                                             fontSize: 9,
                                                             fontWeight: FontWeight.bold,
                                                           ),
                                                         ),
-                                                      ],
-                                                    ),
-                                                  )
-                                                else if (binary.chip != null)
-                                                  Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                                    decoration: BoxDecoration(
-                                                      color: tokens.onSurface.withValues(alpha: 0.08),
-                                                      borderRadius: BorderRadius.circular(4),
-                                                    ),
-                                                    child: Text(
-                                                      binary.chip!.toUpperCase(),
+                                                      ),
+                                                    if (binary.variant != null)
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                                        decoration: BoxDecoration(
+                                                          color: Colors.purple.withValues(alpha: 0.15),
+                                                          borderRadius: BorderRadius.circular(4),
+                                                        ),
+                                                        child: Text(
+                                                          'Variant: ${binary.variant}',
+                                                          style: const TextStyle(
+                                                            color: Colors.purple,
+                                                            fontSize: 9,
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    if (matchesConnectedChip)
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                                        decoration: BoxDecoration(
+                                                          color: tokens.success.withValues(alpha: 0.15),
+                                                          borderRadius: BorderRadius.circular(4),
+                                                        ),
+                                                        child: Row(
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: [
+                                                            Icon(Icons.check_rounded, size: 10, color: tokens.success),
+                                                            const SizedBox(width: 3),
+                                                            Text(
+                                                              'MATCHES ${connectedChip?.toUpperCase()}',
+                                                              style: TextStyle(
+                                                                color: tokens.success,
+                                                                fontSize: 9,
+                                                                fontWeight: FontWeight.bold,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    Text(
+                                                      binary.formattedSize,
                                                       style: TextStyle(
-                                                        color: tokens.onSurface.withValues(alpha: 0.6),
-                                                        fontSize: 9,
+                                                        color: tokens.onSurface.withValues(alpha: 0.4),
+                                                        fontSize: 10,
                                                       ),
                                                     ),
-                                                  ),
-
-                                                // Size badge
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 4),
+                                                // Subtle asset filename
                                                 Text(
-                                                  binary.formattedSize,
-                                                  style: TextStyle(
-                                                    color: tokens.onSurface.withValues(alpha: 0.4),
-                                                    fontSize: 10,
+                                                  binary.assetName,
+                                                  style: GoogleFonts.martianMono(
+                                                    color: tokens.onSurface.withValues(alpha: 0.35),
+                                                    fontSize: 9,
                                                   ),
                                                 ),
                                               ],
                                             ),
-                                          ],
-                                        ),
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
-                                ),
+                                    ),
+                                  );
+                                }).toList(),
                               );
-                            }),
+                            },
+                          ),
 
                           const SizedBox(height: 12),
 
-                          // Download and flash action button
+                          // Select firmware action button
                           if (selectedBinary != null) ...[
                             SizedBox(
                               width: double.infinity,
@@ -1454,9 +1465,9 @@ class _MarketplaceSectionState extends State<_MarketplaceSection> {
                                   padding: const EdgeInsets.symmetric(vertical: 12),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                 ),
-                                onPressed: isDownloading || flasher.isFlashing
+                                onPressed: isDownloading
                                     ? null
-                                    : () => _downloadAndFlash(repoUrl, selectedBinary),
+                                    : () => _selectFirmware(repoUrl, selectedBinary),
                                 icon: isDownloading
                                     ? SizedBox(
                                         width: 14,
@@ -1466,11 +1477,11 @@ class _MarketplaceSectionState extends State<_MarketplaceSection> {
                                           color: tokens.onPrimary,
                                         ),
                                       )
-                                    : const Icon(Icons.bolt_rounded, size: 18),
+                                    : const Icon(Icons.download_done_rounded, size: 18),
                                 label: Text(
                                   isDownloading
                                       ? 'DOWNLOADING ${(progress * 100).toInt()}%...'
-                                      : 'DOWNLOAD & FLASH',
+                                      : 'SELECT FIRMWARE',
                                   style: GoogleFonts.changa(
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: 1,
