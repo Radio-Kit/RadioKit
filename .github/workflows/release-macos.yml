@@ -33,6 +33,8 @@ jobs:
       - name: Build macOS
         run: |
           cd radiokit-app
+          flutter config --enable-macos-desktop
+          flutter create --platforms=macos .
           flutter build macos --release
 
       - name: Package macOS DMG
