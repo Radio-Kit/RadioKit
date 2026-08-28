@@ -218,6 +218,7 @@ class JsonArduinoGenerator {
     final type = config['type'] as String? ?? '';
     final theme = config['theme'] as String? ?? 'dragon';
     final password = config['password'] as String? ?? '';
+    final userPassword = config['user_password'] as String? ?? '';
     final baudrate = config['baudrate'] as int? ?? 1000000;
 
     if (name.isNotEmpty) {
@@ -233,6 +234,9 @@ class JsonArduinoGenerator {
     buf.writeln('${indent}RadioKit.config.theme       = "${_escapeC(theme)}";');
     if (password.isNotEmpty) {
       buf.writeln('${indent}RadioKit.config.password    = "${_escapeC(password)}";');
+    }
+    if (userPassword.isNotEmpty) {
+      buf.writeln('${indent}RadioKit.config.user_password = "${_escapeC(userPassword)}";');
     }
     buf.writeln('${indent}RadioKit.config.baudrate    = $baudrate;');
 

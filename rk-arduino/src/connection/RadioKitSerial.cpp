@@ -4,6 +4,7 @@
  */
 
 #include "RadioKitSerial.h"
+#include "../RadioKitClass.h"
 #include "../RadioKitProtocol.h"
 #include "RadioKitFS.h"
 #include "RadioKitOTA.h"

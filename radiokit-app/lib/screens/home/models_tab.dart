@@ -819,6 +819,8 @@ class _DeviceInfoTabsState extends State<_DeviceInfoTabs> {
       tabWidgets.add(FirmwareTabContent(device: device, deviceProvider: dp));
     }
 
+    final hasHiddenTabs = isUserMode && (hasFs || hasOta);
+
     return DefaultTabController(
       length: tabs.length,
       child: Builder(
@@ -845,6 +847,18 @@ class _DeviceInfoTabsState extends State<_DeviceInfoTabs> {
                           tabs: tabs,
                         ),
                       ),
+                      if (hasHiddenTabs)
+                        Tooltip(
+                          message: 'Device-level access required for FS/OTA',
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 4),
+                            child: Icon(
+                              Icons.lock_outline,
+                              size: 16,
+                              color: context.tokens.onSurface.withValues(alpha: 0.38),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                   Divider(height: 1, color: context.tokens.onSurface.withValues(alpha: 0.12)),
