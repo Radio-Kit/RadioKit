@@ -3,14 +3,8 @@ name: Release Android
 on:
   workflow_dispatch:
   push:
-    branches: [main]
     tags:
       - 'v*'
-    tags-ignore:
-      - 'v*-linux'
-      - 'v*-ios'
-      - 'v*-win'
-      - 'v*-mac'
 
 jobs:
   android:
@@ -45,8 +39,8 @@ jobs:
 
       - name: Rename APK
         run: |
-          VERSION=${GITHUB_REF_NAME}
-          APK_PATH=$(find . -name "app-release.apk" | head -n 1)
+          VERSION=${GITHUB_REF_NAME:-latest}
+          APK_PATH=$(find radiokit-app/build -name "app-release.apk" | head -n 1)
           echo "Found APK at: $APK_PATH"
           cp "$APK_PATH" "radiokit-${VERSION}.apk"
 
@@ -55,8 +49,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if gh release view "${GITHUB_REF_NAME}" --json id >/dev/null 2>&1; then
-            gh release upload "${GITHUB_REF_NAME}" radiokit-*.apk --clobber
-          else
-            gh release create "${GITHUB_REF_NAME}" radiokit-*.apk --generate-notes
+          APK_FILE=$(find . -maxdepth 1 -name "radiokit-*.apk" | head -n 1)
+          if [ -n "$APK_FILE" ]; then
+            if gh release view "${GITHUB_REF_NAME}" --json id >/dev/null 2>&1; then
+              gh release upload "${GITHUB_REF_NAME}" "$APK_FILE" --clobber
+            else
+              gh release create "${GITHUB_REF_NAME}" "$APK_FILE" --generate-notes
+            fi
           fi

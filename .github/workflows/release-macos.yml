@@ -3,14 +3,8 @@ name: Release macOS
 on:
   workflow_dispatch:
   push:
-    branches: [main]
     tags:
       - 'v*'
-    tags-ignore:
-      - 'v*-apk'
-      - 'v*-ios'
-      - 'v*-linux'
-      - 'v*-win'
 
 jobs:
   macos:
@@ -43,7 +37,6 @@ jobs:
           APP_PATH="radiokit-app/build/macos/Build/Products/Release/Runner.app"
           DMG_NAME="radiokit-${VERSION}-macos.dmg"
           
-          # Create DMG using native hdiutil
           hdiutil create -volname "RadioKit" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_NAME"
           echo "Created $DMG_NAME"
 

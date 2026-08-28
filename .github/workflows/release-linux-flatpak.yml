@@ -3,14 +3,8 @@ name: Release Flatpak
 on:
   workflow_dispatch:
   push:
-    branches: [main]
     tags:
       - 'v*'
-    tags-ignore:
-      - 'v*-apk'
-      - 'v*-ios'
-      - 'v*-win'
-      - 'v*-mac'
 
 jobs:
   flatpak:
