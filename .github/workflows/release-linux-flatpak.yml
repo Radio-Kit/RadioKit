@@ -35,6 +35,8 @@ jobs:
 
       - name: Pre-process manifest with flatpak-flutter
         run: |
+          VERSION=${GITHUB_REF_NAME:-main}
+          sed -i "s/tag: main/tag: ${VERSION}/" flatpak/flatpak-flutter.yml
           git clone --depth=1 https://github.com/TheAppgineer/flatpak-flutter.git /tmp/flatpak-flutter
           python3 /tmp/flatpak-flutter/flatpak-flutter.py \
             --app-pubspec radiokit-app \
@@ -49,15 +51,19 @@ jobs:
 
       - name: Export .flatpak bundle
         run: |
-          flatpak build-bundle repo radiokit.flatpak com.rambros3d.radiokit
+          VERSION=${GITHUB_REF_NAME:-latest}
+          flatpak build-bundle repo "radiokit-${VERSION}.flatpak" com.rambros3d.radiokit
 
       - name: Create or update GitHub Release
         if: startsWith(github.ref_name, 'v')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if gh release view "${GITHUB_REF_NAME}" --json id >/dev/null 2>&1; then
-            gh release upload "${GITHUB_REF_NAME}" radiokit.flatpak --clobber
-          else
-            gh release create "${GITHUB_REF_NAME}" radiokit.flatpak --generate-notes
+          FLATPAK_FILE=$(find . -maxdepth 1 -name "radiokit-*.flatpak" | head -n 1)
+          if [ -n "$FLATPAK_FILE" ]; then
+            if gh release view "${GITHUB_REF_NAME}" --json id >/dev/null 2>&1; then
+              gh release upload "${GITHUB_REF_NAME}" "$FLATPAK_FILE" --clobber
+            else
+              gh release create "${GITHUB_REF_NAME}" "$FLATPAK_FILE" --generate-notes
+            fi
           fi

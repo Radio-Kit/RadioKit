@@ -14,7 +14,7 @@ on:
 
 jobs:
   windows:
-    name: Build Windows
+    name: Build Windows Installer
     runs-on: windows-latest
     permissions:
       contents: write
@@ -37,19 +37,30 @@ jobs:
           cd radiokit-app
           flutter build windows --release
 
-      - name: Rename artifact
+      - name: Install Inno Setup
+        run: |
+          choco install innosetup --no-progress
+
+      - name: Build Windows Installer
         run: |
           $VERSION = $env:GITHUB_REF_NAME
-          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath "radiokit-${VERSION}.zip"
+          if (-not $VERSION -or $VERSION -eq "") { $VERSION = "latest" }
+          & "C:\Program Files (x86)\Inno Setup 6\iscc.exe" /DMyAppVersion="$VERSION" radiokit-app\windows\installer\RadioKit.iss
 
       - name: Create or update GitHub Release
         if: startsWith(github.ref_name, 'v')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release view "$env:GITHUB_REF_NAME" --json id
-          if ($LASTEXITCODE -eq 0) {
-            gh release upload "$env:GITHUB_REF_NAME" radiokit-*.zip --clobber
+          $EXE = Get-ChildItem -Path radiokit-app\windows\installer -Filter "*.exe" | Select-Object -First 1
+          if ($EXE) {
+            Write-Host "Found installer: $($EXE.FullName)"
+            $null = gh release view "$env:GITHUB_REF_NAME" --json id 2>$null
+            if ($LASTEXITCODE -eq 0) {
+              gh release upload "$env:GITHUB_REF_NAME" "$($EXE.FullName)" --clobber
+            } else {
+              gh release create "$env:GITHUB_REF_NAME" "$($EXE.FullName)" --generate-notes
+            }
           } else {
-            gh release create "$env:GITHUB_REF_NAME" radiokit-*.zip --generate-notes
+            Write-Error "Installer exe not found!"
           }

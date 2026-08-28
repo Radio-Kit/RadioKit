@@ -14,7 +14,7 @@ on:
 
 jobs:
   macos:
-    name: Build macOS
+    name: Build macOS DMG
     runs-on: macos-latest
     permissions:
       contents: write
@@ -37,19 +37,26 @@ jobs:
           cd radiokit-app
           flutter build macos --release
 
-      - name: Rename artifact
+      - name: Package macOS DMG
         run: |
-          VERSION=${GITHUB_REF_NAME}
-          cd radiokit-app/build/macos/Build/Products/Release
-          zip -r "${OLDPWD}/radiokit-${VERSION}.zip" Runner.app
+          VERSION=${GITHUB_REF_NAME:-latest}
+          APP_PATH="radiokit-app/build/macos/Build/Products/Release/Runner.app"
+          DMG_NAME="radiokit-${VERSION}-macos.dmg"
+          
+          # Create DMG using native hdiutil
+          hdiutil create -volname "RadioKit" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_NAME"
+          echo "Created $DMG_NAME"
 
       - name: Create or update GitHub Release
         if: startsWith(github.ref_name, 'v')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if gh release view "${GITHUB_REF_NAME}" --json id >/dev/null 2>&1; then
-            gh release upload "${GITHUB_REF_NAME}" radiokit-*.zip --clobber
-          else
-            gh release create "${GITHUB_REF_NAME}" radiokit-*.zip --generate-notes
+          DMG_FILE=$(find . -maxdepth 1 -name "radiokit-*-macos.dmg" | head -n 1)
+          if [ -n "$DMG_FILE" ]; then
+            if gh release view "${GITHUB_REF_NAME}" --json id >/dev/null 2>&1; then
+              gh release upload "${GITHUB_REF_NAME}" "$DMG_FILE" --clobber
+            else
+              gh release create "${GITHUB_REF_NAME}" "$DMG_FILE" --generate-notes
+            fi
           fi
