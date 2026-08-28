@@ -191,13 +191,14 @@ class _DesignerScreenState extends State<DesignerScreen> {
     final ext = _isJsonMode ? 'json' : 'h';
     final content = _saveContent('');
     final bytes = Uint8List.fromList(utf8.encode(content));
-    final path = await FilePicker.saveFile(
+    final uri = await FilePicker.saveFile(
       fileName: 'RadioKit_UI.$ext',
       allowedExtensions: [ext],
       type: FileType.custom,
       bytes: bytes,
     );
-    if (path == null || !mounted) return;
+    if (uri == null || !mounted) return;
+    final path = uri.path;
 
     await File(path).writeAsString(content);
 

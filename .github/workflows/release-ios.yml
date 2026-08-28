@@ -33,6 +33,15 @@ jobs:
         run: |
           cd radiokit-app
           flutter create --platforms=ios .
+
+          # Patch Xcode project to disable code signing for CI builds
+          PROJ=$(find . -name 'project.pbxproj' -path '*/ios/*' | head -1)
+          if [ -n "$PROJ" ]; then
+            sed -i '' 's/DEVELOPMENT_TEAM = [^;]*;/DEVELOPMENT_TEAM = "";/g' "$PROJ"
+            sed -i '' 's/CODE_SIGN_STYLE = Automatic/CODE_SIGN_STYLE = Manual/g' "$PROJ"
+            sed -i '' 's/ProvisioningStyle = Automatic/ProvisioningStyle = Manual/g' "$PROJ"
+          fi
+
           flutter build ios --release --no-codesign
           mkdir -p Payload
           cp -r build/ios/iphoneos/Runner.app Payload/

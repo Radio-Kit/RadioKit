@@ -121,14 +121,13 @@ class DesignsTab extends StatelessWidget {
 /// Opens a .h or .json config file via the system file picker.
 Future<void> openConfigFile(BuildContext context) async {
     try {
-      FilePickerResult? result = await FilePicker.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['h', 'json'],
-        withData: true,
       );
 
-      if (result != null && result.files.isNotEmpty) {
-        final filePath = result.files.first.path;
+      if (result.isNotEmpty) {
+        final filePath = result.first.path;
         if (filePath == null || kIsWeb) {
           throw Exception('File path not available on this platform');
         }
@@ -150,7 +149,7 @@ Future<void> openConfigFile(BuildContext context) async {
 
         if (!context.mounted) return;
         final provider = context.read<DesignsProvider>();
-        final name = (decoded['config']?['name'] as String?) ?? result.files.first.name;
+        final name = (decoded['config']?['name'] as String?) ?? result.first.name;
         final id = DateTime.now().millisecondsSinceEpoch.toString();
         final appData = decoded['appdata'];
         final lastEdit = appData is Map ? appData['lastEdit'] as int? : null;

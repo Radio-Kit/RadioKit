@@ -30,6 +30,8 @@ modules:
       append-path: /run/build/radiokit/flutter/bin
       env:
         PUB_CACHE: /run/build/radiokit/.pub-cache
+        CC: gcc
+        CXX: g++
     sources:
       - type: git
         url: https://github.com/rambros3d/RadioKit.git

@@ -292,14 +292,14 @@ Future<({String name, Uint8List bytes})?> pickUploadFile(
     withData: true,
     allowMultiple: false,
   );
-  if (result == null || result.files.isEmpty) return null;
-  final f = result.files.first;
+  if (result.isEmpty) return null;
+  final f = result.first;
   if (f.bytes == null || f.bytes!.isEmpty) return null;
   return (name: f.name, bytes: f.bytes!);
 }
 
 /// Show a save-as dialog for a downloaded file.
-Future<String?> promptSaveFile(BuildContext context,
+Future<Uri?> promptSaveFile(BuildContext context,
     {required String fileName, required Uint8List bytes}) {
   return FilePicker.saveFile(fileName: fileName, bytes: bytes);
 }
