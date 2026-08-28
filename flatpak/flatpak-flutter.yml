@@ -16,6 +16,12 @@ modules:
   - name: radiokit
     buildsystem: simple
     build-commands:
+      # Create clang++/clang wrappers → g++/gcc so Flutter's cmake
+      # (which hardcodes CXX=clang++) finds a working compiler in PATH.
+      - mkdir -p /run/build/radiokit/tool-wrappers
+      - printf '#!/bin/sh\nexec /usr/bin/g++ "$@"\n' > /run/build/radiokit/tool-wrappers/clang++
+      - printf '#!/bin/sh\nexec /usr/bin/gcc "$@"\n' > /run/build/radiokit/tool-wrappers/clang
+      - chmod +x /run/build/radiokit/tool-wrappers/clang++ /run/build/radiokit/tool-wrappers/clang
       - bash scripts/build-library-zip.sh
       - cd radiokit-app && flutter build linux --release --no-pub
       - mkdir -p /app/share/radiokit /app/bin
@@ -27,11 +33,9 @@ modules:
       - install -Dm644 flatpak/com.rambros3d.radiokit.desktop /app/share/applications/com.rambros3d.radiokit.desktop
       - install -Dm644 flatpak/com.rambros3d.radiokit.metainfo.xml /app/share/metainfo/com.rambros3d.radiokit.metainfo.xml
     build-options:
-      append-path: /run/build/radiokit/flutter/bin
+      append-path: /run/build/radiokit/tool-wrappers:/run/build/radiokit/flutter/bin
       env:
         PUB_CACHE: /run/build/radiokit/.pub-cache
-        CC: gcc
-        CXX: g++
     sources:
       - type: git
         url: https://github.com/rambros3d/RadioKit.git
