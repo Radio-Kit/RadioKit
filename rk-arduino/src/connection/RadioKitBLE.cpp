@@ -120,6 +120,7 @@ RadioKitBLE::RadioKitBLE()
     , _connIntervalMs(12), _pendingHead(0), _pendingTail(0), _pendingCount(0)
     , _pendingFsSubCmd(0), _pendingFsLen(0), _hasPendingFs(false)
     , _pendingOtaSubCmd(0), _pendingOtaLen(0), _hasPendingOta(false)
+    , _pendingPushConfig(false)
     , _txTaskHandle(nullptr), _txSemaphore(nullptr), _txTaskRunning(false)
 {
     portMUX_INITIALIZE(&_txMux);
@@ -453,12 +454,25 @@ void RadioKitBLE::_onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) {
 void RadioKitBLE::_onMTUChange(uint16_t MTU, NimBLEConnInfo& connInfo) {
     _negotiatedMtu = MTU;
     RadioKit.printf("BLE: MTU negotiated to %u\n", MTU);
+    // Flush deferred config push now that MTU is large enough
+    if (_pendingPushConfig) {
+        _pendingPushConfig = false;
+        RadioKit.pushConfigAndVars();
+    }
 }
 
 void RadioKitBLE::_onWidgetSubscribe(uint16_t subValue) {
     if (subValue != 0) {
         _connected = true;
-        RadioKit.pushConfigAndVars();
+        // Defer config push if MTU is still at default (23) — the full
+        // CONF_DATA payload (hundreds of bytes) would be split into many
+        // 20-byte chunks, most of which fail with rc=6, congesting the link.
+        // _onMTUChange() will flush the deferred push once negotiation completes.
+        if (_negotiatedMtu <= RK_BLE_MTU) {
+            _pendingPushConfig = true;
+        } else {
+            RadioKit.pushConfigAndVars();
+        }
     } else {
         _connected = false;
     }
@@ -476,6 +490,7 @@ void RadioKitBLE::_onDisconnect(int reason) {
     s_txQueueMaxDepth = 0;
     _hasPendingFs = false;
     _hasPendingOta = false;
+    _pendingPushConfig = false;
     _connHandle = 0xFFFF;
     _negotiatedMtu = RK_BLE_MTU;
     portEXIT_CRITICAL(&_txMux);
