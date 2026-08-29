@@ -140,6 +140,18 @@ void setSender(SenderFn fn) { s_sender = fn; }
 
 bool begin() {
 #if RK_FS_HAS_LITTLEFS
+    if (s_mounted) return true;  // already mounted by us — skip reinit
+    // Check if another component (e.g. ConfigParser) already mounted LittleFS.
+    // Calling LittleFS.begin(true) when already mounted can corrupt flash DMA
+    // on ESP32-S3 with embedded XMC flash, silently killing NimBLE.
+    {
+        File probe = LittleFS.open("/", "r");
+        if (probe) {
+            probe.close();
+            s_mounted = true;  // LittleFS already functional — skip reinit
+            return true;
+        }
+    }
 #if RK_ARCH_DETECTED == RK_ARCH_ESP32
     s_mounted = LittleFS.begin(true);  // ESP32: format-on-fail
 #else

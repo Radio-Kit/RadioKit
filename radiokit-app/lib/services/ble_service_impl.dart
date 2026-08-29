@@ -596,6 +596,7 @@ class BleService implements TransportService {
       await UniversalBle.disconnect(id);
       _connectedDeviceId = null;
     }
+    _activeTransports.clear();
     _receiveBuffer.clear();
     _receiveFsBuffer.clear();
     _receiveOtaBuffer.clear();
@@ -610,6 +611,7 @@ class BleService implements TransportService {
   void _handleDisconnect(String reason) {
     _connectedDeviceId = null;
     _isMockConnected = false;
+    _activeTransports.clear();
     _receiveBuffer.clear();
     _receiveFsBuffer.clear();
     _receiveOtaBuffer.clear();
