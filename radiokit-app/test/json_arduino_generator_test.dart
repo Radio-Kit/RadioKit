@@ -706,7 +706,8 @@ void main() {
         expect(output, contains('#define RK_ENABLE_OTA'));
         expect(output, contains('RadioKit.config.fs_url       = RK_FS_URL;'));
         expect(output, contains('RadioKit.config.ota_url      = RK_OTA_URL;'));
-        expect(output, contains('RadioKit.enableOTA();'));
+        // enableOTA() is NOT generated — RadioKit.begin() already calls it
+        expect(output, isNot(contains('RadioKit.enableOTA();')));
       });
 
       test('emits enableOTA when features.ota is true', () {
@@ -719,7 +720,8 @@ void main() {
         };
         final output = JsonArduinoGenerator.generate(json);
         expect(output, contains('#define RK_ENABLE_OTA'));
-        expect(output, contains('RadioKit.enableOTA();'));
+        // enableOTA() is NOT generated — RadioKit.begin() already calls it
+        expect(output, isNot(contains('RadioKit.enableOTA();')));
       });
     });
   });
