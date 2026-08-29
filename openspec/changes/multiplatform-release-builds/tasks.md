@@ -8,9 +8,9 @@
 
 ## 2. Commit & Push
 
-- [ ] 2.1 Commit changes to `multi-ui` and push to `origin/multi-ui`
+- [x] 2.1 Commit changes to `multi-ui` and push to `origin/multi-ui`
 
 ## 3. Tagging & Build Verification
 
-- [ ] 3.1 Create and push test release tag `v2.0.0-test1` to GitHub
-- [ ] 3.2 Monitor and verify GitHub Actions runs across all 4 platforms
+- [x] 3.1 Create and push test release tag `v2.0.0-test1` to GitHub
+- [x] 3.2 Monitor and verify GitHub Actions runs across all 4 platforms
