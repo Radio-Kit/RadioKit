@@ -181,6 +181,16 @@ class JsonArduinoGenerator {
     buf.writeln('  RadioKit.begin();');
     buf.writeln();
     buf.writeln('  RadioKit.startSerial(Serial);');
+
+    // ─── Feature initialization ───
+    // enableFS() runs before startBLE() so LittleFS mounts while the
+    // SPI flash interface is idle — avoids DMA corruption on ESP32-S3.
+    // NOTE: enableOTA() is intentionally NOT generated here — RadioKit.begin()
+    // already calls it when RK_ENABLE_OTA is defined.
+    if (enableFs) {
+      buf.writeln('  RadioKit.enableFS();');
+    }
+    buf.writeln();
     if (bleEnabled) {
       buf.writeln('  RadioKit.startBLE();');
     }
@@ -189,14 +199,6 @@ class JsonArduinoGenerator {
     }
     if (cloudEnabled) {
       buf.writeln('  RadioKit.startCloud();');
-    }
-
-    // ─── Feature initialization ───
-    // NOTE: enableOTA() is intentionally NOT generated here — RadioKit.begin()
-    // already calls it when RK_ENABLE_OTA is defined.
-    if (enableFs) {
-      buf.writeln('');
-      buf.writeln('  RadioKit.enableFS();');
     }
 
     buf.writeln('}');

@@ -82,6 +82,7 @@ RadioKitClass::RadioKitClass()
     , _printHead(0)
     , _printTail(0)
     , _printLineStart(0)
+    , _bootFlushDone(false)
 {
     memset(_widgets, 0, sizeof(_widgets));
     memset(_txBuf,   0, sizeof(_txBuf));
@@ -540,6 +541,19 @@ void RadioKitClass::_printByte(uint8_t b) {
 /// and starving command ACKs.
 void RadioKitClass::_flushPrintBuffer() {
     if (_printTail == _printHead) return;  // nothing to send
+
+    // ── Boot-time raw Serial flush ──────────────────────────────
+    // Before any transport connects, dump buffered messages directly
+    // to Serial so boot-time diagnostics (BLE init, etc.) are visible.
+    // After the first flush, fall through to the normal gated path.
+    if (!_bootFlushDone && !isConnected()) {
+        while (_printTail != _printHead) {
+            Serial.write(_printBuf[_printTail]);
+            _printTail = (_printTail + 1) % kPrintBufSize;
+        }
+        _bootFlushDone = true;
+        return;
+    }
 
     // Don't consume buffer data if no transport can send it.
     // This preserves boot-time messages until a client connects
