@@ -1,5 +1,8 @@
-## ADDED Requirements
+# multiplatform-releases Specification
 
+## Purpose
+TBD - created by archiving change multiplatform-release-builds. Update Purpose after archive.
+## Requirements
 ### Requirement: Automated Multi-Platform Release Asset Packaging
 The CI release workflows SHALL produce distinct, native installer and bundle assets for all supported platforms upon pushing a release tag.
 
@@ -24,3 +27,4 @@ The CI release workflows SHALL produce distinct, native installer and bundle ass
 - **THEN** the Windows workflow builds `radiokit-app` with `flutter build windows --release`
 - **AND** compiles the Inno Setup installer via `iscc`
 - **AND** publishes `radiokit-${VERSION}-windows-x64-setup.exe` to the GitHub Release.
+
