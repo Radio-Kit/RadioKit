@@ -192,13 +192,11 @@ class JsonArduinoGenerator {
     }
 
     // ─── Feature initialization ───
+    // NOTE: enableOTA() is intentionally NOT generated here — RadioKit.begin()
+    // already calls it when RK_ENABLE_OTA is defined.
     if (enableFs) {
       buf.writeln('');
       buf.writeln('  RadioKit.enableFS();');
-    }
-    if (enableOta || hasOtaUrl) {
-      if (!enableFs) buf.writeln('');
-      buf.writeln('  RadioKit.enableOTA();');
     }
 
     buf.writeln('}');
