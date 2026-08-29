@@ -317,6 +317,7 @@ private:
     uint16_t _printHead;
     uint16_t _printTail;
     uint16_t _printLineStart;
+    bool     _bootFlushDone;   // one-shot: raw Serial.flush on first boot
 
     void _flushPrintBuffer();
     uint16_t _printSpace() const;

@@ -3,18 +3,12 @@ name: Release macOS
 on:
   workflow_dispatch:
   push:
-    branches: [main]
     tags:
       - 'v*'
-    tags-ignore:
-      - 'v*-apk'
-      - 'v*-ios'
-      - 'v*-linux'
-      - 'v*-win'
 
 jobs:
   macos:
-    name: Build macOS
+    name: Build macOS DMG
     runs-on: macos-latest
     permissions:
       contents: write
@@ -27,29 +21,49 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Build library zip
+        run: bash scripts/build-library-zip.sh
+
       - name: Install dependencies
         run: |
           cd radiokit-app
+          flutter config --enable-macos-desktop
           flutter pub get
 
       - name: Build macOS
         run: |
           cd radiokit-app
+          flutter config --enable-macos-desktop
+          flutter create --platforms=macos .
           flutter build macos --release
 
-      - name: Rename artifact
+      - name: Package macOS DMG
         run: |
-          VERSION=${GITHUB_REF_NAME}
-          cd radiokit-app/build/macos/Build/Products/Release
-          zip -r "${OLDPWD}/radiokit-${VERSION}.zip" Runner.app
+          VERSION=${GITHUB_REF_NAME:-latest}
+          DMG_NAME="radiokit-${VERSION}-macos.dmg"
+          
+          # Auto-discover the .app bundle
+          APP_PATH=$(find radiokit-app/build -name '*.app' -type d | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            echo "ERROR: No .app bundle found in build directory"
+            find radiokit-app/build -type d -maxdepth 5 | head -20
+            exit 1
+          fi
+          echo "Found app bundle: $APP_PATH"
+          
+          hdiutil create -volname "RadioKit" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_NAME"
+          echo "Created $DMG_NAME"
 
       - name: Create or update GitHub Release
         if: startsWith(github.ref_name, 'v')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if gh release view "${GITHUB_REF_NAME}" --json id >/dev/null 2>&1; then
-            gh release upload "${GITHUB_REF_NAME}" radiokit-*.zip --clobber
-          else
-            gh release create "${GITHUB_REF_NAME}" radiokit-*.zip --generate-notes
+          DMG_FILE=$(find . -maxdepth 1 -name "radiokit-*-macos.dmg" | head -n 1)
+          if [ -n "$DMG_FILE" ]; then
+            if gh release view "${GITHUB_REF_NAME}" --json id >/dev/null 2>&1; then
+              gh release upload "${GITHUB_REF_NAME}" "$DMG_FILE" --clobber
+            else
+              gh release create "${GITHUB_REF_NAME}" "$DMG_FILE" --generate-notes
+            fi
           fi

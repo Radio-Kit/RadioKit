@@ -93,6 +93,7 @@ class HeaderAppConfig {
   final Map<String, dynamic> transports;
   final String theme;
   final String password;
+  final String userPassword;
 
   const HeaderAppConfig({
     this.name = '',
@@ -105,6 +106,7 @@ class HeaderAppConfig {
     },
     this.theme = 'dragon',
     this.password = '',
+    this.userPassword = '',
   });
 
   bool get bleEnabled => (transports['ble']?['enabled'] as bool?) ?? true;
@@ -129,6 +131,7 @@ class HeaderAppConfig {
           },
       theme: json['theme'] as String? ?? 'dragon',
       password: json['password'] as String? ?? '',
+      userPassword: json['user_password'] as String? ?? '',
     );
   }
 
@@ -139,6 +142,7 @@ class HeaderAppConfig {
         'transports': transports,
         'theme': theme,
         'password': password,
+        'user_password': userPassword,
       };
 }
 

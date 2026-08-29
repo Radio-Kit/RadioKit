@@ -54,6 +54,7 @@ class DesignerState extends ChangeNotifier {
   String _modelType = 'Locomotive';
   String _modelDescription = '';
   String _connectionPassword = '';
+  String _userPassword = '';
   Map<String, dynamic> _features = {'ota': false, 'filesystem': false};
   bool _enableControlUI = true;
   bool _showPageBar = true;
@@ -127,6 +128,7 @@ class DesignerState extends ChangeNotifier {
   String get modelType => _modelType;
   String get modelDescription => _modelDescription;
   String get connectionPassword => _connectionPassword;
+  String get userPassword => _userPassword;
   int? get lastEdit => _lastEdit;
   String? get appVersion => _appVersion;
   bool get canUndo => (_undoStacks[_activePageIndex]?.isNotEmpty) ?? false || _globalUndoStack.isNotEmpty;
@@ -741,6 +743,12 @@ class DesignerState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setUserPassword(String value) {
+    _mutationCount++;
+    _userPassword = value;
+    notifyListeners();
+  }
+
   void setFeatureOta(bool v) {
     _features['ota'] = v;
     _mutationCount++;
@@ -1056,6 +1064,7 @@ class DesignerState extends ChangeNotifier {
     }
     _activeSkin = _normaliseSkin((decoded['config']?['theme'] as String?) ?? 'dragon');
     _connectionPassword = (decoded['config']?['password'] as String?) ?? '';
+    _userPassword = (decoded['config']?['user_password'] as String?) ?? '';
 
     // read grid style
     final gridStr = decoded['canvas']?['grid'] as String?;
@@ -1267,6 +1276,7 @@ class DesignerState extends ChangeNotifier {
       },
       'theme': _normaliseSkin(_activeSkin),
       'password': _connectionPassword,
+      'user_password': _userPassword,
     },
     'canvas': {
       'grid': _gridStyle.name,

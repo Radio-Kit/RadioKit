@@ -3,14 +3,8 @@ name: Release iOS
 on:
   workflow_dispatch:
   push:
-    branches: [main]
     tags:
       - 'v*'
-    tags-ignore:
-      - 'v*-apk'
-      - 'v*-linux'
-      - 'v*-win'
-      - 'v*-mac'
 
 jobs:
   ios:
@@ -27,6 +21,9 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Build library zip
+        run: bash scripts/build-library-zip.sh
+
       - name: Install dependencies
         run: |
           cd radiokit-app
@@ -35,6 +32,16 @@ jobs:
       - name: Build iOS IPA
         run: |
           cd radiokit-app
+          flutter create --platforms=ios .
+
+          # Patch Xcode project to disable code signing for CI builds
+          PROJ=$(find . -name 'project.pbxproj' -path '*/ios/*' | head -1)
+          if [ -n "$PROJ" ]; then
+            sed -i '' 's/DEVELOPMENT_TEAM = [^;]*;/DEVELOPMENT_TEAM = "";/g' "$PROJ"
+            sed -i '' 's/CODE_SIGN_STYLE = Automatic/CODE_SIGN_STYLE = Manual/g' "$PROJ"
+            sed -i '' 's/ProvisioningStyle = Automatic/ProvisioningStyle = Manual/g' "$PROJ"
+          fi
+
           flutter build ios --release --no-codesign
           mkdir -p Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
@@ -42,7 +49,7 @@ jobs:
 
       - name: Rename IPA
         run: |
-          VERSION=${GITHUB_REF_NAME}
+          VERSION=${GITHUB_REF_NAME:-latest}
           IPA_PATH=$(find . -name "*.ipa" | head -n 1)
           echo "Found IPA at: $IPA_PATH"
           cp "$IPA_PATH" "radiokit-${VERSION}.ipa"
@@ -52,8 +59,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if gh release view "${GITHUB_REF_NAME}" --json id >/dev/null 2>&1; then
-            gh release upload "${GITHUB_REF_NAME}" radiokit-*.ipa --clobber
-          else
-            gh release create "${GITHUB_REF_NAME}" radiokit-*.ipa --generate-notes
+          IPA_FILE=$(find . -maxdepth 1 -name "radiokit-*.ipa" | head -n 1)
+          if [ -n "$IPA_FILE" ]; then
+            if gh release view "${GITHUB_REF_NAME}" --json id >/dev/null 2>&1; then
+              gh release upload "${GITHUB_REF_NAME}" "$IPA_FILE" --clobber
+            else
+              gh release create "${GITHUB_REF_NAME}" "$IPA_FILE" --generate-notes
+            fi
           fi

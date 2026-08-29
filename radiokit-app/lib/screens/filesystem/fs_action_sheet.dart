@@ -289,17 +289,17 @@ Future<String?> promptNewFolder(BuildContext context, String parent) async {
 Future<({String name, Uint8List bytes})?> pickUploadFile(
     BuildContext context) async {
   final result = await FilePicker.pickFiles(
-    withData: true,
     allowMultiple: false,
   );
-  if (result == null || result.files.isEmpty) return null;
-  final f = result.files.first;
-  if (f.bytes == null || f.bytes!.isEmpty) return null;
-  return (name: f.name, bytes: f.bytes!);
+  if (result.isEmpty) return null;
+  final f = result.first;
+  final bytes = await f.readAsBytes();
+  if (bytes.isEmpty) return null;
+  return (name: f.name, bytes: bytes);
 }
 
 /// Show a save-as dialog for a downloaded file.
-Future<String?> promptSaveFile(BuildContext context,
+Future<Uri?> promptSaveFile(BuildContext context,
     {required String fileName, required Uint8List bytes}) {
   return FilePicker.saveFile(fileName: fileName, bytes: bytes);
 }

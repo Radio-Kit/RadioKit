@@ -17,6 +17,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "13.0.0"
+  android_file_picker:
+    dependency: transitive
+    description:
+      name: android_file_picker
+      sha256: "3384b62685e04ce7afeaf57e94bf29bc167e32240be6c6cb382a94632aec0241"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.2"
   archive:
     dependency: "direct main"
     description:
@@ -173,10 +181,10 @@ packages:
     dependency: transitive
     description:
       name: cross_file
-      sha256: "28bb3ae56f117b5aec029d702a90f57d285cd975c3c5c281eaca38dbc47c5937"
+      sha256: f141ea4f277af142a0356955707f6556f37b03947d39d55585981a06ca437bd6
       url: "https://pub.dev"
     source: hosted
-    version: "0.3.5+2"
+    version: "0.3.5+5"
   crypto:
     dependency: transitive
     description:
@@ -269,10 +277,42 @@ packages:
     dependency: "direct main"
     description:
       name: file_picker
-      sha256: fc83774ce5bd7ce08168333b5e53dbe9090ec04eb21e7aa7cd7bac921032c934
+      sha256: "70e04f5ef83360433ea0099dc18154126536d85ef3cb4f63c2573725e49f608c"
       url: "https://pub.dev"
     source: hosted
-    version: "12.0.0-beta.5"
+    version: "12.1.1"
+  file_picker_darwin:
+    dependency: transitive
+    description:
+      name: file_picker_darwin
+      sha256: bdcba9c830f90ecba26020159e6bb90bce862ec58fabf1c41edb9db43e2f0eae
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.3"
+  file_picker_linux:
+    dependency: transitive
+    description:
+      name: file_picker_linux
+      sha256: "93d3f62f97c657053e7b184fe0f5e22347d85067c053640a30b1ac8ad7844e3b"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.1"
+  file_picker_platform_interface:
+    dependency: transitive
+    description:
+      name: file_picker_platform_interface
+      sha256: b1ddd7909853c9df0eb4dbc5b388837ff313e28d6d5a9a71a83794b70c4c86bd
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.0"
+  file_picker_web:
+    dependency: transitive
+    description:
+      name: file_picker_web
+      sha256: "067051c42bb6ceb7650f2771206ca4c4908855a786cc03a0cb7240da441106f3"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.0.2"
   fixnum:
     dependency: transitive
     description:
@@ -286,7 +326,7 @@ packages:
     description:
       path: "."
       ref: "fix/find-comm-interface-id-return-minus-one"
-      resolved-ref: e115614374acb6cf482adcf301805a1b3ad572a8
+      resolved-ref: "08593cf452af506b59e592cad0ea14f82f8224e2"
       url: "https://github.com/rambros3d/flserial.git"
     source: git
     version: "0.7.1"
@@ -335,14 +375,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.0.0"
-  flutter_plugin_android_lifecycle:
-    dependency: transitive
-    description:
-      name: flutter_plugin_android_lifecycle
-      sha256: "3854fe5e3bff0b113c658f260b90c95dea17c92db0f2addeac2e343dd9969785"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.0.35"
   flutter_secure_storage:
     dependency: "direct main"
     description:
@@ -1286,6 +1318,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.3"
+  windows_file_picker:
+    dependency: transitive
+    description:
+      name: windows_file_picker
+      sha256: "1659127cb9e9e31a136352bfcb50fa4bb9e242dd7e0b71f99c3943b142e3026a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.2"
   xdg_directories:
     dependency: transitive
     description:

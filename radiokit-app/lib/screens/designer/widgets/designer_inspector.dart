@@ -367,17 +367,20 @@ class _DesignerInspectorState extends State<DesignerInspector> {
             ['Locomotive', 'Truck', 'Car', 'IOT'],
             (v) => widget.state.setModelType(v),
           ),
+          InspectorFieldBuilders.buildTextField(
+              tokens,
+              'Password',
+              widget.state.connectionPassword,
+              (v) => widget.state.setConnectionPassword(v)),
           if (widget.state.connectionPassword.isNotEmpty)
             InspectorFieldBuilders.buildTextField(
                 tokens,
-                'Password',
-                widget.state.connectionPassword,
-                (v) => widget.state.setConnectionPassword(v)),
+                'User Password',
+                widget.state.userPassword,
+                (v) => widget.state.setUserPassword(v)),
         ]),
         // ── TRANSPORTS ──────────────────────────────────────────────
         _buildTransportsSection(tokens),
-        // ── REMOTE LINKS ───────────────────────────────────────────
-        _buildLinksSection(tokens),
         // ── FEATURES ────────────────────────────────────────────────
         InspectorFieldBuilders.buildSection(tokens, 'FEATURES', [
           InspectorFieldBuilders.buildBoolToggle(
@@ -394,6 +397,16 @@ class _DesignerInspectorState extends State<DesignerInspector> {
               ),
             ),
           ),
+          if (widget.state.featureOta)
+            Padding(
+              padding: const EdgeInsets.only(left: 20, bottom: 8),
+              child: InspectorFieldBuilders.buildTextField(
+                tokens,
+                'OTA URL',
+                widget.state.otaUrl,
+                (v) => widget.state.setOtaUrl(v),
+              ),
+            ),
           InspectorFieldBuilders.buildBoolToggle(
             tokens,
             'Enable Filesystem',
@@ -410,6 +423,16 @@ class _DesignerInspectorState extends State<DesignerInspector> {
               ),
             ),
           ),
+          if (widget.state.featureFilesystem)
+            Padding(
+              padding: const EdgeInsets.only(left: 20, bottom: 8),
+              child: InspectorFieldBuilders.buildTextField(
+                tokens,
+                'FS URL',
+                widget.state.fsUrl,
+                (v) => widget.state.setFsUrl(v),
+              ),
+            ),
         ]),
         // ── CONTROL UI ──────────────────────────────────────────────
         _buildControlUISection(tokens),
@@ -679,61 +702,6 @@ class _DesignerInspectorState extends State<DesignerInspector> {
             (v) => widget.state.setCloudRelay(v),
           ),
         ],
-        Container(height: 1, color: tokens.effectiveOutline),
-      ],
-    );
-  }
-
-  // ── REMOTE LINKS section ───────────────────────────────────────────────────
-
-  Widget _buildLinksSection(RKTokens tokens) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-          child: Text(
-            'REMOTE LINKS',
-            style: TextStyle(
-              color: tokens.primary,
-              fontSize: 12,
-              fontFamily: 'monospace',
-              letterSpacing: 1,
-            ),
-          ),
-        ),
-        InspectorFieldBuilders.buildTextField(
-          tokens,
-          'FS URL',
-          widget.state.fsUrl,
-          (v) => widget.state.setFsUrl(v),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(left: 20, bottom: 8),
-          child: Text(
-            'GitHub repository or subfolder for LittleFS assets',
-            style: TextStyle(
-              color: tokens.onSurface.withValues(alpha: 0.5),
-              fontSize: 10,
-            ),
-          ),
-        ),
-        InspectorFieldBuilders.buildTextField(
-          tokens,
-          'OTA URL',
-          widget.state.otaUrl,
-          (v) => widget.state.setOtaUrl(v),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(left: 20, bottom: 8),
-          child: Text(
-            'OTA firmware update URL (placeholder)',
-            style: TextStyle(
-              color: tokens.onSurface.withValues(alpha: 0.5),
-              fontSize: 10,
-            ),
-          ),
-        ),
         Container(height: 1, color: tokens.effectiveOutline),
       ],
     );

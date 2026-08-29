@@ -1965,19 +1965,32 @@ class DeviceProvider extends ChangeNotifier {
 
 
   /// Request features from the device via settings protocol. Fire-and-forget.
-  Future<void> _requestFeatures() async {
+  Future<void> _requestFeatures({int attempt = 0}) async {
     if (!_transport.isConnected) return;
     final completer = Completer<int>();
     _featuresCompleter = completer;
     try {
       await _writePacket(SettingsProtocolService.buildGetFeatures());
-    } catch (_) {
+    } catch (e) {
+      _log('GET_FEATURES write failed: $e', level: ConsoleLogLevel.warning);
+      _featuresCompleter = null;
       return;
     }
     try {
-      await completer.future.timeout(const Duration(seconds: 2));
+      await completer.future.timeout(const Duration(seconds: 3));
     } on TimeoutException catch (_) {
-    } catch (_) {
+      if (attempt < 1) {
+        _log('GET_FEATURES timeout (attempt ${attempt + 1}/2) — retrying in 300ms',
+            level: ConsoleLogLevel.warning);
+        _featuresCompleter = null;
+        await Future.delayed(const Duration(milliseconds: 300));
+        await _requestFeatures(attempt: attempt + 1);
+        return;
+      }
+      _log('GET_FEATURES timeout (attempt ${attempt + 1}/2) — giving up',
+          level: ConsoleLogLevel.warning);
+    } catch (e) {
+      _log('GET_FEATURES error: $e', level: ConsoleLogLevel.warning);
     } finally {
       _featuresCompleter = null;
     }

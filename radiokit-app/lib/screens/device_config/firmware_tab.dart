@@ -150,8 +150,8 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
       type: FileType.any,
       allowMultiple: false,
     );
-    if (result == null || result.files.isEmpty) return;
-    final file = result.files.first;
+    if (result.isEmpty) return;
+    final file = result.first;
     if (file.path == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

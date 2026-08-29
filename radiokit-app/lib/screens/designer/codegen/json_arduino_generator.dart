@@ -181,6 +181,16 @@ class JsonArduinoGenerator {
     buf.writeln('  RadioKit.begin();');
     buf.writeln();
     buf.writeln('  RadioKit.startSerial(Serial);');
+
+    // ─── Feature initialization ───
+    // enableFS() runs before startBLE() so LittleFS mounts while the
+    // SPI flash interface is idle — avoids DMA corruption on ESP32-S3.
+    // NOTE: enableOTA() is intentionally NOT generated here — RadioKit.begin()
+    // already calls it when RK_ENABLE_OTA is defined.
+    if (enableFs) {
+      buf.writeln('  RadioKit.enableFS();');
+    }
+    buf.writeln();
     if (bleEnabled) {
       buf.writeln('  RadioKit.startBLE();');
     }
@@ -189,16 +199,6 @@ class JsonArduinoGenerator {
     }
     if (cloudEnabled) {
       buf.writeln('  RadioKit.startCloud();');
-    }
-
-    // ─── Feature initialization ───
-    if (enableFs) {
-      buf.writeln('');
-      buf.writeln('  RadioKit.enableFS();');
-    }
-    if (enableOta || hasOtaUrl) {
-      if (!enableFs) buf.writeln('');
-      buf.writeln('  RadioKit.enableOTA();');
     }
 
     buf.writeln('}');
@@ -218,6 +218,7 @@ class JsonArduinoGenerator {
     final type = config['type'] as String? ?? '';
     final theme = config['theme'] as String? ?? 'dragon';
     final password = config['password'] as String? ?? '';
+    final userPassword = config['user_password'] as String? ?? '';
     final baudrate = config['baudrate'] as int? ?? 1000000;
 
     if (name.isNotEmpty) {
@@ -233,6 +234,9 @@ class JsonArduinoGenerator {
     buf.writeln('${indent}RadioKit.config.theme       = "${_escapeC(theme)}";');
     if (password.isNotEmpty) {
       buf.writeln('${indent}RadioKit.config.password    = "${_escapeC(password)}";');
+    }
+    if (userPassword.isNotEmpty) {
+      buf.writeln('${indent}RadioKit.config.user_password = "${_escapeC(userPassword)}";');
     }
     buf.writeln('${indent}RadioKit.config.baudrate    = $baudrate;');
 

@@ -144,6 +144,11 @@ private:
     uint16_t              _pendingOtaLen;
     volatile bool         _hasPendingOta;
 
+    // Deferred config push: when a client subscribes at the default MTU (23),
+    // pushConfigAndVars() would produce hundreds of failed notifications (rc=6).
+    // Instead we flag the push and flush it once MTU negotiation completes.
+    volatile bool         _pendingPushConfig;
+
     // Select the characteristic matching [buf[0]]'s protocol.
     NimBLECharacteristic* _charForBuf(const uint8_t* buf) const;
 
