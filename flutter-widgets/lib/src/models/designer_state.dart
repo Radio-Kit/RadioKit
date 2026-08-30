@@ -70,7 +70,9 @@ class DesignerState extends ChangeNotifier {
   String? _originalHeaderPath;
 
   final Map<String, dynamic> _runtimeWidgetValues = {};
+  final Map<String, bool> _runtimeWidgetInteracting = {};
   void Function(String id, dynamic value)? onRuntimeValueChanged;
+  void Function(String id, bool interacting)? onRuntimeInteractionChanged;
 
   /// When true, _pushUndo() is suppressed — used during runtime sync
   /// to avoid creating deep-copy undo snapshots on every BLE notification.
@@ -632,6 +634,17 @@ class DesignerState extends ChangeNotifier {
     return _runtimeWidgetValues.containsKey(id) ? _runtimeWidgetValues[id] : defaultValue;
   }
 
+  bool isWidgetInteracting(String id) {
+    return _runtimeWidgetInteracting[id] ?? false;
+  }
+
+  void setRuntimeWidgetInteracting(String id, bool interacting) {
+    _runtimeWidgetInteracting[id] = interacting;
+    if (onRuntimeInteractionChanged != null) {
+      onRuntimeInteractionChanged!(id, interacting);
+    }
+  }
+
   void setRuntimeWidgetValue(String id, dynamic value) {
     _runtimeWidgetValues[id] = value;
     if (onRuntimeValueChanged != null) {
@@ -646,6 +659,7 @@ class DesignerState extends ChangeNotifier {
     if (_isPlayMode) {
       _selectedElementId = null;
       _runtimeWidgetValues.clear();
+      _runtimeWidgetInteracting.clear();
       _isInspectorVisible = false;
     } else {
       _isInspectorVisible = true;

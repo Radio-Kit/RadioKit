@@ -37,6 +37,7 @@ class RKJoystick extends StatefulWidget {
   const RKJoystick({
     super.key,
     required this.onChanged,
+    this.onInteractionChanged,
     this.value,
     this.center = const RKJoystickValue(x: 0, y: 0),
     this.size = 140.0,
@@ -52,6 +53,7 @@ class RKJoystick extends StatefulWidget {
   static const double? aspectRatio = 1.0;
 
   final ValueChanged<RKJoystickValue> onChanged;
+  final ValueChanged<bool>? onInteractionChanged;
   final RKJoystickValue? value;
   final RKJoystickValue center;
   final double size;
@@ -222,6 +224,7 @@ class _RKJoystickState extends State<RKJoystick> with SingleTickerProviderStateM
   void _onPanStart(DragStartDetails details) {
     _isInteracting = true;
     _centerController.stop();
+    widget.onInteractionChanged?.call(true);
   }
 
   void _onPanUpdate(DragUpdateDetails details) {
@@ -241,6 +244,7 @@ class _RKJoystickState extends State<RKJoystick> with SingleTickerProviderStateM
 
   void _onPanEnd(DragEndDetails details) {
     _isInteracting = false;
+    widget.onInteractionChanged?.call(false);
     if (widget.autoCenter) {
       _triggerCenter(target: _offsetFromValue(widget.center));
     } else {

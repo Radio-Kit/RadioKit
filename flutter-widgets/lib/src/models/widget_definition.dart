@@ -8,6 +8,7 @@ class WidgetBuildContext {
   final Map<String, dynamic> properties;
   final dynamic runtimeValue;
   final ValueChanged<dynamic>? onChanged;
+  final ValueChanged<bool>? onInteractionChanged;
   final bool isPlayMode;
   final bool isSelected;
   final double cellSize;
@@ -22,6 +23,7 @@ class WidgetBuildContext {
     required this.properties,
     required this.runtimeValue,
     required this.onChanged,
+    this.onInteractionChanged,
     required this.isPlayMode,
     required this.isSelected,
     required this.cellSize,

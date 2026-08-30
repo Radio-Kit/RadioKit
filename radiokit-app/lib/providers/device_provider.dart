@@ -2896,9 +2896,8 @@ class DeviceProvider extends ChangeNotifier {
   final List<Uint8List> _pendingWriteBatch = [];
   Timer? _flushTimer;
 
-  void _enqueueVarUpdate(int widgetId, List<int> values) {
-    final seq = _nextSeq++ & 0xFF;
-    final pkt = ProtocolService.buildVarUpdate(widgetId, seq, values);
+  void _enqueueVarUpdate(int widgetId, List<int> values, {bool active = true}) {
+    final pkt = ProtocolService.buildVarUpdate(widgetId, values, active: active, page: _activePage);
     _pendingWriteBatch.add(pkt);
     _flushTimer ??= Timer(const Duration(milliseconds: 8), _flushWriteBatch);
   }
@@ -2923,9 +2922,9 @@ class DeviceProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<void> _sendVarUpdate(int widgetId, List<int> values) async {
+  Future<void> _sendVarUpdate(int widgetId, List<int> values, {bool active = true}) async {
     if (!_transport.isConnected) return;
-    _enqueueVarUpdate(widgetId, values);
+    _enqueueVarUpdate(widgetId, values, active: active);
   }
 
   void _cancelAllPendingUpdates() {
@@ -2937,13 +2936,13 @@ class DeviceProvider extends ChangeNotifier {
 
   // ── Widget interaction ──────────────────────────────────────────────────────────
 
-  Future<void> setInputValue(int widgetId, List<int> values) async {
+  Future<void> setInputValue(int widgetId, List<int> values, {bool active = true, bool force = false}) async {
     final current = _widgetState;
     if (current == null) return;
 
     // Skip if value hasn't changed — avoids Map copy + notify + BLE write
     final currentInput = current.inputValues[widgetId];
-    if (currentInput != null && _listEquals(currentInput, values)) return;
+    if (!force && currentInput != null && _listEquals(currentInput, values)) return;
 
     // Human-readable interaction log (discrete widgets only to avoid gesture log storms)
     final widget = _widgets.where((w) => w.widgetId == widgetId).firstOrNull;
@@ -2965,7 +2964,7 @@ class DeviceProvider extends ChangeNotifier {
     current.inputValues[widgetId] = values;
     notifyListeners();  // synchronous — immediate visual update for touch path
     if (!_transport.isConnected) return;
-    await _sendVarUpdate(widgetId, values);
+    await _sendVarUpdate(widgetId, values, active: active);
   }
 
   /// List equality check for input values — avoids unnecessary Map copies.

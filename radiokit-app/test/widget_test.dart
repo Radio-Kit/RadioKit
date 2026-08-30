@@ -173,19 +173,24 @@ void main() {
       });
 
       test('buildVarUpdate with page > 0', () {
-        final packet = ProtocolService.buildVarUpdate(5, 1, [0xFF], page: 1);
+        final packet = ProtocolService.buildVarUpdate(5, [0xFF], active: true, page: 1);
         final parsed = ProtocolService.parsePacket(packet);
         expect(parsed, isNotNull);
         expect(parsed!.payload.length, equals(4));
         expect(parsed.payload[0], equals(1));
+        expect(parsed.payload[1], equals(5));
+        expect(parsed.payload[2], equals(kVarFlagActive));
+        expect(parsed.payload[3], equals(0xFF));
       });
 
       test('buildVarUpdate with page=0', () {
-        final packet = ProtocolService.buildVarUpdate(5, 1, [0xFF], page: 0);
+        final packet = ProtocolService.buildVarUpdate(5, [0xFF], active: false, page: 0);
         final parsed = ProtocolService.parsePacket(packet);
         expect(parsed, isNotNull);
         expect(parsed!.payload.length, equals(3));
         expect(parsed.payload[0], equals(5));
+        expect(parsed.payload[1], equals(0x00));
+        expect(parsed.payload[2], equals(0xFF));
       });
     });
 

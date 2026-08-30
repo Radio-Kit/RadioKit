@@ -74,6 +74,9 @@ class CanvasElement extends StatelessWidget {
         properties: element.properties,
         runtimeValue: runtimeVal,
         onChanged: isPlay ? (v) => designerState!.setRuntimeWidgetValue(id, v) : null,
+        onInteractionChanged: isPlay
+            ? (interacting) => designerState!.setRuntimeWidgetInteracting(id, interacting)
+            : null,
         isPlayMode: isPlay,
         isSelected: isSelected,
         cellSize: cs,

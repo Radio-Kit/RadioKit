@@ -60,6 +60,7 @@ class SliderWidgetDefinition extends WidgetDefinition {
       onChanged: ctx.isPlayMode && ctx.onChanged != null
           ? (v) => ctx.onChanged!(v)
           : (_) {},
+      onInteractionChanged: ctx.isPlayMode ? ctx.onInteractionChanged : null,
       min: (ctx.properties['min'] as num?)?.toDouble() ?? 0,
       max: (ctx.properties['max'] as num?)?.toDouble() ?? 100,
       orientation: vertical ? RKAxis.vertical : RKAxis.horizontal,
@@ -127,6 +128,7 @@ class KnobWidgetDefinition extends WidgetDefinition {
       onChanged: ctx.isPlayMode && ctx.onChanged != null
           ? (v) => ctx.onChanged!(v)
           : (_) {},
+      onInteractionChanged: ctx.isPlayMode ? ctx.onInteractionChanged : null,
       min: wMin,
       max: wMax,
       minAngle: (ctx.properties['minAngle'] as num?)?.toDouble() ?? -135,
@@ -193,6 +195,7 @@ class SteeringWheelWidgetDefinition extends WidgetDefinition {
       onChanged: ctx.isPlayMode && ctx.onChanged != null
           ? (v) => ctx.onChanged!(v)
           : (_) {},
+      onInteractionChanged: ctx.isPlayMode ? ctx.onInteractionChanged : null,
       min: wMin,
       max: wMax,
       minAngle: (ctx.properties['minAngle'] as num?)?.toDouble() ?? -135,
@@ -259,6 +262,7 @@ class GasPedalWidgetDefinition extends WidgetDefinition {
       onChanged: ctx.isPlayMode && ctx.onChanged != null
           ? (v) => ctx.onChanged!(v)
           : (_) {},
+      onInteractionChanged: ctx.isPlayMode ? ctx.onInteractionChanged : null,
       min: wMin,
       max: wMax,
       orientation: vertical ? RKAxis.vertical : RKAxis.horizontal,

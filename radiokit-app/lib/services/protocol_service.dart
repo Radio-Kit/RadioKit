@@ -185,12 +185,13 @@ class ProtocolService {
   /// Build an ACK packet acknowledging a VAR_UPDATE with [seq].
   static Uint8List buildAck(int seq) => buildPacket(kCmdAck, [seq & 0xFF]);
 
-  /// Build a VAR_UPDATE packet: [PAGE(1)] [WIDGET_ID(1)] [SEQ(1)] [VALUES...]
+  /// Build a VAR_UPDATE packet: [PAGE(1)] [WIDGET_ID(1)] [FLAGS(1)] [VALUES...]
   /// The page prefix byte is only emitted when [page] > 0, for v4 firmware compat.
-  static Uint8List buildVarUpdate(int widgetId, int seq, List<int> values, {int page = 0}) {
+  static Uint8List buildVarUpdate(int widgetId, List<int> values, {bool active = true, int page = 0}) {
     final payload = <int>[];
     if (page > 0) payload.add(page & 0xFF);
-    payload.addAll([widgetId & 0xFF, seq & 0xFF, ...values]);
+    final flags = active ? kVarFlagActive : 0x00;
+    payload.addAll([widgetId & 0xFF, flags & 0xFF, ...values]);
     return buildPacket(kCmdVarUpdate, payload);
   }
 

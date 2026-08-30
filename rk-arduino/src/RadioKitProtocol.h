@@ -41,6 +41,9 @@
 // Settings sub-commands are in RadioKitSettings.h (0xDD protocol).
 // REBOOT: 0x0D in settings protocol — reboot without erasing NVS.
 
+// ── VAR_UPDATE Flags ───────────────────────────────────────────────────────
+#define RK_VAR_FLAG_ACTIVE 0x01  ///< User is actively interacting with the widget
+
 // ── Page management commands ─────────────────────────────────────────────
 #define RK_CMD_SET_PAGE     0x20  // App → Arduino: switch to page N
 #define RK_CMD_PAGE_CHANGED 0x21  // Arduino → App: page switch acknowledged

@@ -67,6 +67,7 @@ class ButtonWidgetDefinition extends WidgetDefinition {
       onChanged: ctx.isPlayMode && ctx.onChanged != null
           ? (v) => ctx.onChanged!(v)
           : (_) {},
+      onInteractionChanged: ctx.isPlayMode ? ctx.onInteractionChanged : null,
       size: math.min(ctx.width.toDouble(), ctx.height.toDouble()) * ctx.cellSize,
       showDebug: ctx.isPlayMode ? false : ctx.isSelected,
     );
@@ -126,6 +127,7 @@ class SlideSwitchWidgetDefinition extends WidgetDefinition {
       onChanged: ctx.isPlayMode && ctx.onChanged != null
           ? (v) => ctx.onChanged!(v)
           : (_) {},
+      onInteractionChanged: ctx.isPlayMode ? ctx.onInteractionChanged : null,
       onText: ctx.properties['onText'] ?? 'ON',
       offText: ctx.properties['offText'] ?? 'OFF',
       icon: switchIcon,
@@ -175,6 +177,7 @@ class RockerSwitchWidgetDefinition extends WidgetDefinition {
       onChanged: ctx.isPlayMode && ctx.onChanged != null
           ? (v) => ctx.onChanged!(v)
           : (_) {},
+      onInteractionChanged: ctx.isPlayMode ? ctx.onInteractionChanged : null,
       onIcon: iconFromName(ctx.properties['onIcon'] as String?),
       offIcon: iconFromName(ctx.properties['offIcon'] as String?),
       enableHapticFeedback: ctx.properties['haptic'] ?? true,

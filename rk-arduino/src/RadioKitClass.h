@@ -23,10 +23,11 @@
 
 class RadioKit_Widget;
 
-// ── Active-input release timeout (ms) ────────────────────────
-// After the last input packet from the app, rk.active stays true
-// for this duration before being cleared by update().
-#define RK_ACTIVE_RELEASE_MS 200
+// ── Safety watchdog timeout (ms) ────────────────────────
+// If a widget is active but no keepalive packet is received for this duration
+// (e.g. abrupt disconnect or app crash), rk.active is cleared for safety.
+#define RK_SAFETY_WATCHDOG_MS 500
+#define RK_ACTIVE_RELEASE_MS RK_SAFETY_WATCHDOG_MS
 
 // ── Config object ────────────────────────────────────────────
 struct RK_Config {

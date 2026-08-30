@@ -433,9 +433,9 @@ void RadioKitClass::update() {
             // Hidden gating: skip hidden widgets entirely.
             if (w->hidden()) continue;
 
-            // Active-release timeout: clear rk.active if no input packet
-            // received within the release window.
-            if (_lastInputMs[i] != 0 && (now - _lastInputMs[i]) >= RK_ACTIVE_RELEASE_MS) {
+            // Safety watchdog timeout: clear rk.active if no keepalive packet
+            // received within the safety window (e.g. abrupt disconnect or app crash).
+            if (_lastInputMs[i] != 0 && (now - _lastInputMs[i]) >= RK_SAFETY_WATCHDOG_MS) {
                 w->setActive(false);
                 _lastInputMs[i] = 0;
             }
@@ -1231,7 +1231,7 @@ void RadioKitClass::_handleVarUpdate(const uint8_t* payload, uint16_t len) {
         return;
     }
     uint8_t widgetId = payload[0];
-    uint8_t seq = payload[1];
+    uint8_t flags = payload[1];
     if (widgetId >= _widgetCount) {
         RK_DEBUG_PRINT("[DBG] _handleVarUpdate: invalid widgetId %d\n", widgetId);
         return;
@@ -1240,8 +1240,9 @@ void RadioKitClass::_handleVarUpdate(const uint8_t* payload, uint16_t len) {
     RadioKit_Widget* w = _widgets[widgetId];
     uint8_t inSz = w->inputSize();
     uint8_t outSz = w->outputSize();
-    RK_DEBUG_PRINT("[DBG] _handleVarUpdate: wid=%d seq=%d inSz=%d outSz=%d\n",
-        widgetId, seq, inSz, outSz);
+    bool active = (flags & RK_VAR_FLAG_ACTIVE) != 0;
+    RK_DEBUG_PRINT("[DBG] _handleVarUpdate: wid=%d flags=0x%02X active=%d inSz=%d outSz=%d\n",
+        widgetId, flags, active, inSz, outSz);
     
     if (inSz > 0 && 2 + inSz <= len) {
         uint8_t oldVal = 0;
@@ -1252,8 +1253,8 @@ void RadioKitClass::_handleVarUpdate(const uint8_t* payload, uint16_t len) {
             RK_DEBUG_PRINT("[DBG]   input: old=%d new=%d, updating shadow\n", oldVal, newVal);
             memcpy(_shadowInput[widgetId], &payload[2], inSz);
         }
-        w->setActive(true);
-        _lastInputMs[widgetId] = millis();
+        w->setActive(active);
+        _lastInputMs[widgetId] = active ? millis() : 0;
     } else if (outSz > 0 && 2 + outSz <= len) {
         // Output widgets (LED, Text) receive VAR_UPDATE for value updates
         // (No deserializeOutput method exists in the base Widget interface)

@@ -38,6 +38,9 @@ const int kCmdFactoryReset = 0x1B;
 const int kCmdGetWifiInfo = 0x1D;
 const int kCmdWifiInfoData = 0x1E;
 
+// ── VAR_UPDATE Flags ───────────────────────────────────────────────────────
+const int kVarFlagActive = 1 << 0;  // 0x01: User is actively interacting with the widget
+
 // ── Page management commands ─────────────────────────────────────────────
 const int kCmdSetPage    = 0x20;  // App → MCU: switch to page N
 const int kCmdPageChanged = 0x21;  // MCU → App: page switch acknowledged

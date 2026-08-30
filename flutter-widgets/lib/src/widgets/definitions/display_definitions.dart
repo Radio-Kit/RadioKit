@@ -48,9 +48,11 @@ class JoystickWidgetDefinition extends WidgetDefinition {
   Widget buildCanvasWidget(BuildContext context, WidgetBuildContext ctx) {
     final acList = ctx.properties['autoCenter'] as List?;
     return RKJoystick(
+      value: ctx.runtimeValue is RKJoystickValue ? ctx.runtimeValue as RKJoystickValue : null,
       onChanged: ctx.isPlayMode && ctx.onChanged != null
           ? (v) => ctx.onChanged!(v)
           : (_) {},
+      onInteractionChanged: ctx.isPlayMode ? ctx.onInteractionChanged : null,
       autoCenter: acEnabled(acList),
       center: RKJoystickValue(
         x: (ctx.properties['centerX'] as num?)?.toDouble() ?? 0,

@@ -27,6 +27,9 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
 
   final Map<int, Timer> _throttleTimers = {};
   final Map<int, List<int>> _pendingPayloads = {};
+  final Map<int, Timer> _keepaliveTimers = {};
+  final Map<int, List<int>> _lastSentPayloads = {};
+  final Map<int, bool> _activeWidgetStates = {};
 
   @override
   void initState() {
@@ -39,6 +42,7 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
       _designerState.togglePlayMode();
     }
     _designerState.onRuntimeValueChanged = _onWidgetValueChanged;
+    _designerState.onRuntimeInteractionChanged = _onWidgetInteractionChanged;
     _syncElementsFromJson();
     final deviceActivePage = widget.deviceProvider.activePage;
     if (_designerState.activePageIndex != deviceActivePage &&
@@ -86,6 +90,12 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
     }
     _throttleTimers.clear();
     _pendingPayloads.clear();
+    for (final timer in _keepaliveTimers.values) {
+      timer.cancel();
+    }
+    _keepaliveTimers.clear();
+    _lastSentPayloads.clear();
+    _activeWidgetStates.clear();
     widget.deviceProvider.removeListener(_onDeviceProviderChanged);
     _designerState.removeListener(_onDesignerStateChanged);
     _designerState.dispose();
@@ -228,7 +238,8 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
   }
 
   void _onWidgetValueChanged(String id, dynamic value) {
-    final el = _designerState.elements.firstWhere((e) => e.id == id);
+    final el = _designerState.elements.where((e) => e.id == id).firstOrNull;
+    if (el == null) return;
     final widgetId = el.properties['widgetId'] as int? ?? 0;
     final config = _widgetConfigForElement(el);
     if (config.typeId == 0) return;
@@ -267,6 +278,9 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
       payload = [(value is num) ? value.toInt() : 0];
     }
 
+    _lastSentPayloads[widgetId] = payload;
+    final isActive = _activeWidgetStates[widgetId] ?? true;
+
     // NOTE: Do NOT skip based on runtime widget value here — it was already
     // updated by setRuntimeWidgetValue() before this callback fires, so it
     // always matches. The skip logic is handled by setInputValue() which
@@ -275,7 +289,7 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
       _throttleTimers[widgetId]?.cancel();
       _throttleTimers.remove(widgetId);
       _pendingPayloads.remove(widgetId);
-      widget.deviceProvider.setInputValue(widgetId, payload);
+      widget.deviceProvider.setInputValue(widgetId, payload, active: isActive);
       return;
     }
 
@@ -285,15 +299,55 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
     }
 
     // Send immediately if no throttle timer is running, then throttle subsequent samples
-    widget.deviceProvider.setInputValue(widgetId, payload);
+    widget.deviceProvider.setInputValue(widgetId, payload, active: isActive);
     _pendingPayloads.remove(widgetId);
 
     _throttleTimers[widgetId] = Timer(const Duration(milliseconds: 10), () {
       final latest = _pendingPayloads.remove(widgetId);
       if (latest != null && mounted) {
-        widget.deviceProvider.setInputValue(widgetId, latest);
+        final currentActive = _activeWidgetStates[widgetId] ?? true;
+        widget.deviceProvider.setInputValue(widgetId, latest, active: currentActive);
       }
     });
+  }
+
+  void _onWidgetInteractionChanged(String id, bool active) {
+    final el = _designerState.elements.where((e) => e.id == id).firstOrNull;
+    if (el == null) return;
+    final widgetId = el.properties['widgetId'] as int? ?? 0;
+    final config = _widgetConfigForElement(el);
+    if (config.typeId == 0) return;
+
+    _activeWidgetStates[widgetId] = active;
+    final isContinuous = config.typeId == kWidgetSlider ||
+        config.typeId == kWidgetKnob ||
+        config.typeId == kWidgetJoystick;
+
+    if (active) {
+      if (isContinuous) {
+        _keepaliveTimers[widgetId]?.cancel();
+        _keepaliveTimers[widgetId] = Timer.periodic(const Duration(milliseconds: 60), (timer) {
+          if (!mounted || !(_activeWidgetStates[widgetId] ?? false)) {
+            timer.cancel();
+            _keepaliveTimers.remove(widgetId);
+            return;
+          }
+          final payload = _lastSentPayloads[widgetId];
+          if (payload != null) {
+            widget.deviceProvider.setInputValue(widgetId, payload, active: true, force: true);
+          }
+        });
+      }
+    } else {
+      _keepaliveTimers[widgetId]?.cancel();
+      _keepaliveTimers.remove(widgetId);
+
+      // Immediately send explicit release packet (active = false)
+      final payload = _lastSentPayloads[widgetId];
+      if (payload != null) {
+        widget.deviceProvider.setInputValue(widgetId, payload, active: false, force: true);
+      }
+    }
   }
 
   @override
