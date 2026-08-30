@@ -64,6 +64,10 @@ public:
     virtual void serializeOutput(uint8_t* buf)         const = 0;
     virtual void deserializeInput(const uint8_t* buf)        = 0;
 
+    /// Called by RadioKitClass when input arrives from the companion app.
+    /// Widgets with an rk.active field should override this to set it.
+    virtual void setActive(bool active) { (void)active; }
+
     virtual uint16_t serializeStrings(uint8_t* buf) const;
     virtual const char* getContent() const { return nullptr; }
 

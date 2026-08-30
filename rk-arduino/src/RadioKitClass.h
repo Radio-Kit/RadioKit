@@ -23,6 +23,11 @@
 
 class RadioKit_Widget;
 
+// ── Active-input release timeout (ms) ────────────────────────
+// After the last input packet from the app, rk.active stays true
+// for this duration before being cleared by update().
+#define RK_ACTIVE_RELEASE_MS 200
+
 // ── Config object ────────────────────────────────────────────
 struct RK_Config {
     // ── User configurable ────────────────────────────────────
@@ -223,6 +228,8 @@ private:
     uint8_t _shadowInput[RADIOKIT_MAX_WIDGETS][4];
     // Shadow state for output changes (LED, Text, Telemetry)
     uint8_t _shadowOutput[RADIOKIT_MAX_WIDGETS][RADIOKIT_TEXT_LEN + 1];
+    // Timestamp of last input packet per widget (for rk.active release timeout)
+    uint32_t _lastInputMs[RADIOKIT_MAX_WIDGETS];
 
     uint8_t _txBuf[RK_MAX_PACKET_SIZE];
 

@@ -39,6 +39,7 @@ public:
     void serializeInput(uint8_t* buf)          const override;
     void serializeOutput(uint8_t*)           const override {}
     void deserializeInput(const uint8_t* buf)      override;
+    void setActive(bool active) override { rk.active = active; }
 
     void setItemMask(uint8_t mask) {
         rk.itemMask = mask;

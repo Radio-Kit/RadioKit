@@ -88,6 +88,7 @@ RadioKitClass::RadioKitClass()
     memset(_txBuf,   0, sizeof(_txBuf));
     memset(_shadowInput, 0, sizeof(_shadowInput));
     memset(_shadowOutput, 0, sizeof(_shadowOutput));
+    memset(_lastInputMs, 0, sizeof(_lastInputMs));
     memset(_nvsName, 0, sizeof(_nvsName));
     memset(_nvsDesc, 0, sizeof(_nvsDesc));
     memset(_nvsPwd,  0, sizeof(_nvsPwd));
@@ -419,12 +420,21 @@ void RadioKitClass::update() {
     s_lastConnected = nowConnected;
 
     if (isConnected()) {
+        uint32_t now = millis();
         for (uint8_t i = 0; i < _widgetCount; i++) {
             RadioKit_Widget* w = _widgets[i];
             // Page gating: skip widgets not on the active page.
             if (w->page() != _activePage) continue;
             // Hidden gating: skip hidden widgets entirely.
             if (w->hidden()) continue;
+
+            // Active-release timeout: clear rk.active if no input packet
+            // received within the release window.
+            if (_lastInputMs[i] != 0 && (now - _lastInputMs[i]) >= RK_ACTIVE_RELEASE_MS) {
+                w->setActive(false);
+                _lastInputMs[i] = 0;
+            }
+
             uint8_t inSz = w->inputSize();
             uint8_t outSz = w->outputSize();
             
@@ -436,7 +446,12 @@ void RadioKitClass::update() {
                 if (!match) {
                     RK_DEBUG_PRINT("[DBG]   -> input shadow MISMATCH for widget %d!\n", i);
                     memcpy(_shadowInput[i], currentBuf, inSz);
-                    pushUpdate(i);
+                    // Suppress pushUpdate while the user is actively touching
+                    // this input widget — prevents firmware from fighting the
+                    // user's hand on screen.
+                    if (_lastInputMs[i] == 0) {
+                        pushUpdate(i);
+                    }
                 }
             }
             
@@ -1191,6 +1206,8 @@ void RadioKitClass::_handleSetInput(const uint8_t* payload, uint16_t len) {
         if (sz <= 4) {
             memcpy(_shadowInput[i], payload + offset, sz);
         }
+        w->setActive(true);
+        _lastInputMs[i] = millis();
         RK_DEBUG_PRINT("[DBG]   widget[%d]: sz=%d, val=%d\n", i, sz, payload[offset]);
         offset += sz;
     }
@@ -1230,6 +1247,8 @@ void RadioKitClass::_handleVarUpdate(const uint8_t* payload, uint16_t len) {
             RK_DEBUG_PRINT("[DBG]   input: old=%d new=%d, updating shadow\n", oldVal, newVal);
             memcpy(_shadowInput[widgetId], &payload[2], inSz);
         }
+        w->setActive(true);
+        _lastInputMs[widgetId] = millis();
     } else if (outSz > 0 && 2 + outSz <= len) {
         // Output widgets (LED, Text) receive VAR_UPDATE for value updates
         // (No deserializeOutput method exists in the base Widget interface)
