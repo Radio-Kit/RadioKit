@@ -413,6 +413,11 @@ void RadioKitClass::update() {
         // All transports disconnected — reset auth
         _deviceAuthenticated = (_nvsPwd[0] == '\0');
         _userAuthenticated = _deviceAuthenticated;
+        // Reset all rk.active flags — no client is touching widgets anymore
+        for (uint8_t i = 0; i < _widgetCount; i++) {
+            _widgets[i]->setActive(false);
+            _lastInputMs[i] = 0;
+        }
     } else if (!s_lastConnected && nowConnected) {
         // Transport just connected — flush any buffered print messages
         _flushPrintBuffer();
