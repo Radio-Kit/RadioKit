@@ -610,7 +610,7 @@ class ProtocolService {
       if (sz == 0) continue;
       if (offset >= payload.length) break;
 
-      if (widget.typeId == kWidgetText) {
+      if (widget.typeId == kWidgetText || widget.typeId == kWidgetTelemetry) {
         // [LEN(1)] [CHARS...]
         final len = payload[offset];
         final remaining = payload.length - (offset + 1);
@@ -618,7 +618,7 @@ class ProtocolService {
         
         final text = utf8.decode(payload.sublist(offset + 1, end), allowMalformed: true);
         state = state.copyWithOutput(widget.widgetId, text);
-        offset += 32; // Skip the fixed-size slot
+        offset += sz; // Skip the fixed-size slot
       } else if (widget.typeId == kWidgetLed) {
         if (offset + 5 <= payload.length) {
           final led = List<int>.from(payload.sublist(offset, offset + 5));

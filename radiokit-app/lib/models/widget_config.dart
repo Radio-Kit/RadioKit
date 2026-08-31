@@ -409,7 +409,7 @@ class RadioWidgetState {
         }
       }
       if (w.hasOutput) {
-        if (w.typeId == kWidgetText) {
+        if (w.typeId == kWidgetText || w.typeId == kWidgetTelemetry) {
           outputs[w.widgetId] = '';
         } else if (w.typeId == kWidgetLed) {
           outputs[w.widgetId] = [0, 0, 0, 0, 0]; // STATE R G B OPACITY

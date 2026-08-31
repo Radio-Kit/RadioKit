@@ -501,8 +501,8 @@ class RemoteAccessService {
 
     Map<String, dynamic> stateJson = {};
     if (w.hasOutput) {
-      if (w.typeId == kWidgetText) {
-        stateJson['text'] = outputs is String ? outputs : '';
+      if (w.typeId == kWidgetText || w.typeId == kWidgetTelemetry) {
+        stateJson['text'] = outputs is String ? outputs : (outputs?.toString() ?? '');
       } else if (w.typeId == kWidgetLed) {
         final arr = outputs is List ? outputs as List<int> : <int>[0, 0, 0, 0, 0];
         stateJson['values'] = arr;
