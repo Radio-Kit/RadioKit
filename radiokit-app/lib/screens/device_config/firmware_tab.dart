@@ -329,9 +329,9 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
           const SizedBox(height: 24),
 
           // ── Firmware info ────────────────────────────────────
+          _infoRow('DEVICE', configName),
           if (dp.board != null && dp.board!.isNotEmpty)
             _infoRow('BOARD', dp.board!),
-          _infoRow('DEVICE', configName),
           _infoRow('VERSION', currentVersion),
           if (dp.otaUrl.isNotEmpty) _infoRow('OTA SOURCE', dp.otaUrl),
           const SizedBox(height: 24),
