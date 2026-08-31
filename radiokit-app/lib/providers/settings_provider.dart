@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Manages runtime application settings that cannot be configured via compile-time macros.
 class SettingsProvider with ChangeNotifier {
   static const _storageKey = 'radiokit_settings';
-  static const _defaultUseFullscreen = false;
+  static const _defaultUseFullscreen = true;
   static const _defaultEnableRemoteAccess = false;
   static const _defaultFollowRemoteAccess = false;
   static const _defaultOverrideTheme = false;

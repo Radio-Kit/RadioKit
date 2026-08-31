@@ -102,15 +102,35 @@ This allows the app to clean up stored credentials or files after an update.
 | Invalid State | 5 | Update not in progress |
 | Not Supported | 6 | OTA not compiled in |
 
-## Firmware Version Management
+## Board & Firmware Version Management
 
-Always update `RadioKit.config.version` when releasing new firmware:
+Define the target board model and firmware semantic version in `platformio.ini` or sketch:
 
-```cpp
-RadioKit.config.version = "1.2.0";  // Semantic versioning
+```ini
+build_flags =
+    -DRK_ENABLE_OTA
+    -DRK_BOARD=\"TRACKLINK_V3\"
+    -DRK_VERSION=\"1.2.0\"
+    -DRK_OTA_URL=\"https://github.com/Radio-Kit/demo-fs-assets\"
 ```
 
-The app can read this via the settings protocol to check for updates.
+Or in sketch `RADIOKIT.h`:
+
+```cpp
+#define RK_BOARD   "TRACKLINK_V3"
+#define RK_VERSION "1.2.0"
+#define RK_OTA_URL "https://github.com/Radio-Kit/demo-fs-assets"
+
+#include <RadioKitLib.h>
+```
+
+### Release Binary Asset Naming Convention
+
+When attaching compiled firmware binaries to a GitHub release, name your OTA update binaries with the board name and `-ota` suffix:
+- `TRACKLINK_V3-ota.bin` (OTA update binary)
+- `GTRACK_V1-ota.bin` (OTA update binary)
+
+The companion app automatically filters for `-ota` binaries, matches the device's `board` identifier, and selects the matching file while providing a "Show All" toggle for manual selection.
 
 ## Partition Table
 

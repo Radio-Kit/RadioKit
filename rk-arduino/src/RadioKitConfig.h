@@ -166,16 +166,20 @@
 #define RADIOKIT_MAX_FS_URL         128 ///< Filesystem repo URL max chars
 #define RADIOKIT_MAX_OTA_URL        128 ///< OTA firmware URL max chars
 
+#define RADIOKIT_MAX_BOARD          32  ///< Board name max chars
 #define RADIOKIT_MAX_VERSION        32  ///< Firmware version string max chars
 
 // ─────────────────────────────────────────────
-//  Default Link / Version Macros (can be defined in sketch or platformio.ini)
+//  Default Link / Board / Version Macros (can be defined in sketch or platformio.ini)
 // ─────────────────────────────────────────────
 #ifndef RK_FS_URL
 #define RK_FS_URL ""
 #endif
 #ifndef RK_OTA_URL
 #define RK_OTA_URL ""
+#endif
+#ifndef RK_BOARD
+#define RK_BOARD "ESP32_GENERIC"
 #endif
 #ifndef RK_VERSION
 #define RK_VERSION "1.0.0"

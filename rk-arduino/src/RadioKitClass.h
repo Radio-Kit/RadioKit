@@ -35,6 +35,7 @@ struct RK_Config {
     const char* name        = "RadioKit Device";
     const char* password    = "";
     const char* description = "";
+    const char* board       = RK_BOARD;
     const char* version     = RK_VERSION;
     const char* type        = "";
     const char* theme       = "dragon";

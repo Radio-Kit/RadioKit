@@ -300,9 +300,9 @@ class SettingsProtocolService {
     return (fsUrl: fsUrl, otaUrl: otaUrl);
   }
 
-  /// Parse DEVICE_INFO_DATA: [PROTO_VER(1)][NAME_LEN(1)][NAME][DESC_LEN(1)][DESC][UID_LEN(1)][UID][ICON_LEN(1)][ICON...][VER_LEN(1)][VERSION...]
-  /// Icon and firmwareVersion fields are optional (protocol v5+). Returns null if invalid.
-  static ({int version, String name, String description, String uid, String? icon, String? firmwareVersion})? parseDeviceInfoData(
+  /// Parse DEVICE_INFO_DATA: [PROTO_VER(1)][NAME_LEN(1)][NAME][DESC_LEN(1)][DESC][UID_LEN(1)][UID][ICON_LEN(1)][ICON...][BOARD_LEN(1)][BOARD...][VER_LEN(1)][VERSION...]
+  /// Icon, board, and firmwareVersion fields are optional (protocol v5+). Returns null if invalid.
+  static ({int version, String name, String description, String uid, String? icon, String? board, String? firmwareVersion})? parseDeviceInfoData(
       List<int> payload) {
     if (payload.length < 3) return null;
     int offset = 0;
@@ -340,6 +340,16 @@ class SettingsProtocolService {
       }
       // If iconLen == 0, icon remains null (not set)
     }
+    // Parse optional board string
+    String? board;
+    if (offset + 1 <= payload.length) {
+      final boardLen = payload[offset++];
+      if (boardLen > 0 && offset + boardLen <= payload.length) {
+        board = utf8.decode(payload.sublist(offset, offset + boardLen),
+            allowMalformed: true);
+        offset += boardLen;
+      }
+    }
     // Parse optional firmware version string
     String? firmwareVersion;
     if (offset + 1 <= payload.length) {
@@ -356,6 +366,7 @@ class SettingsProtocolService {
       description: description,
       uid: uid,
       icon: icon,
+      board: board,
       firmwareVersion: firmwareVersion,
     );
   }

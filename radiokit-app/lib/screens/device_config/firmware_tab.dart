@@ -45,6 +45,7 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
   ReleaseAsset? _selectedReleaseAsset;
   bool _changelogExpanded = false;
   bool _hasCheckedOnMount = false;
+  bool _showAllBinaries = false;
 
   @override
   void initState() {
@@ -91,8 +92,8 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
         _latestRelease = release;
         _checkingUpdate = false;
         if (release != null) {
-          final configName = dp.configName ?? widget.device.name;
-          _selectedReleaseAsset = release.findBestAsset(configName);
+          final targetBoardOrName = dp.board ?? dp.configName ?? widget.device.name;
+          _selectedReleaseAsset = release.findBestAsset(targetBoardOrName, showAll: _showAllBinaries);
         }
       });
     } catch (e) {
@@ -328,6 +329,8 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
           const SizedBox(height: 24),
 
           // ── Firmware info ────────────────────────────────────
+          if (dp.board != null && dp.board!.isNotEmpty)
+            _infoRow('BOARD', dp.board!),
           _infoRow('DEVICE', configName),
           _infoRow('VERSION', currentVersion),
           if (dp.otaUrl.isNotEmpty) _infoRow('OTA SOURCE', dp.otaUrl),
@@ -657,7 +660,7 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
 
     final release = _latestRelease!;
     final isNewer = FirmwareReleaseService.isNewerVersion(release.version, currentVersion);
-    final binAssets = release.binAssets;
+    final binAssets = release.getFilteredBinAssets(showAll: _showAllBinaries);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -761,14 +764,53 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
 
           // ── Asset Selection ──────────────────────────────────
           if (binAssets.isNotEmpty) ...[
-            Text(
-              'TARGET FIRMWARE BINARY',
-              style: TextStyle(
-                color: context.tokens.onSurface.withValues(alpha: 0.54),
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.8,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'TARGET FIRMWARE BINARY',
+                  style: TextStyle(
+                    color: context.tokens.onSurface.withValues(alpha: 0.54),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                if (release.hasOtaBinAssets)
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _showAllBinaries = !_showAllBinaries;
+                        final updatedBins =
+                            release.getFilteredBinAssets(showAll: _showAllBinaries);
+                        if (_selectedReleaseAsset == null ||
+                            !updatedBins.contains(_selectedReleaseAsset)) {
+                          final targetBoardOrName =
+                              dp.board ?? dp.configName ?? widget.device.name;
+                          _selectedReleaseAsset = release.findBestAsset(
+                              targetBoardOrName,
+                              showAll: _showAllBinaries);
+                        }
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      child: Text(
+                        _showAllBinaries
+                            ? 'SHOW ONLY OTA (${release.otaBinAssets.length})'
+                            : 'SHOW ALL (${release.binAssets.length})',
+                        style: TextStyle(
+                          color: context.tokens.primary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.6,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 6),
             if (binAssets.length == 1) ...[

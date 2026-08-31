@@ -4,12 +4,12 @@
 TBD - created by archiving change firmware-ota-check. Update Purpose after archive.
 ## Requirements
 ### Requirement: Firmware Reports Version in Device Info Frame
-The firmware `RadioKitClass::_handleSettingsDeviceInfo()` handler SHALL append the firmware version string (`RadioKit.config.version`) to the `SETTINGS_RESP_DEVICE_INFO_DATA` (0x88) payload.
+The firmware `RadioKitClass::_handleSettingsDeviceInfo()` handler SHALL append both the board identifier string (`RadioKit.config.board`) and firmware version string (`RadioKit.config.version`) to the `SETTINGS_RESP_DEVICE_INFO_DATA` (0x88) payload.
 
 #### Scenario: Host queries device info
 - **WHEN** the companion app sends `SETTINGS_CMD_GET_DEVICE_INFO` (0x08)
-- **THEN** the firmware returns a payload containing `[PROTO_VER][NAME_LEN][NAME][DESC_LEN][DESC][UID_LEN][UID][ICON_LEN][ICON][VER_LEN][VERSION]`
-- **AND** the companion app parses and stores the `firmwareVersion` string in `DeviceProvider`.
+- **THEN** the firmware returns a payload containing `[PROTO_VER][NAME_LEN][NAME][DESC_LEN][DESC][UID_LEN][UID][ICON_LEN][ICON][BOARD_LEN][BOARD][VER_LEN][VERSION]`
+- **AND** the companion app parses and stores `board` and `firmwareVersion` strings in `DeviceProvider`.
 
 ### Requirement: Companion App Fetches Latest Release from GitHub
 The companion app `FirmwareReleaseService` SHALL parse GitHub repository URLs from `otaUrl` and fetch release metadata from the GitHub Releases API.
@@ -24,15 +24,19 @@ The companion app `FirmwareReleaseService` SHALL parse GitHub repository URLs fr
 - **THEN** `FirmwareReleaseService.fetchLatestRelease()` returns null and the UI displays no remote update source.
 
 ### Requirement: Companion App Matches Binary Assets
-The companion app SHALL automatically identify and match `.bin` firmware assets in the release against the connected device's name or board identifier.
+The companion app SHALL filter release binary assets for `-ota` suffix by default when present, and match candidate `.bin` firmware assets against the connected device's board identifier.
 
-#### Scenario: Release has board-specific binary matching device name
-- **WHEN** the connected device name is `MIKRO_V2` and the release assets contain `MIKRO_V2.bin` and `TRACKLINK_V3.bin`
-- **THEN** `MIKRO_V2.bin` is automatically selected as the active target asset.
+#### Scenario: Release contains `-ota` assets matching board identifier
+- **WHEN** the connected device board is `TRACKLINK_V3` and the release assets contain `TRACKLINK_V3-ota.bin`, `TRACKLINK_V3-full.bin`, and `GTRACK_V1-ota.bin`
+- **THEN** only `-ota` assets are shown by default and `TRACKLINK_V3-ota.bin` is automatically selected as the target asset.
 
-#### Scenario: Multiple binary assets with manual override
-- **WHEN** multiple `.bin` assets are available in the release
-- **THEN** the Firmware Tab displays an asset selection dropdown allowing the user to select any binary asset.
+#### Scenario: User toggles Show All binaries
+- **WHEN** `-ota` filtering is active and the user clicks the "SHOW ALL" toggle
+- **THEN** all `.bin` assets in the release are made available in the asset selector dropdown.
+
+#### Scenario: Release has no `-ota` naming convention
+- **WHEN** none of the `.bin` assets contain `-ota` or `_ota` in their filenames
+- **THEN** all `.bin` assets are shown without filtering and the best match against the device's board identifier is selected.
 
 ### Requirement: Firmware Tab Renders Update Status and Allows Manual Flashing
 The companion app `FirmwareTabContent` SHALL display current version vs latest remote version, render changelog notes, and download the binary asset into memory when the user triggers an update.

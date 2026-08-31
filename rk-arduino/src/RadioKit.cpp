@@ -1105,6 +1105,15 @@ void RadioKitClass::_handleSettingsDeviceInfo() {
         offset += iconLen;
     }
 
+    // Append board name (optional)
+    const char* brd = config.board ? config.board : "";
+    uint8_t brdLen = (uint8_t)strnlen(brd, RADIOKIT_MAX_BOARD);
+    buf[offset++] = brdLen;
+    if (brdLen > 0) {
+        memcpy(&buf[offset], brd, brdLen);
+        offset += brdLen;
+    }
+
     // Append firmware version (optional)
     const char* ver = config.version ? config.version : "";
     uint8_t verLen = (uint8_t)strnlen(ver, RADIOKIT_MAX_VERSION);

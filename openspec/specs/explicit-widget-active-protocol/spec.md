@@ -1,5 +1,8 @@
-## ADDED Requirements
+# explicit-widget-active-protocol Specification
 
+## Purpose
+TBD - created by archiving change explicit-widget-active-protocol. Update Purpose after archive.
+## Requirements
 ### Requirement: Explicit Active Flag in Protocol
 The `VAR_UPDATE` wire packet (command `0x08`) SHALL include an explicit `flags` byte immediately following the `widgetId` byte: `[PAGE_IF_PRESENT] [WIDGET_ID (1B)] [FLAGS (1B)] [VALUES (1..4B)]`. Bit 0 (`0x01`) of `FLAGS` SHALL indicate the active interaction state (`1 = ACTIVE`, `0 = INACTIVE`).
 
@@ -47,3 +50,4 @@ The `RadioKitClass` in `rk-arduino` SHALL decode the `flags` byte in `VAR_UPDATE
 #### Scenario: Failsafe disconnect timeout on MCU
 - **WHEN** a widget is active (`w->active() == true`) but no packet is received for > 500ms
 - **THEN** `RadioKitClass` clears `widget->setActive(false)` and resets `_lastInputMs[widgetId] = 0`
+

@@ -69,39 +69,52 @@ void main() {
           downloadUrl: 'https://example.com/readme.md',
         ),
         ReleaseAsset(
-          name: 'MIKRO_V2.bin',
-          size: 1048576,
-          downloadUrl: 'https://example.com/mikro.bin',
+          name: 'MIKRO_V2-full.bin',
+          size: 4194304,
+          downloadUrl: 'https://example.com/mikro-full.bin',
         ),
         ReleaseAsset(
-          name: 'TRACKLINK_V3.bin',
+          name: 'MIKRO_V2-ota.bin',
+          size: 1048576,
+          downloadUrl: 'https://example.com/mikro-ota.bin',
+        ),
+        ReleaseAsset(
+          name: 'TRACKLINK_V3-ota.bin',
           size: 2097152,
-          downloadUrl: 'https://example.com/tracklink.bin',
+          downloadUrl: 'https://example.com/tracklink-ota.bin',
         ),
       ],
     );
 
-    test('filters binAssets', () {
-      expect(release.binAssets.length, 2);
-      expect(release.binAssets.map((a) => a.name), containsAll(['MIKRO_V2.bin', 'TRACKLINK_V3.bin']));
+    test('filters binAssets and otaBinAssets', () {
+      expect(release.binAssets.length, 3);
+      expect(release.hasOtaBinAssets, isTrue);
+      expect(release.otaBinAssets.length, 2);
+      expect(release.otaBinAssets.map((a) => a.name),
+          containsAll(['MIKRO_V2-ota.bin', 'TRACKLINK_V3-ota.bin']));
     });
 
-    test('finds exact matching asset by device name', () {
+    test('getFilteredBinAssets defaults to ota binaries when present', () {
+      expect(release.getFilteredBinAssets(showAll: false).length, 2);
+      expect(release.getFilteredBinAssets(showAll: true).length, 3);
+    });
+
+    test('finds exact matching asset by board name with -ota suffix', () {
       final asset = release.findBestAsset('MIKRO_V2');
       expect(asset, isNotNull);
-      expect(asset!.name, 'MIKRO_V2.bin');
+      expect(asset!.name, 'MIKRO_V2-ota.bin');
     });
 
-    test('finds substring matching asset by device name', () {
-      final asset = release.findBestAsset('mikro');
+    test('finds substring matching asset by board name', () {
+      final asset = release.findBestAsset('tracklink');
       expect(asset, isNotNull);
-      expect(asset!.name, 'MIKRO_V2.bin');
+      expect(asset!.name, 'TRACKLINK_V3-ota.bin');
     });
 
-    test('falls back to first bin asset when device name does not match', () {
+    test('falls back to first candidate bin asset when board name does not match', () {
       final asset = release.findBestAsset('UNKNOWN_BOARD');
       expect(asset, isNotNull);
-      expect(asset!.name, 'MIKRO_V2.bin');
+      expect(asset!.name, 'MIKRO_V2-ota.bin');
     });
   });
 

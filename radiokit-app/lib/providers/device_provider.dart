@@ -306,6 +306,7 @@ class DeviceProvider extends ChangeNotifier {
 
   String _fsUrl = '';
   String _otaUrl = '';
+  String? _board;
   String? _firmwareVersion;
 
   /// Configured filesystem repo / subfolder link from the device.
@@ -313,6 +314,9 @@ class DeviceProvider extends ChangeNotifier {
 
   /// Configured OTA firmware link placeholder from the device.
   String get otaUrl => _otaUrl;
+
+  /// Hardware board identifier reported by the device (e.g. "TRACKLINK_V3").
+  String? get board => _board;
 
   /// Firmware version reported by the device (e.g. "1.0.0").
   String? get firmwareVersion => _firmwareVersion;
@@ -1850,10 +1854,13 @@ class DeviceProvider extends ChangeNotifier {
       _log('DEVICE_INFO_DATA parse failed', level: ConsoleLogLevel.error);
       return;
     }
-    _log('Device info: v${parsed.version} "${parsed.name}" "${parsed.description}" uid="${parsed.uid}" ver="${parsed.firmwareVersion ?? ''}"',
+    _log('Device info: v${parsed.version} "${parsed.name}" "${parsed.description}" uid="${parsed.uid}" board="${parsed.board ?? ''}" ver="${parsed.firmwareVersion ?? ''}"',
         level: ConsoleLogLevel.success);
     _configName = parsed.name.isNotEmpty ? parsed.name : _configName;
     _description = parsed.description.isNotEmpty ? parsed.description : _description;
+    if (parsed.board != null && parsed.board!.isNotEmpty) {
+      _board = parsed.board;
+    }
     if (parsed.firmwareVersion != null && parsed.firmwareVersion!.isNotEmpty) {
       _firmwareVersion = parsed.firmwareVersion;
     }
@@ -3068,6 +3075,7 @@ class DeviceProvider extends ChangeNotifier {
     _cloudTransport   = null;
     _fsUrl            = '';
     _otaUrl           = '';
+    _board            = null;
     _firmwareVersion  = null;
     _linksInfoCompleter = null;
     // Note: saved password is NOT cleared on disconnect so it persists

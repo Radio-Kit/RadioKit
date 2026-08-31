@@ -12,7 +12,7 @@ void main() {
   group('SettingsProvider', () {
     test('initializes with default values', () {
       final provider = SettingsProvider();
-      expect(provider.useFullscreen, isFalse);
+      expect(provider.useFullscreen, isTrue);
       expect(provider.enableRemoteAccess, isFalse);
       expect(provider.followRemoteAccess, isFalse);
       expect(provider.overrideTheme, isFalse);
@@ -20,12 +20,12 @@ void main() {
 
     test('updates and persists settings', () async {
       final provider = SettingsProvider();
-      await provider.setUseFullscreen(true);
+      await provider.setUseFullscreen(false);
       await provider.setEnableRemoteAccess(true);
       await provider.setFollowRemoteAccess(true);
       await provider.setOverrideTheme(true);
 
-      expect(provider.useFullscreen, isTrue);
+      expect(provider.useFullscreen, isFalse);
       expect(provider.enableRemoteAccess, isTrue);
       expect(provider.followRemoteAccess, isTrue);
       expect(provider.overrideTheme, isTrue);

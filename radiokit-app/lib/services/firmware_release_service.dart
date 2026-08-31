@@ -53,15 +53,46 @@ class FirmwareRelease {
   List<ReleaseAsset> get binAssets =>
       assets.where((a) => a.name.toLowerCase().endsWith('.bin')).toList();
 
-  /// Finds the best matching `.bin` asset for a given device name.
-  ReleaseAsset? findBestAsset(String? deviceName) {
-    final bins = binAssets;
+  /// Binary assets specific to OTA updates (containing `-ota` or `_ota`).
+  List<ReleaseAsset> get otaBinAssets => binAssets
+      .where((a) =>
+          a.name.toLowerCase().contains('-ota') ||
+          a.name.toLowerCase().contains('_ota'))
+      .toList();
+
+  /// Whether this release contains any `-ota` designated binaries.
+  bool get hasOtaBinAssets => otaBinAssets.isNotEmpty;
+
+  /// Returns filtered binaries: only `-ota` binaries if present (unless [showAll] is true),
+  /// otherwise all binary assets.
+  List<ReleaseAsset> getFilteredBinAssets({bool showAll = false}) {
+    if (showAll || !hasOtaBinAssets) {
+      return binAssets;
+    }
+    return otaBinAssets;
+  }
+
+  /// Finds the best matching `.bin` asset for a given board identifier or device name.
+  ReleaseAsset? findBestAsset(String? boardOrName, {bool showAll = false}) {
+    final bins = getFilteredBinAssets(showAll: showAll);
     if (bins.isEmpty) return null;
 
-    if (deviceName != null && deviceName.trim().isNotEmpty) {
-      final cleanName = deviceName.trim().toLowerCase();
+    if (boardOrName != null && boardOrName.trim().isNotEmpty) {
+      final cleanName = boardOrName.trim().toLowerCase();
 
-      // 1. Exact match without extension (e.g. "MIKRO_V2" -> "mikro_v2.bin")
+      // 1. Exact match stripping -ota/_ota suffix and .bin extension
+      // (e.g. "TRACKLINK_V3" -> "tracklink_v3-ota.bin" or "tracklink_v3.bin")
+      for (final asset in bins) {
+        final assetBase = asset.name
+            .toLowerCase()
+            .replaceAll(RegExp(r'[\-_]ota\.bin$', caseSensitive: false), '')
+            .replaceAll(RegExp(r'\.bin$', caseSensitive: false), '');
+        if (assetBase == cleanName) {
+          return asset;
+        }
+      }
+
+      // 2. Exact match on raw name without .bin
       for (final asset in bins) {
         final assetBase = asset.name.toLowerCase().replaceAll(RegExp(r'\.bin$'), '');
         if (assetBase == cleanName) {
@@ -69,7 +100,7 @@ class FirmwareRelease {
         }
       }
 
-      // 2. Substring match (e.g. "mikro" in "firmware_mikro_v2.bin")
+      // 3. Substring match (e.g. "tracklink" in "firmware_tracklink_v3-ota.bin")
       for (final asset in bins) {
         if (asset.name.toLowerCase().contains(cleanName)) {
           return asset;
@@ -77,7 +108,7 @@ class FirmwareRelease {
       }
     }
 
-    // 3. Fallback to single or first binary
+    // 4. Fallback to single or first candidate binary
     return bins.first;
   }
 
