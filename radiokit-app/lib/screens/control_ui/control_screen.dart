@@ -175,7 +175,7 @@ class _ControlScreenState extends State<ControlScreen> {
 
     // Update system UI mode
     if (settings.useFullscreen) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     } else {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     }

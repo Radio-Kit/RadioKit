@@ -89,7 +89,7 @@ Returns all current app settings.
 
 ```json
 {
-  "useFullscreen": false,
+  "useFullscreen": true,
   "enableDevTools": true,
   "enableRemoteAccess": true,
   "followRemoteAccess": true
