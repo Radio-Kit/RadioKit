@@ -1207,13 +1207,16 @@ void RadioKitClass::_handleGetWifiInfo() {
 void RadioKitClass::_handleSetInput(const uint8_t* payload, uint16_t len) {
     RK_DEBUG_PRINT("[DBG] _handleSetInput: len=%d\n", len);
     uint16_t offset = 0;
+    if (_numPages > 1 && len > 0 && payload[0] < _numPages && payload[0] == _activePage) {
+        offset = 1; // skip page prefix byte
+    }
     for (uint8_t i = 0; i < _widgetCount; i++) {
         RadioKit_Widget* w = _widgets[i];
-        uint8_t sz = w->inputSize();
         // Page gating: skip widgets not on the active page.
-        if (w->page() != _activePage) { offset += sz; continue; }
+        if (w->page() != _activePage) continue;
         // Hidden gating: skip hidden widgets.
-        if (w->hidden()) { offset += sz; continue; }
+        if (w->hidden()) continue;
+        uint8_t sz = w->inputSize();
         if (sz == 0) continue;
         if (offset + sz > len) break;
         w->deserializeInput(payload + offset);
@@ -1241,6 +1244,15 @@ void RadioKitClass::_handleVarUpdate(const uint8_t* payload, uint16_t len) {
     }
     uint8_t widgetId = payload[0];
     uint8_t flags = payload[1];
+    uint8_t valOffset = 2;
+
+    if (_numPages > 1 && len >= 3 && payload[0] < _numPages && payload[1] < _widgetCount && _widgets[payload[1]]->page() == payload[0]) {
+        // Page prefix present: [PAGE(1)] [WIDGET_ID(1)] [FLAGS(1)] [VALUES...]
+        widgetId = payload[1];
+        flags = payload[2];
+        valOffset = 3;
+    }
+
     if (widgetId >= _widgetCount) {
         RK_DEBUG_PRINT("[DBG] _handleVarUpdate: invalid widgetId %d\n", widgetId);
         return;
@@ -1253,18 +1265,18 @@ void RadioKitClass::_handleVarUpdate(const uint8_t* payload, uint16_t len) {
     RK_DEBUG_PRINT("[DBG] _handleVarUpdate: wid=%d flags=0x%02X active=%d inSz=%d outSz=%d\n",
         widgetId, flags, active, inSz, outSz);
     
-    if (inSz > 0 && 2 + inSz <= len) {
+    if (inSz > 0 && valOffset + inSz <= len) {
         uint8_t oldVal = 0;
         w->serializeInput(&oldVal);  // need actual state
-        uint8_t newVal = payload[2];
-        w->deserializeInput(&payload[2]);
+        uint8_t newVal = payload[valOffset];
+        w->deserializeInput(&payload[valOffset]);
         if (inSz <= 4) {
             RK_DEBUG_PRINT("[DBG]   input: old=%d new=%d, updating shadow\n", oldVal, newVal);
-            memcpy(_shadowInput[widgetId], &payload[2], inSz);
+            memcpy(_shadowInput[widgetId], &payload[valOffset], inSz);
         }
         w->setActive(active);
         _lastInputMs[widgetId] = active ? millis() : 0;
-    } else if (outSz > 0 && 2 + outSz <= len) {
+    } else if (outSz > 0 && valOffset + outSz <= len) {
         // Output widgets (LED, Text) receive VAR_UPDATE for value updates
         // (No deserializeOutput method exists in the base Widget interface)
         RK_DEBUG_PRINT("[DBG]   output: len=%d (ignored, no deserializeOutput)\n", outSz);
