@@ -230,6 +230,10 @@ class JsonArduinoGenerator {
     if (type.isNotEmpty) {
       buf.writeln('${indent}RadioKit.config.type        = "${_escapeC(type)}";');
     }
+    final deviceIcon = (config['device_icon'] as String?) ?? (config['deviceIcon'] as String?) ?? '';
+    if (deviceIcon.isNotEmpty) {
+      buf.writeln('${indent}RadioKit.config.device_icon = "${_escapeC(deviceIcon)}";');
+    }
     // theme
     buf.writeln('${indent}RadioKit.config.theme       = "${_escapeC(theme)}";');
     if (password.isNotEmpty) {

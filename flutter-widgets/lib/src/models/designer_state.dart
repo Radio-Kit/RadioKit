@@ -53,6 +53,7 @@ class DesignerState extends ChangeNotifier {
   String _modelName = '';
   String _modelType = 'Locomotive';
   String _modelDescription = '';
+  String _deviceIcon = '';
   String _connectionPassword = '';
   String _userPassword = '';
   Map<String, dynamic> _features = {'ota': false, 'filesystem': false};
@@ -129,6 +130,7 @@ class DesignerState extends ChangeNotifier {
   String get modelName => _modelName;
   String get modelType => _modelType;
   String get modelDescription => _modelDescription;
+  String get deviceIcon => _deviceIcon;
   String get connectionPassword => _connectionPassword;
   String get userPassword => _userPassword;
   int? get lastEdit => _lastEdit;
@@ -751,6 +753,12 @@ class DesignerState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setDeviceIcon(String value) {
+    _mutationCount++;
+    _deviceIcon = value;
+    notifyListeners();
+  }
+
   void setConnectionPassword(String value) {
     _mutationCount++;
     _connectionPassword = value;
@@ -1050,6 +1058,9 @@ class DesignerState extends ChangeNotifier {
     _modelName = (decoded['config']?['name'] as String?) ?? '';
     _modelDescription = (decoded['config']?['description'] as String?) ?? '';
     _modelType = (decoded['config']?['type'] as String?) ?? 'Locomotive';
+    _deviceIcon = (decoded['config']?['device_icon'] as String?) ??
+        (decoded['config']?['deviceIcon'] as String?) ??
+        '';
     final transports = decoded['config']?['transports'] as Map<String, dynamic>?;
     if (transports != null) {
       _bleEnabled = (transports['ble']?['enabled'] as bool?) ?? true;
@@ -1271,6 +1282,7 @@ class DesignerState extends ChangeNotifier {
       'name': _modelName,
       'description': _modelDescription,
       'type': _modelType,
+      if (_deviceIcon.isNotEmpty) 'device_icon': _deviceIcon,
       'transports': {
         'ble': {'enabled': _bleEnabled},
         'wifi': {

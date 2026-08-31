@@ -367,6 +367,12 @@ class _DesignerInspectorState extends State<DesignerInspector> {
             ['Locomotive', 'Truck', 'Car', 'IOT'],
             (v) => widget.state.setModelType(v),
           ),
+          IconFieldBuilder.buildIconSelectorField(
+            context,
+            'Icon',
+            widget.state.deviceIcon.isEmpty ? null : widget.state.deviceIcon,
+            (v) => widget.state.setDeviceIcon(v ?? ''),
+          ),
           InspectorFieldBuilders.buildTextField(
               tokens,
               'Password',

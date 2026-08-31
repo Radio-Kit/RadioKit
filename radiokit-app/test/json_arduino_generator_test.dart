@@ -723,6 +723,20 @@ void main() {
         // enableOTA() is NOT generated — RadioKit.begin() already calls it
         expect(output, isNot(contains('RadioKit.enableOTA();')));
       });
+
+      test('emits config.device_icon when device_icon is set', () {
+        final json = {
+          'version': 1,
+          'config': {
+            'name': 'IconDevice',
+            'device_icon': 'gamepad',
+          },
+          'canvas': {'size': [200, 100]},
+          'widgets': [],
+        };
+        final output = JsonArduinoGenerator.generate(json);
+        expect(output, contains('RadioKit.config.device_icon = "gamepad";'));
+      });
     });
   });
 }
