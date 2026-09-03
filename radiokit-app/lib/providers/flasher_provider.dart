@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:crypto/crypto.dart' show md5;
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flserial/flserial.dart';
 import 'package:flutter_esptool/flutter_esptool.dart';
 
 import '../services/flserial_port_adapter.dart';
+import '../models/firmware_bundle.dart';
+import '../services/firmware_bundle_parser.dart';
 
 /// State management for the Flasher tab.
 ///
@@ -37,11 +39,12 @@ class FlasherProvider extends ChangeNotifier {
 
   // ── Chip info ────────────────────────────────────────────────
   EspConfig? _espConfig;
+  EspChipInfo? _detectedChip;
   ChipInfo? _chipInfo;
   bool _isLoadingChipInfo = false;
 
-  // ── Firmware ─────────────────────────────────────────────────
-  SelectedFirmware? _selectedFirmware;
+  // ── Firmware Bundle ──────────────────────────────────────────
+  FirmwareBundle? _selectedBundle;
   bool _eraseAll = false;
 
   // ── Flashing ─────────────────────────────────────────────────
@@ -64,8 +67,25 @@ class FlasherProvider extends ChangeNotifier {
   String? get portName => _portName;
   int get baudRate => _baudRate;
   ChipInfo? get chipInfo => _chipInfo;
+  EspChipInfo? get detectedChip => _detectedChip;
   bool get isLoadingChipInfo => _isLoadingChipInfo;
-  SelectedFirmware? get selectedFirmware => _selectedFirmware;
+  FirmwareBundle? get selectedBundle => _selectedBundle;
+
+  /// Backward-compatible adapter for UI/API status consumers.
+  SelectedFirmware? get selectedFirmware {
+    final b = _selectedBundle;
+    if (b == null) return null;
+    return SelectedFirmware(
+      name: b.originalFileName ?? '${b.name} v${b.version}.zip',
+      size: _formatBytes(b.totalBinaryBytes),
+      path: b.originalFileName ?? 'bundle.zip',
+      bytes: b.totalBinaryBytes,
+      chipFamily: b.chipFamily,
+      version: b.version,
+      partsCount: b.parts.length,
+    );
+  }
+
   bool get eraseAll => _eraseAll;
   bool get isFlashing => _isFlashing;
   double get flashProgress => _flashProgress;
@@ -108,10 +128,12 @@ class FlasherProvider extends ChangeNotifier {
 
   /// Start periodic auto-scan that refreshes available ports every second.
   void startAutoScan() {
-    if (_autoScanTimer != null || _isConnected) return;
+    if (_autoScanTimer != null || _isConnected || _isOperationActive) return;
     scanPorts();
     _autoScanTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!_isConnected) scanPorts();
+      if (!_isConnected && !_isOperationActive && !_isLoadingChipInfo) {
+        scanPorts();
+      }
     });
   }
 
@@ -123,15 +145,9 @@ class FlasherProvider extends ChangeNotifier {
 
   // ── Connection ─────────────────────────────────────────────────
 
-  /// Enter ESP32 download mode via DTR/RTS toggling.
-  ///
-  /// Uses our custom sequence that supports both ClassicReset
-  /// (RTS→EN, DTR→GPIO0 for standard UART bridges) and
-  /// UsbJtagSerialReset (DTR→EN, RTS→GPIO0 for ESP32-S3/C3 native USB).
-  ///
-  /// The adapter delegates to flserial's setDTR/setRTS, which works on both
-  /// Linux (native FFI) and Android (USB CDC control transfer via flserial
-  /// plugin's setControlLines handler).
+  /// Enter ESP32 download mode via standard DTR/RTS transistor toggling.
+  /// Standard ESP32 auto-reset circuit:
+  /// Enter ROM download bootloader mode using esptool's USB-JTAG-Serial sequence.
   Future<void> _enterBootloaderMode() async {
     final adapter = _adapter;
     if (adapter == null) {
@@ -143,44 +159,34 @@ class FlasherProvider extends ChangeNotifier {
     _addLogEntry('Putting ESP32 into download mode...');
 
     try {
-      // USBJTagSerialReset sequence from esptool:
-      // DTR→EN (chip reset), RTS→GPIO0 (boot mode select)
-      // Signals are swapped on USB-JTAG-Serial vs. standard UART bridge.
-      // GPIO0 must be LOW when EN transitions HIGH → download mode.
-
-      // Step 1: Idle state — both inactive.
-      await adapter.setRts(false);  // GPIO0=high
-      await adapter.setDtr(false);  // EN=high
+      // 1. Idle state (DTR=0, RTS=0)
+      await adapter.setRts(false);
+      await adapter.setDtr(false);
       await Future.delayed(const Duration(milliseconds: 100));
 
-      // Step 2: Hold chip in reset.
-      await adapter.setDtr(true);   // EN=low (chip in reset)
-      // GPIO0 still high from step 1
+      // 2. Set IO0 (DTR=1, RTS=0)
+      await adapter.setDtr(true);
+      await adapter.setRts(false);
       await Future.delayed(const Duration(milliseconds: 100));
 
-      // Step 3: Set GPIO0 low for download mode while chip is in reset.
-      await adapter.setRts(true);   // GPIO0=low (download mode)
-      await Future.delayed(const Duration(milliseconds: 50));
-
-      // Step 4: Release reset — chip samples GPIO0=low → download mode.
-      await adapter.setDtr(false);  // EN=high (release reset)
-      // GPIO0 stays low
+      // 3. Reset pulse (RTS=1, DTR=0)
+      await adapter.setRts(true);
+      await adapter.setDtr(false);
       await Future.delayed(const Duration(milliseconds: 100));
 
-      // Step 5: Release GPIO0 — chip is now running in download mode.
-      await adapter.setRts(false);  // GPIO0=high (done)
+      // 4. Chip out of reset (DTR=0, RTS=0)
+      await adapter.setDtr(false);
+      await adapter.setRts(false);
+      await Future.delayed(const Duration(milliseconds: 250));
 
-      // Flush serial buffers — clear stale bytes from reset.
+      // 5. Flush stale boot logs from serial buffer
       await adapter.resetBuffers();
-
-      // Wait for bootloader to initialize
-      await Future.delayed(const Duration(milliseconds: 300));
+      await Future.delayed(const Duration(milliseconds: 100));
 
       _addLogEntry('Download mode engaged.');
     } catch (e) {
       _addLogEntry('[WARN] Auto boot mode: $e');
-      _addLogEntry('Failed to enter download mode automatically.');
-      _addLogEntry('Tip: Hold BOOT, tap RESET, release BOOT manually.');
+      _addLogEntry('Tip: For Native USB boards, hold BOOT, tap RESET, release BOOT.');
     }
   }
 
@@ -188,6 +194,10 @@ class FlasherProvider extends ChangeNotifier {
   /// enter bootloader mode, sync with the ESP32 ROM bootloader,
   /// and detect chip info.
   Future<void> connect(String portId) async {
+    if (_adapter != null || _connectionService != null || _transport != null) {
+      await disconnect();
+    }
+    stopAutoScan();
     _errorMessage = null;
     _isLoadingChipInfo = true;
     _isOperationActive = true;
@@ -197,30 +207,26 @@ class FlasherProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // 1. Create adapter and transport.
-      //    The adapter wraps an flserial port so DTR/RTS work on Android.
       final adapter = FlserialPortAdapter(portId);
       _adapter = adapter;
       _transport = EspTransport(serial: adapter);
       _connectionService = ConnectionService(_transport!);
 
-      // 2. Set config and open at initial baud rate.
       final config = EspConfig(
         portName: portId,
         initialBaudRate: 115200,
         flashBaudRate: 921600,
-        syncRetries: 10,
+        syncRetries: 15,
+        timeout: const Duration(milliseconds: 1000),
+        resetMode: EspResetMode.none,
       );
       _espConfig = config;
 
-      // Open the port via EspTransport (which calls adapter.open).
       await _transport!.open(config);
       _addLogEntry('[OK] Port opened at 115200 baud');
 
-      // 3. Enter bootloader mode then sync.
       await _enterBootloaderMode();
 
-      // 4. ConnectionService handles sync + baud rate negotiation.
       final syncResult = await _connectionService!.connect(config);
       final syncOk = syncResult.fold<bool>(
         (_) => true,
@@ -232,8 +238,7 @@ class FlasherProvider extends ChangeNotifier {
 
       if (!syncOk) {
         _addLogEntry('Could not synchronize with ESP32 bootloader.');
-        _addLogEntry('Tip: Ensure the device is in download mode '
-            '(hold BOOT, tap RESET, release BOOT).');
+        _addLogEntry('Tip: If using ESP32-S3 Native USB, hold BOOT, tap RESET, release BOOT.');
         _errorMessage = 'Sync failed. Check connection and boot mode.';
         _isLoadingChipInfo = false;
         _isOperationActive = false;
@@ -243,12 +248,8 @@ class FlasherProvider extends ChangeNotifier {
       }
 
       _addLogEntry('[OK] Synchronized with ESP32 ROM bootloader');
-
-      // Small delay to let any trailing bootloader data settle before
-      // the next command sequence.
       await Future.delayed(const Duration(milliseconds: 200));
 
-      // 5. Detect chip info with retry.
       _chipDetector = ChipDetectionService(_transport!);
       EspChipInfo? detectedChip;
       for (var attempt = 0; attempt < 2; attempt++) {
@@ -265,42 +266,47 @@ class FlasherProvider extends ChangeNotifier {
         _addLogEntry('[WARN] Attempt ${attempt + 1}: ${f.message}');
       }
 
+      _detectedChip = detectedChip;
+
       if (detectedChip != null) {
         _isConnected = true;
         notifyListeners();
         final info = detectedChip;
         _addLogEntry('Chip is ${info.description}');
         _addLogEntry('MAC: ${info.macAddress}');
-        // Keep at initial baud rate for erase/write stability.
-        // Baud rate negotiation (changeBaud) can be enabled later as
-        // an optimization via _transport.changeBaud(921600).
         _baudRate = 115200;
 
-        // Flash info from chip detection (avoids sending SPI commands that
-        // could interfere with the flash state machine for erase/write).
-        if (info.flashSizeBytes != null && info.flashSizeBytes! > 0) {
-          _addLogEntry('Flash: ${_formatBytes(info.flashSizeBytes!)}');
-        }
-
-        // Build ChipInfo model.
-        final chipModel = info.description;
-        final flashStr = info.flashSizeBytes != null
-            ? _formatBytes(info.flashSizeBytes!)
+        final flashBytes = info.flashSizeBytes ?? info.embeddedFlashBytes;
+        final flashStr = flashBytes != null && flashBytes > 0
+            ? '${_formatBytes(flashBytes)}${info.flashVendor != null ? " (${info.flashVendor})" : ""}'
             : 'Unknown';
+
+        final psramBytes = info.psramCapacityBytes;
+        final psramStr = psramBytes != null && psramBytes > 0
+            ? '${_formatBytes(psramBytes)}${info.psramType != null ? " ${info.psramType}" : ""}'
+            : (info.psramCapacityBytes != null ? 'None' : 'None');
+
+        final chipModel = info.description;
+        final revStr = info.chipRevision ?? 'v${_parseRevision(chipModel)}';
+
+        if (flashBytes != null && flashBytes > 0) {
+          _addLogEntry('Flash: $flashStr');
+        }
+        if (psramBytes != null && psramBytes > 0) {
+          _addLogEntry('PSRAM: $psramStr');
+        }
 
         _chipInfo = ChipInfo(
           model: chipModel,
-          revision: 'v${_parseRevision(chipModel)}',
+          revision: revStr,
           mac: info.macAddress,
           flashSize: flashStr,
-          psramSize: 'Detecting...',
+          psramSize: psramStr,
           cores: _coresForFamily(info.family),
         );
       } else {
         _addLogEntry('[ERROR] Chip detection failed after retries');
-        _addLogEntry('You can still try flashing with a firmware file.');
-        // Set fallback chip info.
-        _chipInfo = ChipInfo(
+        _chipInfo = const ChipInfo(
           model: 'ESP (unidentified)',
           revision: '--',
           mac: '--',
@@ -308,17 +314,12 @@ class FlasherProvider extends ChangeNotifier {
           psramSize: '--',
           cores: '--',
         );
-        // Successfully synced but couldn't identify — still consider
-        // connected since the bootloader is reachable.
         _isConnected = true;
         notifyListeners();
         _baudRate = 115200;
       }
 
-      // 6. Create flash service with stub loader (required for ESP32-S3
-      //    USB-JTAG-Serial flash operations).
-      _flashService = _createFlashService();
-
+      _flashService = await _createFlashService();
       _addLogEntry('[OK] Device ready for flashing');
     } catch (e) {
       _errorMessage = 'Connection failed: $e';
@@ -327,6 +328,9 @@ class FlasherProvider extends ChangeNotifier {
     } finally {
       _isLoadingChipInfo = false;
       _isOperationActive = false;
+      if (!_isConnected) {
+        startAutoScan();
+      }
       notifyListeners();
     }
   }
@@ -349,7 +353,8 @@ class FlasherProvider extends ChangeNotifier {
     _isConnected = false;
     _portName = null;
     _chipInfo = null;
-    _selectedFirmware = null;
+    _detectedChip = null;
+    _selectedBundle = null;
     _flashProgress = 0.0;
     _flashStatus = '';
     _addLogEntry('Disconnected.');
@@ -357,24 +362,22 @@ class FlasherProvider extends ChangeNotifier {
   }
 
   /// Release the serial port for RadioKit protocol handoff.
-  /// Disconnects the flasher but preserves the port name for handoff.
-  /// Returns the port ID to connect to, or null if not connected.
   Future<String?> handoffSerial() async {
     final port = _portName;
     await disconnect();
-    // Restore portName so lastPortId still returns it for handoff.
     _portName = port;
     notifyListeners();
     return port;
   }
 
-  // ── Firmware ───────────────────────────────────────────────────
+  // ── Firmware Bundle Management ────────────────────────────────
 
-  /// Open file picker and select a .bin firmware file.
+  /// Open file picker and select a .zip firmware bundle.
   Future<void> selectFirmwareFile() async {
     try {
       final result = await FilePicker.pickFiles(
-        type: FileType.any,
+        type: FileType.custom,
+        allowedExtensions: ['zip'],
         allowMultiple: false,
       );
       if (result.isEmpty) return;
@@ -387,54 +390,55 @@ class FlasherProvider extends ChangeNotifier {
 
       final bytes = await File(file.path!).readAsBytes();
 
-      // Validate using EspImageParser.
-      try {
-        final result = EspImageParser.parse(bytes);
-        result.fold<void>(
-          (header) {
-            _addLogEntry('Firmware: ${header.segmentCount} segment(s), '
-                'valid: ${header.isValid}');
-          },
-          (f) {
-            _addLogEntry('[WARN] Image parse: ${f.message} (proceeding anyway)');
-          },
-        );
-      } catch (e) {
-        _addLogEntry('[WARN] Image parse error: $e (proceeding anyway)');
+      final bundle = FirmwareBundleParser.parseZip(bytes, fileName: file.name);
+
+      _selectedBundle = bundle;
+      _addLogEntry('Loaded bundle: ${bundle.name} v${bundle.version} '
+          '(${bundle.chipFamily}, ${bundle.parts.length} parts, '
+          '${_formatBytes(bundle.totalBinaryBytes)})');
+
+      for (final p in bundle.parts) {
+        _addLogEntry('  - ${p.path} @ 0x${p.offset.toRadixString(16).toUpperCase()} (${_formatBytes(p.size)})');
       }
 
-      _selectedFirmware = SelectedFirmware(
-        name: file.name,
-        size: _formatBytes(bytes.length),
-        path: file.path!,
-        bytes: bytes.length,
-      );
-      _addLogEntry('Selected firmware: ${file.name} '
-          '(${_formatBytes(bytes.length)})');
+      // Chip compatibility warning
+      if (_detectedChip != null) {
+        final compatible = FirmwareBundleParser.isChipFamilyCompatible(
+          _detectedChip!.family,
+          bundle.chipFamily,
+        );
+        if (!compatible) {
+          _addLogEntry('[WARN] Chip mismatch: bundle is for ${bundle.chipFamily}, '
+              'connected device is ${_detectedChip!.family.name}');
+        }
+      }
+
+      notifyListeners();
+    } on FirmwareBundleException catch (e) {
+      _addLogEntry('[ERROR] Bundle validation failed: $e');
+      _errorMessage = e.message;
       notifyListeners();
     } catch (e) {
       _addLogEntry('[ERROR] File selection failed: $e');
+      _errorMessage = '$e';
+      notifyListeners();
     }
   }
 
-  /// Directly set firmware data from a remote source (bypasses file picker).
-  void setSelectedFirmwareDirect({
-    required String name,
-    required String path,
-    required int bytes,
+  /// Directly set firmware bundle bytes from remote API / marketplace.
+  void setSelectedBundleDirect({
+    required Uint8List bytes,
+    String? name,
   }) {
-    _selectedFirmware = SelectedFirmware(
-      name: name,
-      size: _formatBytes(bytes),
-      path: path,
-      bytes: bytes,
-    );
-    _addLogEntry('Firmware set via API: $name (${_formatBytes(bytes)})');
+    final bundle = FirmwareBundleParser.parseZip(bytes, fileName: name);
+    _selectedBundle = bundle;
+    _addLogEntry('Bundle set via API: ${bundle.name} v${bundle.version} '
+        '(${bundle.parts.length} parts, ${_formatBytes(bundle.totalBinaryBytes)})');
     notifyListeners();
   }
 
   void clearFirmwareSelection() {
-    _selectedFirmware = null;
+    _selectedBundle = null;
     notifyListeners();
   }
 
@@ -445,71 +449,88 @@ class FlasherProvider extends ChangeNotifier {
 
   // ── Flashing ──────────────────────────────────────────────────
 
-  /// Start the flashing operation.
+  /// Start the multi-part flashing operation.
   Future<void> startFlashing() async {
-    if (_selectedFirmware == null || !_isConnected) return;
+    final bundle = _selectedBundle;
+    if (bundle == null || !_isConnected) return;
     if (_flashService == null) return;
 
-    final file = File(_selectedFirmware!.path);
-    if (!file.existsSync()) {
-      _addLogEntry('[ERROR] Firmware file not found: ${_selectedFirmware!.path}');
-      _errorMessage = 'Firmware file not found';
-      notifyListeners();
-      return;
+    // Check chip compatibility
+    if (_detectedChip != null) {
+      final compatible = FirmwareBundleParser.isChipFamilyCompatible(
+        _detectedChip!.family,
+        bundle.chipFamily,
+      );
+      if (!compatible) {
+        final msg = 'Target chip mismatch: bundle is for ${bundle.chipFamily} '
+            'but connected chip is ${_detectedChip!.family.name}';
+        _addLogEntry('[ERROR] $msg');
+        _errorMessage = msg;
+        notifyListeners();
+        return;
+      }
     }
 
     _isFlashing = true;
     _flashProgress = 0.0;
     _isOperationActive = true;
     _isLogExpanded = true;
-    _addLogEntry('Starting flash...');
+    _addLogEntry('Preparing release binary (${bundle.parts.length} parts)...');
     notifyListeners();
 
     try {
-      final firmwareBytes = await file.readAsBytes();
-
-      // The ESP32-S3 USB-JTAG-Serial stub flasher does not respond to
-      // erase commands (opcodes 0xD0 or 0xD1) over certain USB bridges.
-      // This is not a problem — writeFlash handles per-sector erasure
-      // automatically during the write cycle (standard esptool behavior).
-      // The prior full-chip erase is purely an optimization and is
-      // not required for correct flash programming.
       if (_eraseAll) {
-        _addLogEntry('Skipping separate erase — writeFlash handles '
-            'per-sector erase during writes.');
+        _flashStatus = 'Erasing flash memory...';
+        _flashProgress = 0.0;
+        _addLogEntry('Performing full chip erase (this may take 15–30s)...');
+        notifyListeners();
+
+        final eraseResult = await _flashService!.eraseFlash();
+        final eraseOk = eraseResult.fold<bool>(
+          (_) => true,
+          (f) {
+            _addLogEntry('[ERROR] Flash erase failed: ${f.message}');
+            return false;
+          },
+        );
+
+        if (!eraseOk) {
+          _errorMessage = 'Full flash erase failed';
+          _isFlashing = false;
+          _isOperationActive = false;
+          notifyListeners();
+          return;
+        }
+        _addLogEntry('[OK] Flash erased completely (NVS, OTA slots, and LittleFS wiped).');
       }
 
-      // Re-prepare the chip for flashing: re-enter bootloader mode,
-      // re-sync with the ROM bootloader, and reload the stub flasher.
-      // This is necessary because a previous flash resets the chip out
-      // of download mode, making it unresponsive to flash commands.
-      _addLogEntry('Re-entering download mode...');
-      await _reprepareForFlashing();
+      final mergedData = bundle.buildMergedImage();
+      _addLogEntry(
+          'Flashing unified binary (${_formatBytes(mergedData.length)} across ${bundle.parts.length} partitions)...');
 
-      // Write firmware.
+      var lastNotify = DateTime.now();
       final params = FlashParameters(
-        data: firmwareBytes,
-        offset: 0,
+        data: mergedData,
+        offset: 0x0,
+        compress: false,
+        verify: false,
         onProgress: (p) {
-          _flashProgress = p.fraction;
-          _flashStatus = 'Flashing ${(p.fraction * 100).toInt()}%';
-          if (p.stage == EspProgressStage.writing) {
-            _addLogEntry('${p.message}');
+          _flashProgress = p.fraction.clamp(0.0, 1.0);
+          _flashStatus = 'Flashing ${(_flashProgress * 100).toInt()}%';
+          final now = DateTime.now();
+          if (now.difference(lastNotify).inMilliseconds >= 250 || _flashProgress >= 1.0) {
+            lastNotify = now;
+            notifyListeners();
           }
-          notifyListeners();
           return Stream<EspProgress>.empty();
         },
       );
-      _addLogEntry('Writing firmware (${_formatBytes(firmwareBytes.length)})...');
-      final writeResult = await _flashService!.writeFlash(params);
 
+      final writeResult = await _flashService!.writeFlash(params);
       final writeOk = writeResult.fold<bool>(
-        (_) {
-          _addLogEntry('[OK] Firmware written successfully');
-          return true;
-        },
+        (_) => true,
         (f) {
-          _addLogEntry('[ERROR] Write failed: ${f.message}');
+          _addLogEntry('[ERROR] Failed writing flash image: ${f.message}');
           return false;
         },
       );
@@ -522,15 +543,15 @@ class FlasherProvider extends ChangeNotifier {
         return;
       }
 
-      // Verify firmware integrity with local MD5 hash.
-      // Chip-side flashMd5 is not supported by the stub flasher on
-      // ESP32-S3 USB-JTAG-Serial, so we compute it locally instead.
-      final hash = md5.convert(firmwareBytes).toString();
-      _addLogEntry('[OK] Local firmware hash: $hash');
-
-      _addLogEntry('[OK] Flashing complete. Device will reset.');
       _flashProgress = 1.0;
       _flashStatus = 'Complete';
+      _addLogEntry('[OK] All ${bundle.parts.length} partition(s) written successfully.');
+      _addLogEntry('[OK] Flashing complete. Resetting device to run application...');
+
+      // Execute hardware reset so the ESP32 boots into user code
+      await _resetToApplicationMode();
+
+      notifyListeners();
     } catch (e) {
       _addLogEntry('[ERROR] Flash failed: $e');
       _errorMessage = 'Flash failed: $e';
@@ -541,38 +562,55 @@ class FlasherProvider extends ChangeNotifier {
     }
   }
 
-  /// Re-prepare the chip for flashing by re-entering bootloader mode,
-  /// re-syncing with the ROM bootloader, and reloading the stub.
-  ///
-  /// After a successful flash, the chip resets and exits download mode.
-  /// The serial port remains open but the chip is running the new firmware.
-  /// To flash again, we must re-enter bootloader mode and reload the stub
-  /// (which lives in RAM and is lost on reset).
-  Future<void> _reprepareForFlashing() async {
-    await _enterBootloaderMode();
-
-    final config = _espConfig;
-    if (config == null || _connectionService == null) return;
-
+  /// Reset the ESP32 into normal application mode by pulsing EN with BOOT high.
+  Future<void> _resetToApplicationMode() async {
+    final adapter = _adapter;
+    if (adapter == null) return;
     try {
-      final syncResult = await _connectionService!.connect(config);
-      syncResult.fold(
-        (_) => _addLogEntry('[OK] Re-synced with bootloader'),
-        (f) => _addLogEntry('[WARN] Re-sync: ${f.message} (continuing)'),
-      );
-    } catch (e) {
-      _addLogEntry('[WARN] Re-sync failed: $e (continuing)');
-    }
+      // 1. Release BOOT (GPIO0 = HIGH, so DTR = false)
+      await adapter.setDtr(false);
+      await Future.delayed(const Duration(milliseconds: 50));
 
-    // Reload the stub flasher (lost on chip reset).
-    _flashService = _createFlashService();
+      // 2. Pulse EN (Reset = LOW, so RTS = true)
+      await adapter.setRts(true);
+      await Future.delayed(const Duration(milliseconds: 150));
+
+      // 3. Release EN (Reset = HIGH, so RTS = false)
+      await adapter.setRts(false);
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      _addLogEntry('[OK] Hardware reset pulse sent. Firmware booted.');
+    } catch (e) {
+      _addLogEntry('[WARN] Hardware reset signal failed: $e');
+    }
   }
 
-  /// Create a new [FlashService].
-  FlashService _createFlashService() {
-    return FlashService(
-      transport: _transport!,
-    );
+  /// Create a new [FlashService], preferring the flasher stub.
+  ///
+  /// The ESP32-S3 ROM loader silently fails to persist flash writes when
+  /// connected via its native USB-Serial-JTAG: write commands ACK but never
+  /// land, and the full-chip erase command (0xD0) hangs ~5 min with no effect.
+  /// The flasher stub is the esptool-standard path — it erases each sector as
+  /// it writes and supports reliable full-chip erase and verification. Falls
+  /// back to the ROM loader when the stub is unavailable or fails to load.
+  Future<FlashService> _createFlashService() async {
+    final detected = _detectedChip;
+    if (detected != null && detected.family == ChipFamily.esp32s3) {
+      try {
+        final stubLoader = StubLoaderService(transport: _transport!);
+        final result = await stubLoader.loadStub(detected.family);
+        if (result is Success<void>) {
+          _addLogEntry('[OK] Flasher stub loaded (ESP32-S3)');
+          return FlashService(transport: _transport!, stubLoader: stubLoader);
+        }
+        final failure = result as Failure<void>;
+        _addLogEntry(
+            '[WARN] Stub load failed (${failure.error.message}); using ROM loader');
+      } catch (e) {
+        _addLogEntry('[WARN] Stub load error: $e; using ROM loader');
+      }
+    }
+    return FlashService(transport: _transport!);
   }
 
   // ── Log ───────────────────────────────────────────────────────
@@ -651,7 +689,6 @@ class PortInfo {
     this.description,
   });
 
-  /// Whether the port description suggests this is an ESP device.
   bool get isPreferred {
     if (description == null) return false;
     final lower = description!.toLowerCase();
@@ -695,11 +732,17 @@ class SelectedFirmware {
   final String size;
   final String path;
   final int bytes;
+  final String chipFamily;
+  final String version;
+  final int partsCount;
 
   const SelectedFirmware({
     required this.name,
     required this.size,
     required this.path,
     required this.bytes,
+    this.chipFamily = 'ESP32',
+    this.version = '1.0.0',
+    this.partsCount = 1,
   });
 }
