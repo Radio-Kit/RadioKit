@@ -2139,6 +2139,11 @@ class RemoteAccessService {
       final device = dp.connectedDevice;
       devices.add({
         'id': key,
+        // Address aliases the device can also be resolved by via
+        // /api/devices/<id> (BLE MAC, WiFi endpoint, etc.).
+        'bleAddress': device?.bleAddress,
+        'wifiAddress': device?.wifiAddress,
+        'transportAddress': device?.transportAddress,
         'name': dp.configName ?? device?.displayName ?? 'Unknown',
         'connected': dp.isConnected,
         'hasFs': device?.hasFs ?? false,
@@ -2342,7 +2347,14 @@ class RemoteAccessService {
         ? 'landscape' : 'portrait';
 
     return _json({
+      // Canonical map key (the id passed at connect time) plus the
+      // post-connection id and address aliases — any of these resolve the
+      // device via this endpoint.
+      'key': multi.deviceKeyFor(decodedId) ?? decodedId,
       'id': device?.id ?? decodedId,
+      'bleAddress': device?.bleAddress,
+      'wifiAddress': device?.wifiAddress,
+      'transportAddress': device?.transportAddress,
       'name': dp.configName ?? device?.displayName ?? 'Unknown',
       'description': dp.description,
       'connected': dp.isConnected,

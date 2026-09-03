@@ -217,6 +217,65 @@ void main() {
       expect(provider.isDeviceConnected('nonexistent'), isFalse);
       expect(provider.isDeviceConnected('DEMO_WIDGETS_DEMO'), isTrue);
     });
+
+    test('deviceKeyFor resolves the canonical map key for an alias', () async {
+      final dp = await provider.connectDemo('WIDGETS_DEMO');
+
+      // Map key is 'DEMO_WIDGETS_DEMO'; simulate the post-handshake UID
+      // overwrite (scan address -> device UID) that the firmware performs.
+      dp.connectedDevice?.id = 'REAL_CHIP_UID';
+
+      expect(provider.deviceKeyFor('DEMO_WIDGETS_DEMO'), 'DEMO_WIDGETS_DEMO');
+      expect(provider.deviceKeyFor('REAL_CHIP_UID'), 'DEMO_WIDGETS_DEMO');
+      expect(provider.deviceKeyFor('unknown-id'), isNull);
+    });
+  });
+
+  group('deviceMatchesIdentifier', () {
+    test('matches the id and every persistent address', () {
+      final device = DeviceInfo(
+        id: 'CHIP_UID_123',
+        name: 'FS LED',
+        rssi: -50,
+        currentTransport: TransportType.ble,
+        bleAddress: '24:EC:4A:32:39:A9',
+        wifiAddress: 'ws://192.168.1.42:5555',
+        transportAddress: '24:EC:4A:32:39:A9',
+      );
+
+      expect(deviceMatchesIdentifier(device, 'CHIP_UID_123'), isTrue);
+      expect(deviceMatchesIdentifier(device, '24:EC:4A:32:39:A9'), isTrue);
+      expect(deviceMatchesIdentifier(device, 'ws://192.168.1.42:5555'), isTrue);
+      expect(deviceMatchesIdentifier(device, 'unrelated-id'), isFalse);
+    });
+
+    test('matches the post-handshake id over the scan key', () {
+      final device = DeviceInfo(
+        id: 'REAL_CHIP_UID',
+        name: 'FS LED',
+        rssi: -50,
+        bleAddress: '24:EC:4A:32:39:A9',
+      );
+      // Caller holds the scan-time MAC; the entry is keyed by the UID.
+      expect(deviceMatchesIdentifier(device, 'REAL_CHIP_UID'), isTrue);
+      expect(deviceMatchesIdentifier(device, '24:EC:4A:32:39:A9'), isTrue);
+    });
+
+    test('returns false for null devices', () {
+      expect(deviceMatchesIdentifier(null, 'anything'), isFalse);
+    });
+
+    test('BLE lookup resolves a transportAddress-keyed device', () {
+      final device = DeviceInfo(
+        id: 'ws://10.0.0.9:5555',
+        name: 'WiFi device',
+        rssi: 0,
+        currentTransport: TransportType.wifi,
+        transportAddress: 'ws://10.0.0.9:5555',
+      );
+      expect(deviceMatchesIdentifier(device, 'ws://10.0.0.9:5555'), isTrue);
+      expect(deviceMatchesIdentifier(device, '10.0.0.9'), isFalse);
+    });
   });
 
   group('MultiDeviceProvider notifications', () {

@@ -1,6 +1,22 @@
 /// Transport type for the current connection.
 enum TransportType { ble, wifi, cloud, serial, demo }
 
+/// Whether [device] is addressed by [candidate].
+///
+/// A device can be referenced by several identifiers over its lifecycle: the
+/// id at connect time (a transport address at scan time, a UID for
+/// reconnections), the post-handshake id, the persistent BLE/WiFi addresses,
+/// and the active transport address. Matching against all of them keeps
+/// lookups (e.g. the multi-device API) from 404ing when an entry was keyed by
+/// one identifier but the caller holds another.
+bool deviceMatchesIdentifier(DeviceInfo? device, String candidate) {
+  if (device == null) return false;
+  return device.id == candidate ||
+      device.bleAddress == candidate ||
+      device.wifiAddress == candidate ||
+      device.transportAddress == candidate;
+}
+
 /// Represents a discovered device. [id] serves as a temporary transport
 /// address during scanning, then is overwritten with the device UID once
 /// GET_DEVICE_INFO returns the real UID.

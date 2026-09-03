@@ -71,12 +71,30 @@ class MultiDeviceProvider extends ChangeNotifier {
   bool get anyConnected => _devices.values.any((dp) => dp.isConnected);
 
   /// Get the DeviceProvider for a specific device.
+  ///
+  /// Resolves by any identifier a caller may hold for the device: the map
+  /// key (the id passed at connect time — a transport address at scan time or
+  /// a UID for reconnections) or any identifier on the connected device (see
+  /// [deviceMatchesIdentifier]). Mirrors [connectDevice]/[disconnectDevice] so
+  /// address-keyed lookups (e.g. resolving an entry by its BLE MAC) never 404.
   DeviceProvider? getDevice(String deviceId) {
     final direct = _devices[deviceId];
     if (direct != null) return direct;
     for (final dp in _devices.values) {
-      if (dp.connectedDevice?.id == deviceId) {
+      if (deviceMatchesIdentifier(dp.connectedDevice, deviceId)) {
         return dp;
+      }
+    }
+    return null;
+  }
+
+  /// Resolve the canonical map key for the provider matching [deviceId], or
+  /// null when no provider matches. Identifier matching mirrors [getDevice].
+  String? deviceKeyFor(String deviceId) {
+    if (_devices.containsKey(deviceId)) return deviceId;
+    for (final entry in _devices.entries) {
+      if (deviceMatchesIdentifier(entry.value.connectedDevice, deviceId)) {
+        return entry.key;
       }
     }
     return null;
@@ -247,11 +265,7 @@ class MultiDeviceProvider extends ChangeNotifier {
       mapKey = deviceId;
     } else {
       for (final entry in _devices.entries) {
-        final conn = entry.value.connectedDevice;
-        if (conn?.id == deviceId ||
-            conn?.bleAddress == deviceId ||
-            conn?.wifiAddress == deviceId ||
-            conn?.transportAddress == deviceId) {
+        if (deviceMatchesIdentifier(entry.value.connectedDevice, deviceId)) {
           mapKey = entry.key;
           break;
         }
