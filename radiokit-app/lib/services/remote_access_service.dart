@@ -34,7 +34,6 @@ import 'ble_transport.dart';
 import 'demo_transport.dart';
 import '../models/account.dart';
 import 'docs_service.dart';
-import 'library_service.dart';
 import 'firmware_bundle_parser.dart';
 import '../screens/designer/codegen/header_file_parser.dart';
 import '../screens/designer/codegen/json_arduino_generator.dart';
@@ -58,7 +57,6 @@ class RemoteAccessService {
   final String Function() _currentRouteGetter;
   final Future<dynamic> Function(String demoId)? _connectDemo;
   final DocsService? _docsService;
-  final LibraryService? _libraryService;
 
   HttpServer? _server;
   bool _isRunning = false;
@@ -88,7 +86,6 @@ class RemoteAccessService {
   Map<String, dynamic> Function()? viewStateGetter,
   Future<void> Function(String demoId)? connectDemo,
   DocsService? docsService,
-  LibraryService? libraryService,
   })  :        _getActiveDevice = getActiveDevice,
         _bleProvider = bleProvider,
         _serialProvider = serialProvider,
@@ -105,8 +102,7 @@ class RemoteAccessService {
       _viewStateGetter = viewStateGetter,
         _currentRouteGetter = currentRouteGetter,
         _connectDemo = connectDemo,
-        _docsService = docsService,
-        _libraryService = libraryService;
+        _docsService = docsService;
 
   static String _defaultRouteGetter() => '';
 
@@ -223,7 +219,6 @@ class RemoteAccessService {
     if (path.startsWith('/api/log')) return '/system';
     if (path.startsWith('/api/models')) return '/models';
     if (path.startsWith('/api/flasher/')) return '/flasher';
-    if (path.startsWith('/api/library/')) return null;
     return null;
   }
 
@@ -294,10 +289,6 @@ class RemoteAccessService {
     router.get('/api/session/route', _handleSessionRoute);
     router.get('/api/session/state', _handleSessionState);
     router.get('/api/session/sheets', _handleSessionSheets);
-
-    // ── Library API ──────────────────────────────────────────────────
-    router.get('/api/library/version', _handleLibraryVersion);
-    router.get('/api/library/download', _handleLibraryDownload);
 
     // ── Flasher API ───────────────────────────────────────────────────
     router.get('/api/flasher/ports', _handleFlasherPorts);
@@ -3755,33 +3746,5 @@ class RemoteAccessService {
       'ok': true,
       'hasFs': hasFs,
     });
-  }
-
-  // ── Library API ────────────────────────────────────────────────────────────
-
-  Future<Response> _handleLibraryVersion(Request request) async {
-    final lib = _libraryService;
-    if (lib == null || !lib.isInitialized) {
-      return _error('library_not_ready', 'Library service not initialized',
-          status: 503);
-    }
-    return _json({'version': lib.version});
-  }
-
-  Future<Response> _handleLibraryDownload(Request request) async {
-    final lib = _libraryService;
-    if (lib == null || !lib.isInitialized) {
-      return _error('library_not_ready', 'Library service not initialized',
-          status: 503);
-    }
-    final zipBytes = await lib.downloadZip();
-    return Response.ok(
-      zipBytes,
-      headers: {
-        'content-type': 'application/zip',
-        'content-length': '${zipBytes.length}',
-        'content-disposition': 'attachment; filename="rk-arduino.zip"',
-      },
-    );
   }
 }

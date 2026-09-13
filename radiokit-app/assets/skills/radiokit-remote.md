@@ -599,8 +599,7 @@ All endpoints return standard error format:
 | FS probe | POST | `/api/fs/probe` |
 | OTA upload | POST | `/api/ota/upload` |
 | OTA progress | GET | `/api/ota/progress` |
-| Library version | GET | `/api/library/version` |
-| Library download | GET | `/api/library/download` |
+| Arduino library | - | obtain from `https://github.com/Radio-Kit/RK-Arduino` |
 | Console log | GET | `/api/console` |
 | Console clear | DELETE | `/api/console` |
 | Device list | GET | `/api/devices` |

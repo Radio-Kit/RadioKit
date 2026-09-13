@@ -22,7 +22,6 @@ modules:
       - printf '#!/bin/sh\nexec /usr/bin/g++ "$@"\n' > /run/build/radiokit/tool-wrappers/clang++
       - printf '#!/bin/sh\nexec /usr/bin/gcc "$@"\n' > /run/build/radiokit/tool-wrappers/clang
       - chmod +x /run/build/radiokit/tool-wrappers/clang++ /run/build/radiokit/tool-wrappers/clang
-      - bash scripts/build-library-zip.sh
       - cd radiokit-app && flutter build linux --release --no-pub
       - mkdir -p /app/share/radiokit /app/bin
       - cp -r radiokit-app/build/linux/*/release/bundle/lib /app/share/radiokit/

@@ -100,9 +100,6 @@ assets/fonts/
 !assets/fonts/.gitkeep
 flutter_*.png
 
-# Generated assets (build scripts produce these)
-radiokit-app/assets/rk-arduino.zip
-
 # AI Agent Specifics
 .agent/
 .antigravity/

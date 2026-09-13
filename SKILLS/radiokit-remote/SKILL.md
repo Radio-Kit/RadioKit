@@ -622,10 +622,8 @@ All endpoints return standard error format:
 
 ### Library
 
-| Operation | Method | Endpoint |
-|-----------|--------|----------|
-| Library version | GET | `/api/library/version` |
-| Library download | GET | `/api/library/download` |
+The Arduino library is not bundled with the app. Obtain it directly from the repository:
+`https://github.com/Radio-Kit/RK-Arduino`
 
 ### Console & Log
 

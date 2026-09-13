@@ -1524,30 +1524,11 @@ Returns the current OTA upload progress. Returns `active: false` when no upload 
 
 ---
 
-## 13. Library
+## 13. Arduino Library
 
-### `GET /api/library/version`
+The Arduino library is not bundled with the app. Obtain it directly from the repository:
 
-Returns the version of the bundled Arduino library.
-
-**Response `200`:**
-
-```json
-{
-  "version": "2.0.0"
-}
-```
-
-### `GET /api/library/download`
-
-Downloads the complete Arduino library as a ZIP archive.
-
-**Response `200`:**
-
-- Content-Type: `application/zip`
-- Content-Disposition: `attachment; filename="rk-arduino.zip"`
-
-The ZIP contains the full `rk-arduino/` directory tree including `src/`, `library.json`, `library.properties`, and all widget implementations.
+- Browse / clone: `https://github.com/Radio-Kit/RK-Arduino`
 
 ---
 

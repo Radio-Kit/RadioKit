@@ -21,7 +21,6 @@ import 'account_provider.dart';
 import 'flasher_provider.dart';
 import '../services/demo_transport.dart';
 import '../services/docs_service.dart';
-import '../services/library_service.dart';
 
 class RemoteAccessProvider extends ChangeNotifier {
   final SettingsProvider _settingsProvider;
@@ -144,10 +143,6 @@ class RemoteAccessProvider extends ChangeNotifier {
     final docsService = DocsService();
     await docsService.loadSkills();
 
-    // Initialize library service with bundled rk-arduino ZIP
-    final libraryService = LibraryService();
-    await libraryService.initialize();
-
     _service = RemoteAccessService(
       getActiveDevice: () => _multiDeviceProvider.primaryDevice ?? (_multiDeviceProvider.devices.isNotEmpty ? _multiDeviceProvider.devices.first : _idleDeviceProvider),
       bleProvider: _bleProvider,
@@ -169,7 +164,6 @@ class RemoteAccessProvider extends ChangeNotifier {
         _multiDeviceProvider.setFocusedDevice('DEMO_$demoId');
       },
       docsService: docsService,
-      libraryService: libraryService,
     );
 
     final error = await _service!.start();
