@@ -2,7 +2,7 @@ name: radiokit
 description: RadioKit - BLE & USB Serial companion app for Arduino RadioKit library
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.0+2005
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -12,37 +12,37 @@ dependencies:
     sdk: flutter
 
   # BLE: Unified (All platforms)
-  universal_ble: ^2.0.4
+  universal_ble: ^2.2.0
 
   # Device info (for Android SDK version detection)
-  device_info_plus: ^13.1.0
+  device_info_plus: ^13.2.0
 
   # Serial: web (Web Serial API — Chrome/Edge)
   # https://pub.dev/packages/webserial
   webserial: ^1.1.0
 
   # Routing
-  go_router: ^17.2.2
+  go_router: ^17.5.0
 
   # State management
   provider: ^6.1.2
 
   shared_preferences: ^2.5.5
-  google_fonts: ^8.0.2
-  path_provider: ^2.1.3
-  file_picker: ^12.0.0
+  google_fonts: ^8.2.1
+  path_provider: ^2.1.6
+  file_picker: ^12.2.0
   # Multi-mode Rendering
   flutter_svg: ^2.0.10+1
-  archive: ^4.0.0
+  archive: ^4.2.0
   http: ^1.2.0
 
   # RadioKit Widget Library
   radiokit_widgets:
     path: ../flutter-widgets
-  geolocator: ^14.0.2
-  intl: ^0.20.2
+  geolocator: ^14.0.3
+  intl: ^0.20.3
   web: ^1.1.1
-  share_plus: ^13.1.0
+  share_plus: ^13.3.0
   phosphoricons_flutter: ^1.0.0
 
   # Serial: Linux desktop
@@ -51,18 +51,33 @@ dependencies:
   # HTTP API server for remote access / test automation
   shelf: ^1.4.2
   shelf_router: ^1.1.4
-  flutter_secure_storage: ^10.3.1
-  re_editor: ^0.9.0
+  flutter_secure_storage: 10.3.1
+  re_editor: ^0.10.0
   re_highlight: ^0.0.3
   web_socket_channel: ^3.0.3
   multicast_dns: ^0.3.3+1
   cryptography: ^2.9.0
-  flutter_esptool: 0.1.4
+  flutter_esptool: ^0.1.5
   platform_serial: 0.1.2
   flutter_serial_communication: ^0.2.8
   mobile_scanner: ^7.4.0
+  flutter_markdown: ^0.7.7+1
 
 dependency_overrides:
+  # NOTE: flutter_esptool fixes (chip info SPI flash size, watchdog disable)
+  # live on the rambros3d fork until merged upstream as pvagnozzi/flutter_esptool#19.
+  # Once merged, switch back to the upstream repo (or pub.dev) and drop these overrides.
+  flutter_esptool:
+    git:
+      url: https://github.com/rambros3d/flutter_esptool
+      ref: fix/chip-info-and-watchdog
+  # Patched platform_serial (adds DirectSerialPort) — vendored in the fork's
+  # third_party/; switch back to pub.dev 0.1.2 when upstream releases it.
+  platform_serial:
+    git:
+      url: https://github.com/rambros3d/flutter_esptool
+      path: third_party/platform_serial
+      ref: fix/chip-info-and-watchdog
   flserial:
     git:
       url: https://github.com/rambros3d/flserial.git

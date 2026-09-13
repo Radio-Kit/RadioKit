@@ -120,6 +120,23 @@ void main() {
       expect(info.chip, equals('esp32s3'));
       expect(info.formattedSize, isNotEmpty);
     });
+
+    test('parses unified .zip release bundle', () {
+      final info = FirmwareMarketplaceService.parseBinaryFilename(
+        'RC_Engine-v1.0.0-esp32s3-tracklink_v3.zip',
+        downloadUrl: 'https://example.com/bundle.zip',
+        sizeBytes: 435000,
+      );
+
+      expect(info.project, equals('RC_Engine'));
+      expect(info.version, equals('v1.0.0'));
+      expect(info.chip, equals('esp32s3'));
+      expect(info.board, equals('tracklink_v3'));
+      expect(info.displayName, equals('tracklink_v3'));
+      expect(info.isBundle, isTrue);
+      expect(info.isFlashable, isTrue);
+      expect(info.isOta, isFalse);
+    });
   });
 
   group('FirmwareMarketplaceService Chip Matching', () {
@@ -225,9 +242,9 @@ void main() {
                 'browser_download_url': 'https://github.com/download/ota.bin',
               },
               {
-                'name': 'RC_Engine-configs.zip',
-                'size': 15000000,
-                'browser_download_url': 'https://github.com/download/configs.zip',
+                'name': 'RC_Engine-v1.0.0-esp32s3-tracklink_v3.zip',
+                'size': 435000,
+                'browser_download_url': 'https://github.com/download/bundle.zip',
               }
             ]
           };
@@ -241,10 +258,12 @@ void main() {
 
       expect(release, isNotNull);
       expect(release!.tagName, equals('v1.0.0'));
-      expect(release.binaries.length, equals(2));
+      expect(release.binaries.length, equals(3));
+      expect(release.bundleBinaries.length, equals(1));
       expect(release.factoryBinaries.length, equals(1));
+      expect(release.flashableBinaries.length, equals(2));
       expect(release.otaBinaries.length, equals(1));
-      expect(release.factoryBinaries.first.chip, equals('esp32s3'));
+      expect(release.bundleBinaries.first.chip, equals('esp32s3'));
     });
   });
 }

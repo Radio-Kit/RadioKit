@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:radiokit/screens/designer/codegen/json_arduino_generator.dart';
+import 'package:radiokit/screens/designer/codegen/header_file_parser.dart';
 
 void main() {
   group('JsonArduinoGenerator.generate', () {
@@ -736,6 +737,77 @@ void main() {
         };
         final output = JsonArduinoGenerator.generate(json);
         expect(output, contains('RadioKit.config.device_icon = "gamepad";'));
+      });
+    });
+
+    group('Full Header Generation & Round-Trip Parsing', () {
+      test('generateFullHeader produces comment block + C++ code and round-trips cleanly', () {
+        final json = {
+          'version': 2,
+          'config': {
+            'name': 'RoundTripSwitch',
+            'type': 'IOT',
+            'transports': {'ble': {'enabled': true}},
+          },
+          'canvas': {'size': [200, 100], 'grid': 'none', 'skin': 'dragon'},
+          'pages': [
+            {
+              'name': 'Main',
+              'orientation': 'landscape',
+              'widgets': [
+                {
+                  'type': 'switch',
+                  'name': 'sw1',
+                  'label': {'text': 'Switch 1', 'show': true},
+                  'position': [20, 30, 0],
+                  'size': [40, 20],
+                }
+              ],
+            }
+          ],
+        };
+
+        final fullHeader = JsonArduinoGenerator.generateFullHeader(json);
+        expect(fullHeader, startsWith('/*__RADIOKIT_Designer_Config__\n'));
+        expect(fullHeader, contains('RADIOKIT_Designer_Config__*/'));
+        expect(fullHeader, contains('//__RadioKit_Generated_Code__'));
+        expect(fullHeader, contains('RK_SlideSwitch sw1'));
+
+        final parsed = parseJsonOrHeaderContent(fullHeader);
+        expect(parsed.version, equals(2));
+        expect(parsed.app.name, equals('RoundTripSwitch'));
+        expect(parsed.pages.length, equals(1));
+        expect(parsed.pages.first.name, equals('Main'));
+        expect(parsed.pages.first.elements.length, equals(1));
+        expect(parsed.pages.first.elements.first.id, equals('sw1'));
+      });
+
+      test('parseJsonOrHeaderContent parses legacy RadioKit_UI_Designer_Config marker', () {
+        const legacyHeader = '''
+/*__RadioKit_UI_Designer_Config__
+{
+  "version": 1,
+  "config": {"name": "LegacyDevice", "type": "Locomotive"},
+  "canvas": {"size": [200, 100]},
+  "widgets": [
+    {"type": "button", "name": "btn1", "position": [10, 10, 0]}
+  ]
+}
+RadioKit_UI_Designer_Config__*/
+#include <RadioKitLib.h>
+''';
+        final parsed = parseJsonOrHeaderContent(legacyHeader);
+        expect(parsed.version, equals(1));
+        expect(parsed.app.name, equals('LegacyDevice'));
+        expect(parsed.widgets.length, equals(1));
+        expect(parsed.widgets.first.id, equals('btn1'));
+      });
+
+      test('parseJsonOrHeaderContent directly decodes raw JSON', () {
+        const rawJson = '{"version": 2, "config": {"name": "RawJsonDevice"}, "canvas": {}, "pages": []}';
+        final parsed = parseJsonOrHeaderContent(rawJson);
+        expect(parsed.version, equals(2));
+        expect(parsed.app.name, equals('RawJsonDevice'));
       });
     });
   });

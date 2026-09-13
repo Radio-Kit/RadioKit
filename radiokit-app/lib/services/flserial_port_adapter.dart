@@ -170,10 +170,12 @@ class FlserialPortAdapter implements ps.SerialPortInterface {
     if (timeout != null) {
       final completer = Completer<void>();
       _readCompleter = completer;
-      Timer(timeout, () {
+      final timer = Timer(timeout, () {
         if (!completer.isCompleted) completer.complete();
       });
       await completer.future;
+      timer.cancel();
+      _readCompleter = null;
       return _drainBuffer(_buffer.length);
     }
     return Uint8List(0);
@@ -187,30 +189,31 @@ class FlserialPortAdapter implements ps.SerialPortInterface {
 
   @override
   Future<Uint8List> read(int length, {Duration? timeout}) async {
-    if (_buffer.length >= length) return _drainBuffer(length);
+    if (_buffer.isNotEmpty) return _drainBuffer(_buffer.length);
 
-    // Set a single timer for the full timeout and let _onData drive the loop.
     final deadline = timeout != null ? DateTime.now().add(timeout) : null;
-    Timer? timer;
-    if (timeout != null) {
-      timer = Timer(timeout, _resolveReadCompleter);
-    }
 
-    try {
-      while (_buffer.length < length) {
-        if (deadline != null && DateTime.now().isAfter(deadline)) break;
+    while (_buffer.isEmpty) {
+      if (deadline != null && DateTime.now().isAfter(deadline)) break;
 
-        final completer = Completer<void>();
-        _readCompleter = completer;
-        await completer.future;
-      }
-    } finally {
-      timer?.cancel();
+      final remaining = deadline != null
+          ? deadline.difference(DateTime.now())
+          : const Duration(milliseconds: 100);
+
+      if (remaining.isNegative || remaining == Duration.zero) break;
+
+      final completer = Completer<void>();
+      _readCompleter = completer;
+      final stepTimer = Timer(remaining, () {
+        if (!completer.isCompleted) completer.complete();
+      });
+
+      await completer.future;
+      stepTimer.cancel();
       _readCompleter = null;
     }
 
-    final available = length < _buffer.length ? length : _buffer.length;
-    return _drainBuffer(available);
+    return _drainBuffer(_buffer.length);
   }
 
   @override
@@ -262,13 +265,22 @@ class FlserialPortAdapter implements ps.SerialPortInterface {
 
   @override
   Future<int> write(Uint8List data, {Duration? timeout}) async {
-    if (_serial == null) {
+    if (_serial == null || !_isOpen) {
       throw ps.SerialError(
         type: ps.SerialErrorType.portClosed,
         message: 'Port not open',
       );
     }
-    _serial!.write(data);
+    if (_useAndroidControlTransfer) {
+      final devName =
+          _portName.startsWith('usb:') ? _portName.substring(4) : _portName;
+      await _flserialChannel.invokeMethod<void>('writeUsbDevice', {
+        'name': devName,
+        'data': data,
+      });
+    } else {
+      _serial!.write(data);
+    }
     return data.length;
   }
 

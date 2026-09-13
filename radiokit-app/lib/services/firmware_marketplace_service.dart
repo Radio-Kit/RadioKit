@@ -15,7 +15,7 @@ class MarketplaceBinaryInfo {
   final String? board;
   final String? variant;
   final String? boardOrVariant;
-  final String? flashType; // 'factory' | 'ota' | null
+  final String? flashType; // 'factory' | 'ota' | 'bundle' | null
 
   const MarketplaceBinaryInfo({
     required this.assetName,
@@ -30,8 +30,10 @@ class MarketplaceBinaryInfo {
     this.flashType,
   });
 
+  bool get isBundle => assetName.toLowerCase().endsWith('.zip') || flashType == 'bundle';
   bool get isFactory => flashType == 'factory';
   bool get isOta => flashType == 'ota';
+  bool get isFlashable => isBundle || isFactory || !isOta;
 
   /// User-facing primary title (Board Name, Project Name, or base filename).
   String get displayName {
@@ -44,7 +46,7 @@ class MarketplaceBinaryInfo {
     if (project != null && project!.trim().isNotEmpty) {
       return project!;
     }
-    if (assetName.toLowerCase().endsWith('.bin')) {
+    if (assetName.toLowerCase().endsWith('.zip') || assetName.toLowerCase().endsWith('.bin')) {
       return assetName.substring(0, assetName.length - 4);
     }
     return assetName;
@@ -122,9 +124,17 @@ class MarketplaceRelease {
     required this.binaries,
   });
 
+  /// Bundle binaries (.zip packages suitable for flasher and OTA).
+  List<MarketplaceBinaryInfo> get bundleBinaries =>
+      binaries.where((b) => b.isBundle).toList();
+
   /// Factory binaries (suitable for USB bootloader flasher).
   List<MarketplaceBinaryInfo> get factoryBinaries =>
       binaries.where((b) => b.isFactory).toList();
+
+  /// Flashable binaries (all bundles and factory binaries).
+  List<MarketplaceBinaryInfo> get flashableBinaries =>
+      binaries.where((b) => b.isFlashable).toList();
 
   /// OTA binaries (suitable for wireless / live OTA update).
   List<MarketplaceBinaryInfo> get otaBinaries =>
@@ -138,10 +148,14 @@ class MarketplaceRelease {
   }) {
     if (binaries.isEmpty) return null;
 
-    // 1. Filter by preferred flash type if any matching exists
+    // 1. Prefer .zip bundles first, then factory binaries, then all flashables
     var candidates = preferFactory
-        ? (factoryBinaries.isNotEmpty ? factoryBinaries : binaries)
+        ? (bundleBinaries.isNotEmpty
+            ? bundleBinaries
+            : (factoryBinaries.isNotEmpty ? factoryBinaries : flashableBinaries))
         : (otaBinaries.isNotEmpty ? otaBinaries : binaries);
+
+    if (candidates.isEmpty) candidates = binaries;
 
     // 2. Filter by matching chip
     if (connectedChip != null && connectedChip.trim().isNotEmpty) {
@@ -277,16 +291,17 @@ class FirmwareMarketplaceService {
     return null;
   }
 
-  /// Parses a binary filename following the pattern:
-  /// `<Project>-<Version>-<Chip>[-<BoardOrVariant>][-<Type>].bin`
-  /// or `<Project>-<Chip>[-<Board>][-<Type>].bin`
+  /// Parses a binary or bundle filename following the pattern:
+  /// `<Project>-<Version>-<Chip>[-<BoardOrVariant>][-<Type>].(zip|bin)`
+  /// or `<Project>-<Chip>[-<Board>][-<Type>].(zip|bin)`
   static MarketplaceBinaryInfo parseBinaryFilename(
     String filename, {
     required String downloadUrl,
     required int sizeBytes,
   }) {
     final clean = filename.trim();
-    if (!clean.toLowerCase().endsWith('.bin')) {
+    final lower = clean.toLowerCase();
+    if (!lower.endsWith('.bin') && !lower.endsWith('.zip')) {
       return MarketplaceBinaryInfo(
         assetName: clean,
         downloadUrl: downloadUrl,
@@ -294,17 +309,18 @@ class FirmwareMarketplaceService {
       );
     }
 
+    final isZip = lower.endsWith('.zip');
     final nameWithoutExt = clean.substring(0, clean.length - 4);
     final segments = nameWithoutExt.split('-');
 
     // Known chip identifiers
     final knownChips = {'esp32', 'esp32s3', 'esp32c3', 'esp32c6', 'esp32s2', 'esp32h2'};
-    final knownTypes = {'factory', 'ota'};
+    final knownTypes = {'factory', 'ota', 'bundle'};
 
     String? project;
     String? version;
     String? chip;
-    String? flashType;
+    String? flashType = isZip ? 'bundle' : null;
     final otherSegments = <String>[];
 
     // Detect type from last segment
@@ -365,6 +381,8 @@ class FirmwareMarketplaceService {
         flashType = 'factory';
       } else if (nameLower.contains('ota')) {
         flashType = 'ota';
+      } else if (isZip) {
+        flashType = 'bundle';
       }
     }
 
@@ -434,7 +452,8 @@ class FirmwareMarketplaceService {
             final downloadUrl = item['browser_download_url'] as String? ?? '';
             final size = (item['size'] as num?)?.toInt() ?? 0;
 
-            if (assetName.toLowerCase().endsWith('.bin')) {
+            if (assetName.toLowerCase().endsWith('.zip') ||
+                assetName.toLowerCase().endsWith('.bin')) {
               binaries.add(parseBinaryFilename(
                 assetName,
                 downloadUrl: downloadUrl,

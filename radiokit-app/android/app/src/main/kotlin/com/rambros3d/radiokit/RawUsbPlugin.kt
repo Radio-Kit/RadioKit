@@ -73,7 +73,7 @@ class RawUsbPlugin(private val context: Context) : MethodChannel.MethodCallHandl
     init {
         val filter = IntentFilter(ACTION_USB_PERMISSION)
         if (android.os.Build.VERSION.SDK_INT >= 33) {
-            context.registerReceiver(usbPermissionReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            context.registerReceiver(usbPermissionReceiver, filter, Context.RECEIVER_EXPORTED)
         } else {
             context.registerReceiver(usbPermissionReceiver, filter)
         }

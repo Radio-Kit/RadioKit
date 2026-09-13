@@ -9,12 +9,33 @@ import 'package:radiokit_widgets/radiokit_widgets.dart';
 //  instance yet (e.g. dialogs that create a state on the fly).
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Parses a HeaderFileConfig from a .h file path.
 Future<HeaderFileConfig> parseHeaderFile(String filePath) async {
   final content = await File(filePath).readAsString();
+  return parseHeaderContent(content, sourceName: filePath);
+}
+
+/// Parses a HeaderFileConfig from raw file content (.h header or .json config).
+HeaderFileConfig parseJsonOrHeaderContent(String rawContent, {String? sourceName}) {
+  final trimmed = rawContent.trim();
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    try {
+      final decoded = json.decode(trimmed) as Map<String, dynamic>;
+      return HeaderFileConfig.fromJson(decoded);
+    } catch (_) {
+      // Fall through to header comment parser if direct JSON decode fails
+    }
+  }
+  return parseHeaderContent(rawContent, sourceName: sourceName);
+}
+
+/// Parses a HeaderFileConfig from raw .h header content containing the comment block.
+HeaderFileConfig parseHeaderContent(String content, {String? sourceName}) {
   final match = DesignerState.configPattern.firstMatch(content);
   if (match == null || match.group(1) == null) {
+    final location = sourceName != null ? ' in $sourceName' : '';
     throw FormatException(
-      'No /*__RADIOKIT_Designer_Config__ … */ block found in $filePath',
+      'No /*__RADIOKIT_Designer_Config__ ... */ block found$location',
     );
   }
   final jsonStr = (match.group(1) as String).trim();

@@ -1,11 +1,25 @@
+import 'dart:convert';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
 
-/// Generates the complete `RADIOKIT.h` content (minus the JSON config block)
-/// from the designer's JSON configuration map.
+/// Generates `RADIOKIT.h` content from the designer's JSON configuration map.
 ///
 /// Reads the same JSON schema that is embedded in the header comment block,
 /// so the C++ code and the JSON config are always in sync.
 class JsonArduinoGenerator {
+  static const String configStartMarker = '/*__RADIOKIT_Designer_Config__';
+  static const String configEndMarker = 'RADIOKIT_Designer_Config__*/';
+
+  /// Generates the complete, self-contained `RADIOKIT.h` content including both:
+  /// 1. The embedded visual designer JSON configuration comment block
+  /// 2. The generated Arduino C++ defines, includes, and widget declarations
+  static String generateFullHeader(Map<String, dynamic> json) {
+    const encoder = JsonEncoder.withIndent('  ');
+    final formattedJson = encoder.convert(json);
+    final cppCode = generate(json);
+    return '$configStartMarker\n$formattedJson\n$configEndMarker\n$cppCode';
+  }
+
+  /// Generates the C++ portion of `RADIOKIT.h` (without the JSON comment block).
   static String generate(Map<String, dynamic> json) {
     final buf = StringBuffer();
     final config = json['config'] as Map<String, dynamic>? ?? {};

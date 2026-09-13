@@ -397,7 +397,18 @@ class DocsService {
       'body': {
         'id': 'string',
         'name': 'string',
-        'jsonContent': 'string (designer JSON)',
+        'jsonContent': 'string (designer JSON or .h header)',
+      },
+    },
+    {
+      'method': 'POST',
+      'path': '/api/designs/import',
+      'description': 'Import a design from raw JSON, .h header file, or base64',
+      'body': {
+        'content': 'string (optional: raw .h header or .json)',
+        'data': 'string (optional: base64-encoded .h or .json)',
+        'id': 'string (optional)',
+        'name': 'string (optional)',
       },
     },
     {

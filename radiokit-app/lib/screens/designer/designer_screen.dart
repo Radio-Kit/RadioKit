@@ -845,12 +845,9 @@ class _DesignerScreenState extends State<DesignerScreen> {
   // ── C syntax highlighter for Arduino code ─────────────────────────────
   // (replaced by re_editor/re_highlight — see _buildCodeEditor above)
 
-  /// Builds the complete RadioKit_UI.h content: JSON config block + Arduino code.
+  /// Builds the complete RADIOKIT.h content: JSON config block + Arduino C++ code.
   String _buildFullHeader() {
-    const encoder = JsonEncoder.withIndent('  ');
-    final json = encoder.convert(_state.toJson());
-    final arduino = _generateArduinoHeader();
-    return '/*__RadioKit_UI_Designer_Config__\n$json\nRadioKit_UI_Designer_Config__*/\n$arduino';
+    return JsonArduinoGenerator.generateFullHeader(_state.toJson());
   }
 
   /// Builds just the JSON config content for .json files.

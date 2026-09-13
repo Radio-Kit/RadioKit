@@ -409,7 +409,7 @@ class _SystemTabState extends State<SystemTab> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'APP_VERSION',
+                    'APP',
                     style: TextStyle(
                       color: context.tokens.onSurface.withValues(alpha: 0.5),
                       fontSize: 10,
@@ -441,7 +441,7 @@ class _SystemTabState extends State<SystemTab> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                   Text(
-                    'FIRMWARE_VERSION',
+                    'FIRMWARE',
                     style: TextStyle(
                       color: context.tokens.onSurface.withValues(alpha: 0.5),
                       fontSize: 10,

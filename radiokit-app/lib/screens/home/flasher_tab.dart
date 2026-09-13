@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -12,6 +13,7 @@ import '../../widgets/radiokit_app_bar.dart';
 import '../../providers/flasher_provider.dart';
 import '../../services/firmware_marketplace_service.dart';
 import '../../services/firmware_release_service.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'qr_repo_scanner_modal.dart';
 
 class FlasherTab extends StatefulWidget {
@@ -713,7 +715,7 @@ class _FirmwareSection extends StatelessWidget {
                 icon: Icon(Icons.file_open_rounded,
                     size: 18,
                     color: context.tokens.onSurface.withValues(alpha: 0.54)),
-                label: Text('SELECT FIRMWARE FILE',
+                label: Text('SELECT FIRMWARE BUNDLE (.ZIP)',
                     style: GoogleFonts.changa(
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1,
@@ -735,7 +737,7 @@ class _FirmwareSection extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(children: [
-                      Icon(Icons.insert_drive_file_rounded,
+                      Icon(Icons.folder_zip_rounded,
                           size: 16, color: context.tokens.onSurface),
                       const SizedBox(width: 8),
                       Expanded(
@@ -759,11 +761,13 @@ class _FirmwareSection extends StatelessWidget {
                       ),
                     ]),
                     const SizedBox(height: 4),
-                    Text(flasher.selectedFirmware!.size,
-                        style: TextStyle(
-                            color: context.tokens.onSurface
-                                .withValues(alpha: 0.54),
-                            fontSize: 10)),
+                    Text(
+                      '${flasher.selectedFirmware!.size} • ${flasher.selectedFirmware!.chipFamily} • ${flasher.selectedFirmware!.partsCount} partition(s)',
+                      style: TextStyle(
+                          color: context.tokens.onSurface
+                              .withValues(alpha: 0.54),
+                          fontSize: 10),
+                    ),
                     // Erase all toggle
                     const SizedBox(height: 8),
                     Row(children: [
@@ -916,8 +920,8 @@ class _MarketplaceSectionState extends State<_MarketplaceSection> {
           connectedChip: connectedChip,
           preferFactory: true,
         );
-        final nonOtaBinaries = release.binaries.where((b) => !b.isOta).toList();
-        _selectedBinaries[repoUrl] = best ?? (nonOtaBinaries.isNotEmpty ? nonOtaBinaries.first : release.binaries.first);
+        final flashableList = release.flashableBinaries;
+        _selectedBinaries[repoUrl] = best ?? (flashableList.isNotEmpty ? flashableList.first : release.binaries.first);
       }
     });
   }
@@ -981,10 +985,9 @@ class _MarketplaceSectionState extends State<_MarketplaceSection> {
 
       if (!mounted) return;
       final flasher = context.read<FlasherProvider>();
-      flasher.setSelectedFirmwareDirect(
+      flasher.setSelectedBundleDirect(
+        bytes: bytes is Uint8List ? bytes : Uint8List.fromList(bytes),
         name: binary.assetName,
-        path: tempFile.path,
-        bytes: bytes.length,
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1259,17 +1262,55 @@ class _MarketplaceSectionState extends State<_MarketplaceSection> {
                               const SizedBox(height: 8),
                               Container(
                                 width: double.infinity,
-                                padding: const EdgeInsets.all(10),
+                                padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
                                   color: tokens.onSurface.withValues(alpha: 0.04),
                                   borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: tokens.onSurface.withValues(alpha: 0.08),
+                                  ),
                                 ),
-                                child: Text(
-                                  release.changelog,
-                                  style: TextStyle(
-                                    color: tokens.onSurface.withValues(alpha: 0.7),
-                                    fontSize: 11,
-                                    height: 1.3,
+                                child: MarkdownBody(
+                                  data: release.changelog,
+                                  selectable: true,
+                                  styleSheet: MarkdownStyleSheet(
+                                    p: TextStyle(
+                                      color: tokens.onSurface.withValues(alpha: 0.8),
+                                      fontSize: 11,
+                                      height: 1.4,
+                                    ),
+                                    h1: TextStyle(
+                                      color: tokens.onSurface,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    h2: TextStyle(
+                                      color: tokens.onSurface,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    h3: TextStyle(
+                                      color: tokens.onSurface,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    code: GoogleFonts.martianMono(
+                                      fontSize: 10,
+                                      color: tokens.primary,
+                                    ),
+                                    codeblockDecoration: BoxDecoration(
+                                      color: tokens.onSurface.withValues(alpha: 0.06),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    listBullet: TextStyle(
+                                      color: tokens.primary,
+                                      fontSize: 11,
+                                    ),
+                                    blockquote: TextStyle(
+                                      color: tokens.onSurface.withValues(alpha: 0.6),
+                                      fontSize: 11,
+                                      fontStyle: FontStyle.italic,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -1279,7 +1320,7 @@ class _MarketplaceSectionState extends State<_MarketplaceSection> {
 
                           // Binaries list
                           Text(
-                            'AVAILABLE FIRMWARE',
+                            'AVAILABLE FIRMWARE BUNDLES',
                             style: TextStyle(
                               color: tokens.onSurface.withValues(alpha: 0.54),
                               fontSize: 10,
@@ -1291,13 +1332,13 @@ class _MarketplaceSectionState extends State<_MarketplaceSection> {
 
                           Builder(
                             builder: (context) {
-                              final flashableBinaries = release.binaries.where((b) => !b.isOta).toList();
+                              final flashableBinaries = release.flashableBinaries;
 
                               if (flashableBinaries.isEmpty) {
                                 return Padding(
                                   padding: const EdgeInsets.symmetric(vertical: 8),
                                   child: Text(
-                                    'No flashable .bin assets found in this release.',
+                                    'No firmware bundle (.zip) assets found in this release.',
                                     style: TextStyle(
                                       color: tokens.onSurface.withValues(alpha: 0.4),
                                       fontSize: 11,
@@ -1352,13 +1393,27 @@ class _MarketplaceSectionState extends State<_MarketplaceSection> {
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
                                                 // Primary title: Board / Display Name
-                                                Text(
-                                                  binary.displayName,
-                                                  style: GoogleFonts.martianMono(
-                                                    color: tokens.onSurface,
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w700,
-                                                  ),
+                                                Row(
+                                                  children: [
+                                                    Icon(
+                                                      binary.isBundle
+                                                          ? Icons.folder_zip_rounded
+                                                          : Icons.memory_rounded,
+                                                      size: 14,
+                                                      color: tokens.onSurface.withValues(alpha: 0.7),
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                    Expanded(
+                                                      child: Text(
+                                                        binary.displayName,
+                                                        style: GoogleFonts.martianMono(
+                                                          color: tokens.onSurface,
+                                                          fontSize: 12,
+                                                          fontWeight: FontWeight.w700,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                                 const SizedBox(height: 4),
                                                 // Metadata tags: Chip, Variant, Size, Compatibility
@@ -1367,6 +1422,22 @@ class _MarketplaceSectionState extends State<_MarketplaceSection> {
                                                   runSpacing: 4,
                                                   crossAxisAlignment: WrapCrossAlignment.center,
                                                   children: [
+                                                    if (binary.isBundle)
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                                        decoration: BoxDecoration(
+                                                          color: tokens.primary.withValues(alpha: 0.12),
+                                                          borderRadius: BorderRadius.circular(4),
+                                                        ),
+                                                        child: Text(
+                                                          'BUNDLE',
+                                                          style: TextStyle(
+                                                            color: tokens.primary,
+                                                            fontSize: 9,
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ),
                                                     if (binary.chip != null)
                                                       Container(
                                                         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),

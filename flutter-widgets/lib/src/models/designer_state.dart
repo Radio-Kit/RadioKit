@@ -970,12 +970,13 @@ class DesignerState extends ChangeNotifier {
   //  .h-file persistence
   // ──────────────────────────────────────────────────────────────────────────
 
-  static const _configStart = '/*__RadioKit_UI_Designer_Config__';
-  static const _configEnd = 'RadioKit_UI_Designer_Config__*/';
+  static const _configStart = '/*__RADIOKIT_Designer_Config__';
+  static const _configEnd = 'RADIOKIT_Designer_Config__*/';
 
   static final RegExp configPattern = RegExp(
-    RegExp.escape(_configStart) + r'(.*?)' + RegExp.escape(_configEnd),
+    r'/\*__(?:RADIOKIT|RadioKit_UI)_Designer_Config__(.*?)(?:RADIOKIT|RadioKit_UI)_Designer_Config__\*/',
     dotAll: true,
+    caseSensitive: false,
   );
 
   Future<void> loadFromHeaderFile(String filePath) async {

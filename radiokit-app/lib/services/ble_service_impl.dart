@@ -423,12 +423,12 @@ class BleService implements TransportService {
     UniversalBle.onScanResult = (BleDevice result) {
       final id = result.deviceId;
       final rawName = result.name ?? '';
-
-      if (!rawName.startsWith('RK_')) return;
+      if (rawName.isEmpty) return;
+      final hasPrefix = rawName.startsWith('RK_');
+      final displayName = hasPrefix ? rawName.substring(3) : rawName;
 
       if (!seen.contains(id)) {
         seen.add(id);
-        final displayName = rawName.substring(3);
         debugPrint('BLE_SERVICE: Found RadioKit device: $displayName ($id)');
         final info = DeviceInfo(
           id: id,
@@ -441,15 +441,17 @@ class BleService implements TransportService {
       }
     };
 
-    UniversalBle.startScan(
-      scanFilter: ScanFilter(),
-    ).then((_) {
-      debugPrint('BLE_SERVICE: UniversalBle.startScan success');
-    }).catchError((error) {
-      debugPrint('BLE_SERVICE: UniversalBle.startScan ERROR: $error');
-      if (!controller.isClosed) {
-        controller.addError(error);
-      }
+    requestPermissions().then((_) {
+      UniversalBle.startScan(
+        scanFilter: ScanFilter(),
+      ).then((_) {
+        debugPrint('BLE_SERVICE: UniversalBle.startScan success');
+      }).catchError((error) {
+        debugPrint('BLE_SERVICE: UniversalBle.startScan ERROR: $error');
+        if (!controller.isClosed) {
+          controller.addError(error);
+        }
+      });
     });
 
     return controller.stream;

@@ -9,6 +9,7 @@ import '../../providers/device_provider.dart';
 import '../../models/device_info.dart';
 import '../../theme/app_theme.dart';
 import '../../services/firmware_release_service.dart';
+import '../../services/firmware_bundle_parser.dart';
 
 class FirmwareTabContent extends StatefulWidget {
   final DeviceInfo device;
@@ -176,10 +177,42 @@ class _FirmwareTabContentState extends State<FirmwareTabContent> {
       return;
     }
 
+    String displayName = file.name;
+    Uint8List uploadBytes = firmware;
+
+    // If a .zip release bundle is selected, extract the app partition
+    if (file.name.toLowerCase().endsWith('.zip')) {
+      try {
+        final bundle = FirmwareBundleParser.parseZip(firmware, fileName: file.name);
+        final appPart = bundle.appPart;
+        if (appPart == null) {
+          if (mounted) {
+            setState(() {
+              _error = true;
+              _status = 'Invalid Bundle';
+              _errorMessage = 'No application firmware partition found in bundle';
+            });
+          }
+          return;
+        }
+        uploadBytes = appPart.bytes;
+        displayName = '${bundle.name} v${bundle.version} (${appPart.path})';
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _error = true;
+            _status = 'Invalid Bundle';
+            _errorMessage = '$e';
+          });
+        }
+        return;
+      }
+    }
+
     // Store file for confirm step instead of starting upload immediately
     setState(() {
-      _selectedFileName = file.name;
-      _selectedFirmwareBytes = firmware;
+      _selectedFileName = displayName;
+      _selectedFirmwareBytes = uploadBytes;
       _error = false;
       _errorMessage = null;
       _status = 'Ready';

@@ -35,6 +35,8 @@ import 'demo_transport.dart';
 import '../models/account.dart';
 import 'docs_service.dart';
 import 'library_service.dart';
+import 'firmware_bundle_parser.dart';
+import '../screens/designer/codegen/header_file_parser.dart';
 import '../screens/designer/codegen/json_arduino_generator.dart';
 
 class RemoteAccessService {
@@ -284,6 +286,7 @@ class RemoteAccessService {
     router.post('/api/connection/demo', _handleConnectionDemo);
     router.get('/api/designs', _handleDesigns);
     router.post('/api/designs', _handleDesignsSave);
+    router.post('/api/designs/import', _handleDesignsImport);
     router.get('/api/designs/<id>/json', _handleDesignJson);
     router.get('/api/designs/<id>/header', _handleDesignHeader);
     router.delete('/api/designs', _handleDesignsDeleteAll);
@@ -1981,6 +1984,7 @@ class RemoteAccessService {
   Future<Response> _handleFlasherStatus(Request request) async {
     final info = _flasherProvider.chipInfo;
     final firmware = _flasherProvider.selectedFirmware;
+    final bundle = _flasherProvider.selectedBundle;
     return _json({
       'isConnected': _flasherProvider.isConnected,
       'isScanning': _flasherProvider.isScanning,
@@ -2008,6 +2012,22 @@ class RemoteAccessService {
               'name': firmware.name,
               'size': firmware.size,
               'bytes': firmware.bytes,
+              'chipFamily': firmware.chipFamily,
+              'version': firmware.version,
+              'partsCount': firmware.partsCount,
+            }
+          : null,
+      'selectedBundle': bundle != null
+          ? {
+              'name': bundle.name,
+              'version': bundle.version,
+              'chipFamily': bundle.chipFamily,
+              'totalBytes': bundle.totalBinaryBytes,
+              'parts': bundle.parts.map((p) => {
+                'path': p.path,
+                'offset': p.offset,
+                'size': p.size,
+              }).toList(),
             }
           : null,
     });
@@ -2026,15 +2046,14 @@ class RemoteAccessService {
     return _json({'ok': true});
   }
 
-  /// Handle POST /api/flasher/select-firmware — accept base64 firmware data.
-  /// Body: { "data": "<base64>", "name": "firmware.bin" }
-  /// Saves the firmware to a temp file and sets it as the selected firmware.
+  /// Handle POST /api/flasher/select-firmware — accept base64 .zip firmware bundle.
+  /// Body: { "data": "<base64>", "name": "firmware.zip" }
   Future<Response> _handleFlasherSelectFirmware(Request request) async {
     final body = await _parseBody(request);
     final dataB64 = body['data'] as String?;
-    final name = body['name'] as String? ?? 'firmware.bin';
+    final name = body['name'] as String? ?? 'firmware.zip';
     if (dataB64 == null || dataB64.isEmpty) {
-      return _error('invalid_params', 'data (base64-encoded firmware) is required');
+      return _error('invalid_params', 'data (base64-encoded .zip firmware bundle) is required');
     }
     List<int> firmwareBytes;
     try {
@@ -2042,26 +2061,24 @@ class RemoteAccessService {
     } catch (e) {
       return _error('invalid_encoding', 'Failed to decode base64: $e', status: 400);
     }
-    // Write to a temp file so FlasherProvider can read it
-    final tempDir = Directory.systemTemp;
-    final tempFile = File('${tempDir.path}/$name');
+
     try {
-      await tempFile.writeAsBytes(firmwareBytes);
+      _flasherProvider.setSelectedBundleDirect(
+        bytes: Uint8List.fromList(firmwareBytes),
+        name: name,
+      );
+      final bundle = _flasherProvider.selectedBundle!;
+      return _json({
+        'ok': true,
+        'name': bundle.name,
+        'version': bundle.version,
+        'chipFamily': bundle.chipFamily,
+        'partsCount': bundle.parts.length,
+        'totalBytes': bundle.totalBinaryBytes,
+      });
     } catch (e) {
-      return _error('file_error', 'Failed to write temp file: $e', status: 500);
+      return _error('invalid_bundle', 'Failed to parse firmware bundle: $e', status: 400);
     }
-    // Directly set the selected firmware on the provider
-    // (bypassing the file picker in selectFirmwareFile)
-    _flasherProvider.setSelectedFirmwareDirect(
-      name: name,
-      path: tempFile.path,
-      bytes: firmwareBytes.length,
-    );
-    return _json({
-      'ok': true,
-      'name': name,
-      'size': firmwareBytes.length,
-    });
   }
 
   /// Handle POST /api/flasher/clear-firmware — clear firmware selection.
@@ -3488,10 +3505,70 @@ class RemoteAccessService {
     }
 
     try {
-      await _designsProvider.saveDesign(id, name, jsonContent);
+      String normalizedJson = jsonContent;
+      // If jsonContent is a .h file or contains header comment block, normalize it
+      if (jsonContent.contains('Designer_Config__')) {
+        final parsed = parseJsonOrHeaderContent(jsonContent);
+        normalizedJson = const JsonEncoder.withIndent('  ').convert(parsed.toJson());
+      }
+      await _designsProvider.saveDesign(id, name, normalizedJson);
       return _json({'ok': true, 'message': 'Design saved'});
     } catch (e) {
       return _error('save_failed', e.toString(), status: 500);
+    }
+  }
+
+  /// Handle POST /api/designs/import — imports a design from raw JSON, a complete .h header file, or base64.
+  /// Body: { "content": "..." } or { "data": "<base64>" } or direct { "version": 2, "pages": [...] }
+  Future<Response> _handleDesignsImport(Request request) async {
+    final body = await _parseBody(request);
+    String? rawContent;
+
+    if (body['data'] is String) {
+      try {
+        rawContent = utf8.decode(base64Decode(body['data'] as String));
+      } catch (e) {
+        return _error('invalid_encoding', 'Failed to decode base64 payload: $e', status: 400);
+      }
+    } else if (body['content'] is String) {
+      rawContent = body['content'] as String;
+    } else if (body.containsKey('pages') || body.containsKey('widgets') || body.containsKey('config')) {
+      rawContent = jsonEncode(body);
+    }
+
+    if (rawContent == null || rawContent.trim().isEmpty) {
+      return _error('invalid_params', 'content, data (base64), or raw design JSON is required', status: 400);
+    }
+
+    try {
+      final config = parseJsonOrHeaderContent(rawContent);
+      final jsonMap = config.toJson();
+      const encoder = JsonEncoder.withIndent('  ');
+      final formattedJson = encoder.convert(jsonMap);
+
+      final explicitId = body['id'] as String?;
+      final explicitName = body['name'] as String?;
+
+      final appName = config.app.name.trim();
+      final id = explicitId ??
+          (appName.isNotEmpty
+              ? appName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '_')
+              : 'design_${DateTime.now().millisecondsSinceEpoch}');
+      final name = explicitName ?? (appName.isNotEmpty ? appName : 'Imported Design');
+
+      await _designsProvider.saveDesign(id, name, formattedJson);
+
+      return _json({
+        'ok': true,
+        'id': id,
+        'name': name,
+        'version': config.version,
+        'pagesCount': config.pages.length,
+        'widgetsCount': config.widgets.length,
+        'message': 'Design imported successfully',
+      });
+    } catch (e) {
+      return _error('import_failed', 'Failed to parse design header or JSON: $e', status: 400);
     }
   }
 
@@ -3533,7 +3610,7 @@ class RemoteAccessService {
         return _error('no_content', 'Design has no JSON content', status: 400);
       }
       final json = jsonDecode(design.jsonContent!) as Map<String, dynamic>;
-      final header = JsonArduinoGenerator.generate(json);
+      final header = JsonArduinoGenerator.generateFullHeader(json);
       return Response.ok(
         header,
         headers: {'content-type': 'text/plain; charset=utf-8'},
@@ -3577,6 +3654,27 @@ class RemoteAccessService {
       return _error('invalid_encoding',
           'Failed to decode base64 data: $e',
           status: 400);
+    }
+
+    // Check if uploaded payload is a .zip firmware bundle
+    final name = body['name'] as String?;
+    if ((name != null && name.toLowerCase().endsWith('.zip')) ||
+        (firmware.length > 4 && firmware[0] == 0x50 && firmware[1] == 0x4B)) {
+      try {
+        final bundle = FirmwareBundleParser.parseZip(
+          Uint8List.fromList(firmware),
+          fileName: name ?? 'firmware.zip',
+        );
+        final appPart = bundle.appPart;
+        if (appPart == null) {
+          return _error('invalid_bundle',
+              'No application firmware partition (offset 0x10000) found in bundle',
+              status: 400);
+        }
+        firmware = appPart.bytes;
+      } catch (e) {
+        return _error('invalid_bundle', 'Failed to parse firmware bundle: $e', status: 400);
+      }
     }
 
     final deviceId = _deviceProvider.connectedDevice?.id ?? 'unknown';
