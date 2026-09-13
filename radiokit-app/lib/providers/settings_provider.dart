@@ -15,13 +15,60 @@ class SettingsProvider with ChangeNotifier {
   bool _followRemoteAccess = _defaultFollowRemoteAccess;
   bool _overrideTheme = _defaultOverrideTheme;
 
+  bool _hasSeenModelsTour = false;
+  bool _hasSeenFlasherTour = false;
+  bool _hasSeenDesignerTour = false;
+
   bool get useFullscreen => _useFullscreen;
   bool get enableRemoteAccess => _enableRemoteAccess;
   bool get followRemoteAccess => _followRemoteAccess;
   bool get overrideTheme => _overrideTheme;
 
+  bool get hasSeenModelsTour => _hasSeenModelsTour;
+  bool get hasSeenFlasherTour => _hasSeenFlasherTour;
+  bool get hasSeenDesignerTour => _hasSeenDesignerTour;
+
   SettingsProvider() {
     _loadSettings();
+  }
+
+  bool hasSeenTour(String tourId) {
+    switch (tourId) {
+      case 'models':
+        return _hasSeenModelsTour;
+      case 'flasher':
+        return _hasSeenFlasherTour;
+      case 'designer':
+        return _hasSeenDesignerTour;
+      default:
+        return false;
+    }
+  }
+
+  Future<void> markTourSeen(String tourId) async {
+    bool changed = false;
+    if (tourId == 'models' && !_hasSeenModelsTour) {
+      _hasSeenModelsTour = true;
+      changed = true;
+    } else if (tourId == 'flasher' && !_hasSeenFlasherTour) {
+      _hasSeenFlasherTour = true;
+      changed = true;
+    } else if (tourId == 'designer' && !_hasSeenDesignerTour) {
+      _hasSeenDesignerTour = true;
+      changed = true;
+    }
+    if (changed) {
+      notifyListeners();
+      await _persist();
+    }
+  }
+
+  Future<void> resetHelpGuides() async {
+    _hasSeenModelsTour = false;
+    _hasSeenFlasherTour = false;
+    _hasSeenDesignerTour = false;
+    notifyListeners();
+    await _persist();
   }
 
   Future<void> setUseFullscreen(bool value) async {
@@ -66,6 +113,9 @@ class SettingsProvider with ChangeNotifier {
         _enableRemoteAccess = decoded['enableRemoteAccess'] ?? _defaultEnableRemoteAccess;
         _followRemoteAccess = decoded['followRemoteAccess'] ?? _defaultFollowRemoteAccess;
         _overrideTheme = decoded['overrideTheme'] ?? _defaultOverrideTheme;
+        _hasSeenModelsTour = decoded['hasSeenModelsTour'] ?? false;
+        _hasSeenFlasherTour = decoded['hasSeenFlasherTour'] ?? false;
+        _hasSeenDesignerTour = decoded['hasSeenDesignerTour'] ?? false;
       }
       notifyListeners();
     } catch (e) {
@@ -81,6 +131,9 @@ class SettingsProvider with ChangeNotifier {
         'enableRemoteAccess': _enableRemoteAccess,
         'followRemoteAccess': _followRemoteAccess,
         'overrideTheme': _overrideTheme,
+        'hasSeenModelsTour': _hasSeenModelsTour,
+        'hasSeenFlasherTour': _hasSeenFlasherTour,
+        'hasSeenDesignerTour': _hasSeenDesignerTour,
       });
       await prefs.setString(_storageKey, data);
     } catch (e) {

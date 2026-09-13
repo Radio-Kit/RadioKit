@@ -15,6 +15,11 @@ import '../../services/firmware_marketplace_service.dart';
 import '../../services/firmware_release_service.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'qr_repo_scanner_modal.dart';
+import '../../providers/settings_provider.dart';
+import '../../widgets/help/help_badge.dart';
+import '../../widgets/help/help_content.dart';
+import '../../widgets/help/hardware_troubleshooting.dart';
+import '../../widgets/help/spotlight_tour.dart';
 
 class FlasherTab extends StatefulWidget {
   const FlasherTab({super.key});
@@ -25,6 +30,8 @@ class FlasherTab extends StatefulWidget {
 
 class _FlasherTabState extends State<FlasherTab> {
   FlasherProvider? _flasher;
+  final GlobalKey _portSelectorKey = GlobalKey();
+  final GlobalKey _marketplaceKey = GlobalKey();
 
   @override
   void initState() {
@@ -33,6 +40,32 @@ class _FlasherTabState extends State<FlasherTab> {
       if (!mounted) return;
       _flasher = context.read<FlasherProvider>();
       _flasher!.startAutoScan();
+
+      final settings = context.read<SettingsProvider>();
+      if (!settings.hasSeenFlasherTour) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (!mounted) return;
+          SpotlightTour(
+            context: context,
+            tourId: 'flasher',
+            steps: [
+              SpotlightStep(
+                targetKey: _portSelectorKey,
+                title: '1. Select Serial Port',
+                description: 'Connect your ESP32 via USB. RadioKit detects standard USB-UART and native USB CDC ports.',
+                icon: Icons.usb_rounded,
+              ),
+              SpotlightStep(
+                targetKey: _marketplaceKey,
+                title: '2. Firmware Marketplace',
+                description: 'Browse pre-compiled firmware bundles or flash custom .bin images with automatic LittleFS initialization.',
+                icon: Icons.storefront_rounded,
+              ),
+            ],
+            onComplete: () => settings.markTourSeen('flasher'),
+          ).start();
+        });
+      }
     });
   }
 
@@ -71,13 +104,13 @@ class _FlasherTabState extends State<FlasherTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _PortSelector(),
+                _PortSelector(key: _portSelectorKey),
                 const SizedBox(height: 16),
                 _ChipInfoPanel(),
                 const SizedBox(height: 16),
                 _FirmwareSection(),
                 const SizedBox(height: 16),
-                _MarketplaceSection(),
+                _MarketplaceSection(key: _marketplaceKey),
                 const SizedBox(height: 16),
               ],
             ),
@@ -219,6 +252,8 @@ class _ConsoleLogPanel extends StatelessWidget {
 // ── Port Selector ───────────────────────────────────────────────────────────
 
 class _PortSelector extends StatelessWidget {
+  const _PortSelector({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Consumer<FlasherProvider>(
@@ -254,7 +289,19 @@ class _DisconnectedState extends StatelessWidget {
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1)),
+          const SizedBox(width: 6),
+          const HelpBadge(topic: HelpTopics.baudRate),
+          const SizedBox(width: 4),
+          const HelpBadge(topic: HelpTopics.cdcTouch),
           const Spacer(),
+          IconButton(
+            tooltip: 'ESP32 Bootloader Sequence Guide',
+            icon: Icon(Icons.help_outline_rounded,
+                size: 20, color: context.tokens.primary),
+            onPressed: () => BootloaderGuideDialog.show(context),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          ),
           if (isScanning) ...[
             SizedBox(
                 width: 12,
@@ -282,20 +329,8 @@ class _DisconnectedState extends StatelessWidget {
         ]),
         if (ports.isEmpty && !isScanning) ...[
           const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: context.tokens.onSurface.withValues(alpha: 0.04),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                  color: context.tokens.onSurface.withValues(alpha: 0.08)),
-            ),
-            child: Text('No ports detected. Plug in a device.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    color: context.tokens.onSurface.withValues(alpha: 0.38),
-                    fontSize: 11)),
+          SerialPortTroubleshootingCard(
+            onRefresh: () => flasher.scanPorts(),
           ),
         ],
         // Show only preferred ports in the main list; fall back to all
@@ -871,6 +906,8 @@ class _FirmwareSection extends StatelessWidget {
 // ── Firmware Marketplace Section ───────────────────────────────────────────
 
 class _MarketplaceSection extends StatefulWidget {
+  const _MarketplaceSection({super.key});
+
   @override
   State<_MarketplaceSection> createState() => _MarketplaceSectionState();
 }

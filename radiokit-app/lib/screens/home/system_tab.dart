@@ -471,8 +471,100 @@ class _SystemTabState extends State<SystemTab> {
   Widget _buildAdvancedOptionsCard(BuildContext context) {
     return Column(
       children: [
+        _buildHelpGuidesCard(context),
+        const SizedBox(height: 16),
         _buildRemoteAccessCard(context),
       ],
+    );
+  }
+
+  Widget _buildHelpGuidesCard(BuildContext context) {
+    final tokens = context.tokens;
+    final settings = context.watch<SettingsProvider>();
+    return Container(
+      decoration: BoxDecoration(
+        color: context.tokens.onSurface.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: tokens.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.help_outline_rounded, color: tokens.primary, size: 28),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'HELP_AND_GUIDES',
+                        style: GoogleFonts.changa(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                          letterSpacing: 1.5,
+                          color: tokens.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Replay spotlight coach marks and screen guides',
+                        style: TextStyle(
+                          color: tokens.onSurface.withValues(alpha: 0.6),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 40,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: tokens.primary,
+                  side: BorderSide(color: tokens.primary.withValues(alpha: 0.5)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                icon: const Icon(Icons.replay_rounded, size: 18),
+                label: Text(
+                  'RESET HELP & GUIDES',
+                  style: GoogleFonts.changa(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.0,
+                    fontSize: 12,
+                  ),
+                ),
+                onPressed: () async {
+                  await settings.resetHelpGuides();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('Help guides and spotlight tours have been reset.'),
+                        backgroundColor: tokens.primary,
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

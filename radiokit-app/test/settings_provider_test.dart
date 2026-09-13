@@ -30,5 +30,27 @@ void main() {
       expect(provider.followRemoteAccess, isTrue);
       expect(provider.overrideTheme, isTrue);
     });
+
+    test('manages spotlight tour flags and reset', () async {
+      final provider = SettingsProvider();
+      expect(provider.hasSeenModelsTour, isFalse);
+      expect(provider.hasSeenFlasherTour, isFalse);
+      expect(provider.hasSeenDesignerTour, isFalse);
+      expect(provider.hasSeenTour('models'), isFalse);
+
+      await provider.markTourSeen('models');
+      await provider.markTourSeen('flasher');
+      await provider.markTourSeen('designer');
+
+      expect(provider.hasSeenModelsTour, isTrue);
+      expect(provider.hasSeenFlasherTour, isTrue);
+      expect(provider.hasSeenDesignerTour, isTrue);
+      expect(provider.hasSeenTour('models'), isTrue);
+
+      await provider.resetHelpGuides();
+      expect(provider.hasSeenModelsTour, isFalse);
+      expect(provider.hasSeenFlasherTour, isFalse);
+      expect(provider.hasSeenDesignerTour, isFalse);
+    });
   });
 }

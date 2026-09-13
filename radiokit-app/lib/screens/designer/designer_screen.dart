@@ -20,6 +20,10 @@ import 'widgets/designer_inspector.dart';
 import 'widgets/designer_page_bar.dart';
 
 import '../../providers/designs_provider.dart';
+import '../../providers/settings_provider.dart';
+import '../../widgets/help/help_badge.dart';
+import '../../widgets/help/help_content.dart';
+import '../../widgets/help/spotlight_tour.dart';
 import 'codegen/json_arduino_generator.dart';
 
 class DesignerScreen extends StatefulWidget {
@@ -41,6 +45,9 @@ class DesignerScreen extends StatefulWidget {
 
 class _DesignerScreenState extends State<DesignerScreen> {
   final DesignerState _state = DesignerState();
+  final GlobalKey _addWidgetKey = GlobalKey();
+  final GlobalKey _codeExportKey = GlobalKey();
+  final GlobalKey _playModeKey = GlobalKey();
   String? _currentDesignId;
   bool _hasUnsavedChanges = false;
   bool _isInitializing = false;
@@ -61,6 +68,38 @@ class _DesignerScreenState extends State<DesignerScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadInitialDesign();
+
+      final settings = context.read<SettingsProvider>();
+      if (!settings.hasSeenDesignerTour) {
+        Future.delayed(const Duration(milliseconds: 600), () {
+          if (!mounted) return;
+          SpotlightTour(
+            context: context,
+            tourId: 'designer',
+            steps: [
+              SpotlightStep(
+                targetKey: _addWidgetKey,
+                title: '1. Add UI Widgets',
+                description: 'Tap + to browse the widget palette and drop buttons, gauges, sliders, and switches onto your canvas.',
+                icon: PhosphorIconsFill.plus,
+              ),
+              SpotlightStep(
+                targetKey: _playModeKey,
+                title: '2. Live Play Simulation',
+                description: 'Toggle Play Mode to interact with dials and controls in real time without uploading code.',
+                icon: PhosphorIconsFill.play,
+              ),
+              SpotlightStep(
+                targetKey: _codeExportKey,
+                title: '3. Export Arduino C++',
+                description: 'Generate ready-to-flash RADIOKIT.h header code or JSON layout files for your sketch.',
+                icon: PhosphorIconsFill.code,
+              ),
+            ],
+            onComplete: () => settings.markTourSeen('designer'),
+          ).start();
+        });
+      }
     });
   }
 
@@ -277,6 +316,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                           left: 16,
                           bottom: 16,
                           child: FloatingActionButton(
+                            key: _addWidgetKey,
                             onPressed: () {
                               showThemedBottomSheet(
                                 context: context,
@@ -300,6 +340,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                           right: 16,
                           bottom: 16,
                           child: FloatingActionButton(
+                            key: _codeExportKey,
                             onPressed: () => _showSourceCode(context, tokens),
                             backgroundColor: tokens.base200,
                             foregroundColor: tokens.onSurface.withValues(alpha: 0.7),
@@ -382,8 +423,18 @@ class _DesignerScreenState extends State<DesignerScreen> {
                 ],
               ),
             ),
-            Spacer(),
-            _buildPlayModeButton(tokens),
+            const Spacer(),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                KeyedSubtree(
+                  key: _playModeKey,
+                  child: _buildPlayModeButton(tokens),
+                ),
+                const SizedBox(width: 4),
+                const HelpBadge(topic: HelpTopics.designerPlayMode),
+              ],
+            ),
             SizedBox(width: 12),
             _buildUndoRedoButtons(tokens),
             SizedBox(width: 8),

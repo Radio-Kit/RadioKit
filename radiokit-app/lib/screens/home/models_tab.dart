@@ -28,6 +28,11 @@ import '../../services/cloud_identity.dart';
 import '../../models/tab_index.dart';
 import 'pair_sheet.dart';
 import '../../services/ble_transport.dart';
+import '../../providers/settings_provider.dart';
+import '../../widgets/help/help_badge.dart';
+import '../../widgets/help/help_content.dart';
+import '../../widgets/help/hardware_troubleshooting.dart';
+import '../../widgets/help/spotlight_tour.dart';
 
 class _DeviceAvailability {
   final bool? wifiAvailable;
@@ -74,12 +79,41 @@ class ModelsTab extends StatefulWidget {
 
 class _ModelsTabState extends State<ModelsTab> {
   bool _sheetOpened = false;
+  final GlobalKey _connectKey = GlobalKey();
+  final GlobalKey _pairedListKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _sheetOpened) return;
+      if (!mounted) return;
+      final settings = context.read<SettingsProvider>();
+      if (!settings.hasSeenModelsTour) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (!mounted) return;
+          SpotlightTour(
+            context: context,
+            tourId: 'models',
+            steps: [
+              SpotlightStep(
+                targetKey: _connectKey,
+                title: 'Connect ESP32 Hardware',
+                description: 'Tap "+ New device" or "+ Connect" to scan for nearby BLE devices or link via USB serial.',
+                icon: Icons.bluetooth_searching_rounded,
+              ),
+              SpotlightStep(
+                targetKey: _pairedListKey,
+                title: 'Device Hub & Diagnostics',
+                description: 'Your hardware models, live telemetry links, and connection troubleshooting appear here.',
+                icon: Icons.dashboard_customize_rounded,
+              ),
+            ],
+            onComplete: () => settings.markTourSeen('models'),
+          ).start();
+        });
+      }
+
+      if (_sheetOpened) return;
       _sheetOpened = true;
       final sheet = GoRouterState.of(context).uri.queryParameters['sheet'];
       if (sheet == 'pair') {
@@ -124,9 +158,43 @@ class _ModelsTabState extends State<ModelsTab> {
       padding: EdgeInsets.zero,
       children: [
         const SizedBox(height: 12),
-        _ActiveLinkSection(),
-        const SizedBox(height: 16),
         Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'ACTIVE_DEVICES',
+                style: GoogleFonts.changa(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                  color: context.tokens.primary,
+                ),
+              ),
+              const HelpBadge(topic: HelpTopics.transports),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        _ActiveLinkSection(newDeviceKey: _connectKey),
+        const SizedBox(height: 16),
+        Consumer2<MultiDeviceProvider, HistoryProvider>(
+          builder: (context, multi, history, _) {
+            final hasAny = multi.anyConnected || history.pairedDevices.isNotEmpty;
+            if (!hasAny) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: DiscoveryDiagnosticChecklist(
+                  onScanAgain: () => showPairBottomSheet(context),
+                ),
+              );
+            }
+            return const SizedBox.shrink();
+          },
+        ),
+        Padding(
+          key: _pairedListKey,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: _PairedModelsList(),
         ),
@@ -140,9 +208,43 @@ class _ModelsTabState extends State<ModelsTab> {
       padding: EdgeInsets.zero,
       children: [
         const SizedBox(height: 12),
-        _ActiveLinkSection(),
-        const SizedBox(height: 16),
         Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'ACTIVE_DEVICES',
+                style: GoogleFonts.changa(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                  color: context.tokens.primary,
+                ),
+              ),
+              const HelpBadge(topic: HelpTopics.transports),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        _ActiveLinkSection(newDeviceKey: _connectKey),
+        const SizedBox(height: 16),
+        Consumer2<MultiDeviceProvider, HistoryProvider>(
+          builder: (context, multi, history, _) {
+            final hasAny = multi.anyConnected || history.pairedDevices.isNotEmpty;
+            if (!hasAny) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: DiscoveryDiagnosticChecklist(
+                  onScanAgain: () => showPairBottomSheet(context),
+                ),
+              );
+            }
+            return const SizedBox.shrink();
+          },
+        ),
+        Padding(
+          key: _pairedListKey,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: _PairedModelsList(),
         ),
@@ -314,6 +416,9 @@ Widget _buildActiveLinkCard(
 // -- Active Link Section ------------------------------------------------------
 
 class _ActiveLinkSection extends StatefulWidget {
+  final GlobalKey? newDeviceKey;
+  const _ActiveLinkSection({this.newDeviceKey});
+
   @override
   State<_ActiveLinkSection> createState() => _ActiveLinkSectionState();
 }
@@ -342,6 +447,7 @@ class _ActiveLinkSectionState extends State<_ActiveLinkSection> {
         child: SizedBox(
           width: double.infinity,
           child: FilledButton.tonal(
+            key: widget.newDeviceKey,
             style: FilledButton.styleFrom(
               backgroundColor: context.tokens.primary.withValues(alpha: 0.15),
               foregroundColor: context.tokens.primary,
