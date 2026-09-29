@@ -15,6 +15,7 @@ import '../../widgets/radiokit_app_bar.dart';
 import '../../widgets/api_log_view.dart';
 import '../donate_screen.dart';
 import 'accounts_sheet.dart';
+import '../../utils/app_version.dart';
 
 class SystemTab extends StatefulWidget {
   const SystemTab({super.key});
@@ -160,6 +161,8 @@ class _SystemTabState extends State<SystemTab> {
             const SizedBox(height: 32),
             _buildSectionTag(context, '02. ENVIRONMENT'),
             _buildApplicationCard(context, themeProvider),
+            const SizedBox(height: 16),
+            _buildHelpGuidesCard(context),
             
             const SizedBox(height: 32),
             _buildSectionTag(context, '03. CONTROL_UI'),
@@ -419,7 +422,7 @@ class _SystemTabState extends State<SystemTab> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'v1.0.0',
+                    AppVersion.releaseTag,
                     style: TextStyle(
                       color: context.tokens.onSurface.withValues(alpha: 0.9),
                       fontSize: 14,
@@ -469,13 +472,7 @@ class _SystemTabState extends State<SystemTab> {
   }
 
   Widget _buildAdvancedOptionsCard(BuildContext context) {
-    return Column(
-      children: [
-        _buildHelpGuidesCard(context),
-        const SizedBox(height: 16),
-        _buildRemoteAccessCard(context),
-      ],
-    );
+    return _buildRemoteAccessCard(context);
   }
 
   Widget _buildHelpGuidesCard(BuildContext context) {

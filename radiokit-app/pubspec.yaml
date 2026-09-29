@@ -2,7 +2,7 @@ name: radiokit
 description: RadioKit - BLE & USB Serial companion app for Arduino RadioKit library
 publish_to: 'none'
 
-version: 1.0.0+2005
+version: 2.1.1+2006
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -64,20 +64,18 @@ dependencies:
   flutter_markdown: ^0.7.7+1
 
 dependency_overrides:
-  # NOTE: flutter_esptool fixes (chip info SPI flash size, watchdog disable)
-  # live on the rambros3d fork until merged upstream as pvagnozzi/flutter_esptool#19.
-  # Once merged, switch back to the upstream repo (or pub.dev) and drop these overrides.
+  # NOTE: flutter_esptool PR #19 was merged upstream into main on Sep 13, 2026.
+  # Pinned to official repo main branch until 0.1.6+ is published to pub.dev.
   flutter_esptool:
     git:
-      url: https://github.com/rambros3d/flutter_esptool
-      ref: fix/chip-info-and-watchdog
-  # Patched platform_serial (adds DirectSerialPort) — vendored in the fork's
-  # third_party/; switch back to pub.dev 0.1.2 when upstream releases it.
+      url: https://github.com/pvagnozzi/flutter_esptool.git
+      ref: main
+  # platform_serial (vendored in upstream repo's third_party/)
   platform_serial:
     git:
-      url: https://github.com/rambros3d/flutter_esptool
+      url: https://github.com/pvagnozzi/flutter_esptool.git
       path: third_party/platform_serial
-      ref: fix/chip-info-and-watchdog
+      ref: main
   flserial:
     git:
       url: https://github.com/rambros3d/flserial.git

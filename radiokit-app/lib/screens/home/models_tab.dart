@@ -88,9 +88,12 @@ class _ModelsTabState extends State<ModelsTab> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final settings = context.read<SettingsProvider>();
-      if (!settings.hasSeenModelsTour) {
+      if (!settings.isLoaded || !settings.hasSeenModelsTour) {
         Future.delayed(const Duration(milliseconds: 500), () {
           if (!mounted) return;
+          final currentSettings = context.read<SettingsProvider>();
+          if (!currentSettings.isLoaded || currentSettings.hasSeenModelsTour) return;
+          currentSettings.markTourSeen('models');
           SpotlightTour(
             context: context,
             tourId: 'models',
@@ -108,7 +111,7 @@ class _ModelsTabState extends State<ModelsTab> {
                 icon: Icons.dashboard_customize_rounded,
               ),
             ],
-            onComplete: () => settings.markTourSeen('models'),
+            onComplete: () => currentSettings.markTourSeen('models'),
           ).start();
         });
       }

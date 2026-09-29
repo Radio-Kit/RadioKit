@@ -18,6 +18,8 @@ class SettingsProvider with ChangeNotifier {
   bool _hasSeenModelsTour = false;
   bool _hasSeenFlasherTour = false;
   bool _hasSeenDesignerTour = false;
+  bool _isLoaded = false;
+  Future<void>? _initFuture;
 
   bool get useFullscreen => _useFullscreen;
   bool get enableRemoteAccess => _enableRemoteAccess;
@@ -27,9 +29,22 @@ class SettingsProvider with ChangeNotifier {
   bool get hasSeenModelsTour => _hasSeenModelsTour;
   bool get hasSeenFlasherTour => _hasSeenFlasherTour;
   bool get hasSeenDesignerTour => _hasSeenDesignerTour;
+  bool get isLoaded => _isLoaded;
+  Future<void> get initialized => _initFuture ?? Future.value();
 
-  SettingsProvider() {
-    _loadSettings();
+  SettingsProvider([SharedPreferences? prefs]) {
+    if (prefs != null) {
+      _applyPrefs(prefs);
+      _isLoaded = true;
+    } else {
+      _initFuture = _loadSettings();
+    }
+  }
+
+  Future<void> init() async {
+    if (_isLoaded) return;
+    _initFuture ??= _loadSettings();
+    await _initFuture;
   }
 
   bool hasSeenTour(String tourId) {
@@ -106,20 +121,26 @@ class SettingsProvider with ChangeNotifier {
   Future<void> _loadSettings() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final data = prefs.getString(_storageKey);
-      if (data != null) {
-        final decoded = Map<String, dynamic>.from(jsonDecode(data));
-        _useFullscreen = decoded['useFullscreen'] ?? _defaultUseFullscreen;
-        _enableRemoteAccess = decoded['enableRemoteAccess'] ?? _defaultEnableRemoteAccess;
-        _followRemoteAccess = decoded['followRemoteAccess'] ?? _defaultFollowRemoteAccess;
-        _overrideTheme = decoded['overrideTheme'] ?? _defaultOverrideTheme;
-        _hasSeenModelsTour = decoded['hasSeenModelsTour'] ?? false;
-        _hasSeenFlasherTour = decoded['hasSeenFlasherTour'] ?? false;
-        _hasSeenDesignerTour = decoded['hasSeenDesignerTour'] ?? false;
-      }
-      notifyListeners();
+      _applyPrefs(prefs);
     } catch (e) {
       debugPrint('RadioKit: Failed to load settings: $e');
+    } finally {
+      _isLoaded = true;
+      notifyListeners();
+    }
+  }
+
+  void _applyPrefs(SharedPreferences prefs) {
+    final data = prefs.getString(_storageKey);
+    if (data != null) {
+      final decoded = Map<String, dynamic>.from(jsonDecode(data));
+      _useFullscreen = decoded['useFullscreen'] ?? _defaultUseFullscreen;
+      _enableRemoteAccess = decoded['enableRemoteAccess'] ?? _defaultEnableRemoteAccess;
+      _followRemoteAccess = decoded['followRemoteAccess'] ?? _defaultFollowRemoteAccess;
+      _overrideTheme = decoded['overrideTheme'] ?? _defaultOverrideTheme;
+      _hasSeenModelsTour = decoded['hasSeenModelsTour'] ?? false;
+      _hasSeenFlasherTour = decoded['hasSeenFlasherTour'] ?? false;
+      _hasSeenDesignerTour = decoded['hasSeenDesignerTour'] ?? false;
     }
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 
 void main() async {
@@ -21,5 +22,6 @@ void main() async {
     ),
   );
 
-  runApp(const RadioKitApp());
+  final prefs = await SharedPreferences.getInstance();
+  runApp(RadioKitApp(sharedPreferences: prefs));
 }

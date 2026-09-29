@@ -339,9 +339,9 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: "fix/chip-info-and-watchdog"
-      resolved-ref: "087a4bd002bdb207658706ccd1fc89977e12ccb1"
-      url: "https://github.com/rambros3d/flutter_esptool"
+      ref: main
+      resolved-ref: e63e0ed1b9e60c00dab7920b244db17d58f9fce6
+      url: "https://github.com/pvagnozzi/flutter_esptool.git"
     source: git
     version: "0.1.5"
   flutter_gen_core:
@@ -934,9 +934,9 @@ packages:
     dependency: "direct main"
     description:
       path: "third_party/platform_serial"
-      ref: "fix/chip-info-and-watchdog"
-      resolved-ref: "087a4bd002bdb207658706ccd1fc89977e12ccb1"
-      url: "https://github.com/rambros3d/flutter_esptool"
+      ref: main
+      resolved-ref: e63e0ed1b9e60c00dab7920b244db17d58f9fce6
+      url: "https://github.com/pvagnozzi/flutter_esptool.git"
     source: git
     version: "0.1.2"
   plugin_platform_interface:

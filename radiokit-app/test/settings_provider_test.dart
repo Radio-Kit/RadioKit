@@ -52,5 +52,24 @@ void main() {
       expect(provider.hasSeenFlasherTour, isFalse);
       expect(provider.hasSeenDesignerTour, isFalse);
     });
+
+    test('supports synchronous initialization with preloaded SharedPreferences', () async {
+      SharedPreferences.setMockInitialValues({
+        'radiokit_settings': '{"hasSeenModelsTour":true,"hasSeenFlasherTour":true,"hasSeenDesignerTour":false}',
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final provider = SettingsProvider(prefs);
+
+      expect(provider.isLoaded, isTrue);
+      expect(provider.hasSeenModelsTour, isTrue);
+      expect(provider.hasSeenFlasherTour, isTrue);
+      expect(provider.hasSeenDesignerTour, isFalse);
+    });
+
+    test('init() completes and marks isLoaded true', () async {
+      final provider = SettingsProvider();
+      await provider.init();
+      expect(provider.isLoaded, isTrue);
+    });
   });
 }

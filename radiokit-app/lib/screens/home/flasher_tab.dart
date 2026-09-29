@@ -42,9 +42,12 @@ class _FlasherTabState extends State<FlasherTab> {
       _flasher!.startAutoScan();
 
       final settings = context.read<SettingsProvider>();
-      if (!settings.hasSeenFlasherTour) {
+      if (!settings.isLoaded || !settings.hasSeenFlasherTour) {
         Future.delayed(const Duration(milliseconds: 500), () {
           if (!mounted) return;
+          final currentSettings = context.read<SettingsProvider>();
+          if (!currentSettings.isLoaded || currentSettings.hasSeenFlasherTour) return;
+          currentSettings.markTourSeen('flasher');
           SpotlightTour(
             context: context,
             tourId: 'flasher',
@@ -62,7 +65,7 @@ class _FlasherTabState extends State<FlasherTab> {
                 icon: Icons.storefront_rounded,
               ),
             ],
-            onComplete: () => settings.markTourSeen('flasher'),
+            onComplete: () => currentSettings.markTourSeen('flasher'),
           ).start();
         });
       }

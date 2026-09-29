@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:radiokit_widgets/radiokit_widgets.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'providers/ble_provider.dart';
 import 'providers/console_provider.dart';
@@ -24,7 +25,8 @@ import 'theme/app_theme.dart';
 import 'widgets/back_button_dispatcher.dart';
 
 class RadioKitApp extends StatefulWidget {
-  const RadioKitApp({super.key});
+  final SharedPreferences? sharedPreferences;
+  const RadioKitApp({super.key, this.sharedPreferences});
 
   @override
   State<RadioKitApp> createState() => _RadioKitAppState();
@@ -58,7 +60,10 @@ class _RadioKitAppState extends State<RadioKitApp> {
     _themePresetProvider = ThemePresetProvider();
     _themePresetProvider.init();
 
-    _settingsProvider = SettingsProvider();
+    _settingsProvider = SettingsProvider(widget.sharedPreferences);
+    if (widget.sharedPreferences == null) {
+      _settingsProvider.init();
+    }
     _designsProvider = DesignsProvider();
     _designsProvider.load();
 

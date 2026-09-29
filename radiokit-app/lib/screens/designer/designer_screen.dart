@@ -70,9 +70,12 @@ class _DesignerScreenState extends State<DesignerScreen> {
       _loadInitialDesign();
 
       final settings = context.read<SettingsProvider>();
-      if (!settings.hasSeenDesignerTour) {
+      if (!settings.isLoaded || !settings.hasSeenDesignerTour) {
         Future.delayed(const Duration(milliseconds: 600), () {
           if (!mounted) return;
+          final currentSettings = context.read<SettingsProvider>();
+          if (!currentSettings.isLoaded || currentSettings.hasSeenDesignerTour) return;
+          currentSettings.markTourSeen('designer');
           SpotlightTour(
             context: context,
             tourId: 'designer',
@@ -96,7 +99,7 @@ class _DesignerScreenState extends State<DesignerScreen> {
                 icon: PhosphorIconsFill.code,
               ),
             ],
-            onComplete: () => settings.markTourSeen('designer'),
+            onComplete: () => currentSettings.markTourSeen('designer'),
           ).start();
         });
       }
