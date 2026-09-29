@@ -43,19 +43,17 @@ jobs:
 
       - name: Export .flatpak bundle
         run: |
-          VERSION=${GITHUB_REF_NAME:-latest}
-          flatpak build-bundle repo "radiokit-${VERSION}.flatpak" com.rambros3d.radiokit
+          flatpak build-bundle repo "radiokit-linux-x64.flatpak" com.rambros3d.radiokit
 
       - name: Create or update GitHub Release
         if: startsWith(github.ref_name, 'v')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          FLATPAK_FILE=$(find . -maxdepth 1 -name "radiokit-*.flatpak" | head -n 1)
-          if [ -n "$FLATPAK_FILE" ]; then
+          if [ -f "radiokit-linux-x64.flatpak" ]; then
             if gh release view "${GITHUB_REF_NAME}" --json id >/dev/null 2>&1; then
-              gh release upload "${GITHUB_REF_NAME}" "$FLATPAK_FILE" --clobber
+              gh release upload "${GITHUB_REF_NAME}" "radiokit-linux-x64.flatpak" --clobber
             else
-              gh release create "${GITHUB_REF_NAME}" "$FLATPAK_FILE" --generate-notes
+              gh release create "${GITHUB_REF_NAME}" "radiokit-linux-x64.flatpak" --generate-notes
             fi
           fi

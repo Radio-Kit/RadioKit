@@ -40,21 +40,24 @@ jobs:
         run: |
           $VERSION = $env:GITHUB_REF_NAME
           if (-not $VERSION -or $VERSION -eq "") { $VERSION = "latest" }
-          & "C:\Program Files (x86)\Inno Setup 6\iscc.exe" /DMyAppVersion="$VERSION" radiokit-app\windows\installer\RadioKit.iss
+          & "C:\Program Files (x86)\Inno Setup 6\iscc.exe" /DMyAppVersion="$VERSION" /F"radiokit-windows-x64" radiokit-app\windows\installer\RadioKit.iss
+          $EXE = Get-ChildItem -Path radiokit-app\windows\installer -Filter "*.exe" | Select-Object -First 1
+          if ($EXE) {
+            Copy-Item -Path $EXE.FullName -Destination "radiokit-windows-x64.exe" -Force
+          }
 
       - name: Create or update GitHub Release
         if: startsWith(github.ref_name, 'v')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $EXE = Get-ChildItem -Path radiokit-app\windows\installer -Filter "*.exe" | Select-Object -First 1
-          if ($EXE) {
-            Write-Host "Found installer: $($EXE.FullName)"
+          if (Test-Path "radiokit-windows-x64.exe") {
+            Write-Host "Found installer: radiokit-windows-x64.exe"
             $null = gh release view "$env:GITHUB_REF_NAME" --json id 2>$null
             if ($LASTEXITCODE -eq 0) {
-              gh release upload "$env:GITHUB_REF_NAME" "$($EXE.FullName)" --clobber
+              gh release upload "$env:GITHUB_REF_NAME" "radiokit-windows-x64.exe" --clobber
             } else {
-              gh release create "$env:GITHUB_REF_NAME" "$($EXE.FullName)" --generate-notes
+              gh release create "$env:GITHUB_REF_NAME" "radiokit-windows-x64.exe" --generate-notes
             }
           } else {
             Write-Error "Installer exe not found!"

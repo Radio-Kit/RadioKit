@@ -46,21 +46,19 @@ jobs:
 
       - name: Rename IPA
         run: |
-          VERSION=${GITHUB_REF_NAME:-latest}
           IPA_PATH=$(find . -name "*.ipa" | head -n 1)
           echo "Found IPA at: $IPA_PATH"
-          cp "$IPA_PATH" "radiokit-${VERSION}.ipa"
+          cp "$IPA_PATH" "radiokit-ios.ipa"
 
       - name: Create or update GitHub Release
         if: startsWith(github.ref_name, 'v')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          IPA_FILE=$(find . -maxdepth 1 -name "radiokit-*.ipa" | head -n 1)
-          if [ -n "$IPA_FILE" ]; then
+          if [ -f "radiokit-ios.ipa" ]; then
             if gh release view "${GITHUB_REF_NAME}" --json id >/dev/null 2>&1; then
-              gh release upload "${GITHUB_REF_NAME}" "$IPA_FILE" --clobber
+              gh release upload "${GITHUB_REF_NAME}" "radiokit-ios.ipa" --clobber
             else
-              gh release create "${GITHUB_REF_NAME}" "$IPA_FILE" --generate-notes
+              gh release create "${GITHUB_REF_NAME}" "radiokit-ios.ipa" --generate-notes
             fi
           fi

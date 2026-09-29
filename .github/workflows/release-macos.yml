@@ -36,8 +36,7 @@ jobs:
 
       - name: Package macOS DMG
         run: |
-          VERSION=${GITHUB_REF_NAME:-latest}
-          DMG_NAME="radiokit-${VERSION}-macos.dmg"
+          DMG_NAME="radiokit-macos-arm64.dmg"
           
           # Auto-discover the .app bundle
           APP_PATH=$(find radiokit-app/build -name '*.app' -type d | head -n 1)
@@ -56,11 +55,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          DMG_FILE=$(find . -maxdepth 1 -name "radiokit-*-macos.dmg" | head -n 1)
-          if [ -n "$DMG_FILE" ]; then
+          if [ -f "radiokit-macos-arm64.dmg" ]; then
             if gh release view "${GITHUB_REF_NAME}" --json id >/dev/null 2>&1; then
-              gh release upload "${GITHUB_REF_NAME}" "$DMG_FILE" --clobber
+              gh release upload "${GITHUB_REF_NAME}" "radiokit-macos-arm64.dmg" --clobber
             else
-              gh release create "${GITHUB_REF_NAME}" "$DMG_FILE" --generate-notes
+              gh release create "${GITHUB_REF_NAME}" "radiokit-macos-arm64.dmg" --generate-notes
             fi
           fi
