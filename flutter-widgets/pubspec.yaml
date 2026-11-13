@@ -13,12 +13,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  google_fonts: ^8.0.2
+  google_fonts: ^8.2.1
   simple_icons:
     git:
       url: https://github.com/PiscesXD/simple_icons.git
       ref: master
-  phosphoricons_flutter: ^1.0.0
+  phosphoricons_flutter: ^1.1.1
 
 dev_dependencies:
   flutter_test:

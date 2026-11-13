@@ -2,7 +2,7 @@ name: radiokit
 description: RadioKit - BLE & USB Serial companion app for Arduino RadioKit library
 publish_to: 'none'
 
-version: 2.1.1+2006
+version: 2.2.0+2007
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -12,10 +12,10 @@ dependencies:
     sdk: flutter
 
   # BLE: Unified (All platforms)
-  universal_ble: ^2.2.0
+  universal_ble: ^2.3.0
 
   # Device info (for Android SDK version detection)
-  device_info_plus: ^13.2.0
+  device_info_plus: ^13.3.0
 
   # Serial: web (Web Serial API — Chrome/Edge)
   # https://pub.dev/packages/webserial
@@ -27,30 +27,30 @@ dependencies:
   # State management
   provider: ^6.1.2
 
-  shared_preferences: ^2.5.5
+  shared_preferences: ^2.5.6
   google_fonts: ^8.2.1
   path_provider: ^2.1.6
-  file_picker: ^12.2.0
+  file_picker: ^12.3.0
   # Multi-mode Rendering
-  flutter_svg: ^2.0.10+1
-  archive: ^4.2.0
+  flutter_svg: ^2.4.0
+  archive: ^4.7.0
   http: ^1.2.0
 
   # RadioKit Widget Library
   radiokit_widgets:
     path: ../flutter-widgets
-  geolocator: ^14.0.3
+  geolocator: ^14.1.2
   intl: ^0.20.3
   web: ^1.1.1
-  share_plus: ^13.3.0
-  phosphoricons_flutter: ^1.0.0
+  share_plus: ^13.3.1
+  phosphoricons_flutter: ^1.1.1
 
   # Serial: Linux desktop
   flserial: ^0.7.1
 
   # HTTP API server for remote access / test automation
-  shelf: ^1.4.2
-  shelf_router: ^1.1.4
+  shelf: ^1.4.3
+  shelf_router: ^1.1.5
   flutter_secure_storage: 10.3.1
   re_editor: ^0.10.0
   re_highlight: ^0.0.3
@@ -60,7 +60,7 @@ dependencies:
   flutter_esptool: ^0.1.5
   platform_serial: 0.1.2
   flutter_serial_communication: ^0.2.8
-  mobile_scanner: ^7.4.0
+  mobile_scanner: ^7.5.0
   flutter_markdown: ^0.7.7+1
 
 dependency_overrides:
@@ -77,7 +77,9 @@ dependency_overrides:
       path: third_party/platform_serial
       ref: main
   flserial:
-    path: ../../flserial
+    git:
+      url: https://github.com/Radio-Kit/flserial.git
+      ref: fix/find-comm-interface-id-return-minus-one
 
 dev_dependencies:
   flutter_test:

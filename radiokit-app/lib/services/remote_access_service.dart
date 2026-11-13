@@ -18,6 +18,7 @@ import '../providers/history_provider.dart';
 import '../providers/multi_device_provider.dart';
 import '../providers/serial_provider.dart';
 import '../providers/settings_provider.dart';
+import '../utils/app_version.dart';
 import 'docs_service.dart';
 import 'mcp/mcp_server.dart';
 import 'mcp/radiokit_mcp_resources.dart';
@@ -83,7 +84,7 @@ class RemoteAccessService {
         _docsService = docsService {
     _mcpServer = McpServer(
       serverName: 'radiokit-app',
-      serverVersion: '2.1.1',
+      serverVersion: AppVersion.semver,
       onToolInvoked: _handleToolInvoked,
     );
 

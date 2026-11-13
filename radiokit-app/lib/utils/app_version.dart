@@ -4,7 +4,7 @@ class AppVersion {
   /// Can be overridden at compile time via `--dart-define=APP_RELEASE_TAG=<tag>`.
   static const String releaseTag = String.fromEnvironment(
     'APP_RELEASE_TAG',
-    defaultValue: 'v2.1.1',
+    defaultValue: 'v2.2.0',
   );
 
   /// Semantic version string without 'v' prefix (e.g. '2.1.0').

@@ -13,7 +13,7 @@ The RadioKit Flutter companion app exposes a standard Model Context Protocol (MC
 | :--- | :--- | :--- |
 | `/sse` | `GET` | Server-Sent Events stream for receiving JSON-RPC messages and endpoint notification |
 | `/messages?sessionId=<id>` | `POST` | Bidirectional JSON-RPC 2.0 messages |
-| `/status` | `GET` | Health check returning `{"server":"radiokit-app","protocol":"mcp","version":"2.1.1",...}` |
+| `/status` | `GET` | Health check returning `{"server":"radiokit-app","protocol":"mcp","version":"2.2.0",...}` |
 | `/` | `GET` | Human-readable MCP server status and greeting |
 
 ### Connection URLs
@@ -50,7 +50,7 @@ The RadioKit Flutter companion app exposes a standard Model Context Protocol (MC
       "tools": { "listChanged": true },
       "resources": { "subscribe": true, "listChanged": true }
     },
-    "serverInfo": { "name": "radiokit-app", "version": "2.1.1" }
+    "serverInfo": { "name": "radiokit-app", "version": "2.2.0" }
   }
 }
 ```

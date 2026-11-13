@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:shelf/shelf.dart';
 import '../lib/services/mcp/mcp_protocol.dart';
 import '../lib/services/mcp/mcp_server.dart';
 
-void main() async {
-  print('=== Testing MCP Server Protocol ===');
+void main() {
+  test('MCP server protocol handshake, tool invocation, and resources', () async {
+    print('=== Testing MCP Server Protocol ===');
 
   final server = McpServer(serverName: 'test-server', serverVersion: '1.0.0');
 
@@ -150,4 +152,5 @@ void main() async {
   await sub.cancel();
   server.dispose();
   print('=== ALL MCP PROTOCOL TESTS PASSED! ===');
+  });
 }
