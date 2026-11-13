@@ -45,6 +45,9 @@ class _ApiLogViewState extends State<ApiLogView> {
         return context.tokens.warning;
       case 'DELETE':
         return context.tokens.error;
+      case 'MCP':
+      case 'TOOL':
+        return Colors.cyanAccent;
       case 'SRV':
         return context.tokens.onSurface.withValues(alpha: 0.38);
       default:
@@ -69,12 +72,12 @@ class _ApiLogViewState extends State<ApiLogView> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.api_rounded,
+                      Icon(Icons.hub_rounded,
                           size: 14,
                           color: context.tokens.primary.withValues(alpha: 0.7)),
                       const SizedBox(width: 8),
                       Text(
-                        'API_LOG',
+                        'MCP_LOG',
                         style: Theme.of(context)
                             .textTheme
                             .labelSmall
@@ -150,7 +153,7 @@ class _ApiLogViewState extends State<ApiLogView> {
         child: ra.logs.isEmpty
             ? Center(
                 child: Text(
-                  'No requests yet',
+                  'No MCP activity yet',
                   style: TextStyle(color: context.tokens.onSurface.withValues(alpha: 0.24), fontSize: 12),
                 ),
               )

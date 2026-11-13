@@ -324,12 +324,10 @@ packages:
   flserial:
     dependency: "direct main"
     description:
-      path: "."
-      ref: "fix/find-comm-interface-id-return-minus-one"
-      resolved-ref: "08593cf452af506b59e592cad0ea14f82f8224e2"
-      url: "https://github.com/rambros3d/flserial.git"
-    source: git
-    version: "0.7.1"
+      path: "../../flserial"
+      relative: true
+    source: path
+    version: "0.7.3"
   flutter:
     dependency: "direct main"
     description: flutter

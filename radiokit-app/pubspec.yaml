@@ -77,9 +77,7 @@ dependency_overrides:
       path: third_party/platform_serial
       ref: main
   flserial:
-    git:
-      url: https://github.com/rambros3d/flserial.git
-      ref: fix/find-comm-interface-id-return-minus-one
+    path: ../../flserial
 
 dev_dependencies:
   flutter_test:

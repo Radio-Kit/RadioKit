@@ -186,7 +186,7 @@ class RemoteAccessProvider extends ChangeNotifier {
     _addLogEntry(ApiLogEntry(
       timestamp: DateTime.now(),
       method: 'SRV',
-      path: 'Remote access server started on $actualUrl',
+      path: 'MCP server listening on $actualUrl',
       statusCode: 0,
       durationMs: 0,
     ));

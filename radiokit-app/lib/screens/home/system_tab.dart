@@ -606,7 +606,7 @@ class _SystemTabState extends State<SystemTab> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        ra.isRunning ? ra.actualUrl : 'HTTP API for automation & testing',
+                        ra.isRunning ? ra.actualUrl : 'In-App MCP server for AI agents',
                         style: TextStyle(
                           color: ra.isRunning
                               ? tokens.success
@@ -631,7 +631,7 @@ class _SystemTabState extends State<SystemTab> {
               _buildSettingRow(context,
                 Icons.navigation_rounded,
                 'FOLLOW_REMOTE',
-                'Live navigation on API calls',
+                'Live navigation on MCP tool calls',
                 Consumer<SettingsProvider>(
                   builder: (context, settings, _) => Switch(
                     value: settings.followRemoteAccess,
