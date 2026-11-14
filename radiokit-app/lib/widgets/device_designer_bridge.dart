@@ -117,17 +117,6 @@ class _DeviceDesignerBridgeState extends State<DeviceDesignerBridge> {
       _designerState.setActivePage(deviceActivePage);
     }
 
-    // Override the name/label on each element to store widgetId across all pages,
-    // so _syncValues and _onWidgetValueChanged can find the wire config.
-    for (final page in _designerState.pages) {
-      for (final el in page.elements) {
-        final wid = el.properties['widgetId'];
-        if (wid is int) {
-          el.label = wid.toString();
-        }
-      }
-    }
-
     _designerState.selectElement(null);
     _lastJson = json;
   }

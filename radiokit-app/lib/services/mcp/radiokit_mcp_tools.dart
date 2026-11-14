@@ -201,28 +201,29 @@ class RadioKitMcpTools {
           return mcpToolError('id and type are required');
         }
 
+        final multi = getMultiDevice?.call();
         final dp = _resolveDevice(args['deviceId'] as String?);
         DeviceInfo? target;
+        TransportService transport;
         if (type == 'ble') {
           target = bleProvider.devices.where((d) => d.id == id).firstOrNull;
           target ??= DeviceInfo(id: id, name: id, rssi: 0);
-          dp.setTransport(BleTransport(bleProvider.bleService));
+          transport = BleTransport(bleProvider.bleService);
         } else if (type == 'serial') {
           target = serialProvider.ports.where((p) => p.id == id).firstOrNull;
           target ??= DeviceInfo(id: id, name: id, rssi: 0);
-          dp.setTransport(serialProvider.serialService);
+          transport = serialProvider.serialService;
         } else if (type == 'wifi') {
           if (!id.startsWith('ws://') && !id.startsWith('wss://')) {
             return mcpToolError('WiFi ID must be a WebSocket URL starting with ws:// or wss://');
           }
           target = DeviceInfo(id: id, name: id, rssi: 0);
-          dp.setTransport(WebSocketService());
+          transport = WebSocketService();
         } else if (type == 'cloud') {
           if (_cloudWs != null) {
-            dp.setCloudTransport(_cloudWs!);
-            dp.setTransport(_cloudWs!);
+            transport = _cloudWs!;
           } else {
-            dp.setTransport(WebSocketService());
+            transport = WebSocketService();
           }
           target = DeviceInfo(id: id, name: id, rssi: 0);
         } else {
@@ -230,15 +231,32 @@ class RadioKitMcpTools {
         }
 
         try {
-          await dp.connectToDevice(target, baudRate: baudRate, skipConf: skipConf);
-          return mcpToolSuccess(jsonEncode({
-            'ok': true,
-            'connected': dp.isConnected,
-            'handshakePending': dp.handshakePending,
-            'device': target.name,
-            'id': target.id,
-            'type': type,
-          }));
+          if (multi != null) {
+            final provider = await multi.connectDevice(
+              device: target,
+              transport: transport,
+              baudRate: baudRate,
+            );
+            return mcpToolSuccess(jsonEncode({
+              'ok': true,
+              'connected': provider.isConnected,
+              'handshakePending': provider.handshakePending,
+              'device': target.name,
+              'id': target.id,
+              'type': type,
+            }));
+          } else {
+            dp.setTransport(transport);
+            await dp.connectToDevice(target, baudRate: baudRate, skipConf: skipConf);
+            return mcpToolSuccess(jsonEncode({
+              'ok': true,
+              'connected': dp.isConnected,
+              'handshakePending': dp.handshakePending,
+              'device': target.name,
+              'id': target.id,
+              'type': type,
+            }));
+          }
         } catch (e) {
           return mcpToolError('Connection failed: $e');
         }
