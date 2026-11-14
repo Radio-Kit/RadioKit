@@ -35,7 +35,7 @@ RadioKit/
 │   └── AGENT-TEST.md     # Automated E2E testing manual via MCP
 │
 ├── flatpak/              # Linux Flatpak packaging manifests & metadata
-├── scripts/              # Packaging and release automation scripts
+├── scripts/              # Developer and utility scripts (e.g. start_adb.sh)
 ├── test_mcp_e2e.py       # Automated end-to-end verification script for In-App MCP
 └── .github/workflows/    # CI and multiplatform release workflows
 ```
