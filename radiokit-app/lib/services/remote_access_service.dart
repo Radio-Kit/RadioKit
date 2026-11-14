@@ -191,7 +191,7 @@ class RemoteAccessService {
         jsonEncode({
           'server': 'radiokit-app',
           'protocol': 'mcp',
-          'version': '2.1.1',
+          'version': '2.2.0',
           'status': 'running',
           'port': 7007,
           'localIp': _cachedLocalIp,

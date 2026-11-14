@@ -26,7 +26,7 @@ class McpServer {
 
   McpServer({
     this.serverName = 'radiokit-app',
-    this.serverVersion = '2.1.1',
+    this.serverVersion = '2.2.0',
     this.onToolInvoked,
   });
 
