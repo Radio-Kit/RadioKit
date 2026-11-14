@@ -364,6 +364,7 @@ class TextWidgetDefinition extends WidgetDefinition {
       fontSize: (ctx.properties['fontSize'] as num?)?.toDouble() ?? 14,
       width: ctx.width.toDouble() * ctx.cellSize,
       height: ctx.height.toDouble() * ctx.cellSize,
+      label: (!ctx.labelHidden && ctx.label.isNotEmpty) ? ctx.label : null,
       showDebug: ctx.isPlayMode ? false : ctx.isSelected,
     );
   }
