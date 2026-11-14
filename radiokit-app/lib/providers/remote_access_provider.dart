@@ -18,6 +18,7 @@ import 'console_provider.dart';
 import 'designs_provider.dart';
 import 'cloud_identity_provider.dart';
 import 'account_provider.dart';
+import 'debug_provider.dart';
 import 'flasher_provider.dart';
 import '../services/demo_transport.dart';
 import '../services/docs_service.dart';
@@ -36,6 +37,7 @@ class RemoteAccessProvider extends ChangeNotifier {
   final SerialProvider _serialProvider;
   final HistoryProvider _historyProvider;
   final ConsoleProvider _consoleProvider;
+  final DebugProvider? _debugProvider;
   final DesignsProvider _designsProvider;
   final CloudIdentityProvider _cloudIdentityProvider;
   final AccountProvider _accountProvider;
@@ -120,6 +122,7 @@ class RemoteAccessProvider extends ChangeNotifier {
     required SerialProvider serialProvider,
     required HistoryProvider historyProvider,
     required ConsoleProvider consoleProvider,
+    DebugProvider? debugProvider,
     required DesignsProvider designsProvider,
     required CloudIdentityProvider cloudIdentityProvider,
     required AccountProvider accountProvider,
@@ -128,10 +131,12 @@ class RemoteAccessProvider extends ChangeNotifier {
         _cloudIdentityProvider = cloudIdentityProvider,
         _accountProvider = accountProvider,
         _flasherProvider = flasherProvider,
-        _multiDeviceProvider = multiDeviceProvider,        _bleProvider = bleProvider,
+        _multiDeviceProvider = multiDeviceProvider,
+        _bleProvider = bleProvider,
         _serialProvider = serialProvider,
         _historyProvider = historyProvider,
         _consoleProvider = consoleProvider,
+        _debugProvider = debugProvider,
         _designsProvider = designsProvider {
     start();
   }
@@ -150,6 +155,7 @@ class RemoteAccessProvider extends ChangeNotifier {
       historyProvider: _historyProvider,
       settingsProvider: _settingsProvider,
       consoleProvider: _consoleProvider,
+      debugProvider: _debugProvider,
       designsProvider: _designsProvider,
       cloudIdentityProvider: _cloudIdentityProvider,
       accountProvider: _accountProvider,

@@ -11,6 +11,7 @@ import '../providers/account_provider.dart';
 import '../providers/ble_provider.dart';
 import '../providers/cloud_identity_provider.dart';
 import '../providers/console_provider.dart';
+import '../providers/debug_provider.dart';
 import '../providers/designs_provider.dart';
 import '../providers/device_provider.dart';
 import '../providers/flasher_provider.dart';
@@ -31,6 +32,7 @@ class RemoteAccessService {
   final HistoryProvider _historyProvider;
   final SettingsProvider _settingsProvider;
   final ConsoleProvider _consoleProvider;
+  final DebugProvider? _debugProvider;
   final DesignsProvider _designsProvider;
   final FlasherProvider _flasherProvider;
   final MultiDeviceProvider Function()? _getMultiDevice;
@@ -59,6 +61,7 @@ class RemoteAccessService {
     required HistoryProvider historyProvider,
     required SettingsProvider settingsProvider,
     required ConsoleProvider consoleProvider,
+    DebugProvider? debugProvider,
     required DesignsProvider designsProvider,
     required CloudIdentityProvider cloudIdentityProvider,
     required AccountProvider accountProvider,
@@ -76,6 +79,7 @@ class RemoteAccessService {
         _historyProvider = historyProvider,
         _settingsProvider = settingsProvider,
         _consoleProvider = consoleProvider,
+        _debugProvider = debugProvider,
         _designsProvider = designsProvider,
         _flasherProvider = flasherProvider,
         _getMultiDevice = getMultiDevice,
@@ -95,6 +99,7 @@ class RemoteAccessService {
       historyProvider: _historyProvider,
       settingsProvider: _settingsProvider,
       consoleProvider: _consoleProvider,
+      debugProvider: _debugProvider,
       designsProvider: _designsProvider,
       flasherProvider: _flasherProvider,
       getMultiDevice: _getMultiDevice,
@@ -104,6 +109,7 @@ class RemoteAccessService {
     _mcpResources = RadioKitMcpResources(
       getActiveDevice: _getActiveDevice,
       consoleProvider: _consoleProvider,
+      debugProvider: _debugProvider,
       docsService: _docsService,
     );
     _mcpResources.registerAll(_mcpServer);

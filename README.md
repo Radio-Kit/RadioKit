@@ -31,7 +31,7 @@ RadioKit/
 │   └── llms.txt          # LLM discovery index
 │
 ├── llm-docs/             # In-depth agent manuals & protocol specs
-│   ├── API.md            # MCP protocol specification & 26 tool references
+│   ├── API.md            # MCP protocol specification & 30 tool references
 │   └── AGENT-TEST.md     # Automated E2E testing manual via MCP
 │
 ├── flatpak/              # Linux Flatpak packaging manifests & metadata
@@ -57,8 +57,8 @@ RadioKit embeds a native **Model Context Protocol (MCP)** server on port `7007` 
 
 - **Port**: `7007` (accessible locally or via `adb forward tcp:7007 tcp:7007` / USB tethering)
 - **Transport**: Server-Sent Events (`GET /sse`) + JSON-RPC 2.0 messages (`POST /messages?sessionId=...`)
-- **26 Typed Tools**: BLE/serial device discovery, pairing, widget inspection & mutation, LittleFS filesystem operations, block-by-block OTA firmware flashing, NVS config, reboot/reset, and ESP32 serial flasher.
-- **Dynamic Resources**: Live MCU serial console (`radiokit://console`), active widget tree (`radiokit://widgets`), filesystem tree (`radiokit://fs`), and bundled documentation (`radiokit://docs`).
+- **30 Typed Tools**: BLE/serial device discovery, pairing, connection diagnostics, raw packet/GATT snoop & injection, widget inspection & mutation, LittleFS filesystem operations, block-by-block OTA firmware flashing, NVS config, reboot/reset, and ESP32 serial flasher.
+- **Dynamic Resources**: Live MCU serial console (`radiokit://console`), active widget tree (`radiokit://widgets`), filesystem tree (`radiokit://fs`), connection diagnostics (`radiokit://diagnostics/connection`), raw packet buffer (`radiokit://packets`), and bundled documentation (`radiokit://docs`).
 - **Follow Remote Mode**: Invocations drive live UI screen navigation and edge glow visual feedback on the companion device.
 
 ---
@@ -69,7 +69,7 @@ RadioKit embeds a native **Model Context Protocol (MCP)** server on port `7007` 
 | :--- | :--- |
 | [Official Documentation](https://radiokit.app/) | Setup guides, tutorials, and widget references |
 | [Arduino Library (RK-Arduino)](https://github.com/Radio-Kit/RK-Arduino) | Hardware library, examples, and PlatformIO setup |
-| [Model Context Protocol Server](llm-docs/API.md) | In-App MCP server specification, 26 tools & resources |
+| [Model Context Protocol Server](llm-docs/API.md) | In-App MCP server specification, 30 tools & resources |
 | [Automated Testing Manual](llm-docs/AGENT-TEST.md) | Driving end-to-end device testing via MCP |
 | [Agent Skills Index](SKILLS/SKILLS.md) | AI coding agent skills for firmware & companion app |
 | [LLM Discovery](SKILLS/llms.txt) | Compact LLM prompt context & tool signatures |

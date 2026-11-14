@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../providers/console_provider.dart';
+import '../../providers/debug_provider.dart';
 import '../../providers/device_provider.dart';
 import '../device_fs_service.dart';
 import '../docs_service.dart';
@@ -10,11 +11,13 @@ import 'mcp_server.dart';
 class RadioKitMcpResources {
   final DeviceProvider Function() getActiveDevice;
   final ConsoleProvider consoleProvider;
+  final DebugProvider? debugProvider;
   final DocsService? docsService;
 
   RadioKitMcpResources({
     required this.getActiveDevice,
     required this.consoleProvider,
+    this.debugProvider,
     this.docsService,
   });
 
@@ -95,6 +98,29 @@ class RadioKitMcpResources {
       mimeType: 'text/markdown',
       readHandler: () async {
         return docsService?.getSkillContent('radiokit-firmware')?.content ?? 'Documentation not available';
+      },
+    ));
+
+    // 6. Connection & Handshake Diagnostics Resource
+    server.registerResource(McpResource(
+      uri: 'radiokit://diagnostics/connection',
+      name: 'RadioKit Connection Diagnostics',
+      description: 'Detailed GATT services, characteristics, MTU, CCCD status, and handshake event history.',
+      mimeType: 'application/json',
+      readHandler: () async {
+        return jsonEncode(_deviceProvider.getConnectionDiagnostics());
+      },
+    ));
+
+    // 7. Packet Snoop Resource
+    server.registerResource(McpResource(
+      uri: 'radiokit://packets',
+      name: 'RadioKit Raw Packet Log',
+      description: 'Recent raw APP (TX) and MCU (RX) packets with hex dumps, command names, and CRC status.',
+      mimeType: 'application/json',
+      readHandler: () async {
+        final entries = debugProvider?.getRecentEntries(limit: 50).map((e) => e.toJson()).toList() ?? [];
+        return jsonEncode({'packets': entries});
       },
     ));
 

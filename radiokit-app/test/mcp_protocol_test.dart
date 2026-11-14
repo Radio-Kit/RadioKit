@@ -1,10 +1,25 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shelf/shelf.dart';
+import '../lib/models/debug_log_entry.dart';
+import '../lib/providers/ble_provider.dart';
+import '../lib/providers/console_provider.dart';
+import '../lib/providers/debug_provider.dart';
+import '../lib/providers/designs_provider.dart';
+import '../lib/providers/device_provider.dart';
+import '../lib/providers/flasher_provider.dart';
+import '../lib/providers/history_provider.dart';
+import '../lib/providers/serial_provider.dart';
+import '../lib/providers/settings_provider.dart';
+import '../lib/services/demo_transport.dart';
 import '../lib/services/mcp/mcp_protocol.dart';
 import '../lib/services/mcp/mcp_server.dart';
+import '../lib/services/mcp/radiokit_mcp_resources.dart';
+import '../lib/services/mcp/radiokit_mcp_tools.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('MCP server protocol handshake, tool invocation, and resources', () async {
     print('=== Testing MCP Server Protocol ===');
 
@@ -152,5 +167,95 @@ void main() {
   await sub.cancel();
   server.dispose();
   print('=== ALL MCP PROTOCOL TESTS PASSED! ===');
+  });
+
+  test('RadioKit MCP diagnostics, packet log, and handshake tools', () async {
+    final server = McpServer(serverName: 'radiokit-test', serverVersion: '1.0.0');
+    final debugProvider = DebugProvider();
+    final consoleProvider = ConsoleProvider();
+    final bleProvider = BleProvider();
+    final serialProvider = SerialProvider();
+    final historyProvider = HistoryProvider();
+    final settingsProvider = SettingsProvider();
+    final designsProvider = DesignsProvider();
+    final flasherProvider = FlasherProvider();
+    final deviceProvider = DeviceProvider(
+      transport: DemoTransport(),
+      debugSink: debugProvider,
+      console: consoleProvider,
+      designsProvider: designsProvider,
+    );
+
+    final tools = RadioKitMcpTools(
+      getActiveDevice: () => deviceProvider,
+      bleProvider: bleProvider,
+      serialProvider: serialProvider,
+      historyProvider: historyProvider,
+      settingsProvider: settingsProvider,
+      consoleProvider: consoleProvider,
+      debugProvider: debugProvider,
+      designsProvider: designsProvider,
+      flasherProvider: flasherProvider,
+    );
+    tools.registerAll(server);
+
+    final resources = RadioKitMcpResources(
+      getActiveDevice: () => deviceProvider,
+      consoleProvider: consoleProvider,
+      debugProvider: debugProvider,
+    );
+    resources.registerAll(server);
+
+    // 1. Verify tools registered
+    final toolNames = server.tools.map((t) => t.name).toSet();
+    expect(toolNames, contains('radiokit_get_connection_diagnostics'));
+    expect(toolNames, contains('radiokit_retry_handshake'));
+    expect(toolNames, contains('radiokit_get_packet_log'));
+    expect(toolNames, contains('radiokit_send_raw_packet'));
+    expect(toolNames, contains('radiokit_ota_upload'));
+
+    // 2. Call radiokit_get_connection_diagnostics
+    final diagTool = server.tools.firstWhere((t) => t.name == 'radiokit_get_connection_diagnostics');
+    final diagResult = await diagTool.handler({});
+    expect(diagResult['isError'], isNot(true));
+    final diagJson = jsonDecode((diagResult['content'] as List).first['text'] as String) as Map<String, dynamic>;
+    expect(diagJson.containsKey('state'), isTrue);
+    expect(diagJson.containsKey('handshake'), isTrue);
+    expect(diagJson.containsKey('recentEvents'), isTrue);
+
+    // 3. Log a test packet and call radiokit_get_packet_log
+    debugProvider.addEntry(DebugLogEntry(
+      timestamp: DateTime.now(),
+      direction: PacketDirection.mcu,
+      bytes: [0x55, 0x06, 0x00, 0x02, 0x12, 0x34],
+      cmdName: 'CONF_DATA',
+      payloadHex: '12 34',
+      crcOk: true,
+      channel: 'widget',
+    ));
+
+    final packetLogTool = server.tools.firstWhere((t) => t.name == 'radiokit_get_packet_log');
+    final packetResult = await packetLogTool.handler({'limit': 10});
+    expect(packetResult['isError'], isNot(true));
+    final packetJson = jsonDecode((packetResult['content'] as List).first['text'] as String) as Map<String, dynamic>;
+    expect(packetJson['total'], 1);
+    final firstPacket = (packetJson['packets'] as List).first as Map<String, dynamic>;
+    expect(firstPacket['cmd'], 'CONF_DATA');
+    expect(firstPacket['direction'], 'MCU');
+
+    // 4. Test radiokit://diagnostics/connection resource
+    final connRes = server.resources.firstWhere((r) => r.uri == 'radiokit://diagnostics/connection');
+    final connContent = await connRes.readHandler();
+    final connData = jsonDecode(connContent) as Map<String, dynamic>;
+    expect(connData.containsKey('state'), isTrue);
+
+    // 5. Test radiokit://packets resource
+    final packetRes = server.resources.firstWhere((r) => r.uri == 'radiokit://packets');
+    final packetResContent = await packetRes.readHandler();
+    final packetResData = jsonDecode(packetResContent) as Map<String, dynamic>;
+    expect(packetResData.containsKey('packets'), isTrue);
+    expect((packetResData['packets'] as List).isNotEmpty, isTrue);
+
+    server.dispose();
   });
 }

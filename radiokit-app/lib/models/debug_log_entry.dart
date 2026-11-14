@@ -21,6 +21,9 @@ class DebugLogEntry {
   /// Whether the CRC check passed (true = valid, false = invalid, null = unknown).
   final bool? crcOk;
 
+  /// Protocol channel ('widget', 'fs', 'ota', 'settings', 'print', 'raw').
+  final String channel;
+
   const DebugLogEntry({
     required this.timestamp,
     required this.direction,
@@ -28,6 +31,7 @@ class DebugLogEntry {
     required this.cmdName,
     required this.payloadHex,
     this.crcOk,
+    this.channel = 'widget',
   });
 
   /// Full packet as an uppercase hex string, space-separated bytes.
@@ -49,4 +53,17 @@ class DebugLogEntry {
     final ms = t.millisecond.toString().padLeft(3, '0');
     return '$h:$m:$s.$ms';
   }
+
+  Map<String, dynamic> toJson() => {
+    'timestamp': timestamp.toIso8601String(),
+    'timeLabel': timeLabel,
+    'direction': dirLabel,
+    'channel': channel,
+    'cmd': cmdName,
+    'length': bytes.length,
+    'crcOk': crcOk,
+    'hex': hexDump,
+    'payloadHex': payloadHex,
+    'ascii': asciiDump,
+  };
 }

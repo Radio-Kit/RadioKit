@@ -162,6 +162,34 @@ class DebugProvider extends ChangeNotifier implements DebugLogSink {
     }
   }
 
+  List<DebugLogEntry> getRecentEntries({
+    int limit = 50,
+    PacketDirection? direction,
+    String? channel,
+  }) {
+    var list = _all.toList();
+    if (direction != null) {
+      list = list.where((e) => e.direction == direction).toList();
+    }
+    if (channel != null && channel.isNotEmpty && channel != 'all') {
+      list = list.where((e) => e.channel.toLowerCase() == channel.toLowerCase()).toList();
+    }
+    final effectiveLimit = limit.clamp(1, 500);
+    if (list.length > effectiveLimit) {
+      return list.sublist(list.length - effectiveLimit);
+    }
+    return list;
+  }
+
+  /// Sends raw bytes directly over the attached transport.
+  Future<void> sendRawPacket(Uint8List bytes) async {
+    final t = _transport;
+    if (t == null || !t.isConnected) {
+      throw StateError('No active transport connected');
+    }
+    await t.writePacket(bytes);
+  }
+
   // ---------------------------------------------------------------------------
   // Export as CSV text
   // ---------------------------------------------------------------------------

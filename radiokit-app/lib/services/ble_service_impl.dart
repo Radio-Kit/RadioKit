@@ -41,6 +41,10 @@ class BleService implements TransportService {
   // correct per-device handler when multiple BLE devices are connected.
   // This is a forward declaration; the actual type is in ble_transport.dart.
   final Map<String, dynamic> _activeTransports = {};
+  final Map<String, Map<String, dynamic>> _diagnosticsPerDevice = {};
+
+  /// Returns low-level BLE diagnostics for the specified device.
+  Map<String, dynamic>? getDiagnostics(String deviceId) => _diagnosticsPerDevice[deviceId];
 
   /// Register a per-device transport for callback routing.
   void registerTransport(String deviceId, dynamic transport) {
@@ -57,19 +61,49 @@ class BleService implements TransportService {
   /// Connect to a device and associate it with a [BleTransport].
   /// Delegates characteristic setup to the transport instance.
   Future<void> connectToDevice(String deviceId, {required dynamic transport}) async {
+    final events = <String>[];
+    void addEvent(String msg) {
+      final now = DateTime.now();
+      final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}.${now.millisecond.toString().padLeft(3, '0')}';
+      events.add('[$timeStr] $msg');
+    }
+
+    final diag = <String, dynamic>{
+      'deviceId': deviceId,
+      'connected': false,
+      'connectedAt': DateTime.now().toIso8601String(),
+      'serviceDiscovered': false,
+      'serviceUuid': null,
+      'characteristics': <String, dynamic>{},
+      'allDiscoveredServices': <Map<String, dynamic>>[],
+      'mtu': 23,
+      'priority': 'default',
+      'lastError': null,
+      'events': events,
+    };
+    _diagnosticsPerDevice[deviceId] = diag;
+
     try {
       await UniversalBle.stopScan();
     } catch (_) {}
 
     _log('Connecting to $deviceId (multi-device)...');
+    addEvent('UniversalBle.connect($deviceId) initiated');
     await UniversalBle.connect(deviceId);
+    addEvent('UniversalBle.connect completed');
     await Future.delayed(const Duration(milliseconds: 200));
 
     // Discover services
     _log('Discovering services for $deviceId...');
+    addEvent('Discovering services...');
     final services = await UniversalBle.discoverServices(deviceId);
+    addEvent('Discovered ${services.length} services on device');
     for (var s in services) {
       _log('Found Service: ${s.uuid}');
+      diag['allDiscoveredServices'].add({
+        'uuid': s.uuid,
+        'characteristics': s.characteristics.map((c) => c.uuid).toList(),
+      });
       for (var c in s.characteristics) {
         _log('  -> Characteristic: ${c.uuid}');
       }
@@ -101,10 +135,22 @@ class BleService implements TransportService {
 
     if (actualServiceId == null) {
       _log('ERROR - RadioKit service not found for $deviceId');
+      diag['lastError'] = 'RadioKit service (0xFFE0) not found among ${services.length} services';
+      addEvent('ERROR: RadioKit service (0xFFE0) not found on device');
       return;
     }
 
     _serviceIdPerDevice[deviceId] = actualServiceId;
+    diag['serviceDiscovered'] = true;
+    diag['serviceUuid'] = actualServiceId;
+    diag['characteristics'] = {
+      'widget': {'uuid': charWidgetId, 'discovered': charWidgetId != null, 'subscribed': false},
+      'fs': {'uuid': charFsId, 'discovered': charFsId != null, 'subscribed': false},
+      'ota': {'uuid': charOtaId, 'discovered': charOtaId != null, 'subscribed': false},
+      'settings': {'uuid': charSettingsId, 'discovered': charSettingsId != null, 'subscribed': false},
+      'print': {'uuid': charPrintId, 'discovered': charPrintId != null, 'subscribed': false},
+    };
+    addEvent('RadioKit service 0xFFE0 found: $actualServiceId');
     _log('Discovered chars for $deviceId: widget=$charWidgetId, fs=$charFsId, ota=$charOtaId, settings=$charSettingsId, print=$charPrintId');
 
     // Set characteristics on the transport instance BEFORE subscribing,
@@ -120,13 +166,25 @@ class BleService implements TransportService {
     );
 
     // Subscribe to all discovered characteristics sequentially
-    final charIds = [charWidgetId, charFsId, charOtaId, charSettingsId, charPrintId];
-    for (final cid in charIds) {
+    final charEntries = [
+      MapEntry('widget', charWidgetId),
+      MapEntry('fs', charFsId),
+      MapEntry('ota', charOtaId),
+      MapEntry('settings', charSettingsId),
+      MapEntry('print', charPrintId),
+    ];
+    for (final entry in charEntries) {
+      final name = entry.key;
+      final cid = entry.value;
       if (cid != null) {
         try {
           await UniversalBle.subscribeNotifications(deviceId, actualServiceId, cid);
+          diag['characteristics'][name]['subscribed'] = true;
+          addEvent('CCCD notifications enabled for $name ($cid)');
           await Future.delayed(const Duration(milliseconds: 150));
         } catch (e) {
+          diag['characteristics'][name]['subscriptionError'] = '$e';
+          addEvent('CCCD subscription failed for $name ($cid): $e');
           _log('Subscription error for $cid: $e');
         }
       }
@@ -136,8 +194,11 @@ class BleService implements TransportService {
     int mtu = 23;
     try {
       _log('Requesting MTU of 512...');
+      addEvent('Requesting MTU of 512...');
       final negotiated = await UniversalBle.requestMtu(deviceId, 512);
       mtu = (negotiated - 3).clamp(23, 600);
+      diag['mtu'] = mtu;
+      addEvent('MTU negotiated: $mtu');
       _log('Using effective MTU: $mtu');
       transport.setCharacteristics(
         widgetId: charWidgetId,
@@ -148,6 +209,7 @@ class BleService implements TransportService {
         mtu: mtu,
       );
     } catch (e) {
+      addEvent('MTU request failed, falling back to 23: $e');
       _log('MTU request failed, using default 23: $e');
     }
 
@@ -157,7 +219,12 @@ class BleService implements TransportService {
         deviceId,
         BleConnectionPriority.highPerformance,
       );
+      diag['priority'] = 'highPerformance';
+      addEvent('BLE connection priority set to highPerformance');
     } catch (_) {}
+
+    diag['connected'] = true;
+    addEvent('GATT setup completed successfully');
   }
 
   final Map<String, String> _serviceIdPerDevice = {};

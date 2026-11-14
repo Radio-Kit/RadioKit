@@ -3,6 +3,7 @@ import 'package:radiokit_widgets/radiokit_widgets.dart';
 typedef WidgetTemplate = String Function(DesignerElement element, int pinIndex);
 
 String _escape(String s) => s.replaceAll('"', '\\"');
+String _escapeC(String s) => s.replaceAll('"', '\\"').replaceAll('\n', '\\n');
 
 String _comment(DesignerElement el) =>
     '  // ${el.type.name}: pos=(${el.x},${el.y}) size=${el.width}x${el.height}${el.label.isNotEmpty ? ' label="${el.label}"' : ''}';

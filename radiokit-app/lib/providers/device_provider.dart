@@ -15,6 +15,7 @@ import '../services/debug_transport.dart';
 import '../services/demo_transport.dart';
 import '../services/demo_fs_transport.dart';
 import '../services/ble_service.dart';
+import '../services/ble_transport.dart';
 import '../services/websocket_service.dart';
 
 import '../providers/console_provider.dart';
@@ -273,6 +274,58 @@ class DeviceProvider extends ChangeNotifier {
 
   /// Whether the connected device supports OTA firmware updates.
   bool get hasOta => (_deviceFeatures & kFeatureOta) != 0;
+
+  int _confAttempts = 0;
+  bool get configReceived => _configReceived;
+
+  /// Whether connection was established with skipConf: true and handshake is still pending.
+  bool _handshakePending = false;
+  bool get handshakePending => _handshakePending;
+
+  /// Chronological log of recent connection and handshake events.
+  final List<String> _connectionEvents = [];
+  List<String> get connectionEvents => List.unmodifiable(_connectionEvents);
+
+  void _recordEvent(String msg) {
+    final now = DateTime.now();
+    final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}.${now.millisecond.toString().padLeft(3, '0')}';
+    _connectionEvents.add('[$timeStr] $msg');
+    if (_connectionEvents.length > 100) _connectionEvents.removeAt(0);
+  }
+
+  /// Low-level connection and handshake diagnostics.
+  Map<String, dynamic> getConnectionDiagnostics() {
+    return {
+      'state': _connectionState.name,
+      'connected': isConnected,
+      'transport': _connectedDevice?.currentTransport.name ?? 'none',
+      'device': _connectedDevice != null
+          ? {
+              'id': _connectedDevice!.id,
+              'name': _connectedDevice!.displayName,
+              'bleAddress': _connectedDevice!.bleAddress,
+              'rssi': _rssi,
+              'hasFs': hasFs,
+              'hasOta': hasOta,
+            }
+          : null,
+      'configReceived': _configReceived,
+      'handshakePending': _handshakePending,
+      'configName': _configName,
+      'widgetCount': _widgets.length,
+      'handshake': {
+        'attempts': _confAttempts,
+        'configReceived': _configReceived,
+        'lastError': _errorMessage,
+      },
+      'transportDiagnostics': (_transport is BleTransport)
+          ? (_transport as BleTransport).getDiagnostics()
+          : ((_transport is DebugTransport)
+              ? (_transport as DebugTransport).getDiagnostics()
+              : null),
+      'recentEvents': _connectionEvents.reversed.take(30).toList().reversed.toList(),
+    };
+  }
 
   /// Whether an OTA firmware update is currently in progress.
   bool get isOtaInProgress => _otaProgressCallback != null;
@@ -763,21 +816,26 @@ class DeviceProvider extends ChangeNotifier {
 
   // ── Connection ─────────────────────────────────────────────────────────────
 
-  Future<void> connectToDevice(DeviceInfo device, {int baudRate = 115200}) async {
+  Future<void> connectToDevice(DeviceInfo device, {int baudRate = 115200, bool skipConf = false}) async {
     _connectionState = DeviceConnectionState.connecting;
     _configReceived = false;
+    _handshakePending = false;
+    _confAttempts = 0;
+    _connectionEvents.clear();
     _connectedDevice = device;
     _errorMessage    = null;
     _configName      = null;
     _description     = null;
     _authLevel   = AuthLevel.none;
     _authCompleter   = null;
+    _recordEvent('connectToDevice(${device.name}, type: ${device.currentTransport.name}, skipConf: $skipConf)');
     notifyListeners();
 
     // Use transportAddress for actual connection, fallback to id (which may be
     // a transport address at scan time, or a UID for reconnections)
     final connectAddress = device.transportAddress ?? device.id;
     _log('CONNECTING TO: ${device.name} via $connectAddress');
+    _recordEvent('Connecting to transport target: $connectAddress');
 
     // Save BLE address if we're connecting via BLE and don't have one yet
     // Check currentTransport rather than _transport type to handle DebugTransport wrapping
@@ -788,8 +846,10 @@ class DeviceProvider extends ChangeNotifier {
     try {
       await _transport.connect(connectAddress, baudRate: baudRate);
       if (_connectionState == DeviceConnectionState.disconnected) return;
+      _recordEvent('Transport connect() completed');
     } catch (e) {
       _log('CONNECTION FAILED: $e', level: ConsoleLogLevel.error);
+      _recordEvent('Connection error: $e');
       _errorMessage    = 'Connection failed: $e';
       _connectionState = DeviceConnectionState.error;
       await _transport.disconnect(); // Hardened cleanup
@@ -803,7 +863,15 @@ class DeviceProvider extends ChangeNotifier {
     // that push (BLE) or requests immediately (other transports).
     if (_connectionState == DeviceConnectionState.disconnected) return;
 
-    await _requestConfig();
+    if (!skipConf) {
+      await _requestConfig();
+    } else {
+      _log('skipConf=true requested: skipping CONF_DATA wait, establishing connected state');
+      _recordEvent('skipConf=true: Handshake deferred. Connection active.');
+      _connectionState = DeviceConnectionState.connected;
+      _handshakePending = true;
+      notifyListeners();
+    }
 
     // Request device info (name, description, proto version) via settings protocol
     unawaited(_requestDeviceInfo());
@@ -825,6 +893,27 @@ class DeviceProvider extends ChangeNotifier {
     // Cache cloud account for fallback reconnect consideration
     // Note: actual fetch happens in _handleSettingsDeviceInfoData after UID is set
     // to avoid racing with _requestDeviceInfo()
+  }
+
+  /// Manually retry or initiate the CONF_DATA widget layout handshake on demand.
+  Future<bool> retryHandshake() async {
+    if (!_transport.isConnected) {
+      throw StateError('Cannot retry handshake when transport is disconnected');
+    }
+    _log('RETRYING HANDSHAKE on active transport...');
+    _recordEvent('Manual retryHandshake() initiated');
+    _configReceived = false;
+    _handshakePending = false;
+    await _requestConfig();
+    if (_configReceived) {
+      _recordEvent('Handshake successful: config loaded (${_widgets.length} widgets)');
+      unawaited(_requestDeviceInfo());
+      unawaited(_requestFeatures());
+      unawaited(sendGetPages());
+      return true;
+    }
+    _handshakePending = true;
+    return false;
   }
 
   Future<void> loadDemo(String demoId) async {
@@ -1190,8 +1279,10 @@ class DeviceProvider extends ChangeNotifier {
     final waitForPush = _connectedDevice?.currentTransport == TransportType.ble;
 
     for (int attempt = 0; attempt < 3; attempt++) {
+      _confAttempts = attempt + 1;
       _confCompleter = Completer<void>();
       final isPushWait = waitForPush && attempt == 0;
+      _recordEvent('Handshake attempt $_confAttempts/3 (waitForPush: $isPushWait)');
 
       if (!isPushWait) {
         try {
@@ -1202,6 +1293,7 @@ class DeviceProvider extends ChangeNotifier {
         } catch (e) {
           _log('FAILED TO SEND GET_CONF: $e', level: ConsoleLogLevel.error);
           _errorMessage    = 'Failed to send GET_CONF: $e';
+          _recordEvent('Failed to send GET_CONF: $e');
           _connectionState = DeviceConnectionState.error;
           notifyListeners();
           return;
@@ -1223,11 +1315,16 @@ class DeviceProvider extends ChangeNotifier {
         _confTimeoutTimer?.cancel();
         _confTimeoutTimer = null;
         _confCompleter = null;
+        _handshakePending = false;
         _log('MCU <- CONF_DATA (${_transport.isConnected ? "connected" : "handshake done"})');
+        _recordEvent('CONF_DATA received successfully on attempt $_confAttempts');
         break; // Success
       } on TimeoutException catch (_) {
         _confTimeoutTimer?.cancel();
         _confTimeoutTimer = null;
+        _recordEvent(isPushWait
+            ? 'Push timeout: no CONF_DATA received within ${kPushWaitTimeout.inMilliseconds}ms'
+            : 'CONF_DATA timeout on attempt $_confAttempts');
         _log(isPushWait
             ? 'PUSH TIMEOUT: no CONF_DATA within ${kPushWaitTimeout.inMilliseconds}ms — falling back to GET_CONF.'
             : 'TIMEOUT: Device did not respond to GET_CONF.',
@@ -1236,6 +1333,7 @@ class DeviceProvider extends ChangeNotifier {
         if (attempt < 2) continue;
 
         _errorMessage = 'Device did not respond with CONF_DATA after 3 attempts.';
+        _recordEvent('Handshake failed: $_errorMessage');
         _connectionState = DeviceConnectionState.error;
         await _transport.disconnect(); // Hardened cleanup
         notifyListeners();

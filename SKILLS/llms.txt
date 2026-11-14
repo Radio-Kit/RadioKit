@@ -20,9 +20,15 @@ RadioKit is an open-source alternative to RemoteXY for building wireless UI cont
 
 ### Connection & Discovery
 - `radiokit_scan_devices` - Scan for BLE and serial devices
-- `radiokit_connect` - Connect via BLE, Serial, WiFi, or Cloud
+- `radiokit_connect` - Connect via BLE, Serial, WiFi, or Cloud (supports skipConf)
 - `radiokit_disconnect` - Disconnect from active device
 - `radiokit_get_connection_status` - Query connection state and latency
+- `radiokit_get_connection_diagnostics` - Discovered GATT services, characteristics, CCCD, MTU, and connection events
+- `radiokit_retry_handshake` - Manually trigger widget configuration handshake
+
+### Diagnostics & Raw Packet Snoop
+- `radiokit_get_packet_log` - Retrieve raw TX/RX frames with sub-protocol classification and CRC checks
+- `radiokit_send_raw_packet` - Inject raw byte frames directly over active transport
 
 ### Widgets & Pages
 - `radiokit_list_widgets` - List all widgets and current input/output values
@@ -59,5 +65,7 @@ RadioKit is an open-source alternative to RemoteXY for building wireless UI cont
 - `radiokit://console` - Live MCU serial console logs
 - `radiokit://widgets` - Active widget tree & hierarchy
 - `radiokit://fs` - LittleFS directory structure
+- `radiokit://diagnostics/connection` - Live connection & GATT diagnostics
+- `radiokit://packets` - Real-time raw packet trace buffer
 - `radiokit://docs` - Documentation index
 - `radiokit://docs/<skill>` - Skill documentation content

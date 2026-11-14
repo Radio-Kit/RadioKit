@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show File;
 import 'dart:typed_data';
 
+import '../../models/debug_log_entry.dart';
 import '../../models/device_info.dart';
 import '../../models/protocol.dart';
 import '../../models/widget_config.dart';
 import '../../providers/ble_provider.dart';
 import '../../providers/console_provider.dart';
+import '../../providers/debug_provider.dart';
 import '../../providers/designs_provider.dart';
 import '../../providers/device_provider.dart';
 import '../../providers/flasher_provider.dart';
@@ -29,6 +32,7 @@ class RadioKitMcpTools {
   final HistoryProvider historyProvider;
   final SettingsProvider settingsProvider;
   final ConsoleProvider consoleProvider;
+  final DebugProvider? debugProvider;
   final DesignsProvider designsProvider;
   final FlasherProvider flasherProvider;
   final MultiDeviceProvider Function()? getMultiDevice;
@@ -40,6 +44,7 @@ class RadioKitMcpTools {
     required this.historyProvider,
     required this.settingsProvider,
     required this.consoleProvider,
+    this.debugProvider,
     required this.designsProvider,
     required this.flasherProvider,
     this.getMultiDevice,
@@ -132,13 +137,19 @@ class RadioKitMcpTools {
             'enum': ['ble', 'serial', 'wifi', 'cloud'],
             'description': 'Transport type to use for connection.'
           },
-          'baudRate': {'type': 'integer', 'description': 'Baud rate for serial connections (default: 115200).'}
+          'baudRate': {'type': 'integer', 'description': 'Baud rate for serial connections (default: 115200).'},
+          'skipConf': {
+            'type': 'boolean',
+            'description': 'If true, establishes connection, GATT services and CCCD notifications without blocking or failing on CONF_DATA handshake. Useful for hardware bringup, bootloader/OTA mode, or raw GATT diagnostics.'
+          }
         },
         'required': ['id', 'type'],
       },
       handler: (args) async {
         final id = args['id'] as String?;
         final type = args['type'] as String?;
+        final baudRate = (args['baudRate'] as num?)?.toInt() ?? 115200;
+        final skipConf = args['skipConf'] as bool? ?? false;
         if (id == null || type == null) {
           return mcpToolError('id and type are required');
         }
@@ -163,16 +174,126 @@ class RadioKitMcpTools {
         }
 
         try {
-          await _deviceProvider.connectToDevice(target);
+          await _deviceProvider.connectToDevice(target, baudRate: baudRate, skipConf: skipConf);
           return mcpToolSuccess(jsonEncode({
             'ok': true,
             'connected': _deviceProvider.isConnected,
+            'handshakePending': _deviceProvider.handshakePending,
             'device': target.name,
             'id': target.id,
             'type': type,
           }));
         } catch (e) {
           return mcpToolError('Connection failed: $e');
+        }
+      },
+    ));
+
+    server.registerTool(McpTool(
+      name: 'radiokit_retry_handshake',
+      description: 'Triggers or retries the widget configuration handshake (GET_CONF) on the connected device to load widget descriptors.',
+      inputSchema: {'type': 'object'},
+      handler: (args) async {
+        if (!_deviceProvider.isConnected) {
+          return mcpToolError('Device is not connected');
+        }
+        try {
+          final ok = await _deviceProvider.retryHandshake();
+          return mcpToolSuccess(jsonEncode({
+            'ok': ok,
+            'configReceived': _deviceProvider.configReceived,
+            'widgetCount': _deviceProvider.widgets.length,
+            'configName': _deviceProvider.configName,
+          }));
+        } catch (e) {
+          return mcpToolError('Handshake retry failed: $e');
+        }
+      },
+    ));
+
+    server.registerTool(McpTool(
+      name: 'radiokit_get_connection_diagnostics',
+      description: 'Returns low-level connection diagnostics including GATT service/characteristic discovery, CCCD notification status, negotiated BLE MTU, and connection event history.',
+      inputSchema: {'type': 'object'},
+      handler: (args) async {
+        return mcpToolSuccess(jsonEncode(_deviceProvider.getConnectionDiagnostics()));
+      },
+    ));
+
+    server.registerTool(McpTool(
+      name: 'radiokit_get_packet_log',
+      description: 'Returns recent raw packets (TX/RX) with hex dump, decoded command, CRC status, and timestamps.',
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'limit': {'type': 'integer', 'description': 'Max entries to return (default: 50, max: 500).'},
+          'direction': {
+            'type': 'string',
+            'enum': ['all', 'app', 'mcu'],
+            'description': 'Filter by direction: app (TX), mcu (RX), or all.'
+          },
+          'channel': {
+            'type': 'string',
+            'enum': ['all', 'widget', 'fs', 'ota', 'settings', 'print'],
+            'description': 'Filter by protocol channel.'
+          },
+          'clear': {'type': 'boolean', 'description': 'Clear packet log after reading (default: false).'}
+        },
+      },
+      handler: (args) async {
+        final limit = (args['limit'] as num?)?.toInt() ?? 50;
+        final dirStr = args['direction'] as String? ?? 'all';
+        final channel = args['channel'] as String? ?? 'all';
+        final clear = args['clear'] as bool? ?? false;
+
+        PacketDirection? dir;
+        if (dirStr == 'app') dir = PacketDirection.app;
+        if (dirStr == 'mcu') dir = PacketDirection.mcu;
+
+        final entries = debugProvider?.getRecentEntries(limit: limit, direction: dir, channel: channel) ?? [];
+        final jsonList = entries.map((e) => e.toJson()).toList();
+
+        if (clear) {
+          debugProvider?.clearLog();
+        }
+
+        return mcpToolSuccess(jsonEncode({'total': jsonList.length, 'packets': jsonList}));
+      },
+    ));
+
+    server.registerTool(McpTool(
+      name: 'radiokit_send_raw_packet',
+      description: 'Sends raw binary/hex bytes over the active transport for low-level protocol testing.',
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'hex': {'type': 'string', 'description': 'Hex-encoded byte string, e.g. "55 06 00 01 D1 F1".'}
+        },
+        'required': ['hex'],
+      },
+      handler: (args) async {
+        final hex = (args['hex'] as String?)?.replaceAll(RegExp(r'\s+'), '') ?? '';
+        if (hex.isEmpty || hex.length.isOdd) {
+          return mcpToolError('Valid hex string is required (even number of hex characters)');
+        }
+        final bytes = <int>[];
+        try {
+          for (int i = 0; i < hex.length; i += 2) {
+            bytes.add(int.parse(hex.substring(i, i + 2), radix: 16));
+          }
+        } catch (e) {
+          return mcpToolError('Invalid hex characters: $e');
+        }
+
+        try {
+          if (debugProvider != null) {
+            await debugProvider!.sendRawPacket(Uint8List.fromList(bytes));
+          } else {
+            await _deviceProvider.currentTransport.writePacket(Uint8List.fromList(bytes));
+          }
+          return mcpToolSuccess(jsonEncode({'ok': true, 'bytesSent': bytes.length, 'hex': hex}));
+        } catch (e) {
+          return mcpToolError('Failed to send raw packet: $e');
         }
       },
     ));
@@ -565,28 +686,49 @@ class RadioKitMcpTools {
       inputSchema: {
         'type': 'object',
         'properties': {
-          'firmwareBase64': {'type': 'string', 'description': 'Base64-encoded firmware binary or .zip bundle.'},
+          'firmwareBase64': {'type': 'string', 'description': 'Base64-encoded firmware binary (.bin) or .zip bundle.'},
+          'filePath': {'type': 'string', 'description': 'Absolute path to local .bin or .zip firmware file.'},
           'fileName': {'type': 'string', 'description': 'Optional filename (e.g. firmware.zip or app.bin).'},
-          'eraseAll': {'type': 'boolean', 'description': 'Erase flash before OTA upload (default: false).'}
+          'eraseAll': {'type': 'boolean', 'description': 'Erase flash before OTA upload (default: false).'},
+          'force': {'type': 'boolean', 'description': 'Force OTA upload even if feature flags have not yet reported hasOta.'}
         },
-        'required': ['firmwareBase64'],
       },
       handler: (args) async {
-        if (!_deviceProvider.isConnected || !_deviceProvider.hasOta) {
-          return mcpToolError('Not connected or device does not support OTA');
+        final force = args['force'] as bool? ?? false;
+        if (!_deviceProvider.isConnected) {
+          return mcpToolError('Device is not connected');
+        }
+        if (!_deviceProvider.hasOta && !force) {
+          return mcpToolError('Device does not report OTA capability. Pass force: true to bypass.');
         }
 
         final b64 = args['firmwareBase64'] as String?;
-        if (b64 == null) return mcpToolError('firmwareBase64 is required');
+        final filePath = args['filePath'] as String?;
+        if (b64 == null && filePath == null) {
+          return mcpToolError('Either firmwareBase64 or filePath is required');
+        }
 
         final eraseAll = args['eraseAll'] as bool? ?? false;
-        final fileName = args['fileName'] as String?;
+        String? fileName = args['fileName'] as String?;
 
         List<int> bytes;
-        try {
-          bytes = base64Decode(b64);
-        } catch (e) {
-          return mcpToolError('Invalid base64 payload: $e');
+        if (filePath != null) {
+          try {
+            final file = File(filePath);
+            if (!await file.exists()) {
+              return mcpToolError('Firmware file not found: $filePath');
+            }
+            bytes = await file.readAsBytes();
+            fileName ??= filePath.split(RegExp(r'[/\\]')).last;
+          } catch (e) {
+            return mcpToolError('Failed to read firmware file: $e');
+          }
+        } else {
+          try {
+            bytes = base64Decode(b64!);
+          } catch (e) {
+            return mcpToolError('Invalid base64 payload: $e');
+          }
         }
 
         // Check if payload is a firmware bundle zip
@@ -607,6 +749,7 @@ class RadioKitMcpTools {
           }
         }
 
+        final stopwatch = Stopwatch()..start();
         try {
           await _deviceProvider.uploadFirmware(
             bytes,
@@ -619,9 +762,14 @@ class RadioKitMcpTools {
               );
             },
           );
+          stopwatch.stop();
+          final durationSec = stopwatch.elapsedMilliseconds / 1000.0;
+          final speedKbps = durationSec > 0 ? (bytes.length / 1024.0) / durationSec : 0.0;
           return mcpToolSuccess(jsonEncode({
             'ok': true,
-            'size': bytes.length,
+            'bytesUploaded': bytes.length,
+            'durationSeconds': double.parse(durationSec.toStringAsFixed(2)),
+            'speedKBps': double.parse(speedKbps.toStringAsFixed(1)),
             'message': 'Firmware uploaded successfully — MCU is rebooting',
           }));
         } catch (e) {

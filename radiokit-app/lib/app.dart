@@ -106,6 +106,7 @@ class _RadioKitAppState extends State<RadioKitApp> {
       serialProvider: _serialProvider,
       historyProvider: _historyProvider,
       consoleProvider: _consoleProvider,
+      debugProvider: _debugProvider,
       designsProvider: _designsProvider,
       cloudIdentityProvider: _cloudIdentityProvider,
       accountProvider: _accountProvider,

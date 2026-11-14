@@ -48,8 +48,8 @@ A ready-to-run E2E verification script is located at [`test_mcp_e2e.py`](file://
 
 1. **SSE Handshake**: Connects to `GET /sse`, extracts `sessionId` from `event: endpoint`.
 2. **MCP Initialize**: Calls `initialize` and verifies server identification (`radiokit-app v2.2.0`).
-3. **Tool Discovery**: Calls `tools/list` and verifies all 26 tools are registered with schemas.
-4. **Resource Discovery**: Calls `resources/list` and checks for `radiokit://console`, `radiokit://widgets`, `radiokit://fs`, and `radiokit://docs`.
+3. **Tool Discovery**: Calls `tools/list` and verifies all 30 tools are registered with schemas.
+4. **Resource Discovery**: Calls `resources/list` and checks for `radiokit://console`, `radiokit://widgets`, `radiokit://fs`, `radiokit://diagnostics/connection`, `radiokit://packets`, and `radiokit://docs`.
 5. **Tool Execution**: Calls `radiokit_get_connection_status`, `radiokit_flasher_scan`, and `radiokit_scan_devices`.
 6. **Resource Reading**: Reads `radiokit://docs`, `radiokit://console`, and `radiokit://widgets`.
 7. **Follow Remote**: Verifies UI screen transitions and logging on the phone.

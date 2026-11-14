@@ -142,6 +142,10 @@ def run_tests():
             "radiokit_connect",
             "radiokit_disconnect",
             "radiokit_get_connection_status",
+            "radiokit_get_connection_diagnostics",
+            "radiokit_retry_handshake",
+            "radiokit_get_packet_log",
+            "radiokit_send_raw_packet",
             "radiokit_list_widgets",
             "radiokit_set_widget",
             "radiokit_fs_list",
@@ -161,8 +165,18 @@ def run_tests():
         print(f"✓ Registered resources: {resource_uris}")
         assert "radiokit://console" in resource_uris
         assert "radiokit://widgets" in resource_uris
+        assert "radiokit://diagnostics/connection" in resource_uris
+        assert "radiokit://packets" in resource_uris
 
-        # 4. Invoke radiokit_get_connection_status
+        # 4. Invoke radiokit_get_connection_status and diagnostics
+        print("\n4. Testing 'radiokit_get_connection_diagnostics' and 'radiokit_get_packet_log'...")
+        diag_res = client.call_tool("radiokit_get_connection_diagnostics")
+        print("✓ radiokit_get_connection_diagnostics invoked successfully")
+
+        packet_res = client.call_tool("radiokit_get_packet_log", {"limit": 10})
+        print("✓ radiokit_get_packet_log invoked successfully")
+
+        # 5. Invoke radiokit_get_connection_status
         print("\n4. Invoking 'radiokit_get_connection_status'...")
         result = client.call_tool("radiokit_get_connection_status")
         content = result.get("content", [{}])[0].get("text", "{}")

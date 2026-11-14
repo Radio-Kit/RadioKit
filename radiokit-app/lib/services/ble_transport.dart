@@ -105,6 +105,12 @@ class BleTransport implements TransportService {
     await disconnect();
   }
 
+  Map<String, dynamic>? getDiagnostics() {
+    final devId = _deviceId;
+    if (devId == null) return null;
+    return _bleService.getDiagnostics(devId);
+  }
+
   // ── Write ────────────────────────────────────────────────────────────────
 
   @override

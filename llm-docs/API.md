@@ -57,15 +57,21 @@ The RadioKit Flutter companion app exposes a standard Model Context Protocol (MC
 
 ---
 
-## Available MCP Tools (26 Tools)
+## Available MCP Tools (30 Tools)
 
 All previous REST endpoints are now available as typed MCP tools callable via `tools/call`:
 
 ### Connection & Discovery
 - `radiokit_scan_devices`: Scans for BLE / serial RadioKit devices (`timeoutSeconds`, `transport`).
-- `radiokit_connect`: Connects to a target device (`deviceId`, `transport`, `baudRate`).
+- `radiokit_connect`: Connects to a target device (`deviceId`, `transport`, `baudRate`, `skipConf`). Set `skipConf: true` to connect without failing if the initial widget `CONF_DATA` handshake is deferred.
 - `radiokit_disconnect`: Disconnects the active or specified device.
 - `radiokit_get_connection_status`: Queries connection state, transport, and device metadata.
+- `radiokit_get_connection_diagnostics`: Returns full transport/connection diagnostic telemetry (discovered GATT services, characteristics, CCCD subscription states, negotiated MTU, connection event timeline).
+- `radiokit_retry_handshake`: Manually re-sends widget handshake config request (`CONF_DATA` query) to active device.
+
+### Diagnostics & Raw Packet Snoop
+- `radiokit_get_packet_log`: Retrieves recent raw TX/RX packet logs with framing, sub-protocol channels (`widget`, `fs`, `ota`, `settings`, `print`, `raw`), and CRC verification flags (`limit`, `direction`, `channel`, `clear`).
+- `radiokit_send_raw_packet`: Injects a raw byte frame directly over the active transport (`packetHex`).
 
 ### Widgets & Control UI
 - `radiokit_list_widgets`: Lists all widgets with current state, bounds, and values.
@@ -84,7 +90,7 @@ All previous REST endpoints are now available as typed MCP tools callable via `t
 - `radiokit_fs_format`: Formats the device LittleFS partition.
 
 ### OTA Firmware Update
-- `radiokit_ota_upload`: Streams new firmware binary block-by-block with progress events.
+- `radiokit_ota_upload`: Streams new firmware binary block-by-block with progress events. Supports `firmwareBase64` or `filePath` (direct path on local host/device filesystem), and optional `force: true` (bypasses device OTA feature bit check).
 
 ### Device NVS & System
 - `radiokit_nvs_get`: Reads non-volatile storage key.
@@ -112,6 +118,8 @@ Agents can inspect dynamic app resources via `resources/read`:
 | `radiokit://console` | Real-time MCU serial console log output |
 | `radiokit://widgets` | Current widget tree hierarchy and values |
 | `radiokit://fs` | Cached filesystem directory tree |
+| `radiokit://diagnostics/connection` | Live connection & GATT diagnostics (discovered services, characteristics, CCCD, MTU, event logs) |
+| `radiokit://packets` | Real-time raw packet trace buffer (all TX/RX frames across protocols) |
 | `radiokit://docs` | Documentation index |
 | `radiokit://docs/<skill>` | Bundled skill markdown manuals (firmware, widgets, transports, etc.) |
 

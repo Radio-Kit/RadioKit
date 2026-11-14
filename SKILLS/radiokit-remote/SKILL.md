@@ -82,14 +82,26 @@ If your agent client requires local `stdio` subprocesses:
   - Arguments: `transport` ("ble" | "serial" | "all"), `timeoutSeconds` (int)
   - Returns array of discovered devices with RSSI and capabilities.
 - `radiokit_connect`
-  - Arguments: `id` (string), `type` ("ble" | "serial" | "wifi" | "cloud"), `baudRate` (optional int)
-  - Connects app and MCU. Triggers UI navigation to `/control`.
+  - Arguments: `id` (string), `type` ("ble" | "serial" | "wifi" | "cloud"), `baudRate` (optional int), `skipConf` (optional bool)
+  - Connects app and MCU. If `skipConf: true`, connection is established without waiting for or failing on `CONF_DATA` handshake.
 - `radiokit_disconnect`
   - Closes active device connection.
 - `radiokit_get_connection_status`
   - Returns connection state, latency, RSSI, and device UID.
+- `radiokit_get_connection_diagnostics`
+  - Returns full transport/connection diagnostics: discovered services, characteristics, CCCD subscriptions, negotiated MTU, and timestamped event timeline.
+- `radiokit_retry_handshake`
+  - Retries requesting widget configuration (`CONF_DATA`) from the connected device.
 
-### 2. Widget Control
+### 2. Diagnostics & Raw Packet Snoop
+- `radiokit_get_packet_log`
+  - Arguments: `limit` (optional int), `direction` ("tx" | "rx"), `channel` ("widget" | "fs" | "ota" | "settings" | "print" | "raw"), `clear` (optional bool)
+  - Inspects live raw frames exchanged across all transports with CRC verification flags.
+- `radiokit_send_raw_packet`
+  - Arguments: `packetHex` (hex string, e.g. "550004...")
+  - Injects a raw byte frame directly over the active transport.
+
+### 3. Widget Control
 - `radiokit_list_widgets`
   - Lists all widgets, IDs, types, and current state values.
 - `radiokit_get_widget`
@@ -103,7 +115,7 @@ If your agent client requires local `stdio` subprocesses:
   - Arguments: `page` (int)
   - Switches the active screen on MCU and companion app.
 
-### 3. LittleFS Filesystem
+### 4. LittleFS Filesystem
 - `radiokit_fs_list`
   - Arguments: `path` (default: "/")
   - Lists directory entries, sizes, and file types.
@@ -122,12 +134,12 @@ If your agent client requires local `stdio` subprocesses:
 - `radiokit_fs_format`
   - Erases and formats the LittleFS partition.
 
-### 4. Over-The-Air (OTA) Updates
+### 5. Over-The-Air (OTA) Updates
 - `radiokit_ota_upload`
-  - Arguments: `firmwareBase64` (string), `fileName` (optional string), `eraseAll` (bool)
-  - Flashes firmware binary or `.zip` bundle to the ESP32. Progress notifications stream over SSE.
+  - Arguments: `firmwareBase64` (string) or `filePath` (string), `fileName` (optional string), `eraseAll` (bool), `force` (optional bool)
+  - Flashes firmware binary or `.zip` bundle to the ESP32. Set `force: true` to bypass device OTA feature flag checks. Progress notifications stream over SSE.
 
-### 5. NVS & System Configuration
+### 6. NVS & System Configuration
 - `radiokit_nvs_get`
   - Reads device name, description, and auth state.
 - `radiokit_nvs_set`
@@ -139,7 +151,7 @@ If your agent client requires local `stdio` subprocesses:
 - `radiokit_factory_reset`
   - Clears NVS and restarts device.
 
-### 6. Hardware Flasher
+### 7. Hardware Flasher
 - `radiokit_flasher_scan`
   - Lists available USB CDC / serial ports.
 - `radiokit_flasher_flash`
@@ -156,6 +168,8 @@ Agents can read live device resources without calling explicit polling endpoints
 | `radiokit://console` | Live serial console log stream | `text/plain` |
 | `radiokit://widgets` | Active widget tree & hierarchy | `application/json` |
 | `radiokit://fs` | LittleFS directory structure | `application/json` |
+| `radiokit://diagnostics/connection` | Live connection & GATT diagnostics | `application/json` |
+| `radiokit://packets` | Real-time raw packet trace buffer | `application/json` |
 | `radiokit://docs` | Available firmware skills index | `application/json` |
 | `radiokit://docs/<skill>` | Markdown content of specified skill | `text/markdown` |
 

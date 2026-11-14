@@ -17,6 +17,11 @@ class McpServer {
   final Map<String, McpResource> _resources = {};
   final Set<String> _subscribedResources = {};
 
+  List<McpTool> get tools => _tools.values.toList();
+  List<McpResource> get resources => _resources.values.toList();
+  McpTool? getTool(String name) => _tools[name];
+  McpResource? getResource(String uri) => _resources[uri];
+
   McpToolHook? onToolInvoked;
 
   McpServer({
