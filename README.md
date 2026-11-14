@@ -42,15 +42,12 @@ RadioKit/
 
 ### Dedicated Subprojects
 
-The hardware library, relay server, and website live in dedicated repositories:
+The hardware library and relay server live in dedicated repositories:
 
 | Subproject | Repository | Description |
 | :--- | :--- | :--- |
 | **RK-Arduino** | [Radio-Kit/RK-Arduino](https://github.com/Radio-Kit/RK-Arduino) | Arduino and ESP32 C++ library for widgets, transports & LittleFS |
 | **RadioKit-Relay** | [Radio-Kit/RadioKit-Relay](https://github.com/Radio-Kit/RadioKit-Relay) | High-performance Rust WebSocket cloud relay server |
-| **Website & Docs** | [Radio-Kit/website](https://github.com/Radio-Kit/website) | Official documentation site ([radiokit.app](https://radiokit.app/)) |
-| **flserial** | [Radio-Kit/flserial](https://github.com/Radio-Kit/flserial) | Android USB-CDC & serial Flutter plugin |
-| **OpenSpec** | [Radio-Kit/openspec](https://github.com/Radio-Kit/openspec) | Central OpenSpec specifications and change archives |
 
 ---
 
