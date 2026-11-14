@@ -1,80 +1,106 @@
 # RadioKit
-The Open source alternative to RemoteXY
+The Open-Source Alternative to RemoteXY
 
-Build beautiful UIs for your Arduino projects and control it with RadioKit app over BLE, Serial, WiFi, or the Cloud relay.
+Build beautiful UIs for your Arduino projects and control them with the RadioKit app over BLE, USB Serial, WiFi, or Cloud Relay.
 
 ---
 
-## Structure
+## Repository Structure
+
+RadioKit is organized into dedicated repositories under the [@Radio-Kit](https://github.com/Radio-Kit) organization. This repository contains the reference Flutter companion application, Flutter widget library, AI agent skills, and test harnesses.
 
 ```
 RadioKit/
-├── rk-arduino/           # Arduino library
-│   ├── src/              # Core library headers & implementation
-│   │   ├── widgets/      # All widget implementations
-│   │   └── connection/   # BLE, Serial, WiFi, Cloud transports
-│   └── examples/         # Example sketches (PlatformIO)
+├── radiokit-app/          # Reference Flutter companion application
+│   ├── lib/              # Multiplatform app source (Android, iOS, macOS, Windows, Linux)
+│   │   ├── screens/      # Control UI, Designer, Flasher, LittleFS, System
+│   │   ├── services/     # BLE, Serial, WebSocket, Cloud, In-App MCP Server
+│   │   ├── providers/    # App state management (MultiDevice, FollowRemote, Settings)
+│   │   └── widgets/      # App chrome, logs, inspector widgets
+│   ├── assets/           # Bundled demo layouts, skills, and templates
+│   └── test/             # Unit tests and MCP protocol tests
 │
-├── flutter-widgets/      # Flutter widget library
-│   ├── lib/              # Widget implementations
-│   └── example/          # Example Flutter app
+├── flutter-widgets/      # Reusable Flutter widget library for RadioKit
+│   ├── lib/              # UI widgets (buttons, sliders, joysticks, gauges, displays)
+│   └── example/          # Interactive widget playground app
 │
-├── radiokit-app/          # Reference Flutter companion app
-│   ├── lib/              # App source
-│   │   ├── screens/      # UI screens
-│   │   ├── services/     # BLE, Serial, WebSocket, cloud services
-│   │   ├── providers/    # State management
-│   │   └── widgets/      # Reusable widgets
-│   └── assets/demos/     # Demo JSON configs
+├── SKILLS/               # AI agent skills & bundled markdown manuals
+│   ├── radiokit-remote/  # In-App MCP server specification & tool schemas
+│   ├── radiokit-firmware/# Firmware development loop, configs & recipes
+│   ├── radiokit-widgets/ # Hardware widget constructors & I/O bindings
+│   └── llms.txt          # LLM discovery index
 │
-├── radiokit-relay/        # Rust WebSocket relay server
-│   ├── src/              # Relay, session, rate limiter
-│   └── Dockerfile
+├── llm-docs/             # In-depth agent manuals & protocol specs
+│   ├── API.md            # MCP protocol specification & 26 tool references
+│   └── AGENT-TEST.md     # Automated E2E testing manual via MCP
 │
-├── website/               # Astro/Starlight documentation site
-├── flatpak/               # Flatpak packaging
-└── .github/workflows/     # CI configuration
+├── flatpak/              # Linux Flatpak packaging manifests & metadata
+├── scripts/              # Packaging and release automation scripts
+├── test_mcp_e2e.py       # Automated end-to-end verification script for In-App MCP
+└── .github/workflows/    # CI and multiplatform release workflows
 ```
+
+### Dedicated Subprojects
+
+The hardware library, relay server, and website live in dedicated repositories:
+
+| Subproject | Repository | Description |
+| :--- | :--- | :--- |
+| **RK-Arduino** | [Radio-Kit/RK-Arduino](https://github.com/Radio-Kit/RK-Arduino) | Arduino and ESP32 C++ library for widgets, transports & LittleFS |
+| **RadioKit-Relay** | [Radio-Kit/RadioKit-Relay](https://github.com/Radio-Kit/RadioKit-Relay) | High-performance Rust WebSocket cloud relay server |
+| **Website & Docs** | [Radio-Kit/website](https://github.com/Radio-Kit/website) | Official documentation site ([radiokit.app](https://radiokit.app/)) |
+| **flserial** | [Radio-Kit/flserial](https://github.com/Radio-Kit/flserial) | Android USB-CDC & serial Flutter plugin |
+| **OpenSpec** | [Radio-Kit/openspec](https://github.com/Radio-Kit/openspec) | Central OpenSpec specifications and change archives |
+
+---
+
+## In-App Model Context Protocol (MCP) Server
+
+RadioKit embeds a native **Model Context Protocol (MCP)** server on port `7007` over HTTP/SSE. AI agents connect directly to the running companion app to discover and call tools autonomously.
+
+- **Port**: `7007` (accessible locally or via `adb forward tcp:7007 tcp:7007` / USB tethering)
+- **Transport**: Server-Sent Events (`GET /sse`) + JSON-RPC 2.0 messages (`POST /messages?sessionId=...`)
+- **26 Typed Tools**: BLE/serial device discovery, pairing, widget inspection & mutation, LittleFS filesystem operations, block-by-block OTA firmware flashing, NVS config, reboot/reset, and ESP32 serial flasher.
+- **Dynamic Resources**: Live MCU serial console (`radiokit://console`), active widget tree (`radiokit://widgets`), filesystem tree (`radiokit://fs`), and bundled documentation (`radiokit://docs`).
+- **Follow Remote Mode**: Invocations drive live UI screen navigation and edge glow visual feedback on the companion device.
 
 ---
 
 ## Documentation
 
 | Resource | Description |
-|----------|-------------|
-| [Arduino Setup](https://rambros3d.github.io/RadioKit/arduino/setup/) | Install and write your first sketch |
-| [Widgets Reference](https://rambros3d.github.io/RadioKit/arduino/widgets/) | Complete widget API |
-| [UI Layout](https://rambros3d.github.io/RadioKit/arduino/ui-layout/) | Coordinate system and sizing |
-| [Protocol Spec](https://rambros3d.github.io/RadioKit/arduino/protocol/) | Binary packet format |
-| [Flutter Widgets](https://rambros3d.github.io/RadioKit/widgets/overview/) | Flutter widget library API |
-| [Remote Access API](llm-docs/API.md) | HTTP API for test automation |
-| [Agent Test Manual](llm-docs/AGENT-TEST.md) | End-to-end testing guide |
-| [AI Agent Guidelines](AGENTS.md) | Conventions for AI coding agents |
+| :--- | :--- |
+| [Official Documentation](https://radiokit.app/) | Setup guides, tutorials, and widget references |
+| [Arduino Library (RK-Arduino)](https://github.com/Radio-Kit/RK-Arduino) | Hardware library, examples, and PlatformIO setup |
+| [Model Context Protocol Server](llm-docs/API.md) | In-App MCP server specification, 26 tools & resources |
+| [Automated Testing Manual](llm-docs/AGENT-TEST.md) | Driving end-to-end device testing via MCP |
+| [Agent Skills Index](SKILLS/SKILLS.md) | AI coding agent skills for firmware & companion app |
+| [LLM Discovery](SKILLS/llms.txt) | Compact LLM prompt context & tool signatures |
 
 ---
 
-# Buy Official Boards
-TrackLink and Gtrack boards can be purchased from [**Elecrow.com**](https://www.elecrow.com/store/RamBros3D)
+## Buy Official Boards
+TrackLink and Gtrack boards can be purchased from [**Elecrow.com**](https://www.elecrow.com/store/RamBros3D).
 
-Elecrow is our manufacturing partner, more than a hundred boards sold to our happy supporters.
+Elecrow is our manufacturing partner, with more than a hundred boards sold to our happy supporters.
 
 ---
 
-# Endorsements
+## Endorsements
 Thanks to everyone who helped in this journey.
 
-## OSHWLab & JLCPCB
+### OSHWLab & JLCPCB
 All of our development prototypes are sponsored by OSHWLab.
 
-If you are interested in PCB design, definitely checkout their [**Spark 2026 competition**](https://oshwlab.com/activities/easyeda-spark-2026?inviter=shreeramlive)
-- Free Materials (PCB, Assembly, 3D printing and CNC services)
+If you are interested in PCB design, definitely check out their [**Spark 2026 competition**](https://oshwlab.com/activities/easyeda-spark-2026?inviter=shreeramlive):
+- Free Materials (PCB, Assembly, 3D printing, and CNC services)
 - Massive $85,000 prize pool
 
 JLCPCB provides the fastest lead time at unbelievable prices.
 
-## Freebuff
-Unlike the other coding agents which provide "free trials", [**Freebuff is always free**](https://freebuff.com/), fully supported by ads.
+### Freebuff
+Unlike other coding agents that provide "free trials", [**Freebuff is always free**](https://freebuff.com/), fully supported by ads.
 
-Even in the limited tier; This is surprisingly good for most developement tasks.
+Even in the limited tier, this is surprisingly good for most development tasks.
 
-Vibe code notice: this app was fully vibecoded with llms.
+> **Vibe code notice**: this app was fully vibecoded with LLMs.

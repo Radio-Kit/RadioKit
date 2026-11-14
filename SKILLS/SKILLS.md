@@ -1,6 +1,6 @@
 # RadioKit Agent Skills
 
-These skills are for agents building firmware with the RadioKit Arduino library, and for agents using the Remote Access API to control devices autonomously.
+These skills are for agents building firmware with the RadioKit Arduino library, and for agents using the in-app Model Context Protocol (MCP) server to control devices autonomously.
 
 ## Firmware Skills
 
@@ -16,7 +16,7 @@ These skills are for agents building firmware with the RadioKit Arduino library,
 
 | Skill | Description |
 |-------|-------------|
-| [radiokit-remote](radiokit-remote/SKILL.md) | REST API for remote device control: connect, filesystem, OTA, widgets, console, autonomous debugging |
+| [radiokit-remote](radiokit-remote/SKILL.md) | In-app Model Context Protocol (MCP) server for remote device control: connect, filesystem, OTA, widgets, console, autonomous debugging |
 
 ## Quick Start
 
