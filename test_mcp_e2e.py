@@ -162,11 +162,24 @@ def run_tests():
         resp = client.wait_for_response(mid)
         resources = resp.get("result", {}).get("resources", [])
         resource_uris = [r["uri"] for r in resources]
-        print(f"✓ Registered resources: {resource_uris}")
-        assert "radiokit://console" in resource_uris
-        assert "radiokit://widgets" in resource_uris
-        assert "radiokit://diagnostics/connection" in resource_uris
-        assert "radiokit://packets" in resource_uris
+        print(f"✓ Registered resources count: {len(resource_uris)}")
+        print(f"  Resources: {resource_uris}")
+        expected_uris = [
+            "radiokit://console",
+            "radiokit://widgets",
+            "radiokit://fs",
+            "radiokit://docs",
+            "radiokit://diagnostics/connection",
+            "radiokit://packets",
+            "radiokit://devices",
+            "radiokit://models",
+            "radiokit://designs",
+            "radiokit://session",
+            "radiokit://app-log",
+            "radiokit://flasher/log",
+        ]
+        for eu in expected_uris:
+            assert eu in resource_uris, f"Missing expected resource: {eu}"
 
         # 4. Invoke radiokit_get_connection_status and diagnostics
         print("\n4. Testing 'radiokit_get_connection_diagnostics' and 'radiokit_get_packet_log'...")

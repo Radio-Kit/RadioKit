@@ -36,6 +36,13 @@ class RemoteAccessService {
   final DesignsProvider _designsProvider;
   final FlasherProvider _flasherProvider;
   final MultiDeviceProvider Function()? _getMultiDevice;
+  final CloudIdentityProvider _cloudIdentityProvider;
+  final AccountProvider _accountProvider;
+  final String Function()? _currentRouteGetter;
+  final Map<String, dynamic> Function()? _viewStateGetter;
+  final Future<void> Function(String demoId)? _connectDemo;
+  final List<ApiLogEntry> Function()? _apiLogsGetter;
+  final void Function()? _clearApiLogs;
   final void Function(ApiLogEntry) _onLog;
   final void Function(String route)? _onFollowEvent;
   final DocsService? _docsService;
@@ -72,6 +79,8 @@ class RemoteAccessService {
     String Function()? currentRouteGetter,
     Map<String, dynamic> Function()? viewStateGetter,
     Future<void> Function(String demoId)? connectDemo,
+    List<ApiLogEntry> Function()? apiLogsGetter,
+    void Function()? clearApiLogs,
     DocsService? docsService,
   })  : _getActiveDevice = getActiveDevice,
         _bleProvider = bleProvider,
@@ -83,6 +92,13 @@ class RemoteAccessService {
         _designsProvider = designsProvider,
         _flasherProvider = flasherProvider,
         _getMultiDevice = getMultiDevice,
+        _cloudIdentityProvider = cloudIdentityProvider,
+        _accountProvider = accountProvider,
+        _currentRouteGetter = currentRouteGetter,
+        _viewStateGetter = viewStateGetter,
+        _connectDemo = connectDemo,
+        _apiLogsGetter = apiLogsGetter,
+        _clearApiLogs = clearApiLogs,
         _onLog = onLog,
         _onFollowEvent = onFollowEvent,
         _docsService = docsService {
@@ -103,6 +119,13 @@ class RemoteAccessService {
       designsProvider: _designsProvider,
       flasherProvider: _flasherProvider,
       getMultiDevice: _getMultiDevice,
+      cloudIdentityProvider: _cloudIdentityProvider,
+      accountProvider: _accountProvider,
+      currentRouteGetter: _currentRouteGetter,
+      viewStateGetter: _viewStateGetter,
+      connectDemo: _connectDemo,
+      apiLogsGetter: _apiLogsGetter,
+      clearApiLogs: _clearApiLogs,
     );
     _mcpTools.registerAll(_mcpServer);
 
@@ -111,6 +134,13 @@ class RemoteAccessService {
       consoleProvider: _consoleProvider,
       debugProvider: _debugProvider,
       docsService: _docsService,
+      getMultiDevice: _getMultiDevice,
+      historyProvider: _historyProvider,
+      designsProvider: _designsProvider,
+      flasherProvider: _flasherProvider,
+      currentRouteGetter: _currentRouteGetter,
+      viewStateGetter: _viewStateGetter,
+      apiLogsGetter: _apiLogsGetter,
     );
     _mcpResources.registerAll(_mcpServer);
   }
@@ -133,15 +163,17 @@ class RemoteAccessService {
   }
 
   static String? _followRouteForTool(String toolName) {
-    if (toolName.startsWith('radiokit_fs_')) return '/dev-tools/esp32-fs';
-    if (toolName == 'radiokit_scan_devices') return '/models?sheet=pair';
+    if (toolName.startsWith('radiokit_flasher_')) return '/flasher';
+    if (toolName.startsWith('radiokit_scan_') || toolName.startsWith('radiokit_connect') || toolName == 'radiokit_reconnect') return '/models?sheet=pair';
     if (toolName == 'radiokit_disconnect') return '/models';
-    if (toolName == 'radiokit_connect') return '/control';
-    if (toolName.contains('widget') || toolName.contains('page')) return '/control';
+    if (toolName.startsWith('radiokit_fs_')) return '/dev-tools/esp32-fs';
+    if (toolName.startsWith('radiokit_ota_')) return '/control';
+    if (toolName.contains('widget') || toolName.contains('page') || toolName.startsWith('radiokit_transport_') || toolName == 'radiokit_switch_device') return '/control';
+    if (toolName.startsWith('radiokit_nvs_')) return '/models?sheet=deviceSettings';
     if (toolName.contains('design')) return '/designs';
-    if (toolName.contains('nvs') || toolName.contains('reboot') || toolName.contains('reset')) return '/system';
-    if (toolName.contains('console')) return '/system';
-    if (toolName.contains('flasher')) return '/flasher';
+    if (toolName.contains('model') || toolName == 'radiokit_list_devices') return '/models';
+    if (toolName.startsWith('radiokit_cloud_')) return '/system?sheet=accounts';
+    if (toolName.contains('console') || toolName.contains('reboot') || toolName.contains('reset') || toolName.contains('settings') || toolName.contains('log') || toolName == 'radiokit_get_session_state') return '/system';
     return null;
   }
 

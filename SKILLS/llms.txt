@@ -14,17 +14,25 @@ RadioKit is an open-source alternative to RemoteXY for building wireless UI cont
 1. Connect to SSE stream at `GET /sse` to receive session endpoint.
 2. Send JSON-RPC `initialize` message to `POST /messages?sessionId=<sessionId>`.
 3. Discover tools with `tools/list` and execute them via `tools/call`.
-4. Read dynamic device telemetry from resources (`radiokit://console`, `radiokit://widgets`, `radiokit://fs`).
+4. Read dynamic device telemetry from resources (`radiokit://console`, `radiokit://widgets`, `radiokit://fs`, `radiokit://diagnostics/connection`, `radiokit://packets`, `radiokit://devices`).
 
-## Available MCP Tools
+## 68 Registered MCP Tools
 
-### Connection & Discovery
+### Connection & Multi-Device
 - `radiokit_scan_devices` - Scan for BLE and serial devices
 - `radiokit_connect` - Connect via BLE, Serial, WiFi, or Cloud (supports skipConf)
-- `radiokit_disconnect` - Disconnect from active device
+- `radiokit_disconnect` - Disconnect from active or target device
 - `radiokit_get_connection_status` - Query connection state and latency
 - `radiokit_get_connection_diagnostics` - Discovered GATT services, characteristics, CCCD, MTU, and connection events
 - `radiokit_retry_handshake` - Manually trigger widget configuration handshake
+- `radiokit_list_active_devices` - List devices in active multi-device pool
+- `radiokit_switch_device` - Change active focus in multi-device pool
+
+### Pairing & History
+- `radiokit_reconnect` - Reconnect to recent or saved device
+- `radiokit_get_paired_devices` - List all paired devices in local history
+- `radiokit_forget_device` - Remove device from history
+- `radiokit_clear_paired_devices` - Clear paired device history
 
 ### Diagnostics & Raw Packet Snoop
 - `radiokit_get_packet_log` - Retrieve raw TX/RX frames with sub-protocol classification and CRC checks
@@ -36,18 +44,23 @@ RadioKit is an open-source alternative to RemoteXY for building wireless UI cont
 - `radiokit_set_widget` - Set input value for a widget (buttons, sliders, joysticks)
 - `radiokit_get_pages` - List available UI pages
 - `radiokit_set_page` - Switch active UI page
+- `radiokit_clear_widgets` - Clear widget layout
 
 ### Filesystem (LittleFS)
 - `radiokit_fs_list` - List files and directories
-- `radiokit_fs_info` - Storage statistics
-- `radiokit_fs_read` - Read file content
+- `radiokit_fs_info` - Storage statistics (used, total, free)
+- `radiokit_fs_read` - Read file content (text or Base64)
 - `radiokit_fs_write` - Write file data
 - `radiokit_fs_delete` - Delete file or directory
 - `radiokit_fs_mkdir` - Create directory
 - `radiokit_fs_format` - Format filesystem partition
+- `radiokit_fs_rename` - Rename or move file
+- `radiokit_fs_probe` - Probe LittleFS readiness
 
-### Over-The-Air (OTA) Updates
-- `radiokit_ota_upload` - Upload firmware binary or .zip bundle
+### OTA Updates
+- `radiokit_ota_upload` - Upload firmware binary or .zip bundle (with force option)
+- `radiokit_ota_cancel` - Abort in-progress OTA
+- `radiokit_ota_status` - Get OTA progress status
 
 ### Device Config & NVS
 - `radiokit_nvs_get` - Read device name, description, and auth mode
@@ -55,17 +68,41 @@ RadioKit is an open-source alternative to RemoteXY for building wireless UI cont
 - `radiokit_nvs_authenticate` - Verify connection password
 - `radiokit_reboot` - Reboot connected MCU
 - `radiokit_factory_reset` - Erase NVS configuration and reboot
+- `radiokit_nvs_raw_write` - Write raw NVS key/value
 
-### Hardware Flasher
+### Transport Diagnostics
+- `radiokit_transport_ping` - Measure round-trip ping latency
+- `radiokit_transport_wifi_info` - Query device WiFi status
+- `radiokit_transport_quick_cmd` - Send single-byte command
+
+### Serial Flasher
 - `radiokit_flasher_scan` - Scan USB serial ports
 - `radiokit_flasher_flash` - Direct serial firmware flashing
+- `radiokit_flasher_status` - Flasher progress state
+- `radiokit_flasher_erase` - Erase MCU flash
+- `radiokit_flasher_clear_log` - Clear flasher logs
 
-## Resources
+### Visual Designer
+- `radiokit_designer_list`, `radiokit_designer_get`, `radiokit_designer_save`, `radiokit_designer_delete`, `radiokit_designer_duplicate`, `radiokit_designer_import`, `radiokit_designer_export`, `radiokit_generate_design_header`, `radiokit_designer_parse_header`
+
+### Cloud Relay
+- `radiokit_cloud_status`, `radiokit_cloud_connect`, `radiokit_cloud_disconnect`, `radiokit_cloud_list_accounts`, `radiokit_cloud_create_account`, `radiokit_cloud_delete_account`, `radiokit_cloud_switch_account`, `radiokit_cloud_get_device_info`
+
+### App Settings & Session
+- `radiokit_get_settings`, `radiokit_update_settings`, `radiokit_get_session_state`, `radiokit_clear_api_logs`
+
+## 13 Live MCP Resources
 
 - `radiokit://console` - Live MCU serial console logs
 - `radiokit://widgets` - Active widget tree & hierarchy
 - `radiokit://fs` - LittleFS directory structure
 - `radiokit://diagnostics/connection` - Live connection & GATT diagnostics
 - `radiokit://packets` - Real-time raw packet trace buffer
+- `radiokit://devices` - Multi-device pool status
+- `radiokit://models` - Saved paired models and profiles
+- `radiokit://designs` - Saved designer layout templates
+- `radiokit://session` - Companion app session & route state
+- `radiokit://app-log` - Remote API invocation logs
+- `radiokit://flasher/log` - Serial flasher console logs
 - `radiokit://docs` - Documentation index
 - `radiokit://docs/<skill>` - Skill documentation content

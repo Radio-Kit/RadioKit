@@ -169,6 +169,8 @@ class RemoteAccessProvider extends ChangeNotifier {
         await _multiDeviceProvider.connectDemo(demoId);
         _multiDeviceProvider.setFocusedDevice('DEMO_$demoId');
       },
+      apiLogsGetter: () => logs,
+      clearApiLogs: clearLog,
       docsService: docsService,
     );
 

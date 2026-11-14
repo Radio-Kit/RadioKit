@@ -238,7 +238,7 @@ void main() {
     final packetResult = await packetLogTool.handler({'limit': 10});
     expect(packetResult['isError'], isNot(true));
     final packetJson = jsonDecode((packetResult['content'] as List).first['text'] as String) as Map<String, dynamic>;
-    expect(packetJson['total'], 1);
+    expect(packetJson['count'], 1);
     final firstPacket = (packetJson['packets'] as List).first as Map<String, dynamic>;
     expect(firstPacket['cmd'], 'CONF_DATA');
     expect(firstPacket['direction'], 'MCU');

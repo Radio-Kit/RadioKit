@@ -69,7 +69,7 @@ RadioKit embeds a native **Model Context Protocol (MCP)** server on port `7007` 
 | :--- | :--- |
 | [Official Documentation](https://radiokit.app/) | Setup guides, tutorials, and widget references |
 | [Arduino Library (RK-Arduino)](https://github.com/Radio-Kit/RK-Arduino) | Hardware library, examples, and PlatformIO setup |
-| [Model Context Protocol Server](llm-docs/API.md) | In-App MCP server specification, 30 tools & resources |
+| [Model Context Protocol Server](llm-docs/API.md) | In-App MCP server specification, 68 tools & 13 resources |
 | [Automated Testing Manual](llm-docs/AGENT-TEST.md) | Driving end-to-end device testing via MCP |
 | [Agent Skills Index](SKILLS/SKILLS.md) | AI coding agent skills for firmware & companion app |
 | [LLM Discovery](SKILLS/llms.txt) | Compact LLM prompt context & tool signatures |
