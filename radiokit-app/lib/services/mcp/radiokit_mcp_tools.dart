@@ -28,6 +28,7 @@ import '../device_fs_service.dart';
 import '../fs_protocol_service.dart';
 import '../protocol_service.dart';
 import '../settings_protocol_service.dart';
+import '../transport_service.dart';
 import '../websocket_service.dart';
 import 'mcp_protocol.dart';
 import 'mcp_server.dart';
